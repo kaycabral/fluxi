@@ -9,6 +9,7 @@ import {
   entryParts,
   userSettings,
 } from '@/db/schema'
+import type { WriteFailureReason } from '@/features/ledger/core/action-result'
 import {
   addMonths,
   diffMonths,
@@ -46,8 +47,7 @@ import { randomUUID } from 'node:crypto'
  * transaction with the entry row locked.
  */
 
-export type WriteFailure =
-  'not_found' | 'invalid_reference' | 'scope_required' | 'no_occurrence' | 'over_budget'
+export type WriteFailure = WriteFailureReason
 export type WriteResult = { ok: true } | { ok: false; reason: WriteFailure }
 
 type Tx = Parameters<Parameters<FluxiDb['transaction']>[0]>[0]

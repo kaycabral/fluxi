@@ -134,3 +134,18 @@ export function isoDayOf(date: Date, timeZone = 'America/Sao_Paulo'): string {
   const get = (type: string) => parts.find((p) => p.type === type)?.value ?? ''
   return `${get('year')}-${get('month')}-${get('day')}`
 }
+
+/** Like {@link parseMoneyInput}, accepting a leading minus (opening balances may be negative). */
+export function parseSignedMoneyInput(raw: string): number | null {
+  const text = raw.trim()
+  const negative = text.startsWith('-')
+  const cents = parseMoneyInput(negative ? text.slice(1) : text)
+  if (cents === null) return null
+  return negative ? -cents : cents
+}
+
+/** Cents → editable text keeping the sign (`-1050` → `-10,50`; 0 → `0`). */
+export function signedCentsToInput(cents: number): string {
+  if (cents === 0) return '0'
+  return `${cents < 0 ? '-' : ''}${centsToInput(Math.abs(cents))}`
+}

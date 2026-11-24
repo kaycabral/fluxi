@@ -11,7 +11,9 @@ import {
   monthLongLabel,
   monthOf,
   parseMoneyInput,
+  parseSignedMoneyInput,
   shortDate,
+  signedCentsToInput,
 } from './format'
 
 describe('format', () => {
@@ -54,6 +56,15 @@ describe('format', () => {
     expect(parseMoneyInput('R$ 50')).toBe(5000)
     expect(parseMoneyInput('')).toBeNull()
     expect(parseMoneyInput('abc')).toBeNull()
+  })
+
+  it('handles signed money', () => {
+    expect(parseSignedMoneyInput('-10,50')).toBe(-1050)
+    expect(parseSignedMoneyInput('10')).toBe(1000)
+    expect(parseSignedMoneyInput('-x')).toBeNull()
+    expect(signedCentsToInput(-1050)).toBe('-10,50')
+    expect(signedCentsToInput(0)).toBe('0')
+    expect(signedCentsToInput(640000)).toBe('6400,00')
   })
 
   it('builds dates', () => {

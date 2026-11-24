@@ -29,6 +29,13 @@
       "when": 1795530949688,
       "tag": "0003_ledger_defaults",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1795534741870,
+      "tag": "0004_occurrence_payments",
+      "breakpoints": true
     }
   ]
 }

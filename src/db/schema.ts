@@ -261,6 +261,8 @@ export const entryParts = pgTable(
       columns: [t.entryId, t.userId],
       foreignColumns: [entries.id, entries.userId],
     }).onDelete('cascade'),
+    // Target of `occurrence_payments_part_fk`: a payment's part belongs to its entry.
+    unique('entry_parts_id_entry_id_unique').on(t.id, t.entryId),
     index('entry_parts_entry_id_sort_idx').on(t.entryId, t.sort),
     index('entry_parts_user_id_idx').on(t.userId),
     check('entry_parts_bps_range', sql`${t.bps} between 1 and 10000`),
@@ -295,6 +297,47 @@ export const entryOverrides = pgTable(
     check('entry_overrides_month_first_day', isFirstOfMonth(t.month)),
     check('entry_overrides_amount_positive', sql`${t.amountCents} is null or ${t.amountCents} > 0`),
     check('entry_overrides_day_range', sql`${t.day} is null or ${isDayOfMonth(t.day)}`),
+  ],
+).enableRLS()
+
+/**
+ * "Pago/recebido": one row per paid occurrence of an entry, keyed by the
+ * occurrence's competence month (like `entry_overrides`) and, for a split
+ * entry, by the part (each part is paid separately; `part_id` null = the whole
+ * occurrence). Purely a status: it never changes the projected balance, which
+ * already counts the occurrence. Scoped edits/deletes keep it consistent
+ * (`adapters/ledger.write.ts`).
+ */
+export const occurrencePayments = pgTable(
+  'occurrence_payments',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: ownerId(),
+    entryId: uuid('entry_id').notNull(),
+    month: month('month').notNull(),
+    partId: uuid('part_id'),
+    paidOn: date('paid_on', { mode: 'string' }).notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    foreignKey({
+      name: 'occurrence_payments_entry_fk',
+      columns: [t.entryId, t.userId],
+      foreignColumns: [entries.id, entries.userId],
+    }).onDelete('cascade'),
+    foreignKey({
+      name: 'occurrence_payments_part_fk',
+      columns: [t.partId, t.entryId],
+      foreignColumns: [entryParts.id, entryParts.entryId],
+    }).onDelete('cascade'),
+    // One payment per occurrence (or per part of it); NULLS NOT DISTINCT so a
+    // whole-occurrence payment (`part_id` null) is unique too.
+    unique('occurrence_payments_occurrence_unique')
+      .on(t.entryId, t.month, t.partId)
+      .nullsNotDistinct(),
+    index('occurrence_payments_user_id_month_idx').on(t.userId, t.month),
+    index('occurrence_payments_part_id_idx').on(t.partId),
+    check('occurrence_payments_month_first_day', isFirstOfMonth(t.month)),
   ],
 ).enableRLS()
 

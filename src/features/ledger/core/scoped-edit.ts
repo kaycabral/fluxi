@@ -1,5 +1,5 @@
 import { addMonths, diffMonths, type Month } from './month'
-import { installmentShares, occursIn } from './occurrence'
+import { installmentCount, installmentShares, occursIn } from './occurrence'
 import type { Entry, EntryOverride, EntryPart } from './types'
 
 export type EditScope = 'one' | 'future' | 'all'
@@ -42,7 +42,7 @@ const isEmptyOverride = (o: EntryOverride) => o.amountCents === null && o.day ==
 function patchEntry(entry: Entry, patch: OccurrencePatch): Entry {
   const day = patch.day ?? entry.day
   if (patch.amountCents === undefined) return { ...entry, day }
-  const count = entry.recurrence === 'installments' ? (entry.installments ?? 1) : 1
+  const count = entry.recurrence === 'installments' ? Math.max(1, installmentCount(entry)) : 1
   return { ...entry, amountCents: patch.amountCents * count, day }
 }
 
@@ -88,7 +88,7 @@ function editAll(state: SeriesState, patch: OccurrencePatch): ScopedEditResult {
  */
 export function endSeriesBefore(entry: Entry, month: Month): Entry {
   if (entry.recurrence !== 'installments') return { ...entry, endMonth: addMonths(month, -1) }
-  const total = entry.installments ?? 0
+  const total = installmentCount(entry)
   const done = diffMonths(entry.startMonth, month)
   const { rest } = installmentShares(entry.amountCents, total)
   return { ...entry, installments: done, amountCents: entry.amountCents - rest * (total - done) }
@@ -108,7 +108,7 @@ function editFuture(
 
   const done = diffMonths(entry.startMonth, month)
   const isInstallments = entry.recurrence === 'installments'
-  const total = entry.installments ?? 0
+  const total = installmentCount(entry)
   const before = endSeriesBefore(entry, month)
   // The installments not yet due take the rest of the total with them.
   const remainingCents = entry.amountCents - before.amountCents

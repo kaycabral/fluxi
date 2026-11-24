@@ -14,6 +14,11 @@ export type Landing = {
   part: EntryPart | null
 }
 
+/** Installment count of an installment entry (0 when missing, which the database forbids). */
+export function installmentCount(entry: Entry): number {
+  return entry.installments ?? 0
+}
+
 /** Whether the series rule puts an occurrence in `month` (overrides aside). */
 export function occursIn(entry: Entry, month: Month): boolean {
   const index = diffMonths(entry.startMonth, month)
@@ -25,7 +30,7 @@ export function occursIn(entry: Entry, month: Month): boolean {
     case 'yearly':
       return index % 12 === 0 && withinEnd
     case 'installments':
-      return index < (entry.installments ?? 0)
+      return index < installmentCount(entry)
     case 'monthly':
       return withinEnd
   }
@@ -68,7 +73,7 @@ export function installmentShares(
  */
 export function seriesAmountFor(entry: Entry, month: Month): number {
   if (entry.recurrence !== 'installments') return entry.amountCents
-  const { first, rest } = installmentShares(entry.amountCents, entry.installments ?? 1)
+  const { first, rest } = installmentShares(entry.amountCents, installmentCount(entry))
   return diffMonths(entry.startMonth, month) === 0 ? first : rest
 }
 

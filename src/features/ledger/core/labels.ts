@@ -47,3 +47,8 @@ export const RECURRENCE_LABELS: Record<Recurrence, string> = {
   yearly: 'Todo ano',
   installments: 'Parcelado',
 }
+
+/** "Pago" for what goes out (expenses, transfers), "Recebido" for income. */
+export function paidLabel(kind: EntryKind): 'Pago' | 'Recebido' {
+  return kind === 'income' ? 'Recebido' : 'Pago'
+}

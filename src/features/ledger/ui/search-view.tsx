@@ -17,6 +17,7 @@ import {
   type GroupKey,
   type KindFilter,
   type SearchQuery,
+  type StatusFilter,
 } from '@/features/ledger/core/search'
 import { isPotKey } from '@/features/ledger/core/types'
 import {
@@ -55,6 +56,16 @@ const KIND_OPTIONS = [
   ['expense', 'Saídas'],
   ['transfer', 'Transferências'],
 ] as const
+
+const STATUS_OPTIONS = [
+  ['', 'Todos'],
+  ['paid', 'Pagos'],
+  ['unpaid', 'Não pagos'],
+] as const
+
+function isStatus(value: string): value is StatusFilter {
+  return STATUS_OPTIONS.some(([k]) => k === value)
+}
 
 const GROUP_OPTIONS = [
   ['none', GROUP_LABELS.none],
@@ -102,7 +113,12 @@ export function SearchView({ data, query, start, months }: Props) {
   })
 
   const ctx = useMemo(
-    () => ({ accounts: data.accounts, banks: data.banks, categories: data.categories }),
+    () => ({
+      accounts: data.accounts,
+      banks: data.banks,
+      categories: data.categories,
+      payments: data.payments,
+    }),
     [data],
   )
   const results = useMemo(
@@ -213,6 +229,17 @@ export function SearchView({ data, query, start, months }: Props) {
               />
             </div>
             <div className="grid gap-1.5">
+              <Label htmlFor="q-status">Status</Label>
+              <OptionSelect
+                id="q-status"
+                options={STATUS_OPTIONS}
+                value={query.status}
+                onValueChange={(status) => {
+                  if (isStatus(status)) update({ status })
+                }}
+              />
+            </div>
+            <div className="grid gap-1.5">
               <Label htmlFor="q-group">Agrupar por</Label>
               <OptionSelect
                 id="q-group"
@@ -246,7 +273,15 @@ export function SearchView({ data, query, start, months }: Props) {
                 size="xs"
                 onClick={() => {
                   setText('')
-                  update({ text: '', kind: '', account: '', category: '', pot: '', tag: '' })
+                  update({
+                    text: '',
+                    kind: '',
+                    account: '',
+                    category: '',
+                    pot: '',
+                    tag: '',
+                    status: '',
+                  })
                 }}
               >
                 limpar filtros

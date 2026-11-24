@@ -97,7 +97,15 @@ describe('search query in the URL', () => {
   it('parses params with defaults and fallbacks', () => {
     expect(parseSearchQuery({}, '2026-12')).toEqual(defaultSearchQuery('2026-12'))
     const q = parseSearchQuery(
-      { q: 'luz', de: '2027-01', tipo: 'expense', pote: 'nope', agrupar: ['category'], tag: 'x' },
+      {
+        q: 'luz',
+        de: '2027-01',
+        tipo: 'expense',
+        pote: 'nope',
+        agrupar: ['category'],
+        tag: 'x',
+        status: 'unpaid',
+      },
       '2026-12',
     )
     expect(q).toMatchObject({
@@ -108,7 +116,9 @@ describe('search query in the URL', () => {
       pot: '',
       group: 'category',
       tag: 'x',
+      status: 'unpaid',
     })
+    expect(parseSearchQuery({ status: 'pago' }, '2026-12').status).toBe('')
     expect(parseSearchQuery({ de: '2027-05', ate: '2027-01' }, '2026-12').to).toBe('2027-05')
     expect(parseSearchQuery({ de: 'bad' }, '2026-12').from).toBe('2026-12')
   })
@@ -117,16 +127,18 @@ describe('search query in the URL', () => {
     expect(searchQueryToParams(defaultSearchQuery('2026-12'), '2026-12')).toBe('')
     const params = new URLSearchParams(
       searchQueryToParams(
-        { ...defaultSearchQuery('2026-12'), text: 'luz', to: '2027-03' },
+        { ...defaultSearchQuery('2026-12'), text: 'luz', to: '2027-03', status: 'paid' },
         '2026-12',
       ),
     )
     expect(params.get('q')).toBe('luz')
     expect(params.get('de')).toBe('2026-12')
     expect(params.get('ate')).toBe('2027-03')
+    expect(params.get('status')).toBe('paid')
     expect(parseSearchQuery(Object.fromEntries(params), '2026-12')).toMatchObject({
       text: 'luz',
       to: '2027-03',
+      status: 'paid',
     })
   })
 })
@@ -156,6 +168,22 @@ describe('searchOccurrences', () => {
     expect(count({ pot: 'comfort' })).toBe(3)
     expect(count({ tag: 'trabalho' })).toBe(5)
     expect(count({ from: '2027-02', to: '2027-02' })).toBe(5)
+  })
+
+  it('filters by paid status (parts are paid separately)', () => {
+    const payments = [
+      { entryId: 'power', month: '2026-12', partId: null, paidOn: '2026-12-15' },
+      { entryId: 'salary', month: '2026-12', partId: 'salary-a', paidOn: '2026-12-20' },
+    ]
+    const paid = searchOccurrences(months, { ...base, status: 'paid' }, { ...ctx, payments })
+    expect(paid.map((o) => [o.landing.entry.id, o.landing.part?.id ?? null])).toEqual([
+      ['power', null],
+      ['salary', 'salary-a'],
+    ])
+    expect(
+      searchOccurrences(months, { ...base, status: 'unpaid' }, { ...ctx, payments }),
+    ).toHaveLength(15 - 2)
+    expect(searchOccurrences(months, { ...base, status: 'paid' }, ctx)).toEqual([])
   })
 
   it('values a transfer inside the filtered accounts', () => {
@@ -216,6 +244,7 @@ describe('activeFilters', () => {
         category: 'g:Contas',
         pot: 'comfort',
         tag: 'x',
+        status: 'paid',
       },
       ctx,
     )
@@ -226,6 +255,7 @@ describe('activeFilters', () => {
       'Contas',
       'Conforto',
       '#x',
+      'Pagos',
     ])
     const more = activeFilters({ ...base, account: 'cc', category: 'cat-net' }, ctx)
     expect(more.map((c) => c.label)).toEqual(['BTG · Conta', 'Internet'])

@@ -18,6 +18,12 @@ vi.mock('@/features/ledger/adapters/actions/entries', () => ({
 vi.mock('@/features/ledger/adapters/actions/settings', () => ({
   setCountFromAction: (p: FormState, d: FormData) => setCountFromAction(p, d),
 }))
+const markPaidAction = vi.fn<(input: unknown) => Promise<Result>>()
+const unmarkPaidAction = vi.fn<(input: unknown) => Promise<Result>>()
+vi.mock('@/features/ledger/adapters/actions/payments', () => ({
+  markPaidAction: (i: unknown) => markPaidAction(i),
+  unmarkPaidAction: (i: unknown) => unmarkPaidAction(i),
+}))
 const toastError = vi.fn<(m: string) => void>()
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: (m: string) => toastError(m) } }))
 
@@ -38,6 +44,8 @@ function rowOf(label: string) {
 beforeEach(() => {
   changeDayAction.mockResolvedValue({ ok: true })
   setCountFromAction.mockResolvedValue({ ok: true, error: null, savedAt: 1 })
+  markPaidAction.mockResolvedValue({ ok: true })
+  unmarkPaidAction.mockResolvedValue({ ok: true })
 })
 afterEach(() => vi.clearAllMocks())
 
@@ -162,5 +170,52 @@ describe('TimelineView', () => {
   it('shows an empty month', () => {
     renderTimeline(sampleData({ entries: [], parts: [] }))
     expect(screen.getByText('Nenhum lançamento neste mês.')).toBeInTheDocument()
+  })
+
+  it('marks occurrences paid/received in the day by day and flags the overdue ones', async () => {
+    // refs.today is 2026-12-15: Avulso (day 3) is overdue, Buffet (day 25) is not.
+    renderTimeline()
+    const once = screen.getByRole('row', { name: /Avulso/ })
+    expect(within(once).getByText('Atrasada')).toBeInTheDocument()
+    expect(within(screen.getByRole('row', { name: /Buffet/ })).queryByText('Atrasada')).toBeNull()
+
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Pago: Avulso' }))
+    await waitFor(() =>
+      expect(markPaidAction).toHaveBeenCalledWith({
+        entryId: IDS.once,
+        month: '2026-12',
+        partId: null,
+      }),
+    )
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Recebido: Salário (Saldo)' }))
+    await waitFor(() => expect(markPaidAction).toHaveBeenCalledTimes(2))
+    expect(markPaidAction).toHaveBeenLastCalledWith({
+      entryId: IDS.salary,
+      month: '2026-11',
+      partId: `${IDS.salary}-b`,
+    })
+  })
+
+  it('shows paid occurrences checked and unmarks them', async () => {
+    renderTimeline(
+      sampleData({
+        payments: [{ entryId: IDS.once, month: '2026-12', partId: null, paidOn: '2026-12-03' }],
+      }),
+    )
+    const box = screen.getByRole('checkbox', { name: 'Pago: Avulso' })
+    expect(box).toBeChecked()
+    expect(within(screen.getByRole('row', { name: /Avulso/ })).queryByText('Atrasada')).toBeNull()
+    unmarkPaidAction.mockResolvedValueOnce({ ok: false, error: 'Falhou.' })
+    await userEvent.click(box)
+    await waitFor(() =>
+      expect(unmarkPaidAction).toHaveBeenCalledWith({
+        entryId: IDS.once,
+        month: '2026-12',
+        partId: null,
+      }),
+    )
+    await waitFor(() => expect(toastError).toHaveBeenCalledWith('Falhou.'))
   })
 })

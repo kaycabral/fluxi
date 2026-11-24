@@ -101,6 +101,10 @@ describe('SearchView', () => {
     await userEvent.click(await screen.findByRole('option', { name: 'Nubank (todas)' }))
     expect(lastHref()).toContain(`conta=b%3A${IDS.nu}`)
 
+    await userEvent.click(screen.getByLabelText('Status'))
+    await userEvent.click(await screen.findByRole('option', { name: 'Não pagos' }))
+    expect(lastHref()).toContain('status=unpaid')
+
     await userEvent.click(screen.getByLabelText('Até'))
     await userEvent.click(await screen.findByRole('option', { name: 'fev/27' }))
     expect(lastHref()).toContain('ate=2027-02')
@@ -116,7 +120,8 @@ describe('SearchView', () => {
   })
 
   it('clears one or every filter', async () => {
-    renderSearch({ text: 'luz', kind: 'expense', tag: 'casa' })
+    renderSearch({ text: 'luz', kind: 'expense', tag: 'casa', status: 'paid' })
+    expect(screen.getByRole('button', { name: 'Remover filtro Pagos' })).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Remover filtro "luz"' }))
     expect(lastHref()).not.toContain('q=')
     await userEvent.click(screen.getByRole('button', { name: 'limpar filtros' }))

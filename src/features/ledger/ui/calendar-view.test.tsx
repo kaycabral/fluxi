@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CalendarView } from './calendar-view'
@@ -14,10 +14,10 @@ vi.mock('@/features/ledger/adapters/actions/entries', () => ({
   changeDayAction: vi.fn(),
 }))
 
-function renderCalendar(month = '2026-12', account = '') {
+function renderCalendar(month = '2026-12', account = '', data = sampleData()) {
   return render(
     <LedgerShell refs={sampleRefs()}>
-      <CalendarView data={sampleData()} month={month} account={account} />
+      <CalendarView data={data} month={month} account={account} />
     </LedgerShell>,
   )
 }
@@ -55,6 +55,24 @@ describe('CalendarView', () => {
     renderCalendar()
     await userEvent.click(screen.getByRole('button', { name: /Avulso/ }))
     expect(await screen.findByRole('dialog', { name: 'Editar lançamento' })).toBeInTheDocument()
+  })
+
+  it('marks paid occurrences and outlines the overdue ones', () => {
+    // refs.today is 2026-12-15.
+    renderCalendar(
+      '2026-12',
+      '',
+      sampleData({
+        payments: [{ entryId: IDS.transfer, month: '2026-12', partId: null, paidOn: '2026-12-06' }],
+      }),
+    )
+    const avulso = screen.getByRole('button', { name: /Avulso/ })
+    expect(avulso).toHaveAttribute('title', 'Avulso R$ 7.000 (atrasada)')
+    expect(avulso).toHaveClass('ring-destructive')
+    const transfer = screen.getByRole('button', { name: /Para o Nubank/ })
+    expect(transfer).toHaveAttribute('title', 'Para o Nubank R$ 400 (pago)')
+    expect(within(transfer).getByLabelText('pago')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Buffet/ })).not.toHaveClass('ring-destructive')
   })
 
   it('has no balances before the count start', () => {

@@ -1,6 +1,7 @@
 import { sampleData, sampleRefs } from '@/features/ledger/ui/test-fixtures'
 import { render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import PayablesPage from './a-pagar/page'
 import CalendarPage from './calendario/page'
 import AccountsPage from './contas/page'
 import SearchPage from './lancamentos/page'
@@ -51,6 +52,11 @@ vi.mock('@/features/ledger/ui/search-view', () => ({
     <p>search {`${query.text}@${query.from}`}</p>
   ),
 }))
+vi.mock('@/features/ledger/ui/payables-view', () => ({
+  PayablesView: ({ window, today }: { window: { from: string; to: string }; today: string }) => (
+    <p>payables {`${window.from}..${window.to}@${today}`}</p>
+  ),
+}))
 vi.mock('@/features/ledger/ui/accounts-view', () => ({
   AccountsView: ({ firstMonth }: { firstMonth: string }) => <p>accounts {firstMonth}</p>,
 }))
@@ -86,6 +92,12 @@ describe('painel pages', () => {
     render(await TimelinePage())
     expect(screen.getByRole('heading', { level: 1, name: 'Linha do tempo' })).toBeInTheDocument()
     expect(screen.getByText('timeline 2026-08..2028-12')).toBeInTheDocument()
+  })
+
+  it('a pagar loads from the count start to next month with today', async () => {
+    render(await PayablesPage())
+    expect(screen.getByRole('heading', { level: 1, name: 'A pagar' })).toBeInTheDocument()
+    expect(screen.getByText('payables 2026-11..2027-01@2026-12-15')).toBeInTheDocument()
   })
 
   it('search parses the URL query', async () => {
@@ -125,6 +137,7 @@ describe('painel pages', () => {
     views.loadRefs.mockResolvedValue({ ok: false })
     for (const page of [
       await TimelinePage(),
+      await PayablesPage(),
       await SearchPage({ searchParams: Promise.resolve({}) }),
       await AccountsPage(),
       await BudgetPage(),

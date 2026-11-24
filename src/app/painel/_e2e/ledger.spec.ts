@@ -1,12 +1,13 @@
 import { fluxiDb } from '@/db'
-import { accounts, banks, userSettings } from '@/db/schema'
-import { monthLabel, monthOf } from '@/features/ledger/core/format'
+import { accounts, banks, entries, userSettings } from '@/db/schema'
+import { isoDayOf, monthLabel, monthOf } from '@/features/ledger/core/format'
 import { addMonths, diffMonths, monthToDate } from '@/features/ledger/core/month'
 import { expect, test } from '@e2e/fixtures'
 import type { Page } from '@playwright/test'
 import { eq } from 'drizzle-orm'
 
 const THIS_MONTH = monthOf(new Date())
+const TODAY_DAY = Number(isoDayOf(new Date()).slice(8, 10))
 const NEXT_MONTH = addMonths(THIS_MONTH, 1)
 const LATER_MONTH = addMonths(THIS_MONTH, 2)
 // The timeline starts 3 months before the count start (= this month).
@@ -21,17 +22,24 @@ function expensesCell(page: Page, month: string) {
 test.describe('ledger critical flow', () => {
   test.use({ authAsUser: true })
 
+  let accountId = ''
+
   test.beforeEach(async ({ user }) => {
     const db = fluxiDb.db()
     const [bank] = await db.insert(banks).values({ userId: user.id, name: 'Banco E2E' }).returning()
     if (bank === undefined) throw new Error('bank not created')
-    await db.insert(accounts).values({
-      userId: user.id,
-      bankId: bank.id,
-      name: 'Conta E2E',
-      type: 'checking',
-      openingBalanceCents: 500000,
-    })
+    const [account] = await db
+      .insert(accounts)
+      .values({
+        userId: user.id,
+        bankId: bank.id,
+        name: 'Conta E2E',
+        type: 'checking',
+        openingBalanceCents: 500000,
+      })
+      .returning()
+    if (account === undefined) throw new Error('account not created')
+    accountId = account.id
     await db
       .update(userSettings)
       .set({ countFromMonth: monthToDate(THIS_MONTH) })
@@ -86,5 +94,54 @@ test.describe('ledger critical flow', () => {
     await expect(expensesCell(page, NEXT_MONTH)).toHaveText('-150')
     await expect(expensesCell(page, LATER_MONTH)).toHaveText('-150')
     await expect(page.getByRole('row', { name: /Aluguel E2E/ })).toContainText('-R$ 150')
+  })
+
+  test('mark a bill paid in A pagar, then see it paid in the day by day', async ({
+    page,
+    user,
+  }) => {
+    // A one-off bill due today: unpaid, in "Próximos 7 dias".
+    await fluxiDb
+      .db()
+      .insert(entries)
+      .values({
+        userId: user.id,
+        kind: 'expense',
+        description: 'Conta de luz E2E',
+        amountCents: 23000,
+        accountId,
+        pot: 'essential',
+        startMonth: monthToDate(THIS_MONTH),
+        day: TODAY_DAY,
+        recurrence: 'none',
+      })
+
+    await page.goto('/painel/a-pagar')
+    await expect(page.getByRole('heading', { level: 1, name: 'A pagar' })).toBeVisible()
+    const soon = page.getByRole('table', { name: /Próximos 7 dias/ })
+    await expect(soon.getByRole('row', { name: /Conta de luz E2E/ })).toContainText('R$ 230')
+    await soon.getByRole('button', { name: 'Pago: Conta de luz E2E' }).click()
+
+    // It leaves the list (nothing else is due)…
+    await expect(page.getByText('Nada a pagar por enquanto')).toBeVisible()
+    // …and shows as paid among this month's paid items.
+    await page.getByLabel('Mostrar também os pagos deste mês').click()
+    await expect(
+      page.getByRole('table', { name: /Pagos neste mês/ }).getByRole('row', {
+        name: /Conta de luz E2E/,
+      }),
+    ).toBeVisible()
+
+    // The day by day shows it checked.
+    await page
+      .getByRole('navigation', { name: 'Seções' })
+      .getByRole('link', {
+        name: 'Linha do tempo',
+      })
+      .click()
+    await expect(
+      page.getByRole('heading', { name: `${monthLabel(THIS_MONTH)} dia a dia` }),
+    ).toBeVisible()
+    await expect(page.getByRole('checkbox', { name: 'Pago: Conta de luz E2E' })).toBeChecked()
   })
 })

@@ -7,6 +7,7 @@ import { usePathname } from 'next/navigation'
 
 const LINKS: { href: Route; label: string }[] = [
   { href: '/painel', label: 'Linha do tempo' },
+  { href: '/painel/a-pagar', label: 'A pagar' },
   { href: '/painel/lancamentos', label: 'Lançamentos' },
   { href: '/painel/contas', label: 'Bancos e contas' },
   { href: '/painel/orcamento', label: 'Orçamento' },

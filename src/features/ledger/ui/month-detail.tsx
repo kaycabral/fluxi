@@ -4,6 +4,7 @@ import { changeDayAction } from '@/features/ledger/adapters/actions/entries'
 import { accountIdsOf, accountLabel } from '@/features/ledger/core/account-filter'
 import { describeOccurrenceChange } from '@/features/ledger/core/entry-form'
 import { formatMoney, monthLabel } from '@/features/ledger/core/format'
+import { paymentStatus } from '@/features/ledger/core/payments'
 import { dailyBalance, type DailyRow, type MonthResult } from '@/features/ledger/core/projection'
 import type { EditScope } from '@/features/ledger/core/scoped-edit'
 import { installmentLabel, targetFor, type LedgerData } from '@/features/ledger/core/view'
@@ -28,6 +29,7 @@ import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { useLedgerUi } from './ledger-shell'
 import { Money } from './money'
+import { PaidCheckbox } from './paid-controls'
 import { AccountSelect } from './selects'
 
 /** Inline day input of a whole (non-split) occurrence; commits on blur or Enter. */
@@ -92,7 +94,7 @@ function DayInput({ row, data }: { row: DailyRow; data: LedgerData }) {
 
 /** "<mês> dia a dia": running balance of the chosen accounts within a counted month. */
 export function MonthDetail({ result, data }: { result: MonthResult; data: LedgerData }) {
-  const { openNew, openEdit } = useLedgerUi()
+  const { openNew, openEdit, refs } = useLedgerUi()
   const [filter, setFilter] = useState('')
 
   if (!result.counted) {
@@ -169,12 +171,13 @@ export function MonthDetail({ result, data }: { result: MonthResult; data: Ledge
               <TableHead>Categoria</TableHead>
               <TableHead className="text-right">Valor</TableHead>
               <TableHead className="text-right">Saldo após</TableHead>
+              <TableHead className="text-center">Pago</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {daily.rows.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} className="text-muted-foreground py-6 text-center">
+                <TableCell colSpan={7} className="text-muted-foreground py-6 text-center">
                   Nenhum lançamento neste mês.
                 </TableCell>
               </TableRow>
@@ -184,6 +187,7 @@ export function MonthDetail({ result, data }: { result: MonthResult; data: Ledge
               const { entry } = landing
               const installment = installmentLabel(landing)
               const category = data.categories.find((c) => c.id === entry.categoryId)
+              const status = paymentStatus(landing, data.payments, refs.today)
               return (
                 <TableRow
                   key={`${entry.id}-${landing.part?.id ?? 'whole'}-${index}`}
@@ -215,6 +219,7 @@ export function MonthDetail({ result, data }: { result: MonthResult; data: Ledge
                         <Badge variant="outline">{landing.part.label}</Badge>
                       )}
                       {installment !== null && <Badge variant="outline">{installment}</Badge>}
+                      {status === 'overdue' && <Badge variant="destructive">Atrasada</Badge>}
                     </span>
                   </TableCell>
                   <TableCell className="text-muted-foreground">
@@ -237,6 +242,9 @@ export function MonthDetail({ result, data }: { result: MonthResult; data: Ledge
                       cents={row.balanceAfterCents}
                       className={cn(row.balanceAfterCents < 0 && 'text-destructive')}
                     />
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <PaidCheckbox landing={landing} paid={status === 'paid'} />
                   </TableCell>
                 </TableRow>
               )

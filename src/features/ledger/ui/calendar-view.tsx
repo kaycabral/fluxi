@@ -6,9 +6,10 @@ import { formatCompactMoney, formatMoney, monthLabel } from '@/features/ledger/c
 import { POT_COLORS } from '@/features/ledger/core/labels'
 import { addMonths, type Month } from '@/features/ledger/core/month'
 import type { Landing } from '@/features/ledger/core/occurrence'
+import { paymentStatus, type PaymentStatus } from '@/features/ledger/core/payments'
 import { projectWindow, targetFor, type LedgerData } from '@/features/ledger/core/view'
 import { Button, Card, CardContent, CardHeader, CardTitle, cn } from '@cbrl/design'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useMemo } from 'react'
@@ -23,19 +24,39 @@ function calendarHref(month: Month, account: string) {
   return `/painel/calendario?${params.toString()}` as const
 }
 
-function EventChip({ landing, onOpen }: { landing: Landing; onOpen: () => void }) {
+const STATUS_TITLES: Record<PaymentStatus, (kind: Landing['entry']['kind']) => string> = {
+  paid: (kind) => (kind === 'income' ? 'recebido' : 'pago'),
+  overdue: () => 'atrasada',
+  upcoming: () => '',
+}
+
+function EventChip({
+  landing,
+  status,
+  onOpen,
+}: {
+  landing: Landing
+  status: PaymentStatus
+  onOpen: () => void
+}) {
   const { entry } = landing
   const label = landing.part?.label ?? entry.description
+  const statusTitle = STATUS_TITLES[status](entry.kind)
   return (
     <button
       type="button"
-      title={`${entry.description} ${formatMoney(landing.amountCents)}`}
+      title={`${entry.description} ${formatMoney(landing.amountCents)}${statusTitle === '' ? '' : ` (${statusTitle})`}`}
       onClick={onOpen}
       className={cn(
         'bg-muted hover:bg-muted/70 block w-full truncate rounded-sm px-1 text-left text-[0.65rem] leading-4 sm:text-xs',
         entry.kind === 'income' && 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-300',
+        status === 'paid' && 'opacity-60',
+        status === 'overdue' && 'ring-destructive text-destructive ring-1',
       )}
     >
+      {status === 'paid' && (
+        <Check className="mr-0.5 inline size-3 align-[-2px]" aria-label={statusTitle} />
+      )}
       {entry.kind === 'expense' && entry.pot !== null && (
         <span
           className={cn('mr-1 inline-block h-2.5 w-[3px] align-middle', POT_COLORS[entry.pot])}
@@ -58,7 +79,7 @@ export function CalendarView({
   account: string
 }) {
   const router = useRouter()
-  const { openEdit } = useLedgerUi()
+  const { openEdit, refs } = useLedgerUi()
   const grid = useMemo(() => {
     const [result] = projectWindow(data, month, month)
     return result === undefined ? null : calendarMonth(result, accountIdsOf(account, data.accounts))
@@ -122,6 +143,7 @@ export function CalendarView({
                     <EventChip
                       key={`${landing.entry.id}-${landing.part?.id ?? 'whole'}-${index}`}
                       landing={landing}
+                      status={paymentStatus(landing, data.payments, refs.today)}
                       onOpen={() => openEdit(targetFor(data, landing))}
                     />
                   ))}
@@ -139,7 +161,8 @@ export function CalendarView({
           })}
         </div>
         <p className="text-muted-foreground text-xs">
-          O número no canto de cada dia é o saldo ao fim daquele dia na conta escolhida.
+          O número no canto de cada dia é o saldo ao fim daquele dia na conta escolhida. ✓ marca o
+          que já foi pago ou recebido; contorno vermelho, o que está atrasado.
         </p>
       </CardContent>
     </Card>

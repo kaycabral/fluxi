@@ -19,6 +19,14 @@ describe('PainelNav', () => {
       'page',
     )
     expect(screen.getByRole('link', { name: 'Calendário' })).not.toHaveAttribute('aria-current')
+    expect(screen.getAllByRole('link').map((l) => l.textContent)).toEqual([
+      'Linha do tempo',
+      'A pagar',
+      'Lançamentos',
+      'Bancos e contas',
+      'Orçamento',
+      'Calendário',
+    ])
   })
 
   it('marks nested sections', () => {

@@ -9,6 +9,7 @@ import {
 import { POT_LABELS } from './labels'
 import { addMonths, diffMonths, type Month } from './month'
 import type { Landing } from './occurrence'
+import { paymentFor, type OccurrencePayment } from './payments'
 import { effectOn, type MonthResult } from './projection'
 import { POT_KEYS, type Account, type Bank, type Category, type PotKey } from './types'
 
@@ -43,6 +44,14 @@ export const GROUP_LABELS: Record<GroupKey | 'none', string> = {
 
 export type KindFilter = '' | 'income' | 'expense' | 'transfer'
 
+/** "Pago/recebido" filter: every occurrence, only paid ones or only unpaid ones. */
+export type StatusFilter = '' | 'paid' | 'unpaid'
+
+export const STATUS_LABELS: Record<Exclude<StatusFilter, ''>, string> = {
+  paid: 'Pagos',
+  unpaid: 'Não pagos',
+}
+
 export type SearchQuery = {
   text: string
   from: Month
@@ -54,6 +63,7 @@ export type SearchQuery = {
   category: string
   pot: PotKey | ''
   tag: string
+  status: StatusFilter
   group: GroupKey | 'none'
 }
 
@@ -68,6 +78,7 @@ export function defaultSearchQuery(start: Month): SearchQuery {
     category: '',
     pot: '',
     tag: '',
+    status: '',
     group: 'month',
   }
 }
@@ -82,6 +93,7 @@ const PARAM_NAMES: Record<keyof SearchQuery, string> = {
   category: 'categoria',
   pot: 'pote',
   tag: 'tag',
+  status: 'status',
   group: 'agrupar',
 }
 
@@ -94,6 +106,7 @@ const QUERY_KEYS: readonly (keyof SearchQuery)[] = [
   'category',
   'pot',
   'tag',
+  'status',
   'group',
 ]
 
@@ -106,6 +119,7 @@ const paramsSchema = z.object({
   category: z.string().max(120).catch(''),
   pot: z.enum(['', ...POT_KEYS]).catch(''),
   tag: z.string().max(40).catch(''),
+  status: z.enum(['', 'paid', 'unpaid']).catch(''),
   group: z
     .enum(['none', ...GROUP_KEYS])
     .optional()
@@ -130,6 +144,7 @@ export function parseSearchQuery(params: RawParams, start: Month): SearchQuery {
     category: first(params[PARAM_NAMES.category]) ?? '',
     pot: first(params[PARAM_NAMES.pot]) ?? '',
     tag: first(params[PARAM_NAMES.tag]) ?? '',
+    status: first(params[PARAM_NAMES.status]) ?? '',
     group: first(params[PARAM_NAMES.group]),
   })
   const from = parsed.from ?? defaults.from
@@ -162,6 +177,8 @@ export type SearchContext = {
   accounts: readonly Pick<Account, 'id' | 'bankId' | 'name'>[]
   banks: readonly Pick<Bank, 'id' | 'name'>[]
   categories: readonly Pick<Category, 'id' | 'groupName' | 'name'>[]
+  /** Needed by the status filter (none = nothing paid). */
+  payments?: readonly OccurrencePayment[]
 }
 
 export type Occurrence = {
@@ -207,8 +224,15 @@ function matches(
     entryMatchesAccounts(entry, ids) &&
     matchesCategory(entry.categoryId, query.category, ctx) &&
     (query.pot === '' || entry.pot === query.pot) &&
-    (query.tag === '' || entry.tags.includes(query.tag))
+    (query.tag === '' || entry.tags.includes(query.tag)) &&
+    matchesStatus(landing, query.status, ctx)
   )
+}
+
+function matchesStatus(landing: Landing, status: StatusFilter, ctx: SearchContext): boolean {
+  if (status === '') return true
+  const paid = paymentFor(landing, ctx.payments ?? []) !== undefined
+  return status === 'paid' ? paid : !paid
 }
 
 /** Occurrences of the query's months that match its filters, in date order. */
@@ -348,7 +372,7 @@ function potOrEmpty(value: string): PotKey | '' {
 }
 
 export type ActiveFilter = {
-  key: 'text' | 'kind' | 'account' | 'category' | 'pot' | 'tag'
+  key: 'text' | 'kind' | 'account' | 'category' | 'pot' | 'tag' | 'status'
   label: string
 }
 
@@ -382,5 +406,6 @@ export function activeFilters(query: SearchQuery, ctx: SearchContext): ActiveFil
   }
   if (query.pot !== '') out.push({ key: 'pot', label: POT_LABELS[query.pot] })
   if (query.tag !== '') out.push({ key: 'tag', label: `#${query.tag}` })
+  if (query.status !== '') out.push({ key: 'status', label: STATUS_LABELS[query.status] })
   return out
 }

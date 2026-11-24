@@ -71,6 +71,17 @@ describe('SearchView', () => {
     expect(screen.getAllByText('Essencial').length).toBeGreaterThan(0)
   })
 
+  it('tints each row with the color of its pot', () => {
+    renderSearch({ group: 'none' })
+    const rows = screen.getAllByRole('row')
+    const essential = rows.find((r) => r.textContent?.includes('Essencial'))
+    expect(essential).toHaveAttribute('data-pot', 'essential')
+    expect(essential).toHaveClass('bg-violet-500/10')
+    const income = rows.find((r) => r.textContent?.includes('Salário'))
+    expect(income).toBeDefined()
+    expect(income).not.toHaveAttribute('data-pot')
+  })
+
   it('filters by money bucket through the URL', async () => {
     renderSearch({ group: 'none' }, sampleDataWithBenefit())
     expect(screen.getAllByText('Mercado VA').length).toBeGreaterThan(0)

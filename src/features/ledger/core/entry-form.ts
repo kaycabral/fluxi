@@ -1,11 +1,4 @@
-import {
-  centsToInput,
-  formatMoney,
-  formatMoneyExact,
-  isoDate,
-  monthLabel,
-  parseMoneyInput,
-} from './format'
+import { centsToInput, formatMoney, isoDate, monthLabel, parseMoneyInput } from './format'
 import type { Month } from './month'
 import { amountFor, dayFor, installmentShares, sortParts } from './occurrence'
 import { entryFieldsSchema, firstIssue, type EntryFields } from './schemas'
@@ -257,6 +250,6 @@ export function installmentsHint(values: EntryFormValues): string | null {
   const count = parseIntOrNull(values.installments)
   if (totalCents === null || count === null || count < 1) return null
   const { first, rest } = installmentShares(totalCents, count)
-  if (first === rest || count === 1) return `${count}× ${formatMoneyExact(first)}`
-  return `1× ${formatMoneyExact(first)} + ${count - 1}× ${formatMoneyExact(rest)}`
+  if (first === rest || count === 1) return `${count}× ${formatMoney(first)}`
+  return `1× ${formatMoney(first)} + ${count - 1}× ${formatMoney(rest)}`
 }

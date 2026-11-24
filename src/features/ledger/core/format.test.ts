@@ -3,7 +3,6 @@ import {
   centsToInput,
   formatAmount,
   formatMoney,
-  formatMoneyExact,
   formatPercent,
   formatSignedMoney,
   isoDate,
@@ -81,12 +80,5 @@ describe('format', () => {
     const lateUtc = new Date('2026-12-01T02:00:00Z')
     expect(monthOf(lateUtc)).toBe('2026-11')
     expect(isoDayOf(lateUtc, 'UTC')).toBe('2026-12-01')
-  })
-})
-
-describe('formatMoneyExact', () => {
-  it('keeps the cents', () => {
-    expect(formatMoneyExact(33334)).toMatch(/^R\$\s333,34$/)
-    expect(formatMoneyExact(-123456)).toMatch(/^-R\$\s1\.234,56$/)
   })
 })

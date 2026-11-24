@@ -1,18 +1,22 @@
 'use client'
 
+import { changeDayAction } from '@/features/ledger/adapters/actions/entries'
 import { decisionAccountIds } from '@/features/ledger/core/account-filter'
-import { calendarMonth } from '@/features/ledger/core/calendar'
+import { calendarMonth, isMovable, withMoves, type DayMove } from '@/features/ledger/core/calendar'
+import { describeOccurrenceChange } from '@/features/ledger/core/entry-form'
 import { formatAmount, formatMoney, monthLabel } from '@/features/ledger/core/format'
 import { POT_COLORS, potTint } from '@/features/ledger/core/labels'
 import { addMonths, type Month } from '@/features/ledger/core/month'
 import type { Landing } from '@/features/ledger/core/occurrence'
 import { paymentStatus, type PaymentStatus } from '@/features/ledger/core/payments'
+import type { EditScope } from '@/features/ledger/core/scoped-edit'
 import { projectWindow, targetFor, type LedgerData } from '@/features/ledger/core/view'
 import { Button, Card, CardContent, CardHeader, CardTitle, cn } from '@cbrl/design'
 import { Check, ChevronLeft, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useMemo } from 'react'
+import { useMemo, useOptimistic, useState, useTransition } from 'react'
+import { toast } from 'sonner'
 import { useLedgerUi } from './ledger-shell'
 import { AccountSelect } from './selects'
 
@@ -33,26 +37,43 @@ const STATUS_TITLES: Record<PaymentStatus, (kind: Landing['entry']['kind']) => s
 function EventChip({
   landing,
   status,
+  dragging,
   onOpen,
+  onDragStart,
+  onDragEnd,
 }: {
   landing: Landing
   status: PaymentStatus
+  dragging: boolean
   onOpen: () => void
+  onDragStart: () => void
+  onDragEnd: () => void
 }) {
   const { entry } = landing
   const label = landing.part?.label ?? entry.description
   const statusTitle = STATUS_TITLES[status](entry.kind)
+  const movable = isMovable(landing)
   return (
     <button
       type="button"
       title={`${entry.description} ${formatMoney(landing.amountCents)}${statusTitle === '' ? '' : ` (${statusTitle})`}`}
       onClick={onOpen}
+      draggable={movable}
+      onDragStart={(e) => {
+        // Firefox only starts a drag with data set.
+        e.dataTransfer.setData('text/plain', entry.description)
+        e.dataTransfer.effectAllowed = 'move'
+        onDragStart()
+      }}
+      onDragEnd={onDragEnd}
       className={cn(
         'bg-muted hover:bg-muted/70 block w-full truncate rounded-sm px-1 text-left text-[0.65rem] leading-4 sm:text-xs',
+        movable && 'cursor-grab active:cursor-grabbing',
         potTint(entry.pot),
         entry.kind === 'income' && 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-300',
         status === 'paid' && 'opacity-60',
         status === 'overdue' && 'ring-destructive text-destructive ring-1',
+        dragging && 'opacity-40',
       )}
     >
       {status === 'paid' && (
@@ -80,13 +101,53 @@ export function CalendarView({
   account: string
 }) {
   const router = useRouter()
-  const { openEdit, refs } = useLedgerUi()
+  const { openEdit, requestScope, refs } = useLedgerUi()
   const grid = useMemo(() => {
     const [result] = projectWindow(data, month, month)
     return result === undefined
       ? null
       : calendarMonth(result, decisionAccountIds(account, data.accounts))
   }, [data, month, account])
+
+  // Drag a chip to another day (like a calendar event); recurring ones ask the scope.
+  const [dragged, setDragged] = useState<Landing | null>(null)
+  const [overDay, setOverDay] = useState<number | null>(null)
+  const [moves, addMove] = useOptimistic<DayMove[], DayMove>([], (current, move) => [
+    ...current,
+    move,
+  ])
+  const [, startTransition] = useTransition()
+  const days = useMemo(() => (grid === null ? [] : withMoves(grid.days, moves)), [grid, moves])
+
+  async function moveTo(landing: Landing, day: number) {
+    if (day === landing.day) return
+    // Ask before the transition: updates inside an async transition commit only when it ends.
+    let scope: EditScope | null = null
+    if (landing.entry.recurrence !== 'none') {
+      scope = await requestScope({
+        kind: 'edit',
+        description: describeOccurrenceChange(targetFor(data, landing), landing.competence, {
+          day,
+        }),
+      })
+      if (scope === null) return
+    }
+    startTransition(async () => {
+      addMove({ entryId: landing.entry.id, competence: landing.competence, day })
+      const result = await changeDayAction({
+        entryId: landing.entry.id,
+        month: landing.competence,
+        day,
+        scope,
+      })
+      if (!result.ok) toast.error(result.error)
+    })
+  }
+
+  function endDrag() {
+    setDragged(null)
+    setOverDay(null)
+  }
 
   return (
     <Card>
@@ -128,16 +189,30 @@ export function CalendarView({
             Array.from({ length: grid.leadingBlanks }, (_, i) => (
               <div key={`blank-${i}`} aria-hidden />
             ))}
-          {grid?.days.map((day) => {
+          {days.map((day) => {
             const negative = day.endBalanceCents !== null && day.endBalanceCents < 0
             return (
               <div
                 key={day.day}
                 role="group"
                 aria-label={negative ? `Dia ${day.day}, saldo negativo` : `Dia ${day.day}`}
+                onDragOver={(e) => {
+                  if (dragged === null) return
+                  e.preventDefault()
+                  e.dataTransfer.dropEffect = 'move'
+                  setOverDay(day.day)
+                }}
+                onDragLeave={() => setOverDay((current) => (current === day.day ? null : current))}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  const landing = dragged
+                  endDrag()
+                  if (landing !== null) void moveTo(landing, day.day)
+                }}
                 className={cn(
                   'border-border grid min-h-20 min-w-0 grid-rows-[auto_1fr_auto] gap-0.5 rounded border p-0.5 sm:min-h-24 sm:p-1',
                   negative && 'bg-destructive/10 border-destructive/40',
+                  overDay === day.day && 'ring-primary bg-primary/5 ring-2',
                 )}
               >
                 <span className="text-muted-foreground font-mono text-xs">{day.day}</span>
@@ -147,7 +222,10 @@ export function CalendarView({
                       key={`${landing.entry.id}-${landing.part?.id ?? 'whole'}-${index}`}
                       landing={landing}
                       status={paymentStatus(landing, data.payments, refs.today)}
+                      dragging={dragged === landing}
                       onOpen={() => openEdit(targetFor(data, landing))}
+                      onDragStart={() => setDragged(landing)}
+                      onDragEnd={endDrag}
                     />
                   ))}
                 </div>
@@ -166,7 +244,8 @@ export function CalendarView({
         <p className="text-muted-foreground text-xs">
           O número no canto de cada dia é o saldo ao fim daquele dia na conta escolhida (por padrão,
           todo o dinheiro disponível, sem benefícios). ✓ marca o que já foi pago ou recebido;
-          contorno vermelho, o que está atrasado.
+          contorno vermelho, o que está atrasado. Arraste um lançamento para outro dia para mudar a
+          data.
         </p>
       </CardContent>
     </Card>

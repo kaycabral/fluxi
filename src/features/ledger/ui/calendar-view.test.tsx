@@ -1,5 +1,7 @@
-import { render, screen, within } from '@testing-library/react'
+import { changeDayAction } from '@/features/ledger/adapters/actions/entries'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { toast } from 'sonner'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CalendarView } from './calendar-view'
 import { LedgerShell } from './ledger-shell'
@@ -13,6 +15,7 @@ vi.mock('@/features/ledger/adapters/actions/entries', () => ({
   deleteEntryAction: vi.fn(),
   changeDayAction: vi.fn(),
 }))
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 
 function renderCalendar(month = '2026-12', account = '', data = sampleData()) {
   return render(
@@ -55,6 +58,83 @@ describe('CalendarView', () => {
     renderCalendar()
     await userEvent.click(screen.getByRole('button', { name: /Avulso/ }))
     expect(await screen.findByRole('dialog', { name: 'Editar lançamento' })).toBeInTheDocument()
+  })
+
+  describe('drag to another day', () => {
+    const transfer = () => ({ setData: vi.fn(), effectAllowed: '', dropEffect: '' })
+    function drag(chip: HTMLElement, day: RegExp) {
+      const target = screen.getByRole('group', { name: day })
+      const dataTransfer = transfer()
+      fireEvent.dragStart(chip, { dataTransfer })
+      fireEvent.dragOver(target, { dataTransfer })
+      expect(target).toHaveClass('ring-2')
+      fireEvent.drop(target, { dataTransfer })
+      return target
+    }
+
+    it('moves a one-off entry right away, without asking', async () => {
+      vi.mocked(changeDayAction).mockResolvedValue({ ok: true })
+      renderCalendar()
+      const target = drag(screen.getByRole('button', { name: /Avulso/ }), /^Dia 10(,|$)/)
+      await waitFor(() =>
+        expect(changeDayAction).toHaveBeenCalledWith({
+          entryId: IDS.once,
+          month: '2026-12',
+          day: 10,
+          scope: null,
+        }),
+      )
+      expect(within(target).getByRole('button', { name: /Avulso/ })).toBeInTheDocument()
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
+
+    it('asks the scope of a recurring entry, like a calendar event', async () => {
+      vi.mocked(changeDayAction).mockResolvedValue({ ok: true })
+      renderCalendar()
+      drag(screen.getByRole('button', { name: /Luz/ }), /^Dia 20(,|$)/)
+      const dialog = await screen.findByRole('dialog', { name: 'Aplicar a mudança em…' })
+      expect(dialog).toHaveTextContent('Luz em dez/26: dia 15 → 20')
+      await userEvent.click(within(dialog).getByLabelText(/Só este mês/))
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Aplicar' }))
+      await waitFor(() =>
+        expect(changeDayAction).toHaveBeenCalledWith({
+          entryId: IDS.power,
+          month: '2026-12',
+          day: 20,
+          scope: 'one',
+        }),
+      )
+    })
+
+    it('keeps the entry in place when the scope is cancelled or the drop is on the same day', async () => {
+      renderCalendar()
+      drag(screen.getByRole('button', { name: /Luz/ }), /^Dia 20(,|$)/)
+      const dialog = await screen.findByRole('dialog', { name: 'Aplicar a mudança em…' })
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Cancelar' }))
+      drag(screen.getByRole('button', { name: /Avulso/ }), /^Dia 3(,|$)/)
+      expect(changeDayAction).not.toHaveBeenCalled()
+      const day15 = screen.getByRole('group', { name: /^Dia 15(,|$)/ })
+      expect(within(day15).getByRole('button', { name: /Luz/ })).toBeInTheDocument()
+    })
+
+    it('reports a refused move', async () => {
+      vi.mocked(changeDayAction).mockResolvedValue({ ok: false, error: 'Não deu.' })
+      renderCalendar()
+      drag(screen.getByRole('button', { name: /Avulso/ }), /^Dia 10(,|$)/)
+      await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Não deu.'))
+    })
+
+    it('does not drag the parts of a split entry, nor drops without a drag', () => {
+      renderCalendar()
+      expect(screen.getByRole('button', { name: /Saldo/ })).toHaveAttribute('draggable', 'false')
+      expect(screen.getByRole('button', { name: /Avulso/ })).toHaveAttribute('draggable', 'true')
+      const target = screen.getByRole('group', { name: /^Dia 10(,|$)/ })
+      fireEvent.dragOver(target, { dataTransfer: transfer() })
+      expect(target).not.toHaveClass('ring-2')
+      fireEvent.drop(target, { dataTransfer: transfer() })
+      fireEvent.dragLeave(target)
+      expect(changeDayAction).not.toHaveBeenCalled()
+    })
   })
 
   it('marks paid occurrences and outlines the overdue ones', () => {

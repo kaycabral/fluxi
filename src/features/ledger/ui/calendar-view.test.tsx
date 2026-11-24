@@ -113,8 +113,8 @@ describe('CalendarView', () => {
       await userEvent.click(within(dialog).getByRole('button', { name: 'Cancelar' }))
       drag(screen.getByRole('button', { name: /Avulso/ }), /^Dia 3(,|$)/)
       expect(changeDayAction).not.toHaveBeenCalled()
-      const luz = screen.getByRole('button', { name: /Luz/ })
-      expect(luz.closest('[role="group"]')).toHaveAccessibleName(/^Dia 15(,|$)/)
+      const day15 = screen.getByRole('group', { name: /^Dia 15(,|$)/ })
+      expect(within(day15).getByRole('button', { name: /Luz/ })).toBeInTheDocument()
     })
 
     it('reports a refused move', async () => {

@@ -98,6 +98,32 @@ export function parseMoneyInput(raw: string): number | null {
   return Math.round(Number(normalized) * 100)
 }
 
+/** Typed digits beyond this (R$ 99 bilhões) are dropped: cents stay a safe integer. */
+const MONEY_MASK_MAX_DIGITS = 13
+
+/**
+ * The money mask of the form: every digit typed shifts in from the cents side,
+ * like a bank app (`5` → `0,05`, `1234` → `12,34`, `123456` → `1.234,56`).
+ * Anything that is not a digit is ignored and zero is empty, so erasing digit
+ * by digit ends in an empty field. Its output is read back by
+ * {@link parseMoneyInput}.
+ */
+export function maskMoneyInput(raw: string): string {
+  const digits = raw.replace(/\D/g, '').replace(/^0+/, '').slice(0, MONEY_MASK_MAX_DIGITS)
+  return digits === '' ? '' : formatAmount(Number(digits))
+}
+
+/**
+ * What the money input shows for a form value: exactly the amount that will
+ * be saved (`50` → `50,00`, `1234,56` → `1.234,56`), so a value set by code
+ * without cents is never misread by the mask; zero/empty → empty.
+ */
+export function moneyInputDisplay(value: string): string {
+  const cents = parseMoneyInput(value)
+  if (cents === null) return maskMoneyInput(value)
+  return cents === 0 ? '' : formatAmount(cents)
+}
+
 /** Day of `month` as an ISO date (`YYYY-MM-DD`), clamped to the month's length. */
 export function isoDate(month: Month, day: number): string {
   const clamped = Math.min(Math.max(1, day), daysInMonth(month))

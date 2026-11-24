@@ -135,6 +135,17 @@ export function LedgerShell({ refs, children }: { refs: LedgerRefs; children: Re
             event.preventDefault()
             document.getElementById('entry-description')?.focus()
           }}
+          // Escape on an open autocomplete (tags) closes the list, not the sheet.
+          onEscapeKeyDown={(event) => {
+            const target = event.target
+            if (
+              target instanceof HTMLElement &&
+              target.getAttribute('role') === 'combobox' &&
+              target.getAttribute('aria-expanded') === 'true'
+            ) {
+              event.preventDefault()
+            }
+          }}
           className="flex h-dvh max-h-dvh w-screen max-w-none flex-col gap-0 rounded-none border-0 p-0 sm:max-w-none"
         >
           {session !== null && (

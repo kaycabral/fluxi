@@ -24,7 +24,7 @@ import type { EntryFields } from '@/features/ledger/core/schemas'
 import type { EditScope } from '@/features/ledger/core/scoped-edit'
 import { isPotKey, type EntryKind } from '@/features/ledger/core/types'
 import type { LedgerRefs } from '@/features/ledger/core/view'
-import { Button, DialogDescription, DialogTitle, Input, Label } from '@cbrl/design'
+import { Button, cn, DateField, DialogDescription, DialogTitle, Input, Label } from '@cbrl/design'
 import {
   Banknote,
   Copy,
@@ -38,7 +38,8 @@ import {
 } from 'lucide-react'
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
-import { KindToggle, PartsEditor, TagsField } from './entry-fields'
+import { KindToggle, PartsEditor, TagsField, TitleInput } from './entry-fields'
+import { MoneyInput } from './money-input'
 import { RepeatField } from './repeat-field'
 import type { ScopeRequest } from './scope-dialog'
 import { AccountSelect, CategorySelect, PotSelect } from './selects'
@@ -197,13 +198,11 @@ export function EntryForm({
           <X />
         </Button>
         <div className="grid min-w-0 flex-1 gap-3 md:max-w-2xl">
-          <Input
+          <TitleInput
             id="entry-description"
             aria-label="Descrição"
             list="entry-descriptions"
-            autoComplete="off"
-            placeholder="Adicionar descrição"
-            className="focus-visible:border-b-primary h-12 rounded-none border-0 border-b-2 px-0 text-2xl shadow-none focus-visible:ring-0 md:text-2xl [&::-webkit-calendar-picker-indicator]:hidden"
+            className="[&::-webkit-calendar-picker-indicator]:hidden!"
             value={values.description}
             onChange={(e) => set({ description: e.target.value })}
           />
@@ -213,20 +212,17 @@ export function EntryForm({
             ))}
           </datalist>
           <div className="flex flex-wrap items-center gap-2">
-            <Label htmlFor="entry-date" className="sr-only">
-              Data
-            </Label>
-            <Input
+            <DateField
               id="entry-date"
-              type="date"
-              className="bg-muted w-fit border-0"
+              aria-label="Data"
+              className="w-40"
               value={values.date}
-              onChange={(e) => set({ date: e.target.value })}
+              // Incomplete while typing: keep the last full date.
+              onValueChange={(date) => date !== '' && set({ date })}
             />
             <RepeatField
               date={values.date}
               withInstallments
-              className="bg-muted border-0"
               value={values}
               onChange={(repeat) => set(repeat)}
             />
@@ -238,7 +234,7 @@ export function EntryForm({
                   type="number"
                   min={1}
                   inputMode="numeric"
-                  className="bg-muted w-20 border-0"
+                  className="w-20"
                   value={values.installments}
                   onChange={(e) => set({ installments: e.target.value })}
                 />
@@ -311,14 +307,11 @@ export function EntryForm({
           <DetailRow icon={Banknote}>
             <div className="grid gap-1.5">
               <Label htmlFor="entry-amount">{amountLabel(values)}</Label>
-              <Input
+              <MoneyInput
                 id="entry-amount"
-                inputMode="decimal"
-                autoComplete="off"
                 placeholder="0,00"
-                className="h-11 font-mono text-xl md:text-xl"
                 value={values.amount}
-                onChange={(e) => set({ amount: e.target.value })}
+                onValueChange={(amount) => set({ amount })}
                 aria-describedby={totalHint === null ? undefined : 'entry-amount-total'}
               />
               {totalHint !== null && (
@@ -371,16 +364,17 @@ export function EntryForm({
                     onValueChange={changeCategory}
                   />
                 </div>
-                <div className="grid gap-1.5">
-                  <Label htmlFor="entry-pot">Pote</Label>
-                  <PotSelect
-                    id="entry-pot"
-                    value={values.kind === 'expense' ? values.pot : ''}
-                    placeholder={values.kind === 'income' ? '– (entrada)' : '–'}
-                    disabled={values.kind !== 'expense'}
-                    onValueChange={(pot) => set({ pot: isPotKey(pot) ? pot : '' })}
-                  />
-                </div>
+                {/* Pots budget spending only: an income never has one. */}
+                {values.kind === 'expense' && (
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="entry-pot">Pote</Label>
+                    <PotSelect
+                      id="entry-pot"
+                      value={values.pot}
+                      onValueChange={(pot) => set({ pot: isPotKey(pot) ? pot : '' })}
+                    />
+                  </div>
+                )}
               </div>
               {values.kind === 'expense' && (
                 <p className="text-muted-foreground text-xs">
@@ -391,16 +385,23 @@ export function EntryForm({
           )}
 
           <DetailRow icon={Hash}>
-            <TagsField tags={values.tags} onChange={(tags) => set({ tags })} />
-          </DetailRow>
-
-          <DetailRow icon={SplitSquareVertical}>
-            <PartsEditor
-              split={values.split}
-              parts={values.parts}
-              onChange={(split, parts) => set({ split, parts })}
+            <TagsField
+              tags={values.tags}
+              suggestions={refs.tags}
+              onChange={(tags) => set({ tags })}
             />
           </DetailRow>
+
+          {/* Splitting is for income paid in parts (advance + balance); an entry already split keeps it. */}
+          {(values.kind === 'income' || values.split) && (
+            <DetailRow icon={SplitSquareVertical} align="box">
+              <PartsEditor
+                split={values.split}
+                parts={values.parts}
+                onChange={(split, parts) => set({ split, parts })}
+              />
+            </DetailRow>
+          )}
 
           {error !== null && (
             <p role="alert" className="text-destructive text-sm">
@@ -413,16 +414,29 @@ export function EntryForm({
   )
 }
 
+/**
+ * A details row led by its icon, centred on the row's first control: under a
+ * label (`field`: the label line plus its gap, then an `h-8` control) or on
+ * the first line inside a bordered box (`box`: border + `p-3`, then a
+ * checkbox line).
+ */
 function DetailRow({
   icon: Icon,
+  align = 'field',
   children,
 }: {
   icon: React.ComponentType<{ className?: string }>
+  align?: 'field' | 'box'
   children: React.ReactNode
 }) {
   return (
     <div className="grid grid-cols-[1.25rem_1fr] items-start gap-x-4">
-      <Icon className="text-muted-foreground mt-7 size-5" aria-hidden />
+      <span
+        className={cn('flex items-center', align === 'field' ? 'mt-5 h-8' : 'mt-[13px] h-4')}
+        aria-hidden
+      >
+        <Icon className="text-muted-foreground size-5" />
+      </span>
       <div className="grid min-w-0 gap-2">{children}</div>
     </div>
   )

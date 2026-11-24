@@ -6,7 +6,7 @@ import { paymentFor } from '@/features/ledger/core/payments'
 import { cn, Popover, PopoverContent, PopoverTrigger } from '@cbrl/design'
 import { useState } from 'react'
 import { QuickAddForm } from '../quick-add'
-import { POPUP_FIT, POPUP_PLACEMENT, useCalendar, visibleLandings } from './context'
+import { POPUP_CLASS, POPUP_PLACEMENT, useCalendar, visibleLandings } from './context'
 import { WEEKDAY_SHORT } from './day-panel'
 import { EventChip } from './event-chip'
 
@@ -111,7 +111,7 @@ function Column({ date }: { date: string }) {
           side="right"
           align="start"
           {...POPUP_PLACEMENT}
-          className={cn('w-[min(26rem,calc(100vw-2rem))]', POPUP_FIT)}
+          className={cn('w-[min(26rem,calc(100vw-2rem))]', POPUP_CLASS)}
           onOpenAutoFocus={(event) => {
             event.preventDefault()
             document.getElementById('quick-description')?.focus()

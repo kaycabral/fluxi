@@ -23,7 +23,7 @@ import type {
   EntryPart,
 } from '@/features/ledger/core/types'
 import { fluxiDb } from '@/lib/db'
-import { and, asc, eq, gte, inArray, isNull, lte, ne, or } from 'drizzle-orm'
+import { and, asc, eq, gte, inArray, isNull, lte, ne, or, sql } from 'drizzle-orm'
 
 /**
  * Read side of the ledger. Every query is scoped by `userId` (the session
@@ -263,4 +263,13 @@ export async function listDescriptions(userId: string, limit = 300): Promise<str
     .orderBy(asc(entries.description))
     .limit(limit)
   return rows.map((r) => r.description)
+}
+
+/** Distinct tags across `userId`'s entries, sorted, for the form's tags autocomplete. */
+export async function listTags(userId: string): Promise<string[]> {
+  const rows = await db()
+    .selectDistinct({ tag: sql<string>`unnest(${entries.tags})` })
+    .from(entries)
+    .where(eq(entries.userId, userId))
+  return rows.map((r) => r.tag).sort((a, b) => a.localeCompare(b, 'pt-BR'))
 }

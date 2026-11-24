@@ -4,6 +4,23 @@
   --font-sans: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
 }
 
+/*
+ * Floating surfaces read as lifted off the page, like Google Calendar's
+ * popups: a deep elevation shadow and, in dark mode (where shadows barely
+ * show), a lighter surface than the cards they float over. The design system
+ * paints `--popover` the same as `--card`, so a popup over the calendar was
+ * indistinguishable from it.
+ */
+@theme {
+  --shadow-popup:
+    0 24px 38px 3px rgb(0 0 0 / 0.14), 0 9px 46px 8px rgb(0 0 0 / 0.12),
+    0 11px 15px -7px rgb(0 0 0 / 0.2);
+}
+
+.dark {
+  --popover: oklch(0.24 0 0);
+}
+
 html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

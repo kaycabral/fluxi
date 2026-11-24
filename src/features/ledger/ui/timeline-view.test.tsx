@@ -185,7 +185,7 @@ describe('TimelineView', () => {
     await userEvent.keyboard('{Escape}')
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     await userEvent.click(screen.getByRole('button', { name: 'Lançamento' }))
-    expect(await screen.findByLabelText('Data')).toHaveValue('2026-12-15')
+    expect(await screen.findByLabelText('Data')).toHaveValue('15/12/2026')
   })
 
   it('asks for a bank and account first', () => {

@@ -69,4 +69,10 @@ export const POPUP_PLACEMENT = {
   sticky: 'always',
 } as const
 
-export const POPUP_FIT = 'max-h-(--radix-popover-content-available-height) overflow-y-auto'
+/**
+ * Look of every calendar popup: never taller than the room left (scrolling
+ * inside) and lifted off the calendar like Google Calendar's, with a large
+ * radius, no border and the deep `shadow-popup` elevation.
+ */
+export const POPUP_CLASS =
+  'max-h-(--radix-popover-content-available-height) overflow-y-auto rounded-2xl border-0 shadow-popup'

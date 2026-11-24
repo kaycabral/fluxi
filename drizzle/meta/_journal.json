@@ -36,6 +36,13 @@
       "when": 1795534741870,
       "tag": "0004_occurrence_payments",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1795535758817,
+      "tag": "0005_import_raw",
+      "breakpoints": true
     }
   ]
 }

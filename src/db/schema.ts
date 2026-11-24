@@ -7,6 +7,7 @@ import {
   foreignKey,
   index,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   primaryKey,
@@ -384,5 +385,29 @@ export const importLinks = pgTable(
     }).onDelete('cascade'),
     index('import_links_entry_id_idx').on(t.entryId),
     check('import_links_month_first_day', sql`${t.month} is null or ${isFirstOfMonth(t.month)}`),
+  ],
+).enableRLS()
+
+/**
+ * Internal: lossless archive of every external record an importer read (e.g.
+ * each Notion page of the finance workspace, imported or not), so nothing from
+ * the source is lost even when it does not map onto the ledger. `target_id`
+ * names the fluxi row the import created from it (bank, account, or a
+ * `category` row the importer synthesized), so a re-run can delete exactly what
+ * it created; null for records with no single target.
+ */
+export const importRaw = pgTable(
+  'import_raw',
+  {
+    userId: ownerId(),
+    source: text('source').notNull(),
+    kind: text('kind').notNull(),
+    externalId: text('external_id').notNull(),
+    payload: jsonb('payload').notNull(),
+    targetId: uuid('target_id'),
+    importedAt: timestamp('imported_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ name: 'import_raw_pk', columns: [t.userId, t.source, t.kind, t.externalId] }),
   ],
 ).enableRLS()

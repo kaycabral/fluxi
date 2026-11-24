@@ -1,13 +1,16 @@
 import { sampleData, sampleRefs } from '@/features/ledger/ui/test-fixtures'
 import { render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import PayablesPage from './a-pagar/page'
-import CalendarPage from './calendario/page'
-import AccountsPage from './contas/page'
-import SearchPage from './lancamentos/page'
+import AppLayout from './(app)/layout'
+import CalendarPage from './(app)/page'
+import PayablesPage from './(legacy)/a-pagar/page'
+import AccountsPage from './(legacy)/contas/page'
+import SearchPage from './(legacy)/lancamentos/page'
+import LegacyLayout from './(legacy)/layout'
+import TimelinePage from './(legacy)/linha-do-tempo/page'
+import BudgetPage from './(legacy)/orcamento/page'
+import OldCalendarPage from './calendario/page'
 import PainelLayout from './layout'
-import BudgetPage from './orcamento/page'
-import TimelinePage from './page'
 
 type Read<T> = { ok: true; data: T } | { ok: false }
 
@@ -64,8 +67,8 @@ vi.mock('@/features/ledger/ui/budget-view', () => ({
   BudgetView: ({ months }: { months: unknown[] }) => <p>budget {months.length}</p>,
 }))
 vi.mock('@/features/ledger/ui/calendar-view', () => ({
-  CalendarView: ({ month, account }: { month: string; account: string }) => (
-    <p>calendar {`${month}/${account}`}</p>
+  CalendarView: ({ month, account, today }: { month: string; account: string; today: string }) => (
+    <p>calendar {`${month}/${account}@${today}`}</p>
   ),
 }))
 vi.mock('@/features/ledger/ui/ledger-shell', () => ({
@@ -74,6 +77,13 @@ vi.mock('@/features/ledger/ui/ledger-shell', () => ({
   ),
 }))
 vi.mock('./_components/topbar', () => ({ Topbar: () => <header>topbar</header> }))
+vi.mock('./_components/app-sidebar', () => ({
+  AppSidebar: ({ children }: { children: React.ReactNode }) => (
+    <div aria-label="menu lateral" role="region">
+      {children}
+    </div>
+  ),
+}))
 
 const ok = <T,>(data: T): Read<T> => ({ ok: true, data })
 
@@ -127,9 +137,23 @@ describe('painel pages', () => {
     render(
       await CalendarPage({ searchParams: Promise.resolve({ mes: ['2027-02'], conta: 'abc' }) }),
     )
-    expect(screen.getByText('calendar 2027-02/abc')).toBeInTheDocument()
+    expect(screen.getByText('calendar 2027-02/abc@2026-12-15')).toBeInTheDocument()
     render(await CalendarPage({ searchParams: Promise.resolve({ mes: 'x' }) }))
-    expect(screen.getByText('calendar 2026-12/')).toBeInTheDocument()
+    expect(screen.getByText('calendar 2026-12/@2026-12-15')).toBeInTheDocument()
+  })
+
+  it('the old calendar route redirects to /painel keeping month and account', async () => {
+    redirect.mockImplementation(() => {
+      throw new Error('redirected')
+    })
+    await expect(
+      OldCalendarPage({
+        searchParams: Promise.resolve({ mes: ['2027-02', '2027-03'], conta: 'abc', x: '1' }),
+      }),
+    ).rejects.toThrow('redirected')
+    expect(redirect).toHaveBeenLastCalledWith('/painel?mes=2027-02&conta=abc')
+    await expect(OldCalendarPage({ searchParams: Promise.resolve({}) })).rejects.toThrow()
+    expect(redirect).toHaveBeenLastCalledWith('/painel')
   })
 
   it('degrades every page when the backend is unavailable', async () => {
@@ -150,12 +174,22 @@ describe('painel pages', () => {
   })
 })
 
-describe('painel layout', () => {
+describe('painel layouts', () => {
   it('wraps the pages in the ledger shell with the user refs', async () => {
     render(await PainelLayout({ children: <p>conteúdo</p> }))
     expect(screen.getByRole('region', { name: 'shell com 2 bancos' })).toBeInTheDocument()
-    expect(screen.getByRole('navigation', { name: 'Seções' })).toBeInTheDocument()
     expect(screen.getByText('conteúdo')).toBeInTheDocument()
+  })
+
+  it('the new layout puts the pages in the sidebar shell', () => {
+    render(AppLayout({ children: <p>calendário</p> }))
+    expect(screen.getByRole('region', { name: 'menu lateral' })).toHaveTextContent('calendário')
+  })
+
+  it('the legacy layout keeps the top navigation and the footer', () => {
+    render(LegacyLayout({ children: <p>antigo</p> }))
+    expect(screen.getByRole('navigation', { name: 'Seções' })).toBeInTheDocument()
+    expect(screen.getByText('antigo')).toBeInTheDocument()
     const footer = screen.getByRole('navigation', { name: 'Rodapé' })
     expect(footer).toContainElement(screen.getByRole('link', { name: 'Privacidade' }))
   })

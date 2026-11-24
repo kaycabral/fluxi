@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { PainelNav } from './painel-nav'
 import { Unavailable } from './unavailable'
 
-let pathname = '/painel'
+let pathname = '/painel/linha-do-tempo'
 const refresh = vi.fn()
 vi.mock('next/navigation', () => ({
   usePathname: () => pathname,
@@ -12,7 +12,7 @@ vi.mock('next/navigation', () => ({
 }))
 
 describe('PainelNav', () => {
-  it('marks the timeline only on /painel', () => {
+  it('marks the timeline on its page', () => {
     render(<PainelNav />)
     expect(screen.getByRole('link', { name: 'Linha do tempo' })).toHaveAttribute(
       'aria-current',

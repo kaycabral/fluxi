@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   centsToInput,
+  dayLongLabel,
   formatAmount,
   formatMoney,
   formatPercent,
@@ -80,5 +81,12 @@ describe('format', () => {
     const lateUtc = new Date('2026-12-01T02:00:00Z')
     expect(monthOf(lateUtc)).toBe('2026-11')
     expect(isoDayOf(lateUtc, 'UTC')).toBe('2026-12-01')
+  })
+})
+
+describe('dayLongLabel', () => {
+  it('names the weekday, day and month', () => {
+    expect(dayLongLabel('2026-12-03')).toBe('quinta-feira, 3 de dezembro')
+    expect(dayLongLabel('2027-01-31')).toBe('domingo, 31 de janeiro')
   })
 })

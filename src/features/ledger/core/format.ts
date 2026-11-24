@@ -104,6 +104,18 @@ export function isoDate(month: Month, day: number): string {
   return `${month}-${String(clamped).padStart(2, '0')}`
 }
 
+const dayLong = new Intl.DateTimeFormat('pt-BR', {
+  weekday: 'long',
+  day: 'numeric',
+  month: 'long',
+  timeZone: 'UTC',
+})
+
+/** `2026-12-03` → `quinta-feira, 3 de dezembro`. */
+export function dayLongLabel(isoDay: string): string {
+  return dayLong.format(new Date(`${isoDay}T12:00:00Z`))
+}
+
 /** `2026-12-05` → `05/12/26`. */
 export function shortDate(month: Month, day: number): string {
   return `${String(day).padStart(2, '0')}/${month.slice(5, 7)}/${month.slice(2, 4)}`

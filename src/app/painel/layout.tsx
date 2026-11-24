@@ -1,7 +1,4 @@
-import { PainelNav } from '@/app/painel/_components/painel-nav'
-import { Topbar } from '@/app/painel/_components/topbar'
 import { todayIso } from '@/app/painel/_lib/session'
-import { Footer } from '@/components/footer'
 import { loadRefs } from '@/features/ledger/adapters/views'
 import type { LedgerRefs } from '@/features/ledger/core/view'
 import { LedgerShell } from '@/features/ledger/ui/ledger-shell'
@@ -14,6 +11,11 @@ export const metadata: Metadata = {
   title: 'Painel — Fluxi',
 }
 
+/**
+ * Signed-in area: guards the session and owns the entry sheet. The chrome
+ * lives in the route groups: `(app)` is the new sidebar layout (the calendar),
+ * `(legacy)` keeps the MVP screens with their top navigation until they move.
+ */
 export default async function PainelLayout({ children }: { children: React.ReactNode }) {
   const user = await getServerUser()
   if (!user) {
@@ -27,15 +29,5 @@ export default async function PainelLayout({ children }: { children: React.React
     ? loaded.data
     : { banks: [], accounts: [], categories: [], descriptions: [], today }
 
-  return (
-    <div className="bg-background text-foreground flex min-h-screen flex-col">
-      <Topbar />
-      <PainelNav />
-      <LedgerShell refs={refs}>
-        <main className="flex-1">{children}</main>
-      </LedgerShell>
-      {/* Bottom padding clears the floating "+ Lançamento" button. */}
-      <Footer className="mt-12 pb-24" />
-    </div>
-  )
+  return <LedgerShell refs={refs}>{children}</LedgerShell>
 }

@@ -86,7 +86,7 @@ test.describe('ledger critical flow', () => {
   }) => {
     await seedBenefit(user.id)
 
-    await page.goto('/painel')
+    await page.goto('/painel/linha-do-tempo')
     await expect(page.getByRole('heading', { level: 1, name: 'Linha do tempo' })).toBeVisible()
     // Saldo total and Entradas are the available money only (the checking account's R$ 5.000).
     await expect(timelineCell(page, /^Saldo total$/, THIS_MONTH)).toHaveText('5.000,00')
@@ -102,11 +102,11 @@ test.describe('ledger critical flow', () => {
   })
 
   test('create a monthly expense, then split it from next month on', async ({ page }) => {
-    await page.goto('/painel')
+    await page.goto('/painel/linha-do-tempo')
     await expect(page.getByRole('heading', { level: 1, name: 'Linha do tempo' })).toBeVisible()
 
-    // Create a monthly expense through the floating button.
-    await page.getByRole('button', { name: 'Novo lançamento' }).click()
+    // Create a monthly expense through the N shortcut.
+    await page.keyboard.press('n')
     const sheet = page.getByRole('dialog', { name: 'Novo lançamento' })
     await expect(sheet).toBeVisible()
     await sheet.getByLabel('Valor (R$)').fill('100')
@@ -149,6 +149,25 @@ test.describe('ledger critical flow', () => {
     await expect(expensesCell(page, NEXT_MONTH)).toHaveText('-150,00')
     await expect(expensesCell(page, LATER_MONTH)).toHaveText('-150,00')
     await expect(page.getByRole('row', { name: /Aluguel E2E/ })).toContainText('-R$ 150')
+  })
+
+  test('quick add on a calendar day, like a calendar event', async ({ page }) => {
+    await page.goto('/painel')
+    const day = page.getByRole('group', { name: new RegExp(`^Dia ${TODAY_DAY}(,|$)`) })
+    await day.getByRole('button', { name: /^Criar lançamento em/ }).click()
+    const form = page.getByRole('form', { name: 'Criar lançamento' })
+    await expect(form.getByLabel('Valor (R$)')).toBeFocused()
+    await form.getByLabel('Valor (R$)').fill('42,90')
+    await form.getByLabel('Descrição').fill('Padaria E2E')
+    await form.getByLabel('Descrição').press('Enter')
+    await expect(form).toBeHidden()
+
+    // The entry lands on that day and lowers the day's end balance (5.000,00 − 42,90).
+    await expect(day.getByRole('button', { name: /42,90 Padaria E2E/ })).toBeVisible()
+    await expect(day).toContainText('4.957,10')
+    // There is no floating button anymore; "Criar" opens the full sheet.
+    await page.getByRole('button', { name: 'Criar', exact: true }).click()
+    await expect(page.getByRole('dialog', { name: 'Novo lançamento' })).toBeVisible()
   })
 
   test('mark a bill paid in A pagar, then see it paid in the day by day', async ({

@@ -32,7 +32,18 @@ function Opener() {
   const { openNew, openEdit } = useLedgerUi()
   return (
     <>
+      <button onClick={() => openNew()}>novo</button>
       <button onClick={() => openNew({ month: '2027-02' })}>abrir mês</button>
+      <button
+        onClick={() =>
+          openNew({
+            date: '2027-03-09',
+            values: { kind: 'income', amount: '50', description: 'Pix' },
+          })
+        }
+      >
+        abrir rascunho
+      </button>
       <button onClick={() => openEdit(targetFor(data, landingOf(IDS.power, '2027-01')))}>
         editar luz
       </button>
@@ -75,8 +86,9 @@ describe('useLedgerUi', () => {
 })
 
 describe('new entry', () => {
-  it('opens from the floating button and the N shortcut, not while typing', async () => {
+  it('opens from the N shortcut (not while typing); there is no floating button', async () => {
     renderShell()
+    expect(screen.queryByRole('button', { name: 'Novo lançamento' })).not.toBeInTheDocument()
     await userEvent.click(screen.getByLabelText('campo qualquer'))
     await userEvent.keyboard('n')
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
@@ -87,8 +99,21 @@ describe('new entry', () => {
     await userEvent.keyboard('{Escape}')
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
 
-    await userEvent.click(screen.getByRole('button', { name: 'Novo lançamento' }))
+    await userEvent.click(screen.getByRole('button', { name: 'novo' }))
     expect(await screen.findByRole('dialog', { name: 'Novo lançamento' })).toBeInTheDocument()
+  })
+
+  it('opens on a given date with what the quick add typed', async () => {
+    renderShell()
+    await userEvent.click(screen.getByRole('button', { name: 'abrir rascunho' }))
+    const sheet = await screen.findByRole('dialog', { name: 'Novo lançamento' })
+    expect(within(sheet).getByLabelText('Data')).toHaveValue('2027-03-09')
+    expect(within(sheet).getByLabelText('Valor (R$)')).toHaveValue('50')
+    expect(within(sheet).getByLabelText('Descrição')).toHaveValue('Pix')
+    expect(within(sheet).getByRole('button', { name: 'Entrada' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
   })
 
   it('creates a monthly expense with tags and a category-suggested pot', async () => {
@@ -129,7 +154,7 @@ describe('new entry', () => {
   it('shows validation and server errors, and keeps tipo/conta on "Salvar e criar outro"', async () => {
     actions.createEntryAction.mockResolvedValueOnce({ ok: false, error: 'Falhou no servidor.' })
     renderShell()
-    await userEvent.click(screen.getByRole('button', { name: 'Novo lançamento' }))
+    await userEvent.click(screen.getByRole('button', { name: 'novo' }))
     const sheet = await screen.findByRole('dialog', { name: 'Novo lançamento' })
     await userEvent.click(within(sheet).getByRole('button', { name: 'Salvar' }))
     expect(within(sheet).getByRole('alert')).toHaveTextContent('Informe o valor.')
@@ -154,7 +179,7 @@ describe('new entry', () => {
 
   it('builds transfers and split entries', async () => {
     renderShell()
-    await userEvent.click(screen.getByRole('button', { name: 'Novo lançamento' }))
+    await userEvent.click(screen.getByRole('button', { name: 'novo' }))
     const sheet = await screen.findByRole('dialog', { name: 'Novo lançamento' })
     await userEvent.click(within(sheet).getByRole('button', { name: 'Transferência' }))
     expect(within(sheet).getByLabelText('Para a conta')).toHaveTextContent('BTG · Cartão')

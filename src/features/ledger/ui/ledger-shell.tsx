@@ -10,20 +10,28 @@ import { isoDate } from '@/features/ledger/core/format'
 import type { Month } from '@/features/ledger/core/month'
 import type { EditScope } from '@/features/ledger/core/scoped-edit'
 import type { LedgerRefs } from '@/features/ledger/core/view'
-import { Button, Sheet, SheetContent, useIsMobile } from '@cbrl/design'
-import { Plus } from 'lucide-react'
+import { Sheet, SheetContent, useIsMobile } from '@cbrl/design'
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { EntryForm } from './entry-sheet'
 import { ScopeDialog, type ScopeRequest } from './scope-dialog'
 
 type LedgerUi = {
   refs: LedgerRefs
-  /** New entry; `month` pre-fills the date (today's day in that month). */
-  openNew: (options?: { month?: Month }) => void
+  /**
+   * New entry. `date` pre-fills the date; else `month` (today's day in that
+   * month); else today. `values` carries what the quick add already typed.
+   */
+  openNew: (options?: NewEntryOptions) => void
   /** Edit an entry or one occurrence of it. */
   openEdit: (target: EditTarget) => void
   /** Ask where an occurrence change applies; null when cancelled. */
   requestScope: (request: ScopeRequest) => Promise<EditScope | null>
+}
+
+export type NewEntryOptions = {
+  month?: Month
+  date?: string
+  values?: Partial<EntryFormValues>
 }
 
 const LedgerUiContext = createContext<LedgerUi | null>(null)
@@ -51,8 +59,7 @@ function isTyping(target: EventTarget | null): boolean {
 
 /**
  * Signed-in shell of the ledger: owns the entry sheet (side on desktop,
- * bottom on mobile), the scope dialog, the floating "+ Lançamento" button and
- * the N shortcut, and exposes them to the views through {@link useLedgerUi}.
+ * bottom on mobile), the scope dialog and the N shortcut, and exposes them to the views through {@link useLedgerUi}.
  */
 export function LedgerShell({ refs, children }: { refs: LedgerRefs; children: React.ReactNode }) {
   const isMobile = useIsMobile()
@@ -65,15 +72,19 @@ export function LedgerShell({ refs, children }: { refs: LedgerRefs; children: Re
   const defaultAccountId = defaultAccountOf(refs)
 
   const openNew = useCallback(
-    (options?: { month?: Month }) => {
+    (options?: NewEntryOptions) => {
       const today = refs.today
       const date =
-        options?.month === undefined ? today : isoDate(options.month, Number(today.slice(8, 10)))
+        options?.date ??
+        (options?.month === undefined ? today : isoDate(options.month, Number(today.slice(8, 10))))
       counter.current += 1
       setSession({
         id: counter.current,
         target: null,
-        initial: newEntryValues({ date, accountId: defaultAccountId }),
+        initial: {
+          ...newEntryValues({ date, accountId: defaultAccountId, kind: options?.values?.kind }),
+          ...options?.values,
+        },
       })
       setOpen(true)
     },
@@ -118,15 +129,6 @@ export function LedgerShell({ refs, children }: { refs: LedgerRefs; children: Re
   return (
     <LedgerUiContext.Provider value={value}>
       {children}
-      <Button
-        size="lg"
-        className="fixed right-[max(1.25rem,env(safe-area-inset-right))] bottom-[max(1.25rem,env(safe-area-inset-bottom))] z-40 rounded-full shadow-lg"
-        onClick={() => openNew()}
-        aria-keyshortcuts="N"
-        aria-label="Novo lançamento"
-      >
-        <Plus /> Lançamento
-      </Button>
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent
           side={isMobile ? 'bottom' : 'right'}

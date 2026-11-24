@@ -44,3 +44,37 @@ export function calendarMonth(result: MonthResult, ids: readonly string[] | null
   }
   return { month: result.month, leadingBlanks: firstWeekday(result.month), days }
 }
+
+/** A whole occurrence dragged to another day of the month, shown there until the server confirms. */
+export type DayMove = { entryId: string; competence: Month; day: number }
+
+/**
+ * Whether a landing can be dragged to another day: whole occurrences only (a
+ * split entry's parts carry their own days and are edited in the sheet).
+ */
+export function isMovable(landing: Landing): boolean {
+  return landing.part === null
+}
+
+/** The days with pending `moves` applied: each moved occurrence leaves its day for the new one. */
+export function withMoves(days: readonly CalendarDay[], moves: readonly DayMove[]): CalendarDay[] {
+  if (moves.length === 0) return [...days]
+  const moveOf = (landing: Landing): DayMove | undefined =>
+    isMovable(landing)
+      ? moves.findLast((m) => m.entryId === landing.entry.id && m.competence === landing.competence)
+      : undefined
+  const moved: Landing[] = []
+  const kept = days.map((d) => ({
+    ...d,
+    landings: d.landings.filter((landing) => {
+      const move = moveOf(landing)
+      if (move === undefined || move.day === d.day) return true
+      moved.push({ ...landing, day: move.day })
+      return false
+    }),
+  }))
+  return kept.map((d) => ({
+    ...d,
+    landings: [...d.landings, ...moved.filter((landing) => landing.day === d.day)],
+  }))
+}

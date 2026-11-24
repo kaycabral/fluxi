@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { calendarMonth, firstWeekday } from './calendar'
-import { makeEntry } from './fixtures'
+import { calendarMonth, firstWeekday, isMovable, withMoves } from './calendar'
+import { makeEntry, makePart } from './fixtures'
 import { projectMonths } from './projection'
 import { initialSelectedMonth, sumBalances, timelineWindow } from './timeline'
 
@@ -50,6 +50,34 @@ describe('calendarMonth', () => {
     const nubank = calendarMonth(dec, ['nu'])
     expect(nubank.days[2]?.landings).toHaveLength(1)
     expect(nubank.days[30]?.endBalanceCents).toBe(10000)
+  })
+
+  it('shows dragged occurrences on their new day before the server confirms', () => {
+    const [, dec] = project('2026-11')
+    if (dec === undefined) throw new Error('no month')
+    const { days } = calendarMonth(dec, null)
+    expect(withMoves(days, [])).toEqual(days)
+    const moved = withMoves(days, [
+      { entryId: 'rent', competence: '2026-12', day: 20 },
+      { entryId: 'rent', competence: '2026-12', day: 10 },
+      { entryId: 'gym', competence: '2026-12', day: 3 },
+      { entryId: 'rent', competence: '2027-01', day: 1 },
+    ])
+    expect(moved[2]?.landings.map((l) => l.entry.id)).toEqual(['gym'])
+    expect(moved[19]?.landings).toEqual([])
+    expect(moved[9]?.landings.map((l) => [l.entry.id, l.day])).toEqual([['rent', 10]])
+    expect(moved[0]?.landings).toEqual([])
+  })
+
+  it('never drags the parts of a split entry', () => {
+    const [, dec] = project('2026-11')
+    const landing = dec?.landings[0]
+    if (landing === undefined) throw new Error('no landing')
+    expect(isMovable(landing)).toBe(true)
+    expect(isMovable({ ...landing, part: makePart() })).toBe(false)
+    const days = [{ day: 3, landings: [{ ...landing, part: makePart() }], endBalanceCents: 0 }]
+    const moved = withMoves(days, [{ entryId: landing.entry.id, competence: '2026-12', day: 9 }])
+    expect(moved[0]?.landings).toHaveLength(1)
   })
 
   it('runs only the accounts it is given (benefits stay out of the available set)', () => {

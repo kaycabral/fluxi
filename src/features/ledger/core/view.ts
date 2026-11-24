@@ -26,7 +26,8 @@ export type LedgerRefs = {
   banks: Bank[]
   accounts: Account[]
   categories: Category[]
-  descriptions: string[]
+  /** Every tag in use, sorted, for the tags autocomplete. */
+  tags: string[]
   /** `YYYY-MM-DD` in São Paulo. */
   today: string
 }

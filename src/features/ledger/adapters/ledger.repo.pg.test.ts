@@ -22,6 +22,7 @@ import {
   listEntries,
   listEntryOverrides,
   listEntryParts,
+  listTags,
   loadLedger,
 } from './ledger.repo'
 import { projectLedger } from './projection'
@@ -177,6 +178,28 @@ describe('user isolation', () => {
     expect(biaLedger.entries.map((e) => e.amountCents).sort()).toEqual([10000, 500000])
     expect(anaLedger.countFrom).toBe('2026-12')
     expect(biaLedger.countFrom).toBeNull()
+  })
+
+  it('lists each user’s own tags, distinct and sorted', async () => {
+    await db()
+      .insert(entries)
+      .values({
+        userId: ANA,
+        kind: 'expense',
+        description: 'Passagem',
+        amountCents: 50000,
+        accountId: ana.checkingId,
+        startMonth: '2026-12-01',
+        day: 10,
+        recurrence: 'none',
+        tags: ['viagem', 'Casamento', 'trabalho'],
+      })
+    await db()
+      .update(entries)
+      .set({ tags: ['só da Bia'] })
+      .where(sql`${entries.userId} = ${BIA}`)
+    expect(await listTags(ANA)).toEqual(['Casamento', 'trabalho', 'viagem'])
+    expect(await listTags(BIA)).toEqual(['só da Bia'])
   })
 
   it('ignores foreign ids passed to the scoped queries', async () => {

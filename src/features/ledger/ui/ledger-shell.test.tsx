@@ -116,22 +116,33 @@ describe('new entry', () => {
     renderShell()
     await userEvent.click(screen.getByRole('button', { name: 'abrir rascunho' }))
     const sheet = await screen.findByRole('dialog', { name: 'Novo lançamento' })
-    expect(within(sheet).getByLabelText('Data')).toHaveValue('2027-03-09')
-    expect(within(sheet).getByLabelText('Valor (R$)')).toHaveValue('50')
+    expect(within(sheet).getByLabelText('Data')).toHaveValue('09/03/2027')
+    expect(within(sheet).getByLabelText('Valor')).toHaveValue('50,00')
     expect(within(sheet).getByLabelText('Descrição')).toHaveValue('Pix')
     expect(within(sheet).getByRole('button', { name: 'Entrada' })).toHaveAttribute(
       'aria-pressed',
       'true',
     )
+
+    // The date is typed dd/mm/aaaa; the entry lands on the last full date.
+    const date = within(sheet).getByLabelText('Data')
+    await userEvent.clear(date)
+    await userEvent.type(date, '03042027')
+    expect(date).toHaveValue('03/04/2027')
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Salvar' }))
+    await waitFor(() => expect(actions.createEntryAction).toHaveBeenCalledOnce())
+    expect(actions.createEntryAction.mock.calls[0]?.[0]).toMatchObject({
+      fields: { startMonth: '2027-04', day: 3, amountCents: 5000 },
+    })
   })
 
   it('creates a monthly expense with tags and a category-suggested pot', async () => {
     renderShell()
     await userEvent.click(screen.getByRole('button', { name: 'abrir mês' }))
     const sheet = await screen.findByRole('dialog', { name: 'Novo lançamento' })
-    expect(within(sheet).getByLabelText('Data')).toHaveValue('2027-02-15')
+    expect(within(sheet).getByLabelText('Data')).toHaveValue('15/02/2027')
 
-    await userEvent.type(within(sheet).getByLabelText('Valor (R$)'), '1.234,50')
+    await userEvent.type(within(sheet).getByLabelText('Valor'), '1.234,50')
     await userEvent.type(within(sheet).getByLabelText('Descrição'), 'Academia')
     await chooseOption('Categoria', 'Academia')
     expect(within(sheet).getByLabelText('Pote')).toHaveTextContent('Conforto')
@@ -152,6 +163,31 @@ describe('new entry', () => {
     await userEvent.type(within(sheet).getByLabelText('Tags'), 'Saúde,')
     await userEvent.type(within(sheet).getByLabelText('Tags'), 'extra{Enter}')
     await userEvent.click(within(sheet).getByRole('button', { name: 'Remover tag extra' }))
+    // The tags in use come up as suggestions: arrows + Enter, or a click.
+    await userEvent.type(within(sheet).getByLabelText('Tags'), 'VIA')
+    const suggestions = within(sheet).getByRole('listbox', { name: 'Tags em uso' })
+    expect(
+      within(suggestions)
+        .getAllByRole('option')
+        .map((o) => o.textContent),
+    ).toEqual(['#viagem'])
+    await userEvent.keyboard('{ArrowDown}{Enter}')
+    await userEvent.click(within(sheet).getByLabelText('Tags'))
+    await userEvent.click(within(sheet).getByRole('option', { name: '#casa' }))
+    expect(within(sheet).queryByRole('listbox')).not.toBeInTheDocument()
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Remover tag casa' }))
+    // Escape closes only the list; leaving the field adds what was typed.
+    await userEvent.type(within(sheet).getByLabelText('Tags'), 'ca{ArrowUp}')
+    expect(within(sheet).getByRole('option', { name: '#casa' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
+    await userEvent.keyboard('{Escape}')
+    expect(within(sheet).queryByRole('listbox')).not.toBeInTheDocument()
+    expect(sheet).toBeInTheDocument()
+    await userEvent.tab()
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Remover tag ca' }))
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Remover tag viagem' }))
     await userEvent.click(within(sheet).getByRole('button', { name: 'Salvar' }))
 
     await waitFor(() => expect(actions.createEntryAction).toHaveBeenCalledOnce())
@@ -184,8 +220,8 @@ describe('new entry', () => {
     expect(within(sheet).getByRole('alert')).toHaveTextContent('Informe o valor.')
 
     await userEvent.click(within(sheet).getByRole('button', { name: 'Entrada' }))
-    expect(within(sheet).getByLabelText('Pote')).toBeDisabled()
-    await userEvent.type(within(sheet).getByLabelText('Valor (R$)'), '50')
+    expect(within(sheet).queryByLabelText('Pote')).not.toBeInTheDocument()
+    await userEvent.type(within(sheet).getByLabelText('Valor'), '50')
     await userEvent.type(within(sheet).getByLabelText('Descrição'), 'Bônus')
     await userEvent.click(within(sheet).getByRole('button', { name: 'Salvar' }))
     expect(await within(sheet).findByRole('alert')).toHaveTextContent('Falhou no servidor.')
@@ -194,7 +230,7 @@ describe('new entry', () => {
     await waitFor(() => expect(saveAndNew).toBeEnabled())
     await userEvent.click(saveAndNew)
     await waitFor(() => expect(actions.createEntryAction).toHaveBeenCalledTimes(2))
-    await waitFor(() => expect(within(sheet).getByLabelText('Valor (R$)')).toHaveValue(''))
+    await waitFor(() => expect(within(sheet).getByLabelText('Valor')).toHaveValue(''))
     expect(within(sheet).getByRole('button', { name: 'Entrada' })).toHaveAttribute(
       'aria-pressed',
       'true',
@@ -208,6 +244,14 @@ describe('new entry', () => {
     await userEvent.click(within(sheet).getByRole('button', { name: 'Transferência' }))
     expect(within(sheet).getByLabelText('Para a conta')).toHaveTextContent('BTG · Cartão')
     await userEvent.click(within(sheet).getByRole('button', { name: 'Saída' }))
+    // Splitting into dates is only for an income in a "Renda" category.
+    const split = () => within(sheet).queryByLabelText(/Dividir em mais de uma data/)
+    expect(split()).not.toBeInTheDocument()
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Entrada' }))
+    expect(split()).not.toBeInTheDocument()
+    await chooseOption('Categoria', 'Energia elétrica')
+    expect(split()).not.toBeInTheDocument()
+    await chooseOption('Categoria', 'Salário')
     await chooseOption('Repetição', 'Parcelado…')
     expect(within(sheet).getByLabelText('Parcelas')).toHaveValue(12)
     expect(within(sheet).getByLabelText('Repetição')).toHaveTextContent('Parcelado…')
@@ -226,7 +270,7 @@ describe('new entry', () => {
     await userEvent.click(
       within(sheet).getByLabelText('mês seguinte', { selector: '#entry-part-next-1' }),
     )
-    await userEvent.type(within(sheet).getByLabelText('Valor total (R$)'), '1000')
+    await userEvent.type(within(sheet).getByLabelText('Valor total'), '100000')
     expect(within(sheet).getByText(/^1× R\$\s83,37 \+ 11× R\$\s83,33$/)).toBeInTheDocument()
     await userEvent.type(within(sheet).getByLabelText('Descrição'), 'Notebook')
     await userEvent.click(within(sheet).getByRole('button', { name: 'Salvar' }))
@@ -252,11 +296,11 @@ describe('editing', () => {
     await userEvent.click(screen.getByRole('button', { name: 'editar luz' }))
     const sheet = await screen.findByRole('dialog', { name: 'Editar lançamento' })
     expect(within(sheet).getByText(/Editando jan\/27/)).toBeInTheDocument()
-    const amount = within(sheet).getByLabelText('Valor (R$)')
+    const amount = within(sheet).getByLabelText('Valor')
     expect(amount).toHaveValue('260,00')
 
     await userEvent.clear(amount)
-    await userEvent.type(amount, '300')
+    await userEvent.type(amount, '30000')
     await userEvent.click(within(sheet).getByRole('button', { name: 'Salvar' }))
     const scope = await screen.findByRole('dialog', { name: 'Aplicar a mudança em…' })
     expect(scope).toHaveTextContent('Luz em jan/27: valor R$ 260,00 → R$ 300,00')

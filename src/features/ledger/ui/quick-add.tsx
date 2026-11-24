@@ -3,30 +3,28 @@
 import { createEntryAction } from '@/features/ledger/adapters/actions/entries'
 import { newEntryValues, valuesToFields } from '@/features/ledger/core/entry-form'
 import { dayLongLabel } from '@/features/ledger/core/format'
-import { Button, cn, Input } from '@cbrl/design'
-import { Banknote, Clock, Loader2, Wallet, X } from 'lucide-react'
+import type { EntryKind } from '@/features/ledger/core/types'
+import { Button } from '@cbrl/design'
+import { Banknote, Clock, Loader2, Repeat, Wallet, X } from 'lucide-react'
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
+import { KindToggle, TitleInput } from './entry-fields'
 import { defaultAccountOf, useLedgerUi } from './ledger-shell'
+import { MoneyInput } from './money-input'
 import { RepeatField, type RepeatValue } from './repeat-field'
 import { AccountSelect } from './selects'
 
-type QuickKind = 'expense' | 'income'
-
-const QUICK_KINDS: { kind: QuickKind; label: string }[] = [
-  { kind: 'expense', label: 'Saída' },
-  { kind: 'income', label: 'Entrada' },
-]
+const QUICK_KINDS: readonly EntryKind[] = ['income', 'expense']
 
 /**
  * Quick add on a calendar day, laid out like Google Calendar's: a big
- * description, Saída/Entrada pills, the date with its repetition, then amount
- * and account. "Mais opções" carries what was typed to the full sheet
- * (installments, category, pot, parts, transfer).
+ * description, Entrada/Saída, the date and its repetition, then amount and
+ * account, each row led by its icon. "Mais opções" carries what was typed to
+ * the full sheet (installments, category, pot, tags, parts, transfer).
  */
 export function QuickAddForm({ date, onDone }: { date: string; onDone: () => void }) {
   const { refs, openNew } = useLedgerUi()
-  const [kind, setKind] = useState<QuickKind>('expense')
+  const [kind, setKind] = useState<EntryKind>('expense')
   const [amount, setAmount] = useState('')
   const [description, setDescription] = useState('')
   const [repeat, setRepeat] = useState<RepeatValue>({
@@ -82,57 +80,21 @@ export function QuickAddForm({ date, onDone }: { date: string; onDone: () => voi
         </Button>
       </div>
       <span aria-hidden />
-      <Input
+      <TitleInput
         id="quick-description"
         aria-label="Descrição"
-        list="quick-descriptions"
-        autoComplete="off"
-        placeholder="Adicionar descrição"
-        className="focus-visible:border-b-primary h-11 rounded-none border-0 border-b-2 px-0 text-xl shadow-none focus-visible:ring-0 [&::-webkit-calendar-picker-indicator]:hidden"
+        size="md"
         value={description}
         onChange={(e) => setDescription(e.target.value)}
       />
-      <datalist id="quick-descriptions">
-        {refs.descriptions.map((d) => (
-          <option key={d} value={d} />
-        ))}
-      </datalist>
       <span aria-hidden />
-      <div role="group" aria-label="Tipo" className="flex gap-2">
-        {QUICK_KINDS.map((option) => (
-          <Button
-            key={option.kind}
-            type="button"
-            size="sm"
-            variant={kind === option.kind ? 'secondary' : 'ghost'}
-            aria-pressed={kind === option.kind}
-            className={cn('rounded-md', kind === option.kind && 'font-semibold')}
-            onClick={() => setKind(option.kind)}
-          >
-            {option.label}
-          </Button>
-        ))}
-      </div>
+      <KindToggle kinds={QUICK_KINDS} value={kind} onChange={setKind} />
       <Clock className="text-muted-foreground size-5" aria-hidden />
-      <div className="grid gap-0.5">
-        <p className="text-sm first-letter:uppercase">{dayLongLabel(date)}</p>
-        <RepeatField
-          date={date}
-          className="text-muted-foreground h-auto border-0 p-0 text-xs shadow-none"
-          value={repeat}
-          onChange={setRepeat}
-        />
-      </div>
+      <p className="text-sm first-letter:uppercase">{dayLongLabel(date)}</p>
+      <Repeat className="text-muted-foreground size-5" aria-hidden />
+      <RepeatField date={date} value={repeat} onChange={setRepeat} />
       <Banknote className="text-muted-foreground size-5" aria-hidden />
-      <Input
-        id="quick-amount"
-        aria-label="Valor (R$)"
-        inputMode="decimal"
-        autoComplete="off"
-        placeholder="Valor (R$)"
-        value={amount}
-        onChange={(e) => setAmount(e.target.value)}
-      />
+      <MoneyInput id="quick-amount" aria-label="Valor" value={amount} onValueChange={setAmount} />
       <Wallet className="text-muted-foreground size-5" aria-hidden />
       <AccountSelect
         aria-label="Conta"

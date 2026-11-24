@@ -1,30 +1,38 @@
 'use client'
 
 import {
-  addTag,
+  addKnownTag,
   DEFAULT_PARTS,
   partsPercentTotal,
+  tagSuggestions,
   type PartDraft,
 } from '@/features/ledger/core/entry-form'
 import { KIND_LABELS } from '@/features/ledger/core/labels'
 import type { EntryKind } from '@/features/ledger/core/types'
 import { Badge, Button, Checkbox, cn, Input, Label } from '@cbrl/design'
 import { Plus, X } from 'lucide-react'
-import { useState } from 'react'
+import type * as React from 'react'
+import { useId, useState } from 'react'
 
-const KINDS: EntryKind[] = ['income', 'expense', 'transfer']
+const KINDS: readonly EntryKind[] = ['income', 'expense', 'transfer']
 
-/** Entrada | Saída | Transferência. */
+/** Entrada | Saída | Transferência (or just the `kinds` given). */
 export function KindToggle({
   value,
   onChange,
+  kinds = KINDS,
 }: {
   value: EntryKind
   onChange: (kind: EntryKind) => void
+  kinds?: readonly EntryKind[]
 }) {
   return (
-    <div role="group" aria-label="Tipo" className="bg-muted grid grid-cols-3 gap-1 rounded-lg p-1">
-      {KINDS.map((kind) => (
+    <div
+      role="group"
+      aria-label="Tipo"
+      className="bg-muted grid auto-cols-fr grid-flow-col gap-1 rounded-lg p-1"
+    >
+      {kinds.map((kind) => (
         <Button
           key={kind}
           type="button"
@@ -41,24 +49,130 @@ export function KindToggle({
   )
 }
 
-/** Free-text tag chips (Enter or comma adds). */
+/**
+ * The description as a big underlined title, like Google Calendar's event
+ * title: the one field that leaves the standard input look, on purpose.
+ */
+export function TitleInput({
+  size = 'lg',
+  className,
+  ...props
+}: Omit<React.ComponentProps<typeof Input>, 'size'> & { size?: 'md' | 'lg' }) {
+  return (
+    <Input
+      autoComplete="off"
+      placeholder="Adicionar descrição"
+      {...props}
+      className={cn(
+        'focus-visible:border-b-primary rounded-none border-0 border-b-2 bg-transparent px-0 shadow-none focus-visible:ring-0 dark:bg-transparent',
+        size === 'lg' ? 'h-12 text-2xl md:text-2xl' : 'h-11 text-xl md:text-xl',
+        className,
+      )}
+    />
+  )
+}
+
+/**
+ * Tag chips (Enter or comma adds what was typed) with an autocomplete of the
+ * tags already in use: arrows move through it, Enter or a click picks one.
+ */
 export function TagsField({
   tags,
+  suggestions,
   onChange,
 }: {
   tags: string[]
+  /** Every tag already in use, sorted. */
+  suggestions: readonly string[]
   onChange: (tags: string[]) => void
 }) {
   const [draft, setDraft] = useState('')
-  const commit = () => {
-    onChange(addTag(tags, draft))
+  const [open, setOpen] = useState(false)
+  const [active, setActive] = useState(-1)
+  const listId = useId()
+  const options = open ? tagSuggestions(suggestions, tags, draft) : []
+  const highlighted = options[active]
+
+  const add = (tag: string) => {
+    onChange(addKnownTag(tags, suggestions, tag))
     setDraft('')
+    setActive(-1)
   }
+
+  function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault()
+      setOpen(true)
+      if (options.length === 0) return
+      const step = e.key === 'ArrowDown' ? 1 : -1
+      setActive((i) => (i + step + options.length) % options.length)
+    } else if (e.key === 'Escape') {
+      // Only the list closes: the sheet skips Escape on an expanded combobox.
+      setOpen(false)
+    } else if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault()
+      add(highlighted ?? draft)
+    }
+  }
+
   return (
-    <div className="grid gap-2">
+    <div className="grid gap-1.5">
       <Label htmlFor="entry-tags">Tags</Label>
+      <div className="relative">
+        <Input
+          id="entry-tags"
+          role="combobox"
+          aria-expanded={options.length > 0}
+          aria-controls={listId}
+          aria-autocomplete="list"
+          aria-activedescendant={highlighted === undefined ? undefined : `${listId}-${active}`}
+          autoComplete="off"
+          value={draft}
+          placeholder="Ex.: viagem, casa"
+          onFocus={() => setOpen(true)}
+          onChange={(e) => {
+            setDraft(e.target.value)
+            setActive(-1)
+            setOpen(true)
+          }}
+          onBlur={() => {
+            setOpen(false)
+            if (draft.trim() !== '') add(draft)
+          }}
+          onKeyDown={onKeyDown}
+        />
+        {options.length > 0 && (
+          <ul
+            id={listId}
+            role="listbox"
+            aria-label="Tags em uso"
+            className="bg-popover text-popover-foreground absolute inset-x-0 top-full z-50 mt-1 max-h-60 overflow-y-auto rounded-md border p-1 shadow-md"
+          >
+            {options.map((tag, index) => (
+              <li
+                key={tag}
+                id={`${listId}-${index}`}
+                role="option"
+                aria-selected={index === active}
+                className={cn(
+                  'hover:bg-accent hover:text-accent-foreground cursor-default rounded-sm px-2 py-1.5 text-sm',
+                  index === active && 'bg-accent text-accent-foreground',
+                )}
+                // On mouse down, keeping the focus in the input: a blur would add the
+                // half-typed draft. The keyboard picks through the input (combobox).
+                onMouseDown={(e) => {
+                  e.preventDefault()
+                  add(tag)
+                }}
+              >
+                #{tag}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
       {tags.length > 0 && (
-        <div className="flex flex-wrap gap-1">
+        <div className="flex flex-wrap gap-1 pt-0.5">
           {tags.map((tag) => (
             <Badge key={tag} variant="secondary" className="gap-1">
               #{tag}
@@ -73,19 +187,6 @@ export function TagsField({
           ))}
         </div>
       )}
-      <Input
-        id="entry-tags"
-        value={draft}
-        placeholder="Ex.: viagem, casa"
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={() => draft.trim() !== '' && commit()}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ',') {
-            e.preventDefault()
-            commit()
-          }
-        }}
-      />
     </div>
   )
 }

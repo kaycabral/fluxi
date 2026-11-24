@@ -115,9 +115,11 @@ test.describe('ledger critical flow', () => {
     await page.keyboard.press('n')
     const sheet = page.getByRole('dialog', { name: 'Novo lançamento' })
     await expect(sheet).toBeVisible()
-    await sheet.getByLabel('Valor (R$)').fill('100')
+    await sheet.getByLabel('Valor').fill('10000')
     await sheet.getByLabel('Descrição').fill('Aluguel E2E')
-    await sheet.getByLabel('Data', { exact: true }).fill(`${THIS_MONTH}-10`)
+    await sheet
+      .getByLabel('Data', { exact: true })
+      .fill(`10/${THIS_MONTH.slice(5, 7)}/${THIS_MONTH.slice(0, 4)}`)
     await sheet.getByLabel('Repetição').click()
     await page.getByRole('option', { name: 'Mensal no dia 10' }).click()
     await sheet.getByRole('button', { name: 'Salvar', exact: true }).click()
@@ -140,8 +142,8 @@ test.describe('ledger critical flow', () => {
     await page.getByRole('row', { name: /Aluguel E2E/ }).click()
     const edit = page.getByRole('dialog', { name: 'Editar lançamento' })
     await expect(edit).toBeVisible()
-    await expect(edit.getByLabel('Valor (R$)')).toHaveValue('100,00')
-    await edit.getByLabel('Valor (R$)').fill('150')
+    await expect(edit.getByLabel('Valor')).toHaveValue('100,00')
+    await edit.getByLabel('Valor').fill('15000')
     await edit.getByRole('button', { name: 'Salvar', exact: true }).click()
 
     const scope = page.getByRole('dialog', { name: 'Aplicar a mudança em…' })
@@ -170,8 +172,8 @@ test.describe('ledger critical flow', () => {
     const form = page.getByRole('form', { name: 'Criar lançamento' })
     await expect(form.getByLabel('Descrição')).toBeFocused()
     await form.getByLabel('Descrição').fill('Padaria E2E')
-    await form.getByLabel('Valor (R$)').fill('42,90')
-    await form.getByLabel('Valor (R$)').press('Enter')
+    await form.getByLabel('Valor').fill('42,90')
+    await form.getByLabel('Valor').press('Enter')
     await expect(form).toBeHidden()
 
     // The entry lands on that day and lowers the day's end balance by 42,90.

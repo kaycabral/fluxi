@@ -11,7 +11,7 @@ import {
   listBanks,
   listBudgetPots,
   listCategories,
-  listDescriptions,
+  listTags,
   loadLedger,
   type MonthWindow,
 } from './ledger.repo'
@@ -25,13 +25,13 @@ import { projectLedger } from './projection'
 
 export function loadRefs(userId: string, today: string): Promise<BackendRead<LedgerRefs>> {
   return readBackend('ledger refs', async () => {
-    const [banks, accounts, categories, descriptions] = await Promise.all([
+    const [banks, accounts, categories, tags] = await Promise.all([
       listBanks(userId),
       listAccounts(userId),
       listCategories(userId),
-      listDescriptions(userId),
+      listTags(userId),
     ])
-    return { banks, accounts, categories, descriptions, today }
+    return { banks, accounts, categories, tags, today }
   })
 }
 

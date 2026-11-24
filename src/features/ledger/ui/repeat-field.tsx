@@ -97,7 +97,12 @@ export function RepeatField({
           if (chosen !== undefined) onChange({ ...value, ...chosen.rule, endMonth: '' })
         }}
       >
-        <SelectTrigger id={id} aria-label="Repetição" className={cn('w-fit max-w-full', className)}>
+        <SelectTrigger
+          size="sm"
+          id={id}
+          aria-label="Repetição"
+          className={cn('w-fit max-w-full', className)}
+        >
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -273,7 +278,7 @@ function CustomRepeatDialog({
               value={unit}
               onValueChange={(next) => setUnit(next === 'year' ? 'year' : 'month')}
             >
-              <SelectTrigger aria-label="Unidade" className="w-28">
+              <SelectTrigger size="sm" aria-label="Unidade" className="w-28">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

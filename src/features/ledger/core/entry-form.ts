@@ -236,6 +236,47 @@ export function addTag(tags: readonly string[], raw: string): string[] {
   return [...tags, tag]
 }
 
+/** At most this many suggestions under the tags input. */
+const TAG_SUGGESTIONS = 8
+
+/** A tag compared loosely: normalized and without accents (`#Viagem 2027` ~ `viagem-2027`). */
+const tagKey = (tag: string) =>
+  normalizeTag(tag)
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+
+/**
+ * The tags already in use that match what is being typed (loosely, see
+ * {@link tagKey}) and are not on the entry yet, for the tags autocomplete.
+ */
+export function tagSuggestions(
+  known: readonly string[],
+  chosen: readonly string[],
+  draft: string,
+): string[] {
+  const query = tagKey(draft)
+  return known
+    .filter((tag) => !chosen.includes(tag) && tagKey(tag).includes(query))
+    .slice(0, TAG_SUGGESTIONS)
+}
+
+/**
+ * Add what was typed or picked, reusing a tag already in use when it is the
+ * same tag loosely: tags imported with their own spelling (`Cabral
+ * Tecnologia`) are kept as they are instead of forking a `cabral-tecnologia`.
+ */
+export function addKnownTag(
+  tags: readonly string[],
+  known: readonly string[],
+  raw: string,
+): string[] {
+  const key = tagKey(raw)
+  const existing = key === '' ? undefined : known.find((tag) => tagKey(tag) === key)
+  if (existing === undefined) return addTag(tags, raw)
+  if (tags.includes(existing) || tags.length >= 20) return [...tags]
+  return [...tags, existing]
+}
+
 /** "Luz em dez/26: valor R$ 260 → R$ 300, dia 15 → 20" for the scope dialog. */
 export function describeOccurrenceChange(
   target: EditTarget,
@@ -254,7 +295,7 @@ export function describeOccurrenceChange(
 
 /** Label of the amount field: an installment entry takes its total. */
 export function amountLabel(values: EntryFormValues): string {
-  return values.recurrence === 'installments' ? 'Valor total (R$)' : 'Valor (R$)'
+  return values.recurrence === 'installments' ? 'Valor total' : 'Valor'
 }
 
 /**

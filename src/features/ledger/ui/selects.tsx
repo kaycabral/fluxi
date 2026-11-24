@@ -59,6 +59,7 @@ export function AccountSelect({
       disabled={props.disabled}
     >
       <SelectTrigger
+        size="sm"
         id={props.id}
         aria-label={props['aria-label']}
         className={props.className ?? 'w-full'}
@@ -111,6 +112,7 @@ export function CategorySelect({
       disabled={props.disabled}
     >
       <SelectTrigger
+        size="sm"
         id={props.id}
         aria-label={props['aria-label']}
         className={props.className ?? 'w-full'}
@@ -146,6 +148,7 @@ export function MonthSelect({ months, ...props }: BaseProps & { months: readonly
       disabled={props.disabled}
     >
       <SelectTrigger
+        size="sm"
         id={props.id}
         aria-label={props['aria-label']}
         className={props.className ?? 'w-full'}
@@ -176,6 +179,7 @@ export function PotSelect({
       disabled={props.disabled}
     >
       <SelectTrigger
+        size="sm"
         id={props.id}
         aria-label={props['aria-label']}
         className={props.className ?? 'w-full'}
@@ -207,6 +211,7 @@ export function OptionSelect({
       disabled={props.disabled}
     >
       <SelectTrigger
+        size="sm"
         id={props.id}
         aria-label={props['aria-label']}
         className={props.className ?? 'w-full'}

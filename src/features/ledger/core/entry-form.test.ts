@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  addKnownTag,
   addTag,
   amountLabel,
   DEFAULT_PARTS,
@@ -13,6 +14,7 @@ import {
   occurrencePatchOf,
   partsPercentTotal,
   percentToBps,
+  tagSuggestions,
   valuesToFields,
   type EditTarget,
   type EntryFormValues,
@@ -222,8 +224,36 @@ describe('helpers', () => {
 
   it('labels the amount of an installment entry as its total', () => {
     const parcelado = values({ recurrence: 'installments', installments: '3' })
-    expect(amountLabel(values())).toBe('Valor (R$)')
-    expect(amountLabel(parcelado)).toBe('Valor total (R$)')
+    expect(amountLabel(values())).toBe('Valor')
+    expect(amountLabel(parcelado)).toBe('Valor total')
+  })
+
+  it('suggests the tags in use that match the draft and are not chosen yet', () => {
+    const known = ['casa', 'educação', 'viagem', 'viagem-2027']
+    expect(tagSuggestions(known, [], '')).toEqual(known)
+    expect(tagSuggestions(known, ['viagem'], '#Via')).toEqual(['viagem-2027'])
+    expect(tagSuggestions(known, [], 'educacao')).toEqual(['educação'])
+    expect(tagSuggestions(known, [], 'xyz')).toEqual([])
+    expect(
+      tagSuggestions(
+        Array.from({ length: 20 }, (_, i) => `t${i}`),
+        [],
+        '',
+      ),
+    ).toHaveLength(8)
+    expect(tagSuggestions(['Cabral Tecnologia'], [], 'cabral tec')).toEqual(['Cabral Tecnologia'])
+  })
+
+  it('reuses a tag in use spelled its own way instead of forking it', () => {
+    const known = ['Cabral Tecnologia', 'educação']
+    expect(addKnownTag([], known, 'Cabral Tecnologia')).toEqual(['Cabral Tecnologia'])
+    expect(addKnownTag([], known, '#cabral tecnologia')).toEqual(['Cabral Tecnologia'])
+    expect(addKnownTag([], known, 'Educacao')).toEqual(['educação'])
+    expect(addKnownTag(['Cabral Tecnologia'], known, 'cabral-tecnologia')).toEqual([
+      'Cabral Tecnologia',
+    ])
+    expect(addKnownTag([], known, 'Nova Tag')).toEqual(['nova-tag'])
+    expect(addKnownTag([], known, '  ')).toEqual([])
   })
 
   it('shows how the total is split into installments', () => {

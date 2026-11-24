@@ -300,7 +300,7 @@ describe('CalendarView · quick add', () => {
     await userEvent.type(within(form).getByLabelText('Descrição'), 'Padaria')
     await userEvent.click(within(form).getByLabelText('Repetição'))
     await userEvent.click(await screen.findByRole('option', { name: 'Mensal no dia 10' }))
-    await userEvent.type(within(form).getByLabelText('Valor (R$)'), '42,90{Enter}')
+    await userEvent.type(within(form).getByLabelText('Valor'), '42,90{Enter}')
     await waitFor(() => expect(createEntryAction).toHaveBeenCalledOnce())
     expect(vi.mocked(createEntryAction).mock.calls[0]?.[0]).toMatchObject({
       fields: {
@@ -326,7 +326,7 @@ describe('CalendarView · quick add', () => {
     const form = await screen.findByRole('form', { name: 'Criar lançamento' })
     await userEvent.click(within(form).getByRole('button', { name: 'Salvar' }))
     expect(within(form).getByRole('alert')).toHaveTextContent('Informe o valor.')
-    await userEvent.type(within(form).getByLabelText('Valor (R$)'), '10')
+    await userEvent.type(within(form).getByLabelText('Valor'), '10')
     await userEvent.type(within(form).getByLabelText('Descrição'), 'Café{Enter}')
     expect(await within(form).findByRole('alert')).toHaveTextContent('Conta não encontrada.')
     await userEvent.click(within(form).getByRole('button', { name: 'Fechar' }))
@@ -340,11 +340,11 @@ describe('CalendarView · quick add', () => {
     await userEvent.click(emptyPartOf(10))
     const form = await screen.findByRole('form', { name: 'Criar lançamento' })
     await userEvent.click(within(form).getByRole('button', { name: 'Entrada' }))
-    await userEvent.type(within(form).getByLabelText('Valor (R$)'), '100')
+    await userEvent.type(within(form).getByLabelText('Valor'), '10000')
     await userEvent.click(within(form).getByRole('button', { name: 'Mais opções' }))
     const sheet = await screen.findByRole('dialog', { name: 'Novo lançamento' })
-    expect(within(sheet).getByLabelText('Data')).toHaveValue('2026-12-10')
-    expect(within(sheet).getByLabelText('Valor (R$)')).toHaveValue('100')
+    expect(within(sheet).getByLabelText('Data')).toHaveValue('10/12/2026')
+    expect(within(sheet).getByLabelText('Valor')).toHaveValue('100,00')
     expect(within(sheet).getByRole('button', { name: 'Entrada' })).toHaveAttribute(
       'aria-pressed',
       'true',
@@ -530,7 +530,7 @@ describe('CalendarView · views and preferences', () => {
     expect(card).toHaveTextContent('Saldo no fim do dia: -5.800,00')
     await userEvent.click(within(card).getByRole('button', { name: 'Criar neste dia' }))
     const sheet = await screen.findByRole('dialog', { name: 'Novo lançamento' })
-    expect(within(sheet).getByLabelText('Data')).toHaveValue('2026-12-03')
+    expect(within(sheet).getByLabelText('Data')).toHaveValue('03/12/2026')
   })
 
   it('says when a day of the year has nothing', async () => {

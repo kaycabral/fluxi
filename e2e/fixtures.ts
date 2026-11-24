@@ -3,12 +3,12 @@ import path from 'node:path'
 import { test as base, expect } from '@playwright/test'
 
 import { BASE_URL, USER_DISPLAY_NAME } from './constants'
-import { recreateAuthUser } from './seed'
+import { recreateE2eUser } from './seed'
 
 const USER_PASSWORD = 'e2e-user-password'
 
 export function userEmail(workerIndex: number): string {
-  return `user-w${workerIndex}@e2e.test`
+  return `e2e+w${workerIndex}@fluxi.local`
 }
 
 type WorkerFixtures = {
@@ -28,7 +28,7 @@ type TestFixtures = {
 export const test = base.extend<TestFixtures, WorkerFixtures>({
   userId: [
     async ({}, use, workerInfo) => {
-      const id = await recreateAuthUser({
+      const id = await recreateE2eUser({
         email: userEmail(workerInfo.workerIndex),
         password: USER_PASSWORD,
         displayName: USER_DISPLAY_NAME,

@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm'
 import type { FluxiDb } from './db'
+import { assertTestDatabase } from './test-database'
 
 export type SeedUserInput = {
   id: string
@@ -32,20 +33,12 @@ export async function seedUser(db: FluxiDb, input: SeedUserInput): Promise<void>
     )`)
 }
 
-const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', 'postgres'])
-
-/** Throws unless `POSTGRES_URL` points at a local database — the reset wipes every auth user. */
-export function assertLocalDatabase(): void {
-  const raw = process.env.POSTGRES_URL
-  const host = raw ? new URL(raw).hostname : '(unset)'
-  if (!LOCAL_HOSTS.has(host)) {
-    throw new Error(`refusing to reset a non-local database (host: ${host})`)
-  }
-}
-
-/** Empty app tables and LOCAL auth users (tests / local reset only). */
+/**
+ * Empty app tables and auth users of the TEST database (integration suite
+ * only). Refuses any other database — see `assertTestDatabase`.
+ */
 export async function truncateFluxiTables(db: FluxiDb): Promise<void> {
-  assertLocalDatabase()
+  await assertTestDatabase(db)
   await db.execute(sql`truncate table profiles restart identity cascade`)
   await db.execute(sql`delete from auth.users`)
 }

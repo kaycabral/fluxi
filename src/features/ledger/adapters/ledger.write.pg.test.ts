@@ -4,13 +4,7 @@ import type { EntryFields } from '@/features/ledger/core/schemas'
 import { and, eq } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
-import {
-  getCountFrom,
-  listAccounts,
-  listBanks,
-  listBudgetPots,
-  listDescriptions,
-} from './ledger.repo'
+import { getCountFrom, listAccounts, listBanks, listBudgetPots } from './ledger.repo'
 import {
   changeOccurrenceDay,
   createAccount,
@@ -129,8 +123,6 @@ describe('createEntry', () => {
       ['Adiantamento', 4000, 0],
       ['Saldo', 6000, 1],
     ])
-    await expect(listDescriptions(ANA)).resolves.toEqual(['Salário'])
-    await expect(listDescriptions(BIA)).resolves.toEqual([])
   })
 
   it('refuses another user’s account and does not leak a replayed id', async () => {

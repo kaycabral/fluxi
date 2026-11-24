@@ -244,9 +244,14 @@ describe('new entry', () => {
     await userEvent.click(within(sheet).getByRole('button', { name: 'Transferência' }))
     expect(within(sheet).getByLabelText('Para a conta')).toHaveTextContent('BTG · Cartão')
     await userEvent.click(within(sheet).getByRole('button', { name: 'Saída' }))
-    // Splitting into dates is for income only.
-    expect(within(sheet).queryByLabelText(/Dividir em mais de uma data/)).not.toBeInTheDocument()
+    // Splitting into dates is only for an income in a "Renda" category.
+    const split = () => within(sheet).queryByLabelText(/Dividir em mais de uma data/)
+    expect(split()).not.toBeInTheDocument()
     await userEvent.click(within(sheet).getByRole('button', { name: 'Entrada' }))
+    expect(split()).not.toBeInTheDocument()
+    await chooseOption('Categoria', 'Energia elétrica')
+    expect(split()).not.toBeInTheDocument()
+    await chooseOption('Categoria', 'Salário')
     await chooseOption('Repetição', 'Parcelado…')
     expect(within(sheet).getByLabelText('Parcelas')).toHaveValue(12)
     expect(within(sheet).getByLabelText('Repetição')).toHaveTextContent('Parcelado…')

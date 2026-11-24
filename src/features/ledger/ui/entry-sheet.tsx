@@ -6,6 +6,7 @@ import {
   updateEntryAction,
 } from '@/features/ledger/adapters/actions/entries'
 import type { ActionResult } from '@/features/ledger/core/action-result'
+import { INCOME_CATEGORY_GROUP } from '@/features/ledger/core/defaults'
 import {
   amountLabel,
   deleteMonthOf,
@@ -172,6 +173,9 @@ export function EntryForm({
   }
 
   const totalHint = installmentsHint(values)
+  const isIncomeCategory =
+    values.kind === 'income' &&
+    refs.categories.find((c) => c.id === values.categoryId)?.groupName === INCOME_CATEGORY_GROUP
 
   return (
     <form
@@ -201,16 +205,9 @@ export function EntryForm({
           <TitleInput
             id="entry-description"
             aria-label="Descrição"
-            list="entry-descriptions"
-            className="[&::-webkit-calendar-picker-indicator]:hidden!"
             value={values.description}
             onChange={(e) => set({ description: e.target.value })}
           />
-          <datalist id="entry-descriptions">
-            {refs.descriptions.map((d) => (
-              <option key={d} value={d} />
-            ))}
-          </datalist>
           <div className="flex flex-wrap items-center gap-2">
             <DateField
               id="entry-date"
@@ -314,11 +311,10 @@ export function EntryForm({
                 onValueChange={(amount) => set({ amount })}
                 aria-describedby={totalHint === null ? undefined : 'entry-amount-total'}
               />
-              {totalHint !== null && (
-                <p id="entry-amount-total" className="text-muted-foreground text-xs">
-                  {totalHint}
-                </p>
-              )}
+              {/* The line is always there so the rows below never jump when the hint shows. */}
+              <p id="entry-amount-total" className="text-muted-foreground min-h-4 text-xs">
+                {totalHint}
+              </p>
             </div>
           </DetailRow>
 
@@ -376,11 +372,6 @@ export function EntryForm({
                   </div>
                 )}
               </div>
-              {values.kind === 'expense' && (
-                <p className="text-muted-foreground text-xs">
-                  O pote é sugerido pela categoria; troque se quiser.
-                </p>
-              )}
             </DetailRow>
           )}
 
@@ -393,7 +384,7 @@ export function EntryForm({
           </DetailRow>
 
           {/* Splitting is for income paid in parts (advance + balance); an entry already split keeps it. */}
-          {(values.kind === 'income' || values.split) && (
+          {(isIncomeCategory || values.split) && (
             <DetailRow icon={SplitSquareVertical} align="box">
               <PartsEditor
                 split={values.split}

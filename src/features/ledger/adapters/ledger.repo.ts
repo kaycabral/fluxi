@@ -254,17 +254,6 @@ export async function loadLedger(userId: string, window: MonthWindow): Promise<L
   }
 }
 
-/** Distinct descriptions of `userId`'s entries, for the form's autocomplete. */
-export async function listDescriptions(userId: string, limit = 300): Promise<string[]> {
-  const rows = await db()
-    .selectDistinct({ description: entries.description })
-    .from(entries)
-    .where(eq(entries.userId, userId))
-    .orderBy(asc(entries.description))
-    .limit(limit)
-  return rows.map((r) => r.description)
-}
-
 /** Distinct tags across `userId`'s entries, sorted, for the form's tags autocomplete. */
 export async function listTags(userId: string): Promise<string[]> {
   const rows = await db()

@@ -192,7 +192,6 @@ export function sampleRefs(overrides: Partial<LedgerRefs> = {}): LedgerRefs {
     banks: data.banks,
     accounts: data.accounts,
     categories: data.categories,
-    descriptions: ['Luz', 'Salário'],
     tags: ['casa', 'viagem'],
     today: '2026-12-15',
     ...overrides,

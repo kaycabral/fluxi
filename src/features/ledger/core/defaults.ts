@@ -21,9 +21,12 @@ export type DefaultCategoryGroup = {
   names: readonly string[]
 }
 
+/** The category group of income: only its categories offer splitting into dates. */
+export const INCOME_CATEGORY_GROUP = 'Renda'
+
 export const DEFAULT_CATEGORY_GROUPS: readonly DefaultCategoryGroup[] = [
   {
-    group: 'Renda',
+    group: INCOME_CATEGORY_GROUP,
     defaultPot: null,
     names: [
       'Salário',

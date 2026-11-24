@@ -33,7 +33,7 @@ export default defineConfig({
       exclude: [...coverageBase().exclude, 'src/db/**', 'src/features/*/adapters/**'],
       thresholds: {
         statements: 96.77,
-        branches: 93.19,
+        branches: 93.23,
         functions: 96.07,
         lines: 97.03,
         autoUpdate: true,

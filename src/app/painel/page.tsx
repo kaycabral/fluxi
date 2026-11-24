@@ -1,13 +1,27 @@
+import { PageHeader } from '@/app/painel/_components/page-header'
+import { Unavailable } from '@/app/painel/_components/unavailable'
+import { requirePainelUser, todayIso } from '@/app/painel/_lib/session'
 import { Container } from '@/components/container'
-import { getServerUser } from '@/lib/auth/server'
+import { loadCountFrom, loadLedgerData } from '@/features/ledger/adapters/views'
+import { timelineWindow } from '@/features/ledger/core/timeline'
+import { TimelineView } from '@/features/ledger/ui/timeline-view'
 
-export default async function PainelPage() {
-  const user = await getServerUser()
+export default async function TimelinePage() {
+  const user = await requirePainelUser()
+  const today = todayIso().slice(0, 7)
+  const countFrom = await loadCountFrom(user.id)
+  const window = countFrom.ok ? timelineWindow(countFrom.data, today) : null
+  const data =
+    countFrom.ok && window !== null ? await loadLedgerData(user.id, window, countFrom.data) : null
 
   return (
-    <Container className="p-5 md:p-8">
-      <h1 className="text-2xl font-semibold tracking-tight">Fluxi</h1>
-      {user?.email && <p className="text-muted-foreground mt-1 text-sm">{user.email}</p>}
+    <Container className="grid gap-4 px-4 py-5 md:px-6 md:py-8">
+      <PageHeader title="Linha do tempo" />
+      {data?.ok === true && window !== null ? (
+        <TimelineView data={data.data} window={window} today={today} />
+      ) : (
+        <Unavailable />
+      )}
     </Container>
   )
 }

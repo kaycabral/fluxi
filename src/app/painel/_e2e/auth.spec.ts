@@ -6,11 +6,10 @@ test.describe('signed in', () => {
 
   // Infra smoke: the /api/e2e-signin session cookies load into the browser and
   // the user reaches /painel without being bounced to the login.
-  test('reaches /painel with the session from /api/e2e-signin', async ({ page, user }) => {
+  test('reaches /painel with the session from /api/e2e-signin', async ({ page }) => {
     await page.goto('/painel')
     await expect(page).toHaveURL(/\/painel$/)
-    await expect(page.getByRole('heading', { level: 1, name: 'Fluxi' })).toBeVisible()
-    await expect(page.getByText(user.email)).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: 'Linha do tempo' })).toBeVisible()
   })
 
   test('/ sends a signed-in user to /painel', async ({ page }) => {

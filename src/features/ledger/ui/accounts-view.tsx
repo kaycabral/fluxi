@@ -1,0 +1,330 @@
+'use client'
+
+import { saveAccountAction, saveBankAction } from '@/features/ledger/adapters/actions/accounts'
+import { INITIAL_FORM_STATE, type FormState } from '@/features/ledger/core/action-result'
+import { monthLabel, signedCentsToInput } from '@/features/ledger/core/format'
+import { ACCOUNT_TYPE_LABELS } from '@/features/ledger/core/labels'
+import type { Month } from '@/features/ledger/core/month'
+import type { Account, Bank } from '@/features/ledger/core/types'
+import {
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  cn,
+  Input,
+  Label,
+  Switch,
+} from '@cbrl/design'
+import { Loader2, Plus } from 'lucide-react'
+import { useActionState, useEffect, useRef, useState } from 'react'
+import { toast } from 'sonner'
+import { Money } from './money'
+import { OptionSelect } from './selects'
+
+const TYPE_OPTIONS = Object.entries(ACCOUNT_TYPE_LABELS)
+
+export type AccountsViewProps = {
+  banks: Bank[]
+  accounts: Account[]
+  firstMonth: Month
+  laterMonth: Month
+  firstClosing: Record<string, number> | null
+  laterClosing: Record<string, number> | null
+  /** Fresh ids minted by the server render, so a resubmitted create is a no-op. */
+  newBankId: string
+  newAccountId: string
+}
+
+function useFeedback(state: FormState, success?: string) {
+  useEffect(() => {
+    if (state.error !== null) toast.error(state.error)
+    else if (state.savedAt > 0 && success !== undefined) toast.success(success)
+  }, [state, success])
+}
+
+/** Submits the enclosing form when a field changed (blur for text, change for selects/switches). */
+function useAutoSubmit() {
+  const ref = useRef<HTMLFormElement>(null)
+  return { ref, submit: () => ref.current?.requestSubmit() }
+}
+
+function BankNameForm({ bank }: { bank: Bank }) {
+  const [state, action, pending] = useActionState(saveBankAction, INITIAL_FORM_STATE)
+  const form = useAutoSubmit()
+  useFeedback(state)
+  return (
+    <form ref={form.ref} action={action} className="flex items-center gap-2">
+      <input type="hidden" name="id" value={bank.id} />
+      <Input
+        name="name"
+        aria-label="Nome do banco"
+        defaultValue={bank.name}
+        className="h-9 max-w-56 font-semibold"
+        onBlur={(e) => {
+          if (e.target.value !== bank.name) form.submit()
+        }}
+      />
+      <Button
+        type="submit"
+        variant="ghost"
+        size="sm"
+        disabled={pending}
+        className="sr-only focus:not-sr-only"
+      >
+        Salvar
+      </Button>
+      {pending && (
+        <Loader2 className="text-muted-foreground size-4 animate-spin" aria-label="Salvando" />
+      )}
+    </form>
+  )
+}
+
+function AccountRow({
+  account,
+  firstCents,
+  laterCents,
+  labels,
+}: {
+  account: Account
+  firstCents: number | null
+  laterCents: number | null
+  labels: { first: string; later: string }
+}) {
+  const [state, action, pending] = useActionState(saveAccountAction, INITIAL_FORM_STATE)
+  const form = useAutoSubmit()
+  useFeedback(state)
+  const submitIfChanged = (value: string, initial: string) => {
+    if (value !== initial) form.submit()
+  }
+  const opening = signedCentsToInput(account.openingBalanceCents)
+  const [type, setType] = useState<string>(account.type)
+  return (
+    <form
+      ref={form.ref}
+      action={action}
+      className={cn(
+        'border-border grid grid-cols-2 items-end gap-3 border-t py-3 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1.2fr)_minmax(0,1fr)_auto_auto_auto] [&>*]:min-w-0',
+        account.archived && 'opacity-60',
+      )}
+    >
+      <input type="hidden" name="id" value={account.id} />
+      <div className="col-span-2 grid gap-1 sm:col-span-1">
+        <Label htmlFor={`acc-name-${account.id}`} className="text-muted-foreground text-xs">
+          Conta
+        </Label>
+        <Input
+          id={`acc-name-${account.id}`}
+          name="name"
+          defaultValue={account.name}
+          onBlur={(e) => submitIfChanged(e.target.value, account.name)}
+        />
+      </div>
+      <div className="grid gap-1">
+        <Label htmlFor={`acc-type-${account.id}`} className="text-muted-foreground text-xs">
+          Tipo
+        </Label>
+        <OptionSelect
+          id={`acc-type-${account.id}`}
+          name="type"
+          options={TYPE_OPTIONS}
+          value={type}
+          onValueChange={(next) => {
+            setType(next)
+            setTimeout(form.submit, 0)
+          }}
+        />
+      </div>
+      <div className="grid gap-1">
+        <Label htmlFor={`acc-opening-${account.id}`} className="text-muted-foreground text-xs">
+          Saldo inicial
+        </Label>
+        <Input
+          id={`acc-opening-${account.id}`}
+          name="openingBalance"
+          inputMode="decimal"
+          className="text-right font-mono"
+          defaultValue={opening}
+          onBlur={(e) => submitIfChanged(e.target.value, opening)}
+        />
+      </div>
+      <div className="grid gap-1 text-right">
+        <span className="text-muted-foreground text-xs">Fim de {labels.first}</span>
+        <span className="py-2">
+          {firstCents === null ? '–' : <Money cents={firstCents} tone />}
+        </span>
+      </div>
+      <div className="grid gap-1 text-right">
+        <span className="text-muted-foreground text-xs">Fim de {labels.later}</span>
+        <span className="py-2">
+          {laterCents === null ? '–' : <Money cents={laterCents} tone />}
+        </span>
+      </div>
+      <div className="flex items-center gap-2 py-2">
+        <Switch
+          id={`acc-active-${account.id}`}
+          name="active"
+          defaultChecked={!account.archived}
+          onCheckedChange={() => setTimeout(form.submit, 0)}
+        />
+        <Label htmlFor={`acc-active-${account.id}`} className="text-sm font-normal">
+          Ativa
+        </Label>
+        <Button
+          type="submit"
+          variant="ghost"
+          size="sm"
+          disabled={pending}
+          className="sr-only focus:not-sr-only"
+        >
+          Salvar
+        </Button>
+        {pending && (
+          <Loader2 className="text-muted-foreground size-4 animate-spin" aria-label="Salvando" />
+        )}
+      </div>
+    </form>
+  )
+}
+
+function NewBankForm({ id }: { id: string }) {
+  const [state, action, pending] = useActionState(saveBankAction, INITIAL_FORM_STATE)
+  useFeedback(state, 'Banco criado.')
+  return (
+    <form key={state.savedAt} action={action} className="flex flex-wrap items-end gap-2">
+      <input type="hidden" name="intent" value="create" />
+      <input type="hidden" name="id" value={id} />
+      <div className="grid gap-1">
+        <Label htmlFor="new-bank-name">Novo banco</Label>
+        <Input id="new-bank-name" name="name" placeholder="Ex.: Nubank" className="w-48" required />
+      </div>
+      <Button type="submit" variant="outline" disabled={pending}>
+        <Plus /> Banco
+      </Button>
+    </form>
+  )
+}
+
+function NewAccountForm({ id, banks }: { id: string; banks: Bank[] }) {
+  const [state, action, pending] = useActionState(saveAccountAction, INITIAL_FORM_STATE)
+  useFeedback(state, 'Conta criada.')
+  const [bankId, setBankId] = useState(banks.at(-1)?.id ?? '')
+  const [type, setType] = useState('checking')
+  if (banks.length === 0) return null
+  return (
+    <form key={state.savedAt} action={action} className="flex flex-wrap items-end gap-2">
+      <input type="hidden" name="intent" value="create" />
+      <input type="hidden" name="id" value={id} />
+      <div className="grid gap-1">
+        <Label htmlFor="new-account-bank">Banco</Label>
+        <OptionSelect
+          id="new-account-bank"
+          name="bankId"
+          className="w-40"
+          options={banks.map((b) => [b.id, b.name] as const)}
+          value={bankId}
+          onValueChange={setBankId}
+        />
+      </div>
+      <div className="grid gap-1">
+        <Label htmlFor="new-account-name">Nova conta</Label>
+        <Input
+          id="new-account-name"
+          name="name"
+          placeholder="Ex.: Conta corrente"
+          className="w-44"
+          required
+        />
+      </div>
+      <div className="grid gap-1">
+        <Label htmlFor="new-account-type">Tipo</Label>
+        <OptionSelect
+          id="new-account-type"
+          name="type"
+          className="w-40"
+          options={TYPE_OPTIONS}
+          value={type}
+          onValueChange={setType}
+        />
+      </div>
+      <div className="grid gap-1">
+        <Label htmlFor="new-account-opening">Saldo inicial</Label>
+        <Input
+          id="new-account-opening"
+          name="openingBalance"
+          inputMode="decimal"
+          placeholder="0"
+          className="w-28"
+        />
+      </div>
+      <Button type="submit" variant="outline" disabled={pending}>
+        <Plus /> Conta
+      </Button>
+    </form>
+  )
+}
+
+/** "Bancos e contas": banks with nested accounts, edited in place. */
+export function AccountsView(props: AccountsViewProps) {
+  const { banks, accounts, firstClosing, laterClosing } = props
+  const labels = { first: monthLabel(props.firstMonth), later: monthLabel(props.laterMonth) }
+  const sum = (balances: Record<string, number> | null, ids: string[]) =>
+    balances === null ? null : ids.reduce((total, id) => total + (balances[id] ?? 0), 0)
+
+  return (
+    <div className="grid gap-4">
+      {banks.map((bank) => {
+        const own = accounts.filter((a) => a.bankId === bank.id)
+        const ids = own.map((a) => a.id)
+        const first = sum(firstClosing, ids)
+        const later = sum(laterClosing, ids)
+        return (
+          <Card key={bank.id}>
+            <CardHeader className="flex flex-wrap items-center justify-between gap-2">
+              <CardTitle asChild>
+                <h2 className="sr-only">{bank.name}</h2>
+              </CardTitle>
+              <BankNameForm bank={bank} />
+              <div className="text-muted-foreground flex gap-4 text-xs">
+                <span>
+                  Fim de {labels.first}: {first === null ? '–' : <Money cents={first} tone />}
+                </span>
+                <span>
+                  Fim de {labels.later}: {later === null ? '–' : <Money cents={later} tone />}
+                </span>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {own.length === 0 && (
+                <p className="text-muted-foreground text-sm">Nenhuma conta neste banco ainda.</p>
+              )}
+              {own.map((account) => (
+                <AccountRow
+                  key={`${account.id}-${account.name}-${account.type}-${account.openingBalanceCents}-${account.archived}`}
+                  account={account}
+                  labels={labels}
+                  firstCents={firstClosing?.[account.id] ?? null}
+                  laterCents={laterClosing?.[account.id] ?? null}
+                />
+              ))}
+            </CardContent>
+          </Card>
+        )
+      })}
+
+      <Card>
+        <CardContent className="grid gap-4">
+          <NewBankForm id={props.newBankId} />
+          <NewAccountForm id={props.newAccountId} banks={banks} />
+          <p className="text-muted-foreground text-xs">
+            Saldo inicial é o que havia em cada conta no dia 1º de {labels.first}, mês em que a
+            contagem começa. Preencha uma vez; zero se preferir começar do zero. Cartão de crédito
+            começa em zero e fica negativo com as compras.
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}

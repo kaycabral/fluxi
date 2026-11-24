@@ -1,9 +1,11 @@
 // Dev seed for the LOCAL Supabase stack: a user with a password login for
-// manual testing (Google sign-in does not run locally). Recreates its own user
+// manual testing (Google sign-in does not run locally) and a demo ledger. Recreates its own user
 // on every run; never touches other users. Reads URL/keys/database from
 // `supabase status`, so it can only ever target the local stack.
 
 import { fluxiDb } from '@/db'
+import { seedDemoLedger } from '@/db/demo-ledger'
+import { monthOf } from '@/features/ledger/core/format'
 import { readLocalSupabase } from '@cbrl/supabase/local'
 
 import { recreateAuthUser } from '@e2e/seed'
@@ -24,10 +26,12 @@ const PORT = 3004
 
 async function main(): Promise<void> {
   try {
-    await recreateAuthUser(USER)
+    const userId = await recreateAuthUser(USER)
+    // Demo data shaped like the prototype, counting from the current month.
+    await seedDemoLedger(fluxiDb.db(), userId, monthOf(new Date()))
     const line = '─'.repeat(64)
     console.log(`\n${line}`)
-    console.log('✅ Seed concluído — Fluxi')
+    console.log('✅ Seed concluído — Fluxi (com dados de exemplo)')
     console.log(line)
     console.log(`  Painel:       http://localhost:${PORT}/painel`)
     console.log('  Login local (Google não roda sem OAuth client): com ENABLE_TEST_AUTH=true')

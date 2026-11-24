@@ -1,4 +1,4 @@
-import { centsToInput, isoDate, parseMoneyInput } from './format'
+import { centsToInput, formatMoney, isoDate, monthLabel, parseMoneyInput } from './format'
 import type { Month } from './month'
 import { amountFor, dayFor, sortParts } from './occurrence'
 import { entryFieldsSchema, firstIssue, type EntryFields } from './schemas'
@@ -201,4 +201,20 @@ export function addTag(tags: readonly string[], raw: string): string[] {
   const tag = normalizeTag(raw)
   if (tag === '' || tags.includes(tag) || tags.length >= 20) return [...tags]
   return [...tags, tag]
+}
+
+/** "Luz em dez/26: valor R$ 260 → R$ 300, dia 15 → 20" for the scope dialog. */
+export function describeOccurrenceChange(
+  target: EditTarget,
+  month: Month,
+  patch: OccurrencePatch,
+): string {
+  const changes: string[] = []
+  if (patch.amountCents !== undefined) {
+    const before = formatMoney(amountFor(target.entry, target.overrides, month))
+    changes.push(`valor ${before} → ${formatMoney(patch.amountCents)}`)
+  }
+  if (patch.day !== undefined)
+    changes.push(`dia ${dayFor(target.entry, target.overrides, month)} → ${patch.day}`)
+  return `${target.entry.description} em ${monthLabel(month)}: ${changes.join(', ')}`
 }

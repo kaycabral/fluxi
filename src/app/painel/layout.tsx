@@ -1,8 +1,13 @@
+import { PainelNav } from '@/app/painel/_components/painel-nav'
+import { Topbar } from '@/app/painel/_components/topbar'
+import { todayIso } from '@/app/painel/_lib/session'
+import { loadRefs } from '@/features/ledger/adapters/views'
+import type { LedgerRefs } from '@/features/ledger/core/view'
+import { LedgerShell } from '@/features/ledger/ui/ledger-shell'
 import { getServerUser } from '@/lib/auth/server'
 import type { Metadata } from 'next'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { Topbar } from './_components/topbar'
 
 export const metadata: Metadata = {
   title: 'Painel — Fluxi',
@@ -15,10 +20,19 @@ export default async function PainelLayout({ children }: { children: React.React
     redirect(`/?login=1&next=${encodeURIComponent(next)}`)
   }
 
+  const today = todayIso()
+  const loaded = await loadRefs(user.id, today)
+  const refs: LedgerRefs = loaded.ok
+    ? loaded.data
+    : { banks: [], accounts: [], categories: [], descriptions: [], today }
+
   return (
     <div className="bg-background text-foreground flex min-h-screen flex-col">
       <Topbar />
-      <div className="flex-1">{children}</div>
+      <PainelNav />
+      <LedgerShell refs={refs}>
+        <main className="flex-1 pb-24">{children}</main>
+      </LedgerShell>
     </div>
   )
 }

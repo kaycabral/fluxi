@@ -82,3 +82,7 @@ export type EntryOverride = {
   day: number | null
   skipped: boolean
 }
+
+export function isPotKey(value: string): value is PotKey {
+  return POT_KEYS.some((key) => key === value)
+}

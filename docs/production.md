@@ -57,4 +57,4 @@ Runbook do ambiente de produção do fluxi: o que roda onde, como mudança chega
 - Redirect URLs: `https://fluxi-cbrl.vercel.app/**` e o padrão dos previews da Vercel.
 - Providers: Google ligado; Email desligado.
 - Google Cloud: projeto próprio `fluxi`, OAuth client _Web_ `fluxi-supabase-production` (origin `https://fluxi-cbrl.vercel.app`; redirect URI `https://<ref>.supabase.co/auth/v1/callback`).
-- O app OAuth está em **modo de teste**: só as contas cadastradas em _Público-alvo → Usuários de teste_ (até 100) conseguem entrar. Publicar exige página inicial e política de privacidade num domínio próprio verificado (um `*.vercel.app` não serve).
+- O app OAuth está **em produção** (publicado sem verificação: só escopos básicos, sem logotipo, menos de 10 domínios). Branding com página inicial `https://fluxi-cbrl.vercel.app`, política `/privacidade` e termos `/termos`. Adicionar logotipo ou escopos sensíveis passa a exigir a verificação do Google.

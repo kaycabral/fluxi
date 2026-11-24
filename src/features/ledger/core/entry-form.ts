@@ -1,6 +1,13 @@
-import { centsToInput, formatMoney, isoDate, monthLabel, parseMoneyInput } from './format'
+import {
+  centsToInput,
+  formatMoney,
+  formatMoneyExact,
+  isoDate,
+  monthLabel,
+  parseMoneyInput,
+} from './format'
 import type { Month } from './month'
-import { amountFor, dayFor, sortParts } from './occurrence'
+import { amountFor, dayFor, installmentShares, sortParts } from './occurrence'
 import { entryFieldsSchema, firstIssue, type EntryFields } from './schemas'
 import type { OccurrencePatch } from './scoped-edit'
 import type { Entry, EntryKind, EntryOverride, EntryPart, PotKey, Recurrence } from './types'
@@ -71,9 +78,24 @@ function percentText(bps: number): string {
   return String(bps / 100).replace('.', ',')
 }
 
-/** Whether the target is one occurrence of a recurring entry. */
+/**
+ * Whether the sheet edits one occurrence of a series (amount/day changes then
+ * ask for a scope). An installment purchase is always edited as a whole: its
+ * amount is the total, whatever month it was opened from.
+ */
 export function isOccurrenceEdit(target: EditTarget | null): boolean {
-  return target !== null && target.month !== null && target.entry.recurrence !== 'none'
+  return (
+    target !== null &&
+    target.month !== null &&
+    target.entry.recurrence !== 'none' &&
+    target.entry.recurrence !== 'installments'
+  )
+}
+
+/** Month of the occurrence a delete applies to (asks for a scope); null deletes the entry. */
+export function deleteMonthOf(target: EditTarget | null): Month | null {
+  if (target === null || target.entry.recurrence === 'none') return null
+  return target.month
 }
 
 export function editEntryValues(target: EditTarget): EntryFormValues {
@@ -217,4 +239,24 @@ export function describeOccurrenceChange(
   if (patch.day !== undefined)
     changes.push(`dia ${dayFor(target.entry, target.overrides, month)} → ${patch.day}`)
   return `${target.entry.description} em ${monthLabel(month)}: ${changes.join(', ')}`
+}
+
+/** Label of the amount field: an installment entry takes its total. */
+export function amountLabel(values: EntryFormValues): string {
+  return values.recurrence === 'installments' ? 'Valor total (R$)' : 'Valor (R$)'
+}
+
+/**
+ * How the total of an installment entry is split, under the amount field:
+ * "3× R$ 2.000,00", or "1× R$ 333,34 + 2× R$ 333,33" with leftover cents (they go
+ * on the first installment). Null when not applicable or not readable yet.
+ */
+export function installmentsHint(values: EntryFormValues): string | null {
+  if (values.recurrence !== 'installments') return null
+  const totalCents = parseMoneyInput(values.amount)
+  const count = parseIntOrNull(values.installments)
+  if (totalCents === null || count === null || count < 1) return null
+  const { first, rest } = installmentShares(totalCents, count)
+  if (first === rest || count === 1) return `${count}× ${formatMoneyExact(first)}`
+  return `1× ${formatMoneyExact(first)} + ${count - 1}× ${formatMoneyExact(rest)}`
 }

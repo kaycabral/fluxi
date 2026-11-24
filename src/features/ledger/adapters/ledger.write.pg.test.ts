@@ -335,6 +335,8 @@ describe('deleteEntry', () => {
     await deleteEntry(ANA, inst, { month: '2027-03', scope: 'future' })
     const [row] = await db().select().from(entries).where(eq(entries.id, inst))
     expect(row?.installments).toBe(3)
+    // 200000 in 12x: 16674 + 11 × 16666; the 3 kept keep their share of the total.
+    expect(row?.amountCents).toBe(200000 - 16666 * 9)
   })
 
   it('"future" from the first month and "all" delete the entry', async () => {

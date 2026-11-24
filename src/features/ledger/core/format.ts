@@ -60,6 +60,12 @@ export function formatMoney(cents: number): string {
   return `${sign}R$ ${formatAmount(Math.abs(cents))}`
 }
 
+/** With cents, for where they matter (installment shares): `33334` → `R$ 333,34`. */
+export function formatMoneyExact(cents: number): string {
+  const sign = cents < 0 ? '-' : ''
+  return `${sign}R$ ${decimalReais.format(Math.abs(cents) / 100)}`
+}
+
 /** Like {@link formatMoney} with an explicit `+` on positive values. */
 export function formatSignedMoney(cents: number): string {
   return cents > 0 ? `+${formatMoney(cents)}` : formatMoney(cents)

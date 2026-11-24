@@ -331,7 +331,7 @@ export async function seedDemoLedger(db: FluxiDb, userId: string, start: Month):
       categoryId: cat('Outros gastos'),
       pot: 'comfort',
       accountId: btgcc,
-      amountCents: 250000,
+      amountCents: 3000000,
       day: 15,
       startMonth: at(2),
       recurrence: 'installments',

@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { makeEntry, makeOverride, makePart, salarySplit } from './fixtures'
-import { amountFor, dayFor, landingsIn, occursIn, splitAmount } from './occurrence'
+import {
+  amountFor,
+  dayFor,
+  installmentShares,
+  landingsIn,
+  occursIn,
+  splitAmount,
+} from './occurrence'
 
 describe('occursIn', () => {
   it('none: only the start month', () => {
@@ -46,6 +53,27 @@ describe('occursIn', () => {
 
   it('installments without a count never occur', () => {
     expect(occursIn(makeEntry({ recurrence: 'installments' }), '2026-09')).toBe(false)
+  })
+})
+
+describe('installments split the total', () => {
+  it('evenly, with the leftover cents on the first installment', () => {
+    expect(installmentShares(600000, 3)).toEqual({ first: 200000, rest: 200000 })
+    expect(installmentShares(100000, 3)).toEqual({ first: 33334, rest: 33333 })
+  })
+
+  it('amountFor gives each installment its share (an override still wins)', () => {
+    const ring = makeEntry({
+      recurrence: 'installments',
+      installments: 3,
+      startMonth: '2026-11',
+      amountCents: 100000,
+    })
+    const overrides = [makeOverride({ month: '2027-01', amountCents: 50000 })]
+    expect(amountFor(ring, overrides, '2026-11')).toBe(33334)
+    expect(amountFor(ring, overrides, '2026-12')).toBe(33333)
+    expect(amountFor(ring, overrides, '2027-01')).toBe(50000)
+    expect(landingsIn(ring, [], [], '2026-12').map((l) => l.amountCents)).toEqual([33333])
   })
 })
 

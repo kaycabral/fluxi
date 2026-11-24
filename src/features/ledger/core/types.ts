@@ -52,6 +52,7 @@ export type Entry = {
   id: string
   kind: EntryKind
   description: string
+  /** Amount of each occurrence; for `installments`, the TOTAL (see `seriesAmountFor`). */
   amountCents: number
   accountId: string
   toAccountId: string | null

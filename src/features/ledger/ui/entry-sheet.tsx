@@ -7,7 +7,10 @@ import {
 } from '@/features/ledger/adapters/actions/entries'
 import type { ActionResult } from '@/features/ledger/core/action-result'
 import {
+  amountLabel,
+  deleteMonthOf,
   describeOccurrenceChange,
+  installmentsHint,
   isEmptyPatch,
   isOccurrenceEdit,
   newEntryValues,
@@ -142,17 +145,18 @@ export function EntryForm({
 
   async function remove() {
     if (target === null) return
+    const month = deleteMonthOf(target)
     let scope: EditScope = 'all'
-    if (occurrence !== null) {
+    if (month !== null) {
       const chosen = await requestScope({
         kind: 'delete',
-        description: `${target.entry.description} em ${monthLabel(occurrence)}`,
+        description: `${target.entry.description} em ${monthLabel(month)}`,
       })
       if (chosen === null) return
       scope = chosen
     }
     startTransition(async () => {
-      const result = await deleteEntryAction({ entryId: target.entry.id, month: occurrence, scope })
+      const result = await deleteEntryAction({ entryId: target.entry.id, month, scope })
       if (!result.ok) {
         setError(result.error)
         return
@@ -167,6 +171,8 @@ export function EntryForm({
     setEntryId(crypto.randomUUID())
     set({ description: `${values.description} (cópia)` })
   }
+
+  const totalHint = installmentsHint(values)
 
   return (
     <form
@@ -189,7 +195,7 @@ export function EntryForm({
         <KindToggle value={values.kind} onChange={changeKind} />
 
         <div className="grid gap-2">
-          <Label htmlFor="entry-amount">Valor (R$)</Label>
+          <Label htmlFor="entry-amount">{amountLabel(values)}</Label>
           <Input
             id="entry-amount"
             inputMode="decimal"
@@ -198,7 +204,13 @@ export function EntryForm({
             className="h-12 font-mono text-2xl md:text-2xl"
             value={values.amount}
             onChange={(e) => set({ amount: e.target.value })}
+            aria-describedby={totalHint === null ? undefined : 'entry-amount-total'}
           />
+          {totalHint !== null && (
+            <p id="entry-amount-total" className="text-muted-foreground text-xs">
+              {totalHint}
+            </p>
+          )}
         </div>
 
         <div className="grid gap-2">

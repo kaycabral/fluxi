@@ -9,12 +9,13 @@ import {
   entryParts,
   userSettings,
 } from '@/db/schema'
-import { addMonths, diffMonths, monthToDate, type Month } from '@/features/ledger/core/month'
+import { monthToDate, type Month } from '@/features/ledger/core/month'
 import { amountFor, dayFor, occursIn } from '@/features/ledger/core/occurrence'
 import { keepPartIds } from '@/features/ledger/core/payments'
 import type { EntryFields, PotTargets } from '@/features/ledger/core/schemas'
 import {
   applyScopedEdit,
+  endSeriesBefore,
   type EditScope,
   type OccurrencePatch,
   type ScopedEditResult,
@@ -351,11 +352,7 @@ export async function deleteEntry(
       }
 
       if (month === entry.startMonth) return removeAll()
-      const ended: Entry =
-        entry.recurrence === 'installments'
-          ? { ...entry, installments: diffMonths(entry.startMonth, month) }
-          : { ...entry, endMonth: addMonths(month, -1) }
-      await writeEntryRow(tx, userId, ended)
+      await writeEntryRow(tx, userId, endSeriesBefore(entry, month))
       await tx
         .delete(entryOverrides)
         .where(

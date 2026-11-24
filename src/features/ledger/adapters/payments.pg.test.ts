@@ -51,6 +51,8 @@ function rent(accountId: string, patch: Partial<EntryFields> = {}): EntryFields 
     startMonth: '2026-12',
     day: 10,
     recurrence: 'monthly',
+    repeatEvery: 1,
+    monthBy: 'day',
     installments: null,
     endMonth: null,
     parts: [],

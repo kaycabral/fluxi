@@ -3,21 +3,12 @@
 import { createEntryAction } from '@/features/ledger/adapters/actions/entries'
 import { newEntryValues, valuesToFields } from '@/features/ledger/core/entry-form'
 import { dayLongLabel } from '@/features/ledger/core/format'
-import type { Recurrence } from '@/features/ledger/core/types'
-import {
-  Button,
-  cn,
-  Input,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@cbrl/design'
+import { Button, cn, Input } from '@cbrl/design'
 import { Banknote, Clock, Loader2, Wallet, X } from 'lucide-react'
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { defaultAccountOf, useLedgerUi } from './ledger-shell'
+import { RepeatField, type RepeatValue } from './repeat-field'
 import { AccountSelect } from './selects'
 
 type QuickKind = 'expense' | 'income'
@@ -26,18 +17,6 @@ const QUICK_KINDS: { kind: QuickKind; label: string }[] = [
   { kind: 'expense', label: 'Saída' },
   { kind: 'income', label: 'Entrada' },
 ]
-
-type QuickRepeat = Extract<Recurrence, 'none' | 'monthly' | 'yearly'>
-
-const REPEAT_LABELS: Record<QuickRepeat, string> = {
-  none: 'Não se repete',
-  monthly: 'Todo mês',
-  yearly: 'Todo ano',
-}
-
-function isQuickRepeat(value: string): value is QuickRepeat {
-  return value in REPEAT_LABELS
-}
 
 /**
  * Quick add on a calendar day, laid out like Google Calendar's: a big
@@ -50,14 +29,20 @@ export function QuickAddForm({ date, onDone }: { date: string; onDone: () => voi
   const [kind, setKind] = useState<QuickKind>('expense')
   const [amount, setAmount] = useState('')
   const [description, setDescription] = useState('')
-  const [recurrence, setRecurrence] = useState<QuickRepeat>('none')
+  const [repeat, setRepeat] = useState<RepeatValue>({
+    recurrence: 'none',
+    repeatEvery: 1,
+    monthBy: 'day',
+    endMonth: '',
+    installments: '',
+  })
   const [accountId, setAccountId] = useState(() => defaultAccountOf(refs))
   const [entryId] = useState(() => crypto.randomUUID())
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
   const accounts = refs.accounts.filter((a) => !a.archived)
 
-  const typed = { kind, amount, description, accountId, recurrence }
+  const typed = { kind, amount, description, accountId, ...repeat }
 
   function save() {
     const converted = valuesToFields({ ...newEntryValues({ date, accountId, kind }), ...typed })
@@ -103,7 +88,7 @@ export function QuickAddForm({ date, onDone }: { date: string; onDone: () => voi
         list="quick-descriptions"
         autoComplete="off"
         placeholder="Adicionar descrição"
-        className="focus-visible:border-b-primary h-11 rounded-none border-0 border-b-2 px-0 text-xl shadow-none focus-visible:ring-0"
+        className="focus-visible:border-b-primary h-11 rounded-none border-0 border-b-2 px-0 text-xl shadow-none focus-visible:ring-0 [&::-webkit-calendar-picker-indicator]:hidden"
         value={description}
         onChange={(e) => setDescription(e.target.value)}
       />
@@ -131,27 +116,12 @@ export function QuickAddForm({ date, onDone }: { date: string; onDone: () => voi
       <Clock className="text-muted-foreground size-5" aria-hidden />
       <div className="grid gap-0.5">
         <p className="text-sm first-letter:uppercase">{dayLongLabel(date)}</p>
-        <Select
-          value={recurrence}
-          onValueChange={(value) => {
-            if (isQuickRepeat(value)) setRecurrence(value)
-          }}
-        >
-          <SelectTrigger
-            aria-label="Repetição"
-            size="sm"
-            className="text-muted-foreground h-auto w-fit border-0 p-0 text-xs shadow-none"
-          >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {Object.entries(REPEAT_LABELS).map(([value, label]) => (
-              <SelectItem key={value} value={value}>
-                {label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <RepeatField
+          date={date}
+          className="text-muted-foreground h-auto border-0 p-0 text-xs shadow-none"
+          value={repeat}
+          onChange={setRepeat}
+        />
       </div>
       <Banknote className="text-muted-foreground size-5" aria-hidden />
       <Input

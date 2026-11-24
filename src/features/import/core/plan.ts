@@ -204,6 +204,8 @@ export function planAsLedger(plan: ImportPlan): { entries: Entry[]; overrides: E
       startMonth: e.startMonth,
       day: e.day,
       recurrence: e.recurrence,
+      repeatEvery: 1,
+      monthBy: 'day',
       installments: null,
       endMonth: e.endMonth,
     })),

@@ -63,6 +63,8 @@ const fields: EntryFields = {
   startMonth: '2026-12',
   day: 15,
   recurrence: 'monthly',
+  repeatEvery: 1,
+  monthBy: 'day',
   installments: null,
   endMonth: null,
   parts: [],

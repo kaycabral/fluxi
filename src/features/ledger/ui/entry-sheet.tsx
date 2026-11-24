@@ -20,35 +20,28 @@ import {
   type EntryFormValues,
 } from '@/features/ledger/core/entry-form'
 import { monthLabel } from '@/features/ledger/core/format'
-import { RECURRENCE_LABELS } from '@/features/ledger/core/labels'
 import type { EntryFields } from '@/features/ledger/core/schemas'
 import type { EditScope } from '@/features/ledger/core/scoped-edit'
-import { isPotKey, type EntryKind, type Recurrence } from '@/features/ledger/core/types'
+import { isPotKey, type EntryKind } from '@/features/ledger/core/types'
 import type { LedgerRefs } from '@/features/ledger/core/view'
+import { Button, DialogDescription, DialogTitle, Input, Label } from '@cbrl/design'
 import {
-  Button,
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-  Input,
-  Label,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from '@cbrl/design'
-import { ChevronDown, Loader2 } from 'lucide-react'
+  Banknote,
+  Copy,
+  Hash,
+  Loader2,
+  SplitSquareVertical,
+  Tag,
+  Trash2,
+  Wallet,
+  X,
+} from 'lucide-react'
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { KindToggle, PartsEditor, TagsField } from './entry-fields'
+import { RepeatField } from './repeat-field'
 import type { ScopeRequest } from './scope-dialog'
-import { AccountSelect, CategorySelect, OptionSelect, PotSelect } from './selects'
-
-const RECURRENCE_OPTIONS = Object.entries(RECURRENCE_LABELS)
-
-function isRecurrence(value: string): value is Recurrence {
-  return value in RECURRENCE_LABELS
-}
+import { AccountSelect, CategorySelect, PotSelect } from './selects'
 
 export type EntryFormProps = {
   refs: LedgerRefs
@@ -58,7 +51,12 @@ export type EntryFormProps = {
   onDone: () => void
 }
 
-/** The single entry form (create / edit an occurrence / edit a whole entry), rendered inside the sheet. */
+/**
+ * The single entry form (create / edit an occurrence / edit a whole entry),
+ * laid out like Google Calendar's event page: the description as a big title
+ * with Salvar beside it, the date and the repetition under it, then the
+ * details card (kind, amount, accounts, category and pot, tags, parts).
+ */
 export function EntryForm({
   refs,
   target: initialTarget,
@@ -182,44 +180,30 @@ export function EntryForm({
         void save(false)
       }}
     >
-      <SheetHeader className="pr-12">
-        <SheetTitle>{target === null ? 'Novo lançamento' : 'Editar lançamento'}</SheetTitle>
-        <SheetDescription className={occurrence === null ? 'sr-only' : undefined}>
-          {occurrence === null
-            ? 'Preencha os dados do lançamento.'
-            : `Editando ${monthLabel(occurrence)}. Se mudar valor ou dia, você escolhe o alcance ao salvar; mudar o mês move o início da repetição.`}
-        </SheetDescription>
-      </SheetHeader>
+      <DialogTitle className="sr-only">
+        {target === null ? 'Novo lançamento' : 'Editar lançamento'}
+      </DialogTitle>
+      <DialogDescription className="sr-only">Preencha os dados do lançamento.</DialogDescription>
 
-      <div className="grid gap-4 overflow-y-auto px-4 pb-4">
-        <KindToggle value={values.kind} onChange={changeKind} />
-
-        <div className="grid gap-2">
-          <Label htmlFor="entry-amount">{amountLabel(values)}</Label>
-          <Input
-            id="entry-amount"
-            inputMode="decimal"
-            autoComplete="off"
-            placeholder="0,00"
-            className="h-12 font-mono text-2xl md:text-2xl"
-            value={values.amount}
-            onChange={(e) => set({ amount: e.target.value })}
-            aria-describedby={totalHint === null ? undefined : 'entry-amount-total'}
-          />
-          {totalHint !== null && (
-            <p id="entry-amount-total" className="text-muted-foreground text-xs">
-              {totalHint}
-            </p>
-          )}
-        </div>
-
-        <div className="grid gap-2">
-          <Label htmlFor="entry-description">Descrição</Label>
+      <div className="flex items-start gap-2 px-3 pt-3 md:gap-4 md:px-6 md:pt-4">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="mt-1 shrink-0 rounded-full"
+          aria-label="Fechar"
+          onClick={onDone}
+        >
+          <X />
+        </Button>
+        <div className="grid min-w-0 flex-1 gap-3 md:max-w-2xl">
           <Input
             id="entry-description"
+            aria-label="Descrição"
             list="entry-descriptions"
             autoComplete="off"
-            placeholder="Ex.: Mercado, Salário, Aporte CDB"
+            placeholder="Adicionar descrição"
+            className="focus-visible:border-b-primary h-12 rounded-none border-0 border-b-2 px-0 text-2xl shadow-none focus-visible:ring-0 md:text-2xl [&::-webkit-calendar-picker-indicator]:hidden"
             value={values.description}
             onChange={(e) => set({ description: e.target.value })}
           />
@@ -228,173 +212,218 @@ export function EntryForm({
               <option key={d} value={d} />
             ))}
           </datalist>
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 min-[400px]:grid-cols-2 [&>*]:min-w-0">
-          <div className="grid gap-2">
-            <Label htmlFor="entry-date">Data</Label>
+          <div className="flex flex-wrap items-center gap-2">
+            <Label htmlFor="entry-date" className="sr-only">
+              Data
+            </Label>
             <Input
               id="entry-date"
               type="date"
+              className="bg-muted w-fit border-0"
               value={values.date}
               onChange={(e) => set({ date: e.target.value })}
             />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="entry-account">Conta</Label>
-            <AccountSelect
-              id="entry-account"
-              banks={refs.banks}
-              accounts={accounts}
-              value={values.accountId}
-              onValueChange={(accountId) => set({ accountId })}
+            <RepeatField
+              date={values.date}
+              withInstallments
+              className="bg-muted border-0"
+              value={values}
+              onChange={(repeat) => set(repeat)}
             />
-          </div>
-          {isTransfer ? (
-            <div className="grid gap-2">
-              <Label htmlFor="entry-to-account">Para a conta</Label>
-              <AccountSelect
-                id="entry-to-account"
-                banks={refs.banks}
-                accounts={accounts}
-                value={values.toAccountId}
-                onValueChange={(toAccountId) => set({ toAccountId })}
-              />
-            </div>
-          ) : (
-            <>
-              <div className="grid gap-2">
-                <Label htmlFor="entry-category">Categoria</Label>
-                <CategorySelect
-                  id="entry-category"
-                  categories={refs.categories.filter(
-                    (c) => !c.archived || c.id === values.categoryId,
-                  )}
-                  emptyLabel="Sem categoria"
-                  value={values.categoryId}
-                  onValueChange={changeCategory}
+            {values.recurrence === 'installments' && (
+              <div className="flex items-center gap-2">
+                <Input
+                  id="entry-installments"
+                  aria-label="Parcelas"
+                  type="number"
+                  min={1}
+                  inputMode="numeric"
+                  className="bg-muted w-20 border-0"
+                  value={values.installments}
+                  onChange={(e) => set({ installments: e.target.value })}
                 />
+                <span className="text-muted-foreground text-sm">parcelas</span>
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="entry-pot">Pote</Label>
-                <PotSelect
-                  id="entry-pot"
-                  value={values.kind === 'expense' ? values.pot : ''}
-                  placeholder={values.kind === 'income' ? '– (entrada)' : '–'}
-                  disabled={values.kind !== 'expense'}
-                  onValueChange={(pot) => set({ pot: isPotKey(pot) ? pot : '' })}
-                />
-              </div>
-            </>
-          )}
-          <div className="grid gap-2">
-            <Label htmlFor="entry-recurrence">Repete</Label>
-            <OptionSelect
-              id="entry-recurrence"
-              options={RECURRENCE_OPTIONS}
-              value={values.recurrence}
-              onValueChange={(v) => {
-                if (isRecurrence(v))
-                  set({ recurrence: v, installments: values.installments || '12' })
-              }}
-            />
+            )}
           </div>
-          {values.recurrence === 'installments' && (
-            <div className="grid gap-2">
-              <Label htmlFor="entry-installments">Parcelas</Label>
-              <Input
-                id="entry-installments"
-                type="number"
-                min={1}
-                inputMode="numeric"
-                value={values.installments}
-                onChange={(e) => set({ installments: e.target.value })}
-              />
-            </div>
-          )}
-          {(values.recurrence === 'monthly' || values.recurrence === 'yearly') && (
-            <div className="grid gap-2">
-              <Label htmlFor="entry-end">Até (opcional)</Label>
-              <Input
-                id="entry-end"
-                type="month"
-                value={values.endMonth}
-                onChange={(e) => set({ endMonth: e.target.value })}
-              />
-            </div>
+          {occurrence !== null && (
+            <p className="text-muted-foreground text-xs">
+              Editando {monthLabel(occurrence)}. Se mudar valor ou dia, você escolhe o alcance ao
+              salvar; mudar o mês move o início da repetição.
+            </p>
           )}
         </div>
-        {values.kind === 'expense' && (
-          <p className="text-muted-foreground -mt-2 text-xs">
-            O pote é sugerido pela categoria; troque se quiser.
-          </p>
-        )}
-
-        <TagsField tags={values.tags} onChange={(tags) => set({ tags })} />
-
-        <Collapsible defaultOpen={values.split}>
-          <CollapsibleTrigger className="text-primary flex items-center gap-1 text-sm font-medium [&[data-state=open]>svg]:rotate-180">
-            Mais opções <ChevronDown className="size-4 transition-transform" />
-          </CollapsibleTrigger>
-          <CollapsibleContent className="pt-3">
-            <PartsEditor
-              split={values.split}
-              parts={values.parts}
-              onChange={(split, parts) => set({ split, parts })}
-            />
-          </CollapsibleContent>
-        </Collapsible>
-
-        {error !== null && (
-          <p role="alert" className="text-destructive text-sm">
-            {error}
-          </p>
-        )}
-      </div>
-
-      <SheetFooter className="border-border flex-row flex-wrap items-center justify-between border-t">
-        <div className="flex gap-1">
+        <div className="flex shrink-0 items-center gap-1">
           {target !== null && (
             <>
               <Button
                 type="button"
                 variant="ghost"
-                size="sm"
-                className="text-destructive"
+                size="icon"
+                className="rounded-full"
+                aria-label="Excluir"
                 onClick={() => void remove()}
                 disabled={pending}
               >
-                Excluir
+                <Trash2 />
               </Button>
               <Button
                 type="button"
                 variant="ghost"
-                size="sm"
+                size="icon"
+                className="rounded-full"
+                aria-label="Duplicar"
                 onClick={duplicate}
                 disabled={pending}
               >
-                Duplicar
+                <Copy />
               </Button>
             </>
           )}
-        </div>
-        <div className="flex gap-2">
           {target === null && (
             <Button
               type="button"
-              variant="outline"
+              variant="ghost"
+              className="hidden rounded-full sm:inline-flex"
               onClick={() => void save(true)}
               disabled={pending}
             >
               Salvar e criar outro
             </Button>
           )}
-          <Button type="submit" disabled={pending}>
+          <Button type="submit" className="rounded-full px-6" disabled={pending}>
             {pending && <Loader2 className="animate-spin" />}
             Salvar
           </Button>
         </div>
-      </SheetFooter>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4 md:px-6">
+        <section
+          aria-label="Detalhes do lançamento"
+          className="bg-card grid max-w-2xl gap-5 rounded-3xl border p-4 md:ml-14 md:p-6"
+        >
+          <h2 className="text-primary border-primary w-fit border-b-2 pb-1 text-sm font-medium">
+            Detalhes do lançamento
+          </h2>
+          <KindToggle value={values.kind} onChange={changeKind} />
+
+          <DetailRow icon={Banknote}>
+            <div className="grid gap-1.5">
+              <Label htmlFor="entry-amount">{amountLabel(values)}</Label>
+              <Input
+                id="entry-amount"
+                inputMode="decimal"
+                autoComplete="off"
+                placeholder="0,00"
+                className="h-11 font-mono text-xl md:text-xl"
+                value={values.amount}
+                onChange={(e) => set({ amount: e.target.value })}
+                aria-describedby={totalHint === null ? undefined : 'entry-amount-total'}
+              />
+              {totalHint !== null && (
+                <p id="entry-amount-total" className="text-muted-foreground text-xs">
+                  {totalHint}
+                </p>
+              )}
+            </div>
+          </DetailRow>
+
+          <DetailRow icon={Wallet}>
+            <div className="grid gap-3 sm:grid-cols-2 [&>*]:min-w-0">
+              <div className="grid gap-1.5">
+                <Label htmlFor="entry-account">Conta</Label>
+                <AccountSelect
+                  id="entry-account"
+                  banks={refs.banks}
+                  accounts={accounts}
+                  value={values.accountId}
+                  onValueChange={(accountId) => set({ accountId })}
+                />
+              </div>
+              {isTransfer && (
+                <div className="grid gap-1.5">
+                  <Label htmlFor="entry-to-account">Para a conta</Label>
+                  <AccountSelect
+                    id="entry-to-account"
+                    banks={refs.banks}
+                    accounts={accounts}
+                    value={values.toAccountId}
+                    onValueChange={(toAccountId) => set({ toAccountId })}
+                  />
+                </div>
+              )}
+            </div>
+          </DetailRow>
+
+          {!isTransfer && (
+            <DetailRow icon={Tag}>
+              <div className="grid gap-3 sm:grid-cols-2 [&>*]:min-w-0">
+                <div className="grid gap-1.5">
+                  <Label htmlFor="entry-category">Categoria</Label>
+                  <CategorySelect
+                    id="entry-category"
+                    categories={refs.categories.filter(
+                      (c) => !c.archived || c.id === values.categoryId,
+                    )}
+                    emptyLabel="Sem categoria"
+                    value={values.categoryId}
+                    onValueChange={changeCategory}
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="entry-pot">Pote</Label>
+                  <PotSelect
+                    id="entry-pot"
+                    value={values.kind === 'expense' ? values.pot : ''}
+                    placeholder={values.kind === 'income' ? '– (entrada)' : '–'}
+                    disabled={values.kind !== 'expense'}
+                    onValueChange={(pot) => set({ pot: isPotKey(pot) ? pot : '' })}
+                  />
+                </div>
+              </div>
+              {values.kind === 'expense' && (
+                <p className="text-muted-foreground text-xs">
+                  O pote é sugerido pela categoria; troque se quiser.
+                </p>
+              )}
+            </DetailRow>
+          )}
+
+          <DetailRow icon={Hash}>
+            <TagsField tags={values.tags} onChange={(tags) => set({ tags })} />
+          </DetailRow>
+
+          <DetailRow icon={SplitSquareVertical}>
+            <PartsEditor
+              split={values.split}
+              parts={values.parts}
+              onChange={(split, parts) => set({ split, parts })}
+            />
+          </DetailRow>
+
+          {error !== null && (
+            <p role="alert" className="text-destructive text-sm">
+              {error}
+            </p>
+          )}
+        </section>
+      </div>
     </form>
+  )
+}
+
+function DetailRow({
+  icon: Icon,
+  children,
+}: {
+  icon: React.ComponentType<{ className?: string }>
+  children: React.ReactNode
+}) {
+  return (
+    <div className="grid grid-cols-[1.25rem_1fr] items-start gap-x-4">
+      <Icon className="text-muted-foreground mt-7 size-5" aria-hidden />
+      <div className="grid min-w-0 gap-2">{children}</div>
+    </div>
   )
 }

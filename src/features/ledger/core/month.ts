@@ -53,3 +53,22 @@ export function monthToDate(month: Month): string {
   parse(month)
   return `${month}-01`
 }
+
+/** Weekday (Sunday = 0) of `day` of `month`. */
+export function weekdayIn(month: Month, day: number): number {
+  const { year, monthIndex } = parse(month)
+  return new Date(Date.UTC(year, monthIndex, day)).getUTCDay()
+}
+
+/** Day of the `nth` (1–5) `weekday` of `month`; the last one when there is no `nth`. */
+export function nthWeekdayDay(month: Month, weekday: number, nth: number): number {
+  const first = 1 + ((weekday - weekdayIn(month, 1) + 7) % 7)
+  const last = daysInMonth(month)
+  const day = first + 7 * (nth - 1)
+  return day <= last ? day : first + 7 * Math.floor((last - first) / 7)
+}
+
+/** Day of the last `weekday` of `month`. */
+export function lastWeekdayDay(month: Month, weekday: number): number {
+  return nthWeekdayDay(month, weekday, 5)
+}

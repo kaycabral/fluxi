@@ -40,6 +40,8 @@ type RefineInput = {
   categoryId: string | null
   startMonth: string
   recurrence: 'none' | 'monthly' | 'yearly' | 'installments'
+  repeatEvery: number
+  monthBy: 'day' | 'weekday' | 'last_weekday'
   installments: number | null
   endMonth: string | null
 }
@@ -59,8 +61,14 @@ function checkRecurrence(v: RefineInput, issue: Issue): void {
   if ((v.recurrence === 'installments') !== (v.installments !== null)) {
     issue('installments', 'Informe as parcelas.')
   }
+  const repeats = v.recurrence === 'monthly' || v.recurrence === 'yearly'
+  if (v.repeatEvery !== 1 && !repeats)
+    issue('repeatEvery', 'Só repetições mensais ou anuais têm intervalo.')
+  if (v.monthBy !== 'day' && v.recurrence !== 'monthly') {
+    issue('monthBy', 'Só repetições mensais caem num dia da semana.')
+  }
   if (v.endMonth === null) return
-  if (v.recurrence !== 'monthly' && v.recurrence !== 'yearly') {
+  if (!repeats) {
     issue('endMonth', 'Só repetições mensais ou anuais têm data final.')
   } else if (v.endMonth < v.startMonth) {
     issue('endMonth', 'O fim não pode ser antes do início.')
@@ -85,6 +93,12 @@ export const entryFieldsSchema = z
     startMonth: monthSchema,
     day: daySchema,
     recurrence: z.enum(['none', 'monthly', 'yearly', 'installments']),
+    repeatEvery: z
+      .number()
+      .int()
+      .min(1, 'Repita a cada 1 ou mais.')
+      .max(99, 'No máximo a cada 99.'),
+    monthBy: z.enum(['day', 'weekday', 'last_weekday']),
     installments: z.number().int().min(1, 'Informe as parcelas.').max(600).nullable(),
     endMonth: monthSchema.nullable(),
     parts: z.array(entryPartSchema).max(12),

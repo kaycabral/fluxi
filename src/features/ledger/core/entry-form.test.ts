@@ -61,6 +61,8 @@ describe('valuesToFields', () => {
         startMonth: '2026-12',
         day: 10,
         recurrence: 'monthly',
+        repeatEvery: 1,
+        monthBy: 'day',
         installments: null,
         endMonth: '2027-06',
         parts: [],
@@ -232,5 +234,27 @@ describe('helpers', () => {
     expect(hint('', '3')).toBeNull()
     expect(hint('10', '')).toBeNull()
     expect(installmentsHint(values({ amount: '2000' }))).toBeNull()
+  })
+})
+
+describe('valuesToFields · repetition rule', () => {
+  it('keeps the interval and weekday rule only where they apply', () => {
+    const fields = (patch: Partial<EntryFormValues>) => {
+      const result = valuesToFields(values({ amount: '10', description: 'Luz', ...patch }))
+      if (!result.ok) throw new Error(result.error)
+      return result.fields
+    }
+    expect(fields({ recurrence: 'monthly', repeatEvery: 3, monthBy: 'weekday' })).toMatchObject({
+      repeatEvery: 3,
+      monthBy: 'weekday',
+    })
+    expect(fields({ recurrence: 'yearly', repeatEvery: 2, monthBy: 'weekday' })).toMatchObject({
+      repeatEvery: 2,
+      monthBy: 'day',
+    })
+    expect(fields({ recurrence: 'none', repeatEvery: 3, monthBy: 'weekday' })).toMatchObject({
+      repeatEvery: 1,
+      monthBy: 'day',
+    })
   })
 })

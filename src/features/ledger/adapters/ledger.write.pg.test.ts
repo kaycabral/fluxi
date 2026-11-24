@@ -68,6 +68,8 @@ function expense(accountId: string, patch: Partial<EntryFields> = {}): EntryFiel
     startMonth: '2026-12',
     day: 10,
     recurrence: 'monthly',
+    repeatEvery: 1,
+    monthBy: 'day',
     installments: null,
     endMonth: null,
     parts: [],
@@ -327,6 +329,20 @@ describe('updateEntry', () => {
       ok: false,
       reason: 'invalid_reference',
     })
+  })
+})
+
+describe('repetition rule', () => {
+  it('stores every N months on a weekday, and the database refuses a rule on the wrong recurrence', async () => {
+    const id = randomUUID()
+    await expect(
+      createEntry(ANA, id, expense(ana.accountId, { repeatEvery: 2, monthBy: 'weekday' })),
+    ).resolves.toEqual({ ok: true })
+    const [row] = await entryRows(ANA)
+    expect(row).toMatchObject({ repeatEvery: 2, monthBy: 'weekday' })
+    await expect(
+      db().update(entries).set({ recurrence: 'none' }).where(eq(entries.id, id)),
+    ).rejects.toThrow()
   })
 })
 

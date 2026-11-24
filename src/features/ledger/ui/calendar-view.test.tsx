@@ -299,7 +299,7 @@ describe('CalendarView · quick add', () => {
     expect(within(dayGroup(10)).getByText('(Sem descrição)')).toBeInTheDocument()
     await userEvent.type(within(form).getByLabelText('Descrição'), 'Padaria')
     await userEvent.click(within(form).getByLabelText('Repetição'))
-    await userEvent.click(await screen.findByRole('option', { name: 'Todo mês' }))
+    await userEvent.click(await screen.findByRole('option', { name: 'Mensal no dia 10' }))
     await userEvent.type(within(form).getByLabelText('Valor (R$)'), '42,90{Enter}')
     await waitFor(() => expect(createEntryAction).toHaveBeenCalledOnce())
     expect(vi.mocked(createEntryAction).mock.calls[0]?.[0]).toMatchObject({

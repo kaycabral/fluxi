@@ -142,6 +142,8 @@ export async function listEntries(userId: string, window: MonthWindow): Promise<
     startMonth: monthFromDate(r.startMonth),
     day: r.day,
     recurrence: r.recurrence,
+    repeatEvery: r.repeatEvery,
+    monthBy: r.monthBy,
     installments: r.installments,
     endMonth: monthOrNull(r.endMonth),
   }))

@@ -111,9 +111,9 @@ test.describe('ledger critical flow', () => {
     await expect(sheet).toBeVisible()
     await sheet.getByLabel('Valor (R$)').fill('100')
     await sheet.getByLabel('Descrição').fill('Aluguel E2E')
-    await sheet.getByLabel('Data').fill(`${THIS_MONTH}-10`)
-    await sheet.getByLabel('Repete').click()
-    await page.getByRole('option', { name: 'Todo mês' }).click()
+    await sheet.getByLabel('Data', { exact: true }).fill(`${THIS_MONTH}-10`)
+    await sheet.getByLabel('Repetição').click()
+    await page.getByRole('option', { name: 'Mensal no dia 10' }).click()
     await sheet.getByRole('button', { name: 'Salvar', exact: true }).click()
     await expect(sheet).toBeHidden()
 

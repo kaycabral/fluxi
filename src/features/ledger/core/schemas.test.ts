@@ -24,6 +24,8 @@ const valid: EntryFields = {
   startMonth: '2026-12',
   day: 15,
   recurrence: 'monthly',
+  repeatEvery: 1,
+  monthBy: 'day',
   installments: null,
   endMonth: null,
   parts: [],
@@ -84,5 +86,45 @@ describe('isoDaySchema', () => {
     expect(isoDaySchema.safeParse('2027-02-29').success).toBe(false)
     expect(isoDaySchema.safeParse('').success).toBe(false)
     expect(isoDaySchema.safeParse('ontem').success).toBe(false)
+  })
+})
+
+describe('entryFieldsSchema · repetition rule', () => {
+  const base = {
+    kind: 'expense' as const,
+    description: 'Luz',
+    amountCents: 1000,
+    accountId: '00000000-0000-4000-8000-0000000000a1',
+    toAccountId: null,
+    categoryId: null,
+    pot: null,
+    tags: [],
+    startMonth: '2026-12',
+    day: 10,
+    recurrence: 'monthly' as const,
+    repeatEvery: 1,
+    monthBy: 'day' as const,
+    installments: null,
+    endMonth: null,
+    parts: [],
+  }
+  const issue = (patch: Partial<typeof base> | Record<string, unknown>) => {
+    const result = entryFieldsSchema.safeParse({ ...base, ...patch })
+    return result.success ? null : firstIssue(result.error)
+  }
+
+  it('accepts intervals and weekday rules on the series that take them', () => {
+    expect(issue({ repeatEvery: 3, monthBy: 'weekday' })).toBeNull()
+    expect(issue({ recurrence: 'yearly', repeatEvery: 2 })).toBeNull()
+  })
+
+  it('refuses them elsewhere', () => {
+    expect(issue({ recurrence: 'none', repeatEvery: 2 })).toBe(
+      'Só repetições mensais ou anuais têm intervalo.',
+    )
+    expect(issue({ recurrence: 'yearly', monthBy: 'weekday' })).toBe(
+      'Só repetições mensais caem num dia da semana.',
+    )
+    expect(issue({ repeatEvery: 0 })).toBe('Repita a cada 1 ou mais.')
   })
 })

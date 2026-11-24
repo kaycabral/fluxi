@@ -50,6 +50,13 @@
       "when": 1795546209374,
       "tag": "0006_installments_total",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1795557650444,
+      "tag": "0007_repeat_rule",
+      "breakpoints": true
     }
   ]
 }

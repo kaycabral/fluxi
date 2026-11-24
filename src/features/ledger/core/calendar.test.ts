@@ -27,6 +27,15 @@ describe('calendarMonth', () => {
   it('knows the weekday of the 1st', () => {
     expect(firstWeekday('2026-12')).toBe(2)
     expect(firstWeekday('2026-11')).toBe(0)
+    // Malformed months fall back instead of throwing.
+    expect(firstWeekday('')).toBe(new Date(Date.UTC(0, 0, 1)).getUTCDay())
+  })
+
+  it('counts an account without an opening balance as zero', () => {
+    const [, dec] = project('2026-11')
+    if (dec === undefined) throw new Error('no month')
+    const ghost = calendarMonth(dec, ['ghost'])
+    expect(ghost.days[0]?.endBalanceCents).toBe(0)
   })
 
   it('runs the end-of-day balance of the chosen accounts', () => {

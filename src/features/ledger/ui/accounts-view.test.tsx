@@ -49,7 +49,7 @@ describe('AccountsView', () => {
     expect(btg).toHaveValue('BTG')
     expect(nubank).toHaveValue('Nubank')
     expect(screen.getByDisplayValue('Cartão')).toBeInTheDocument()
-    expect(screen.getByText('-R$ 10')).toBeInTheDocument()
+    expect(screen.getByText('-R$ 10,00')).toBeInTheDocument()
     expect(screen.getAllByText('Fim de dez/27').length).toBeGreaterThan(0)
     expect(screen.getByText(/no dia 1º de dez\/26/)).toBeInTheDocument()
   })
@@ -74,8 +74,8 @@ describe('AccountsView', () => {
     const cells = (label: string) =>
       within(screen.getByRole('row', { name: new RegExp(`^${label}`) })).getAllByRole('cell')
     // Archived accounts stay out; the benefit only enters the second total.
-    expect(cells('Total disponível')[0]).toHaveTextContent('R$ 690')
-    expect(cells('Total com benefícios')[0]).toHaveTextContent('R$ 990')
+    expect(cells('Total disponível')[0]).toHaveTextContent('R$ 690,00')
+    expect(cells('Total com benefícios')[0]).toHaveTextContent('R$ 990,00')
     expect(cells('Total com benefícios')[1]).toHaveTextContent('–')
   })
 

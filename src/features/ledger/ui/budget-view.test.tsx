@@ -35,7 +35,7 @@ describe('BudgetView', () => {
     render(<BudgetView pots={[...DEFAULT_POTS]} months={months} />)
     expect(screen.getByText('10% livre para distribuir')).toBeInTheDocument()
     expect(
-      screen.getByText(/meta R\$ 3\.300 · planejado em dez\/26 R\$ 3\.300 \(33%\) · até 43%/),
+      screen.getByText(/meta R\$ 3\.300,00 · planejado em dez\/26 R\$ 3\.300,00 \(33%\) · até 43%/),
     ).toBeInTheDocument()
   })
 

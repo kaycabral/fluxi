@@ -1,0 +1,177 @@
+import { describe, expect, it } from 'vitest'
+import { makeEntry, makeOverride, salarySplit } from './fixtures'
+import { landingsIn } from './occurrence'
+import { applyScopedEdit, type SeriesState } from './scoped-edit'
+
+function ids() {
+  let n = 0
+  return () => `new-${++n}`
+}
+
+const monthly = makeEntry({ amountCents: 1000, day: 10, startMonth: '2026-09' })
+const overrides = [
+  makeOverride({ month: '2026-10', amountCents: 1500 }),
+  makeOverride({ month: '2026-12', day: 3 }),
+  makeOverride({ month: '2027-01', skipped: true }),
+  makeOverride({ entryId: 'other', month: '2026-12', amountCents: 9 }),
+]
+const state: SeriesState = { entry: monthly, parts: [], overrides }
+
+describe('applyScopedEdit: one', () => {
+  it('creates an override for just that month', () => {
+    const result = applyScopedEdit(
+      state,
+      { month: '2026-11', patch: { amountCents: 2000 }, scope: 'one' },
+      ids(),
+    )
+    expect(result.entries).toEqual([monthly])
+    expect(result.overrides).toContainEqual(makeOverride({ month: '2026-11', amountCents: 2000 }))
+    expect(result.overrides).toHaveLength(4)
+  })
+
+  it('merges into an existing override', () => {
+    const result = applyScopedEdit(
+      state,
+      { month: '2026-12', patch: { amountCents: 2000 }, scope: 'one' },
+      ids(),
+    )
+    expect(result.overrides.filter((o) => o.month === '2026-12')).toEqual([
+      makeOverride({ month: '2026-12', amountCents: 2000, day: 3 }),
+    ])
+  })
+})
+
+describe('applyScopedEdit: all', () => {
+  it('edits the entry and clears the patched field from every override', () => {
+    const result = applyScopedEdit(
+      state,
+      { month: '2026-11', patch: { amountCents: 2000 }, scope: 'all' },
+      ids(),
+    )
+    expect(result.entries).toEqual([{ ...monthly, amountCents: 2000 }])
+    expect(result.overrides).toEqual([
+      makeOverride({ month: '2026-12', day: 3 }),
+      makeOverride({ month: '2027-01', skipped: true }),
+    ])
+  })
+
+  it('keeps fields that were not patched', () => {
+    const result = applyScopedEdit(
+      state,
+      { month: '2026-11', patch: { day: 20 }, scope: 'all' },
+      ids(),
+    )
+    expect(result.entries[0]).toMatchObject({ amountCents: 1000, day: 20 })
+    expect(result.overrides.map((o) => o.month)).toEqual(['2026-10', '2027-01'])
+  })
+})
+
+describe('applyScopedEdit: future', () => {
+  it('edits the entry itself when the month is the series start', () => {
+    const result = applyScopedEdit(
+      state,
+      { month: '2026-09', patch: { amountCents: 2000 }, scope: 'future' },
+      ids(),
+    )
+    expect(result.entries).toEqual([{ ...monthly, amountCents: 2000 }])
+    expect(result.overrides).toHaveLength(3)
+  })
+
+  it('splits a monthly series: old ends the month before, new starts with the patch', () => {
+    const bounded = { ...monthly, endMonth: '2027-06' }
+    const result = applyScopedEdit(
+      { entry: bounded, parts: [], overrides },
+      { month: '2026-12', patch: { amountCents: 2000 }, scope: 'future' },
+      ids(),
+    )
+    expect(result.entries).toEqual([
+      { ...bounded, endMonth: '2026-11' },
+      { ...bounded, id: 'new-1', startMonth: '2026-12', amountCents: 2000 },
+    ])
+    expect(result.overrides).toEqual([
+      makeOverride({ month: '2026-10', amountCents: 1500 }),
+      makeOverride({ entryId: 'new-1', month: '2026-12', day: 3 }),
+      makeOverride({ entryId: 'new-1', month: '2027-01', skipped: true }),
+    ])
+  })
+
+  it('splits the installment count', () => {
+    const buffet = makeEntry({
+      recurrence: 'installments',
+      installments: 12,
+      startMonth: '2027-02',
+      amountCents: 250000,
+    })
+    const result = applyScopedEdit(
+      { entry: buffet, parts: [], overrides: [] },
+      { month: '2027-06', patch: { amountCents: 300000 }, scope: 'future' },
+      ids(),
+    )
+    expect(
+      result.entries.map((e) => [e.startMonth, e.installments, e.amountCents, e.endMonth]),
+    ).toEqual([
+      ['2027-02', 4, 250000, null],
+      ['2027-06', 8, 300000, null],
+    ])
+  })
+
+  it('splits a yearly series and copies parts to the new entry', () => {
+    const yearly = makeEntry({ recurrence: 'yearly', startMonth: '2026-12', amountCents: 780000 })
+    const parts = [...salarySplit('e1'), ...salarySplit('other')]
+    const result = applyScopedEdit(
+      { entry: yearly, parts, overrides: [] },
+      { month: '2028-12', patch: { day: 18 }, scope: 'future' },
+      ids(),
+    )
+    expect(result.entries.map((e) => [e.id, e.startMonth, e.endMonth, e.day])).toEqual([
+      ['e1', '2026-12', '2028-11', 15],
+      ['new-1', '2028-12', null, 18],
+    ])
+    expect(result.parts.map((p) => [p.id, p.entryId, p.label])).toEqual([
+      ['e1-a', 'e1', 'Adiantamento'],
+      ['e1-b', 'e1', 'Saldo'],
+      ['new-2', 'new-1', 'Adiantamento'],
+      ['new-3', 'new-1', 'Saldo'],
+    ])
+  })
+
+  it('keeps the next-month part of the last old occurrence after a split', () => {
+    const salary = makeEntry({
+      kind: 'income',
+      pot: null,
+      amountCents: 1000,
+      startMonth: '2026-12',
+    })
+    const result = applyScopedEdit(
+      { entry: salary, parts: salarySplit('e1'), overrides: [] },
+      { month: '2027-03', patch: { amountCents: 2000 }, scope: 'future' },
+      ids(),
+    )
+    const [before, after] = result.entries
+    if (before === undefined || after === undefined) throw new Error('expected a split')
+    const march = [
+      ...landingsIn(before, result.parts, result.overrides, '2027-03'),
+      ...landingsIn(after, result.parts, result.overrides, '2027-03'),
+    ]
+    expect(march.map((l) => [l.entry.id, l.competence, l.amountCents])).toEqual([
+      ['e1', '2027-02', 600],
+      ['new-1', '2027-03', 800],
+    ])
+  })
+})
+
+describe('applyScopedEdit: guards', () => {
+  it('rejects a month that is not an occurrence', () => {
+    expect(() =>
+      applyScopedEdit(state, { month: '2026-08', patch: { day: 1 }, scope: 'one' }, ids()),
+    ).toThrow(RangeError)
+    const yearly = makeEntry({ recurrence: 'yearly', startMonth: '2026-12' })
+    expect(() =>
+      applyScopedEdit(
+        { entry: yearly, parts: [], overrides: [] },
+        { month: '2027-06', patch: { day: 1 }, scope: 'future' },
+        ids(),
+      ),
+    ).toThrow('no occurrence')
+  })
+})

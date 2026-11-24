@@ -1,0 +1,126 @@
+import { addMonths, daysInMonth, diffMonths, type Month } from './month'
+import type { Entry, EntryOverride, EntryPart } from './types'
+
+/** One amount landing on one day of one month (a whole occurrence or one split part). */
+export type Landing = {
+  entry: Entry
+  /** Month the money moves in. */
+  month: Month
+  /** Month of the occurrence it belongs to (earlier than `month` for a `nextMonth` part). */
+  competence: Month
+  /** Already clamped to the month's length. */
+  day: number
+  amountCents: number
+  part: EntryPart | null
+}
+
+/** Whether the series rule puts an occurrence in `month` (overrides aside). */
+export function occursIn(entry: Entry, month: Month): boolean {
+  const index = diffMonths(entry.startMonth, month)
+  if (index < 0) return false
+  const withinEnd = entry.endMonth === null || month <= entry.endMonth
+  switch (entry.recurrence) {
+    case 'none':
+      return index === 0
+    case 'yearly':
+      return index % 12 === 0 && withinEnd
+    case 'installments':
+      return index < (entry.installments ?? 0)
+    case 'monthly':
+      return withinEnd
+  }
+}
+
+function overrideFor(
+  entry: Entry,
+  overrides: readonly EntryOverride[],
+  month: Month,
+): EntryOverride | undefined {
+  return overrides.find((o) => o.entryId === entry.id && o.month === month)
+}
+
+export function isSkipped(
+  entry: Entry,
+  overrides: readonly EntryOverride[],
+  month: Month,
+): boolean {
+  return overrideFor(entry, overrides, month)?.skipped ?? false
+}
+
+/** Amount of the occurrence whose competence is `month` (an override wins). */
+export function amountFor(entry: Entry, overrides: readonly EntryOverride[], month: Month): number {
+  return overrideFor(entry, overrides, month)?.amountCents ?? entry.amountCents
+}
+
+/** Day of the occurrence whose competence is `month` (an override wins), unclamped. */
+export function dayFor(entry: Entry, overrides: readonly EntryOverride[], month: Month): number {
+  return overrideFor(entry, overrides, month)?.day ?? entry.day
+}
+
+/**
+ * Split `amountCents` by the parts' basis points, in part order. Each share is
+ * floored; when the parts total exactly 10000 bps the last part takes the
+ * rounding remainder, so the shares sum exactly to the amount. (Parts that do
+ * not total 10000 bps are invalid input; they get plain floored shares.)
+ */
+export function splitAmount(amountCents: number, parts: readonly EntryPart[]): number[] {
+  const shares = parts.map((part) => Math.floor((amountCents * part.bps) / 10000))
+  const totalBps = parts.reduce((sum, part) => sum + part.bps, 0)
+  if (totalBps === 10000 && shares.length > 0) {
+    const others = shares.slice(0, -1).reduce((sum, share) => sum + share, 0)
+    shares[shares.length - 1] = amountCents - others
+  }
+  return shares
+}
+
+export function sortParts(parts: readonly EntryPart[]): EntryPart[] {
+  return [...parts].sort((a, b) => a.sort - b.sort)
+}
+
+/**
+ * What lands in `month` for one entry. Without parts: the occurrence of
+ * `month`, if any. With parts: each part of the occurrence of `month`, or of
+ * the previous month for a `nextMonth` part. A skipped occurrence lands nothing
+ * (none of its parts either); days are clamped to the month's length.
+ */
+export function landingsIn(
+  entry: Entry,
+  parts: readonly EntryPart[],
+  overrides: readonly EntryOverride[],
+  month: Month,
+): Landing[] {
+  const lastDay = daysInMonth(month)
+  const lands = (competence: Month) =>
+    occursIn(entry, competence) && !isSkipped(entry, overrides, competence)
+  const ownParts = sortParts(parts.filter((p) => p.entryId === entry.id))
+
+  if (ownParts.length === 0) {
+    if (!lands(month)) return []
+    return [
+      {
+        entry,
+        month,
+        competence: month,
+        day: Math.min(dayFor(entry, overrides, month), lastDay),
+        amountCents: amountFor(entry, overrides, month),
+        part: null,
+      },
+    ]
+  }
+
+  const out: Landing[] = []
+  ownParts.forEach((part, index) => {
+    const competence = part.nextMonth ? addMonths(month, -1) : month
+    if (!lands(competence)) return
+    const shares = splitAmount(amountFor(entry, overrides, competence), ownParts)
+    out.push({
+      entry,
+      month,
+      competence,
+      day: Math.min(part.day, lastDay),
+      amountCents: shares[index] ?? 0,
+      part,
+    })
+  })
+  return out
+}

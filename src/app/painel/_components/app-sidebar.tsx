@@ -24,10 +24,17 @@ const SECTIONS: NavSection[] = [
 
 /**
  * Chrome of the new layout: collapsible sidebar (only the calendar so far),
- * the "Criar" button in the header and, at the bottom, the way back to the MVP
- * screens and sign-out.
+ * the "Criar" button in the header and, at the bottom, sign-out and (outside
+ * production) the way back to the MVP screens.
  */
-export function AppSidebar({ children }: { children: React.ReactNode }) {
+export function AppSidebar({
+  legacyScreens,
+  children,
+}: {
+  /** Show the way back to the MVP screens (never in production). */
+  legacyScreens: boolean
+  children: React.ReactNode
+}) {
   const pathname = usePathname()
   const signOut = useSignOut()
   const { openNew } = useLedgerUi()
@@ -54,14 +61,16 @@ export function AppSidebar({ children }: { children: React.ReactNode }) {
       }
       footer={
         <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild tooltip="Telas antigas">
-              <Link href="/painel/linha-do-tempo">
-                <History />
-                <span>Telas antigas</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
+          {legacyScreens && (
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild tooltip="Telas antigas">
+                <Link href="/painel/linha-do-tempo">
+                  <History />
+                  <span>Telas antigas</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
           <SidebarMenuItem>
             <SidebarMenuButton tooltip="Sair" onClick={() => void signOut()}>
               <LogOut />

@@ -18,10 +18,10 @@ vi.mock('@/features/ledger/adapters/actions/entries', () => ({
   changeDayAction: vi.fn(),
 }))
 
-function renderSidebar() {
+function renderSidebar(legacyScreens = true) {
   return render(
     <LedgerShell refs={sampleRefs()}>
-      <AppSidebar>
+      <AppSidebar legacyScreens={legacyScreens}>
         <p>conteúdo</p>
       </AppSidebar>
     </LedgerShell>,
@@ -47,6 +47,11 @@ describe('AppSidebar', () => {
     )
     await userEvent.click(screen.getByRole('button', { name: 'Sair' }))
     expect(signOut).toHaveBeenCalledOnce()
+  })
+
+  it('hides the old screens when they are off (production)', () => {
+    renderSidebar(false)
+    expect(screen.queryByRole('link', { name: 'Telas antigas' })).not.toBeInTheDocument()
   })
 
   it('creates an entry from the header', async () => {

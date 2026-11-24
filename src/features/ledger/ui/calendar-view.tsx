@@ -231,13 +231,22 @@ export function CalendarView({
                 if (landing !== null) void moveTo(landing, day.day)
               }}
               className={cn(
-                'border-border hover:bg-muted/40 relative grid min-h-20 min-w-0 grid-rows-[auto_1fr_auto] gap-0.5 rounded border p-0.5 sm:min-h-24 sm:p-1',
+                'border-border hover:bg-muted/40 relative grid min-h-20 min-w-0 grid-rows-[auto_1fr] gap-0.5 rounded border p-0.5 sm:min-h-24 sm:p-1',
                 negative && 'bg-destructive/10 border-destructive/40',
                 overDay === day.day && 'ring-primary bg-primary/5 ring-2',
               )}
             >
-              {/* Keeps the first grid row for the day number drawn by the trigger. */}
-              <span className="h-6" aria-hidden />
+              {/* First row: room for the day number (drawn by the trigger), the end balance on the right. */}
+              <div className="flex h-6 min-w-0 items-center justify-end pl-7">
+                <span
+                  className={cn(
+                    'text-muted-foreground pointer-events-none relative truncate text-right font-mono text-[0.65rem] tabular-nums sm:text-xs',
+                    negative && 'text-destructive',
+                  )}
+                >
+                  {day.endBalanceCents === null ? '' : formatAmount(day.endBalanceCents)}
+                </span>
+              </div>
               <Popover
                 open={quickDay === day.day}
                 onOpenChange={(open) => setQuickDay(open ? day.day : null)}
@@ -286,14 +295,6 @@ export function CalendarView({
                   />
                 ))}
               </div>
-              <span
-                className={cn(
-                  'text-muted-foreground pointer-events-none relative truncate text-right font-mono text-[0.65rem] tabular-nums sm:text-xs',
-                  negative && 'text-destructive',
-                )}
-              >
-                {day.endBalanceCents === null ? '' : formatAmount(day.endBalanceCents)}
-              </span>
             </div>
           )
         })}

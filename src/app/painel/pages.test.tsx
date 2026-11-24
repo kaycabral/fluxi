@@ -37,8 +37,10 @@ vi.mock('@/app/painel/_lib/session', () => ({
 const getServerUser = vi.fn<() => Promise<{ id: string } | null>>()
 vi.mock('@/lib/auth/server', () => ({ getServerUser: () => getServerUser() }))
 const redirect = vi.fn<(url: string) => never>()
+const notFound = vi.fn<() => never>()
 vi.mock('next/navigation', () => ({
   redirect: (url: string) => redirect(url),
+  notFound: () => notFound(),
   useRouter: () => ({ refresh: vi.fn(), replace: vi.fn() }),
   usePathname: () => '/painel',
 }))
@@ -179,6 +181,15 @@ describe('painel layouts', () => {
     render(await PainelLayout({ children: <p>conteúdo</p> }))
     expect(screen.getByRole('region', { name: 'shell com 2 bancos' })).toBeInTheDocument()
     expect(screen.getByText('conteúdo')).toBeInTheDocument()
+  })
+
+  it('the legacy screens do not exist in production', () => {
+    vi.stubEnv('VERCEL_ENV', 'production')
+    notFound.mockImplementation(() => {
+      throw new Error('not found')
+    })
+    expect(() => LegacyLayout({ children: null })).toThrow('not found')
+    vi.unstubAllEnvs()
   })
 
   it('the new layout puts the pages in the sidebar shell', () => {

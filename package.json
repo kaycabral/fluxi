@@ -26,6 +26,7 @@
     "db:migrate:local": "tsx scripts/migrate-local.ts",
     "db:env": "tsx scripts/local-env.ts",
     "db:seed": "tsx scripts/seed.ts",
+    "import:notion": "tsx scripts/import-notion.ts",
     "prepare": "node .husky/install.mjs"
   },
   "engines": {

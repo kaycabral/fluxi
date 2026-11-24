@@ -8,9 +8,11 @@ import {
   entries,
   entryOverrides,
   entryParts,
+  occurrencePayments,
   userSettings,
 } from '@/db/schema'
 import { addMonths, monthFromDate, monthToDate, type Month } from '@/features/ledger/core/month'
+import type { OccurrencePayment } from '@/features/ledger/core/payments'
 import type {
   Account,
   Bank,
@@ -39,6 +41,7 @@ export type LedgerSnapshot = {
   entries: Entry[]
   parts: EntryPart[]
   overrides: EntryOverride[]
+  payments: OccurrencePayment[]
 }
 
 const db = () => fluxiDb.db()
@@ -193,6 +196,33 @@ export async function listEntryOverrides(
   }))
 }
 
+/** Payments of `entryIds` for the window (plus the month before it, see {@link listEntries}). */
+export async function listOccurrencePayments(
+  userId: string,
+  entryIds: readonly string[],
+  window: MonthWindow,
+): Promise<OccurrencePayment[]> {
+  if (entryIds.length === 0) return []
+  const rows = await db()
+    .select()
+    .from(occurrencePayments)
+    .where(
+      and(
+        eq(occurrencePayments.userId, userId),
+        inArray(occurrencePayments.entryId, [...entryIds]),
+        gte(occurrencePayments.month, monthToDate(addMonths(window.from, -1))),
+        lte(occurrencePayments.month, monthToDate(window.to)),
+      ),
+    )
+    .orderBy(asc(occurrencePayments.entryId), asc(occurrencePayments.month))
+  return rows.map((r) => ({
+    entryId: r.entryId,
+    month: monthFromDate(r.month),
+    partId: r.partId,
+    paidOn: r.paidOn,
+  }))
+}
+
 /** Everything the core needs to project `userId`'s ledger over `window`. */
 export async function loadLedger(userId: string, window: MonthWindow): Promise<LedgerSnapshot> {
   const [bankRows, accountRows, categoryRows, pots, countFrom, entryRows] = await Promise.all([
@@ -204,9 +234,10 @@ export async function loadLedger(userId: string, window: MonthWindow): Promise<L
     listEntries(userId, window),
   ])
   const entryIds = entryRows.map((e) => e.id)
-  const [parts, overrides] = await Promise.all([
+  const [parts, overrides, payments] = await Promise.all([
     listEntryParts(userId, entryIds),
     listEntryOverrides(userId, entryIds, window),
+    listOccurrencePayments(userId, entryIds, window),
   ])
   return {
     banks: bankRows,
@@ -217,6 +248,7 @@ export async function loadLedger(userId: string, window: MonthWindow): Promise<L
     entries: entryRows,
     parts,
     overrides,
+    payments,
   }
 }
 

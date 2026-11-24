@@ -9,15 +9,9 @@ import {
   entryParts,
   userSettings,
 } from '@/db/schema'
-import type { WriteFailureReason } from '@/features/ledger/core/action-result'
-import {
-  addMonths,
-  diffMonths,
-  monthFromDate,
-  monthToDate,
-  type Month,
-} from '@/features/ledger/core/month'
+import { addMonths, diffMonths, monthToDate, type Month } from '@/features/ledger/core/month'
 import { amountFor, dayFor, occursIn } from '@/features/ledger/core/occurrence'
+import { keepPartIds } from '@/features/ledger/core/payments'
 import type { EntryFields, PotTargets } from '@/features/ledger/core/schemas'
 import {
   applyScopedEdit,
@@ -33,10 +27,19 @@ import {
   type EntryOverride,
   type EntryPart,
 } from '@/features/ledger/core/types'
-import { fluxiDb, type FluxiDb } from '@/lib/db'
-import { isForeignKeyViolation } from '@cbrl/pg'
-import { and, asc, eq, gte, sql } from 'drizzle-orm'
+import { and, eq, gte, notInArray, sql } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
+import { movePaymentsToSplit, syncPayments } from './payments.write'
+import {
+  db,
+  fail,
+  guarded,
+  loadSeries,
+  ok,
+  ScopeError,
+  type Tx,
+  type WriteResult,
+} from './write-base'
 
 /**
  * Write side of the ledger. Every function takes the session `userId` and
@@ -47,32 +50,7 @@ import { randomUUID } from 'node:crypto'
  * transaction with the entry row locked.
  */
 
-export type WriteFailure = WriteFailureReason
-export type WriteResult = { ok: true } | { ok: false; reason: WriteFailure }
-
-type Tx = Parameters<Parameters<FluxiDb['transaction']>[0]>[0]
-
-const db = () => fluxiDb.db()
-const ok: WriteResult = { ok: true }
-const fail = (reason: WriteFailure): WriteResult => ({ ok: false, reason })
-
-/** Runs `write`, mapping a composite-FK refusal to `invalid_reference`. */
-async function guarded(write: () => Promise<WriteResult>): Promise<WriteResult> {
-  try {
-    return await write()
-  } catch (error) {
-    if (isForeignKeyViolation(error)) return fail('invalid_reference')
-    if (error instanceof ScopeError) return fail(error.reason)
-    throw error
-  }
-}
-
-/** Aborts a transaction with a domain failure (rolled back, then reported). */
-class ScopeError extends Error {
-  constructor(readonly reason: WriteFailure) {
-    super(reason)
-  }
-}
+export type { WriteFailure, WriteResult } from './write-base'
 
 function entryColumns(entry: Entry) {
   return {
@@ -167,59 +145,6 @@ export async function createEntry(
   )
 }
 
-/** The entry (locked for the transaction), its parts and every override. */
-async function loadSeries(tx: Tx, userId: string, entryId: string): Promise<SeriesState | null> {
-  const [row] = await tx
-    .select()
-    .from(entries)
-    .where(and(eq(entries.id, entryId), eq(entries.userId, userId)))
-    .for('update')
-  if (row === undefined) return null
-  const partRows = await tx
-    .select()
-    .from(entryParts)
-    .where(and(eq(entryParts.entryId, entryId), eq(entryParts.userId, userId)))
-    .orderBy(asc(entryParts.sort))
-  const overrideRows = await tx
-    .select()
-    .from(entryOverrides)
-    .where(and(eq(entryOverrides.entryId, entryId), eq(entryOverrides.userId, userId)))
-  return {
-    entry: {
-      id: row.id,
-      kind: row.kind,
-      description: row.description,
-      amountCents: row.amountCents,
-      accountId: row.accountId,
-      toAccountId: row.toAccountId,
-      categoryId: row.categoryId,
-      pot: row.pot,
-      tags: row.tags,
-      startMonth: monthFromDate(row.startMonth),
-      day: row.day,
-      recurrence: row.recurrence,
-      installments: row.installments,
-      endMonth: row.endMonth === null ? null : monthFromDate(row.endMonth),
-    },
-    parts: partRows.map((p) => ({
-      id: p.id,
-      entryId: p.entryId,
-      label: p.label,
-      bps: p.bps,
-      day: p.day,
-      nextMonth: p.nextMonth,
-      sort: p.sort,
-    })),
-    overrides: overrideRows.map((o) => ({
-      entryId: o.entryId,
-      month: monthFromDate(o.month),
-      amountCents: o.amountCents,
-      day: o.day,
-      skipped: o.skipped,
-    })),
-  }
-}
-
 async function writeEntryRow(tx: Tx, userId: string, entry: Entry): Promise<void> {
   await tx
     .update(entries)
@@ -227,16 +152,45 @@ async function writeEntryRow(tx: Tx, userId: string, entry: Entry): Promise<void
     .where(and(eq(entries.id, entry.id), eq(entries.userId, userId)))
 }
 
+/**
+ * Make `parts` the entry's parts. Parts keep their ids where they persist (see
+ * `keepPartIds`), so they are upserted in place instead of re-created: a
+ * re-created part would cascade its payments away.
+ */
 async function replaceParts(
   tx: Tx,
   userId: string,
   entryId: string,
   parts: readonly EntryPart[],
 ): Promise<void> {
+  const ids = parts.map((p) => p.id)
   await tx
     .delete(entryParts)
-    .where(and(eq(entryParts.entryId, entryId), eq(entryParts.userId, userId)))
-  if (parts.length > 0) await tx.insert(entryParts).values(parts.map((p) => partRow(userId, p)))
+    .where(
+      and(
+        eq(entryParts.entryId, entryId),
+        eq(entryParts.userId, userId),
+        ids.length > 0 ? notInArray(entryParts.id, ids) : undefined,
+      ),
+    )
+  for (const part of parts) {
+    const row = partRow(userId, part)
+    await tx
+      .insert(entryParts)
+      .values(row)
+      .onConflictDoUpdate({
+        target: entryParts.id,
+        set: {
+          label: row.label,
+          bps: row.bps,
+          day: row.day,
+          nextMonth: row.nextMonth,
+          sort: row.sort,
+          updatedAt: sql`now()`,
+        },
+        setWhere: and(eq(entryParts.entryId, entryId), eq(entryParts.userId, userId)),
+      })
+  }
 }
 
 /** Persist a scoped edit computed from `state` (whose entry is the locked row). */
@@ -253,6 +207,7 @@ async function persistScopedEdit(
     await tx.insert(entries).values({ id: split.id, userId, ...entryColumns(split) })
     const copied = result.parts.filter((p) => p.entryId === split.id)
     if (copied.length > 0) await tx.insert(entryParts).values(copied.map((p) => partRow(userId, p)))
+    await movePaymentsToSplit(tx, userId, state, { entry: split, parts: copied })
   }
   await tx
     .delete(entryOverrides)
@@ -293,11 +248,12 @@ export async function updateEntry(
     db().transaction(async (tx) => {
       const state = await loadSeries(tx, userId, entryId)
       if (state === null) return fail('not_found')
-      const parts = partsFromFields(entryId, fields)
+      const parts = keepPartIds(partsFromFields(entryId, fields), state.parts)
 
       if (occurrence === null || state.entry.recurrence === 'none') {
         await writeEntryRow(tx, userId, entryFromFields(entryId, fields))
         await replaceParts(tx, userId, entryId, parts)
+        await syncPayments(tx, userId, entryId)
         return ok
       }
 
@@ -314,7 +270,10 @@ export async function updateEntry(
       if (!occursIn(series, occurrence.month)) throw new ScopeError('no_occurrence')
       await writeEntryRow(tx, userId, series)
       await replaceParts(tx, userId, entryId, parts)
-      if (isEmpty(patch) || occurrence.scope === null) return ok
+      if (isEmpty(patch) || occurrence.scope === null) {
+        await syncPayments(tx, userId, entryId)
+        return ok
+      }
 
       const next: SeriesState = { entry: series, parts, overrides: state.overrides }
       const result = applyScopedEdit(
@@ -323,6 +282,7 @@ export async function updateEntry(
         randomUUID,
       )
       await persistScopedEdit(tx, userId, next, result)
+      for (const entry of result.entries) await syncPayments(tx, userId, entry.id)
       return ok
     }),
   )
@@ -347,6 +307,7 @@ export async function changeOccurrenceDay(
       if (scope === null) return fail('scope_required')
       const result = applyScopedEdit(state, { month, patch: { day }, scope }, randomUUID)
       await persistScopedEdit(tx, userId, state, result)
+      for (const entry of result.entries) await syncPayments(tx, userId, entry.id)
       return ok
     }),
   )
@@ -385,6 +346,7 @@ export async function deleteEntry(
             set: { skipped: true, updatedAt: sql`now()` },
             setWhere: eq(entryOverrides.userId, userId),
           })
+        await syncPayments(tx, userId, entryId)
         return ok
       }
 
@@ -403,6 +365,7 @@ export async function deleteEntry(
             gte(entryOverrides.month, monthToDate(month)),
           ),
         )
+      await syncPayments(tx, userId, entryId)
       return ok
     }),
   )

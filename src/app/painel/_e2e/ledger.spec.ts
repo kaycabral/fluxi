@@ -1,6 +1,12 @@
 import { fluxiDb } from '@/db'
 import { accounts, banks, entries, userSettings } from '@/db/schema'
-import { isoDayOf, monthLabel, monthOf } from '@/features/ledger/core/format'
+import {
+  formatAmount,
+  isoDayOf,
+  monthLabel,
+  monthOf,
+  parseMoneyInput,
+} from '@/features/ledger/core/format'
 import { addMonths, diffMonths, monthToDate } from '@/features/ledger/core/month'
 import { expect, test } from '@e2e/fixtures'
 import type { Page } from '@playwright/test'
@@ -157,6 +163,9 @@ test.describe('ledger critical flow', () => {
     await page.goto('/painel?modo=mes')
     const create = page.locator('button[aria-current="date"]')
     const day = page.getByRole('group').filter({ has: create })
+    // The end-of-day balance: the first money-only text of the day (before the chips' amounts).
+    const balance = day.getByText(/^-?\d{1,3}(\.\d{3})*,\d{2}$/).first()
+    const before = parseMoneyInput((await balance.textContent()) ?? '')
     await create.click()
     const form = page.getByRole('form', { name: 'Criar lançamento' })
     await expect(form.getByLabel('Descrição')).toBeFocused()
@@ -165,10 +174,10 @@ test.describe('ledger critical flow', () => {
     await form.getByLabel('Valor (R$)').press('Enter')
     await expect(form).toBeHidden()
 
-    // The entry lands on that day and lowers the day's end balance (5.000,00 − 42,90).
+    // The entry lands on that day and lowers the day's end balance by 42,90.
     const chip = day.getByRole('button', { name: /42,90 Padaria E2E/ })
     await expect(chip).toBeVisible()
-    await expect(day).toContainText('4.957,10')
+    await expect(balance).toHaveText(formatAmount((before ?? 0) - 4290))
 
     // Its popup, like a Google Calendar event: details and "Marcar como pago".
     await chip.click()
@@ -214,8 +223,8 @@ test.describe('ledger critical flow', () => {
     await expect(soon.getByRole('row', { name: /Conta de luz E2E/ })).toContainText('R$ 230')
     await soon.getByRole('button', { name: 'Pago: Conta de luz E2E' }).click()
 
-    // It leaves the list (nothing else is due)…
-    await expect(page.getByText('Nada a pagar por enquanto')).toBeVisible()
+    // It leaves the list (other tests of this worker's user may still have bills due)…
+    await expect(page.getByRole('row', { name: /Conta de luz E2E/ })).toHaveCount(0)
     // …and shows as paid among this month's paid items.
     await page.getByLabel('Mostrar também os pagos deste mês').click()
     await expect(

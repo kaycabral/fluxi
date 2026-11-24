@@ -3,6 +3,7 @@ import {
   addTag,
   amountLabel,
   DEFAULT_PARTS,
+  deleteMonthOf,
   editEntryValues,
   installmentsHint,
   isEmptyPatch,
@@ -156,6 +157,23 @@ describe('editing', () => {
     })
   })
 
+  it('edits an installment purchase as a whole, from any month', () => {
+    const ring = makeEntry({
+      recurrence: 'installments',
+      installments: 3,
+      amountCents: 600000,
+      startMonth: '2026-11',
+      day: 24,
+    })
+    const fromDecember: EditTarget = { entry: ring, parts: [], overrides: [], month: '2026-12' }
+    expect(isOccurrenceEdit(fromDecember)).toBe(false)
+    expect(editEntryValues(fromDecember)).toMatchObject({ amount: '6000,00', date: '2026-11-24' })
+    // Deleting from a month still asks which installments go.
+    expect(deleteMonthOf(fromDecember)).toBe('2026-12')
+    expect(deleteMonthOf({ ...target, entry: { ...entry, recurrence: 'none' } })).toBeNull()
+    expect(deleteMonthOf(null)).toBeNull()
+  })
+
   it('loads parts as percentages', () => {
     const salary = makeEntry({
       id: 's',
@@ -202,19 +220,17 @@ describe('helpers', () => {
 
   it('labels the amount of an installment entry as its total', () => {
     const parcelado = values({ recurrence: 'installments', installments: '3' })
-    expect(amountLabel(values(), false)).toBe('Valor (R$)')
-    expect(amountLabel(parcelado, false)).toBe('Valor total (R$)')
-    expect(amountLabel(parcelado, true)).toBe('Valor da parcela (R$)')
+    expect(amountLabel(values())).toBe('Valor (R$)')
+    expect(amountLabel(parcelado)).toBe('Valor total (R$)')
   })
 
   it('shows how the total is split into installments', () => {
-    const hint = (amount: string, installments: string, occurrence = false) =>
-      installmentsHint(values({ amount, recurrence: 'installments', installments }), occurrence)
+    const hint = (amount: string, installments: string) =>
+      installmentsHint(values({ amount, recurrence: 'installments', installments }))
     expect(hint('6000', '3')).toMatch(/^3× R\$\s2\.000,00$/)
     expect(hint('1000', '3')).toMatch(/^1× R\$\s333,34 \+ 2× R\$\s333,33$/)
-    expect(hint('6000', '3', true)).toBeNull()
     expect(hint('', '3')).toBeNull()
     expect(hint('10', '')).toBeNull()
-    expect(installmentsHint(values({ amount: '2000' }), false)).toBeNull()
+    expect(installmentsHint(values({ amount: '2000' }))).toBeNull()
   })
 })

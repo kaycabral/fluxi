@@ -8,6 +8,7 @@ import {
 import type { ActionResult } from '@/features/ledger/core/action-result'
 import {
   amountLabel,
+  deleteMonthOf,
   describeOccurrenceChange,
   installmentsHint,
   isEmptyPatch,
@@ -144,17 +145,18 @@ export function EntryForm({
 
   async function remove() {
     if (target === null) return
+    const month = deleteMonthOf(target)
     let scope: EditScope = 'all'
-    if (occurrence !== null) {
+    if (month !== null) {
       const chosen = await requestScope({
         kind: 'delete',
-        description: `${target.entry.description} em ${monthLabel(occurrence)}`,
+        description: `${target.entry.description} em ${monthLabel(month)}`,
       })
       if (chosen === null) return
       scope = chosen
     }
     startTransition(async () => {
-      const result = await deleteEntryAction({ entryId: target.entry.id, month: occurrence, scope })
+      const result = await deleteEntryAction({ entryId: target.entry.id, month, scope })
       if (!result.ok) {
         setError(result.error)
         return
@@ -170,7 +172,7 @@ export function EntryForm({
     set({ description: `${values.description} (cópia)` })
   }
 
-  const totalHint = installmentsHint(values, occurrence !== null)
+  const totalHint = installmentsHint(values)
 
   return (
     <form
@@ -193,7 +195,7 @@ export function EntryForm({
         <KindToggle value={values.kind} onChange={changeKind} />
 
         <div className="grid gap-2">
-          <Label htmlFor="entry-amount">{amountLabel(values, occurrence !== null)}</Label>
+          <Label htmlFor="entry-amount">{amountLabel(values)}</Label>
           <Input
             id="entry-amount"
             inputMode="decimal"

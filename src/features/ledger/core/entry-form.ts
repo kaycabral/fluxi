@@ -78,9 +78,24 @@ function percentText(bps: number): string {
   return String(bps / 100).replace('.', ',')
 }
 
-/** Whether the target is one occurrence of a recurring entry. */
+/**
+ * Whether the sheet edits one occurrence of a series (amount/day changes then
+ * ask for a scope). An installment purchase is always edited as a whole: its
+ * amount is the total, whatever month it was opened from.
+ */
 export function isOccurrenceEdit(target: EditTarget | null): boolean {
-  return target !== null && target.month !== null && target.entry.recurrence !== 'none'
+  return (
+    target !== null &&
+    target.month !== null &&
+    target.entry.recurrence !== 'none' &&
+    target.entry.recurrence !== 'installments'
+  )
+}
+
+/** Month of the occurrence a delete applies to (asks for a scope); null deletes the entry. */
+export function deleteMonthOf(target: EditTarget | null): Month | null {
+  if (target === null || target.entry.recurrence === 'none') return null
+  return target.month
 }
 
 export function editEntryValues(target: EditTarget): EntryFormValues {
@@ -226,10 +241,9 @@ export function describeOccurrenceChange(
   return `${target.entry.description} em ${monthLabel(month)}: ${changes.join(', ')}`
 }
 
-/** Label of the amount field: an installment entry takes its total, one installment its own value. */
-export function amountLabel(values: EntryFormValues, occurrenceEdit: boolean): string {
-  if (values.recurrence !== 'installments') return 'Valor (R$)'
-  return occurrenceEdit ? 'Valor da parcela (R$)' : 'Valor total (R$)'
+/** Label of the amount field: an installment entry takes its total. */
+export function amountLabel(values: EntryFormValues): string {
+  return values.recurrence === 'installments' ? 'Valor total (R$)' : 'Valor (R$)'
 }
 
 /**
@@ -237,8 +251,8 @@ export function amountLabel(values: EntryFormValues, occurrenceEdit: boolean): s
  * "3× R$ 2.000,00", or "1× R$ 333,34 + 2× R$ 333,33" with leftover cents (they go
  * on the first installment). Null when not applicable or not readable yet.
  */
-export function installmentsHint(values: EntryFormValues, occurrenceEdit: boolean): string | null {
-  if (values.recurrence !== 'installments' || occurrenceEdit) return null
+export function installmentsHint(values: EntryFormValues): string | null {
+  if (values.recurrence !== 'installments') return null
   const totalCents = parseMoneyInput(values.amount)
   const count = parseIntOrNull(values.installments)
   if (totalCents === null || count === null || count < 1) return null

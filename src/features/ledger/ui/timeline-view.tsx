@@ -3,7 +3,7 @@
 import { setCountFromAction } from '@/features/ledger/adapters/actions/settings'
 import { INITIAL_FORM_STATE } from '@/features/ledger/core/action-result'
 import { bucketOfType } from '@/features/ledger/core/bucket'
-import { formatCompactMoney, monthLabel } from '@/features/ledger/core/format'
+import { formatAmount, monthLabel } from '@/features/ledger/core/format'
 import { ACCOUNT_TYPE_LABELS } from '@/features/ledger/core/labels'
 import { monthRange, type Month } from '@/features/ledger/core/month'
 import type { MonthResult } from '@/features/ledger/core/projection'
@@ -55,7 +55,7 @@ function ValueCell({
         tone && cents !== null && cents < 0 && 'text-destructive',
       )}
     >
-      {cents === null ? '–' : formatCompactMoney(cents)}
+      {cents === null ? '–' : formatAmount(cents)}
     </td>
   )
 }

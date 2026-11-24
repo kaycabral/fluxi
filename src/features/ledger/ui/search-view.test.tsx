@@ -61,7 +61,7 @@ describe('SearchView', () => {
   it('values transfers inside the filtered account', () => {
     renderSearch({ group: 'none', account: IDS.nucc })
     expect(screen.queryByText('interna')).not.toBeInTheDocument()
-    expect(screen.getAllByText('R$ 400').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('R$ 400,00').length).toBeGreaterThan(0)
   })
 
   it('shows installments, parts and pots in the list', () => {

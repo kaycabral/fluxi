@@ -2,7 +2,7 @@
 
 import { decisionAccountIds } from '@/features/ledger/core/account-filter'
 import { calendarMonth } from '@/features/ledger/core/calendar'
-import { formatCompactMoney, formatMoney, monthLabel } from '@/features/ledger/core/format'
+import { formatAmount, formatMoney, monthLabel } from '@/features/ledger/core/format'
 import { POT_COLORS, potTint } from '@/features/ledger/core/labels'
 import { addMonths, type Month } from '@/features/ledger/core/month'
 import type { Landing } from '@/features/ledger/core/occurrence'
@@ -64,7 +64,7 @@ function EventChip({
           aria-hidden
         />
       )}
-      {formatCompactMoney(landing.amountCents)} {label}
+      {formatAmount(landing.amountCents)} {label}
     </button>
   )
 }
@@ -157,7 +157,7 @@ export function CalendarView({
                     negative && 'text-destructive',
                   )}
                 >
-                  {day.endBalanceCents === null ? '' : formatCompactMoney(day.endBalanceCents)}
+                  {day.endBalanceCents === null ? '' : formatAmount(day.endBalanceCents)}
                 </span>
               </div>
             )

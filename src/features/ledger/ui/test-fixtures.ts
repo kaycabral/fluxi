@@ -128,7 +128,7 @@ export function sampleData(overrides: Partial<LedgerData> = {}): LedgerData {
       makeEntry({
         id: IDS.buffet,
         description: 'Buffet',
-        amountCents: 250000,
+        amountCents: 3000000,
         day: 25,
         accountId: IDS.cc,
         pot: 'comfort',

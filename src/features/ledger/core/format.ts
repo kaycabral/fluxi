@@ -49,34 +49,25 @@ export function monthLongLabel(month: Month): string {
   return `${MONTH_LONG[monthIndex(month)] ?? ''} de ${month.slice(0, 4)}`
 }
 
-const wholeReais = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 })
 const decimalReais = new Intl.NumberFormat('pt-BR', {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 })
 
-/** Whole reais: `-123456` → `-R$ 1.235`. */
+/** Always with cents (precision over brevity): `-123456` → `-R$ 1.234,56`. */
 export function formatMoney(cents: number): string {
-  const reais = Math.round(Math.abs(cents) / 100)
-  const sign = cents < 0 && reais > 0 ? '-' : ''
-  return `${sign}R$ ${wholeReais.format(reais)}`
+  const sign = cents < 0 ? '-' : ''
+  return `${sign}R$ ${formatAmount(Math.abs(cents))}`
 }
 
 /** Like {@link formatMoney} with an explicit `+` on positive values. */
 export function formatSignedMoney(cents: number): string {
-  return cents > 0 && Math.round(cents / 100) > 0 ? `+${formatMoney(cents)}` : formatMoney(cents)
+  return cents > 0 ? `+${formatMoney(cents)}` : formatMoney(cents)
 }
 
-/** Compact for dense grids: `1060000` → `10,6k`, `-2450000` → `-24k`, `26000` → `260`. */
-export function formatCompactMoney(cents: number): string {
-  const reais = Math.abs(cents) / 100
-  const sign = cents < 0 && Math.round(reais) > 0 ? '-' : ''
-  if (reais >= 1000) {
-    const thousands = reais / 1000
-    const text = reais >= 10000 ? String(Math.round(thousands)) : thousands.toFixed(1)
-    return `${sign}${text.replace('.', ',')}k`
-  }
-  return `${sign}${Math.round(reais)}`
+/** Without the currency symbol, for dense grids: `1060000` → `10.600,00`, `-26050` → `-260,50`. */
+export function formatAmount(cents: number): string {
+  return decimalReais.format(cents / 100)
 }
 
 /** `0.325` → `32,5%`. */

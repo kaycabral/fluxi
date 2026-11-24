@@ -56,7 +56,7 @@ describe('TimelineView', () => {
     const balances = within(rowOf('Saldo total')).getAllByRole('cell')
     expect(balances[1]).toHaveTextContent('–')
     // dez/26: 1200 (openings) + 5000 salary (rest of nov + advance) − 260 − 7000 − 2500 = −3560
-    expect(balances[4]).toHaveTextContent('-3,6k')
+    expect(balances[4]).toHaveTextContent('-3.560,00')
     expect(within(rowOf('Entradas')).getAllByRole('cell')[1]).toHaveClass('opacity-50')
     expect(screen.getByText(/Meses antes de dez\/26 aparecem apagados/)).toBeInTheDocument()
   })
@@ -72,7 +72,7 @@ describe('TimelineView', () => {
   it('opens the day by day of the selected month', async () => {
     renderTimeline()
     expect(screen.getByRole('heading', { name: 'dez/26 dia a dia' })).toBeInTheDocument()
-    expect(screen.getByText(/menor saldo -R\$ 5\.800 no dia 3/)).toBeInTheDocument()
+    expect(screen.getByText(/menor saldo -R\$ 5\.800,00 no dia 3/)).toBeInTheDocument()
     expect(screen.getByRole('status')).toHaveTextContent('O saldo fica negativo no dia 3.')
     expect(screen.getByText('1/12')).toBeInTheDocument()
     expect(screen.getByText('transferência')).toBeInTheDocument()
@@ -89,30 +89,30 @@ describe('TimelineView', () => {
         .getAllByRole('cell')
         .map((c) => c.textContent)
     // Same available figures as without the benefit account.
-    expect(cells('Saldo total')[4]).toBe('-3,6k')
-    expect(cells('Entradas')[4]).toBe('5,0k')
+    expect(cells('Saldo total')[4]).toBe('-3.560,00')
+    expect(cells('Entradas')[4]).toBe('5.000,00')
     expect(
       screen.queryByRole('button', { name: 'Mostrar contas de Flash' }),
     ).not.toBeInTheDocument()
-    // dez/26: 300 + 800 − 200 = 900; jan/27: + 600 = 1,5k.
+    // dez/26: 300 + 800 − 200 = 900; jan/27: + 600 = 1.500.
     const block = screen.getByRole('rowgroup', { name: 'Benefícios' })
     expect(within(block).getAllByRole('row')).toHaveLength(2)
-    expect(cells('Benefícios')[4]).toBe('900')
-    expect(cells('Benefícios')[5]).toBe('1,5k')
-    expect(cells('Flash · VA')[4]).toBe('900')
+    expect(cells('Benefícios')[4]).toBe('900,00')
+    expect(cells('Benefícios')[5]).toBe('1.500,00')
+    expect(cells('Flash · VA')[4]).toBe('900,00')
     // The day by day "Todo o disponível" ignores the benefit; picking the account shows it.
     expect(screen.queryByText('Mercado VA')).not.toBeInTheDocument()
     await userEvent.click(screen.getByLabelText('Conta'))
     await userEvent.click(await screen.findByRole('option', { name: 'Flash · VA' }))
     expect(screen.getByText('Mercado VA')).toBeInTheDocument()
-    expect(screen.getByText(/começa com R\$ 300/)).toBeInTheDocument()
+    expect(screen.getByText(/começa com R\$ 300,00/)).toBeInTheDocument()
   })
 
   it('filters the day by day by account', async () => {
     renderTimeline()
     await userEvent.click(screen.getByLabelText('Conta'))
     await userEvent.click(await screen.findByRole('option', { name: 'Nubank · Conta Nu' }))
-    expect(screen.getByText(/começa com R\$ 200/)).toBeInTheDocument()
+    expect(screen.getByText(/começa com R\$ 200,00/)).toBeInTheDocument()
     expect(screen.queryByText('Avulso')).not.toBeInTheDocument()
   })
 

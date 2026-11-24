@@ -60,7 +60,7 @@ describe('PayablesView', () => {
     expect(within(overdue).getByText('03/12/26')).toHaveClass('text-destructive')
     // Avulso 7000 out, the rest of November's salary (60%) in, a transfer of 400.
     expect(
-      screen.getByText('Saídas R$ 7.000 · Entradas R$ 3.000 · Transferências R$ 400'),
+      screen.getByText('Saídas R$ 7.000,00 · Entradas R$ 3.000,00 · Transferências R$ 400,00'),
     ).toBeInTheDocument()
     expect(
       within(overdue).getByRole('button', { name: 'Recebido: Salário (Saldo)' }),

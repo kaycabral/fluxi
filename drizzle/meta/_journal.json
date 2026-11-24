@@ -15,6 +15,20 @@
       "when": 1795530459143,
       "tag": "0001_auth",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795530925831,
+      "tag": "0002_ledger",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1795530949688,
+      "tag": "0003_ledger_defaults",
+      "breakpoints": true
     }
   ]
 }

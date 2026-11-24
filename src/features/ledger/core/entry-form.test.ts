@@ -3,6 +3,7 @@ import {
   addTag,
   DEFAULT_PARTS,
   editEntryValues,
+  installmentsTotalHint,
   isEmptyPatch,
   isOccurrenceEdit,
   newEntryValues,
@@ -196,5 +197,19 @@ describe('helpers', () => {
     expect(addTag(['a'], 'B')).toEqual(['a', 'b'])
     expect(addTag(['a'], '#a')).toEqual(['a'])
     expect(addTag(['a'], '  ')).toEqual(['a'])
+  })
+
+  it('spells out the total of an installment entry', () => {
+    const hint = installmentsTotalHint(
+      values({ amount: '2000', recurrence: 'installments', installments: '3' }),
+    )
+    expect(hint).toMatch(/^3× R\$\s2\.000 = R\$\s6\.000$/)
+    expect(installmentsTotalHint(values({ amount: '2000' }))).toBeNull()
+    expect(
+      installmentsTotalHint(values({ amount: '', recurrence: 'installments', installments: '3' })),
+    ).toBeNull()
+    expect(
+      installmentsTotalHint(values({ amount: '10', recurrence: 'installments', installments: '' })),
+    ).toBeNull()
   })
 })

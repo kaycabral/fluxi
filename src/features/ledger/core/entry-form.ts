@@ -218,3 +218,16 @@ export function describeOccurrenceChange(
     changes.push(`dia ${dayFor(target.entry, target.overrides, month)} → ${patch.day}`)
   return `${target.entry.description} em ${monthLabel(month)}: ${changes.join(', ')}`
 }
+
+/**
+ * "3× R$ 2.000 = R$ 6.000" under the amount of an installment entry:
+ * the amount is per installment, so the total is spelled out. Null when the
+ * entry is not in installments or the amount/count can't be read yet.
+ */
+export function installmentsTotalHint(values: EntryFormValues): string | null {
+  if (values.recurrence !== 'installments') return null
+  const amountCents = parseMoneyInput(values.amount)
+  const count = parseIntOrNull(values.installments)
+  if (amountCents === null || count === null || count < 1) return null
+  return `${count}× ${formatMoney(amountCents)} = ${formatMoney(amountCents * count)}`
+}

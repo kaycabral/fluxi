@@ -177,7 +177,8 @@ describe('new entry', () => {
     await userEvent.click(
       within(sheet).getByLabelText('mês seguinte', { selector: '#entry-part-next-1' }),
     )
-    await userEvent.type(within(sheet).getByLabelText('Valor (R$)'), '1000')
+    await userEvent.type(within(sheet).getByLabelText('Valor da parcela (R$)'), '1000')
+    expect(within(sheet).getByText(/^12× R\$\s1\.000 = R\$\s12\.000$/)).toBeInTheDocument()
     await userEvent.type(within(sheet).getByLabelText('Descrição'), 'Notebook')
     await userEvent.click(within(sheet).getByRole('button', { name: 'Salvar' }))
 

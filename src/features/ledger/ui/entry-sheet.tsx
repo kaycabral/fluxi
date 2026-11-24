@@ -8,6 +8,7 @@ import {
 import type { ActionResult } from '@/features/ledger/core/action-result'
 import {
   describeOccurrenceChange,
+  installmentsTotalHint,
   isEmptyPatch,
   isOccurrenceEdit,
   newEntryValues,
@@ -168,6 +169,8 @@ export function EntryForm({
     set({ description: `${values.description} (cópia)` })
   }
 
+  const totalHint = installmentsTotalHint(values)
+
   return (
     <form
       className="flex min-h-0 flex-1 flex-col"
@@ -189,7 +192,9 @@ export function EntryForm({
         <KindToggle value={values.kind} onChange={changeKind} />
 
         <div className="grid gap-2">
-          <Label htmlFor="entry-amount">Valor (R$)</Label>
+          <Label htmlFor="entry-amount">
+            {values.recurrence === 'installments' ? 'Valor da parcela (R$)' : 'Valor (R$)'}
+          </Label>
           <Input
             id="entry-amount"
             inputMode="decimal"
@@ -198,7 +203,13 @@ export function EntryForm({
             className="h-12 font-mono text-2xl md:text-2xl"
             value={values.amount}
             onChange={(e) => set({ amount: e.target.value })}
+            aria-describedby={totalHint === null ? undefined : 'entry-amount-total'}
           />
+          {totalHint !== null && (
+            <p id="entry-amount-total" className="text-muted-foreground text-xs">
+              {totalHint}
+            </p>
+          )}
         </div>
 
         <div className="grid gap-2">

@@ -135,6 +135,7 @@ export function sampleData(overrides: Partial<LedgerData> = {}): LedgerData {
     ],
     parts: salarySplit(IDS.salary),
     overrides: [],
+    payments: [],
     ...overrides,
   }
 }

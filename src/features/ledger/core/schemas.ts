@@ -134,6 +134,24 @@ export const changeDaySchema = z.object({
 })
 export type ChangeDayInput = z.infer<typeof changeDaySchema>
 
+const ISO_DAY = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/
+
+/** `YYYY-MM-DD` of a real calendar day (no 31/02). */
+export const isoDaySchema = z
+  .string()
+  .regex(ISO_DAY, 'Data inválida.')
+  .refine((day) => new Date(`${day}T00:00:00Z`).toISOString().startsWith(day), 'Data inválida.')
+
+/** One payable occurrence: the entry, its competence month and, for a split entry, the part. */
+export const paymentKeySchema = z.object({
+  entryId: idSchema,
+  month: monthSchema,
+  partId: idSchema.nullable(),
+})
+
+/** "Pago/recebido": `paidOn` defaults to today (server side) when absent. */
+export const markPaidSchema = paymentKeySchema.extend({ paidOn: isoDaySchema.optional() })
+
 const nameSchema = z.string().trim().min(1, 'Informe o nome.').max(60, 'Nome longo demais.')
 
 export const createBankSchema = z.object({ id: idSchema, name: nameSchema })

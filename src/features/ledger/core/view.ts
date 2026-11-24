@@ -1,6 +1,7 @@
 import type { EditTarget } from './entry-form'
 import { diffMonths, monthRange, type Month } from './month'
 import type { Landing } from './occurrence'
+import type { OccurrencePayment } from './payments'
 import { projectMonths, type MonthResult } from './projection'
 import type { Account, Bank, Category, Entry, EntryOverride, EntryPart } from './types'
 
@@ -17,6 +18,7 @@ export type LedgerData = {
   entries: Entry[]
   parts: EntryPart[]
   overrides: EntryOverride[]
+  payments: OccurrencePayment[]
 }
 
 /** Reference data the entry sheet needs on every page. */

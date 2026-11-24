@@ -13,7 +13,7 @@ import { cn, Popover, PopoverContent, PopoverTrigger } from '@cbrl/design'
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { QuickAddForm } from '../quick-add'
-import { calendarHref, useCalendar, visibleLandings } from './context'
+import { calendarHref, POPUP_FIT, POPUP_PLACEMENT, useCalendar, visibleLandings } from './context'
 import { DayPanel, WEEKDAY_SHORT } from './day-panel'
 import { EventChip } from './event-chip'
 
@@ -207,7 +207,8 @@ function MonthDay({
         <PopoverContent
           side="right"
           align="start"
-          className="w-[min(26rem,calc(100vw-2rem))]"
+          {...POPUP_PLACEMENT}
+          className={cn('w-[min(26rem,calc(100vw-2rem))]', POPUP_FIT)}
           onOpenAutoFocus={(event) => {
             event.preventDefault()
             document.getElementById('quick-description')?.focus()
@@ -253,7 +254,8 @@ function MonthDay({
             </PopoverTrigger>
             <PopoverContent
               align="center"
-              className="w-64 p-2"
+              {...POPUP_PLACEMENT}
+              className={cn('w-64 p-2', POPUP_FIT)}
               // "Criar neste dia" opens the quick add: giving focus back to "Mais N" would close it.
               onCloseAutoFocus={(event) => event.preventDefault()}
             >

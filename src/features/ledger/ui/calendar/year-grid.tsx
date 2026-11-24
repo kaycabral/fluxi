@@ -4,7 +4,7 @@ import { cellOf, monthWeeks } from '@/features/ledger/core/calendar-views'
 import { dayLongLabel } from '@/features/ledger/core/format'
 import { cn, Popover, PopoverContent, PopoverTrigger } from '@cbrl/design'
 import { useState } from 'react'
-import { useCalendar } from './context'
+import { POPUP_FIT, POPUP_PLACEMENT, useCalendar } from './context'
 import { DayPanel } from './day-panel'
 
 const MONTH_NAMES = [
@@ -97,7 +97,7 @@ function MiniDay({ date, inMonth }: { date: string; inMonth: boolean }) {
           )}
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-64 p-2">
+      <PopoverContent {...POPUP_PLACEMENT} className={cn('w-64 p-2', POPUP_FIT)}>
         <DayPanel date={date} onClose={() => setOpen(false)} />
       </PopoverContent>
     </Popover>

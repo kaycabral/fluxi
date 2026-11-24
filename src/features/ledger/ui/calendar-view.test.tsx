@@ -141,13 +141,6 @@ describe('CalendarView · month', () => {
     )
   })
 
-  it('switches the account through the URL', async () => {
-    renderCalendar({ account: IDS.nucc })
-    await userEvent.click(screen.getByLabelText('Conta'))
-    await userEvent.click(await screen.findByRole('option', { name: 'Todo o disponível' }))
-    expect(replace).toHaveBeenCalledWith('/painel?modo=mes&data=2026-12-15', { scroll: false })
-  })
-
   it('moves one month per wheel gesture', () => {
     renderCalendar()
     // The wheel bubbles from any day up to the grid.

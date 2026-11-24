@@ -44,7 +44,7 @@ import {
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { useLedgerUi } from '../ledger-shell'
-import { useCalendar } from './context'
+import { POPUP_FIT, POPUP_PLACEMENT, useCalendar } from './context'
 
 /** "Aluguel" or "Salário · Adiantamento". */
 export function landingTitle(landing: Landing): string {
@@ -140,7 +140,12 @@ export function EventChip({
           )}
         </button>
       </PopoverTrigger>
-      <PopoverContent side="right" align="start" className="w-[min(26rem,calc(100vw-2rem))] p-0">
+      <PopoverContent
+        side="right"
+        align="start"
+        {...POPUP_PLACEMENT}
+        className={cn('w-[min(26rem,calc(100vw-2rem))] p-0', POPUP_FIT)}
+      >
         <EventDetails landing={landing} skipped={skipped} onClose={() => setOpen(false)} />
       </PopoverContent>
     </Popover>

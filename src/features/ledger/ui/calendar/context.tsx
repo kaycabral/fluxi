@@ -58,3 +58,15 @@ export function visibleLandings(
   if (!prefs.skipped) return shown
   return [...shown, ...cell.skipped.map((landing) => ({ landing, skipped: true }))]
 }
+
+/**
+ * Placement of every calendar popup: kept fully on screen (12px from the
+ * edges, sliding along the anchor as much as needed) and never taller than
+ * the room left, scrolling inside instead.
+ */
+export const POPUP_PLACEMENT = {
+  collisionPadding: 12,
+  sticky: 'always',
+} as const
+
+export const POPUP_FIT = 'max-h-(--radix-popover-content-available-height) overflow-y-auto'

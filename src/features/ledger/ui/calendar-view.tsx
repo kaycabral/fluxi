@@ -41,7 +41,6 @@ import { MonthGrid } from './calendar/month-grid'
 import { ScheduleList } from './calendar/schedule-list'
 import { YearGrid } from './calendar/year-grid'
 import { useLedgerUi } from './ledger-shell'
-import { AccountSelect } from './selects'
 
 function isTyping(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false
@@ -53,7 +52,7 @@ const QUICK_ADD_VIEWS: readonly CalendarViewMode[] = ['month', 'week', 'day', 'f
 
 /**
  * "Calendário", the main view, laid out like Google Calendar: a toolbar (Hoje,
- * ‹ ›, title, account, view menu) over the chosen view. Day, week, month, year,
+ * ‹ ›, title, view menu) over the chosen view. Day, week, month, year,
  * schedule and 4 days; weekends, paid and ignored entries can be hidden or
  * shown. The balance shown is the end-of-day balance of the chosen accounts
  * (by default all the available money, without benefits).
@@ -212,18 +211,6 @@ export function CalendarView({
             {viewTitle(view, date)}
           </h1>
           <div className="ml-auto flex items-center gap-2">
-            <AccountSelect
-              aria-label="Conta"
-              className="w-44 rounded-full"
-              banks={data.banks}
-              accounts={data.accounts}
-              withBanks
-              allLabel="Todo o disponível"
-              value={account}
-              onValueChange={(next) =>
-                router.replace(calendarHref(view, date, next), { scroll: false })
-              }
-            />
             <ViewMenu
               view={view}
               prefs={prefs}

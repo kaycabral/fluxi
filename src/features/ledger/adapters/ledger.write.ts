@@ -16,6 +16,7 @@ import type { EntryFields, PotTargets } from '@/features/ledger/core/schemas'
 import {
   applyScopedEdit,
   endSeriesBefore,
+  shiftStart,
   type EditScope,
   type OccurrencePatch,
   type ScopedEditResult,
@@ -262,13 +263,19 @@ export async function updateEntry(
       const patch = patchOf(state, occurrence.month, fields)
       if (!isEmpty(patch) && occurrence.scope === null) return fail('scope_required')
 
-      const series: Entry = {
-        ...entryFromFields(entryId, fields),
-        amountCents: state.entry.amountCents,
-        day: fields.parts.length > 0 ? fields.day : state.entry.day,
-        startMonth: state.entry.startMonth,
-      }
-      if (!occursIn(series, occurrence.month)) throw new ScopeError('no_occurrence')
+      // A new month on the date moves the repetition's start by as many months.
+      const moved = fields.startMonth
+      const series: Entry = shiftStart(
+        {
+          ...entryFromFields(entryId, fields),
+          amountCents: state.entry.amountCents,
+          day: fields.parts.length > 0 ? fields.day : state.entry.day,
+          startMonth: state.entry.startMonth,
+        },
+        occurrence.month,
+        moved,
+      )
+      if (!occursIn(series, moved)) throw new ScopeError('no_occurrence')
       await writeEntryRow(tx, userId, series)
       await replaceParts(tx, userId, entryId, parts)
       if (isEmpty(patch) || occurrence.scope === null) {
@@ -279,7 +286,7 @@ export async function updateEntry(
       const next: SeriesState = { entry: series, parts, overrides: state.overrides }
       const result = applyScopedEdit(
         next,
-        { month: occurrence.month, patch, scope: occurrence.scope },
+        { month: moved, patch, scope: occurrence.scope },
         randomUUID,
       )
       await persistScopedEdit(tx, userId, next, result)

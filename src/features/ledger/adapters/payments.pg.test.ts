@@ -239,10 +239,15 @@ describe('payments under scoped edits and deletes', () => {
 
   it('a "future" split moves the payments from the split month to the new entry', async () => {
     await payMonths(['2026-12', '2027-01', '2027-02'])
-    await updateEntry(ANA, entryId, rent(anaAccount, { amountCents: 210000 }), {
-      month: '2027-01',
-      scope: 'future',
-    })
+    await updateEntry(
+      ANA,
+      entryId,
+      rent(anaAccount, { amountCents: 210000, startMonth: '2027-01' }),
+      {
+        month: '2027-01',
+        scope: 'future',
+      },
+    )
     const rows = await db().select().from(entries).orderBy(asc(entries.startMonth))
     const split = rows.find((r) => r.id !== entryId)?.id
     expect(split).toBeDefined()
@@ -269,7 +274,13 @@ describe('payments under scoped edits and deletes', () => {
     await updateEntry(
       ANA,
       salary,
-      rent(anaAccount, { kind: 'income', pot: null, parts: SPLIT, amountCents: 300000 }),
+      rent(anaAccount, {
+        kind: 'income',
+        pot: null,
+        parts: SPLIT,
+        amountCents: 300000,
+        startMonth: '2027-01',
+      }),
       { month: '2027-01', scope: 'future' },
     )
     const split = (await db().select().from(entries).where(eq(entries.startMonth, '2027-01-01')))[0]

@@ -187,7 +187,7 @@ export function EntryForm({
         <SheetDescription className={occurrence === null ? 'sr-only' : undefined}>
           {occurrence === null
             ? 'Preencha os dados do lançamento.'
-            : `Editando ${monthLabel(occurrence)}. Se mudar valor ou dia, você escolhe o alcance ao salvar.`}
+            : `Editando ${monthLabel(occurrence)}. Se mudar valor ou dia, você escolhe o alcance ao salvar; mudar o mês move o início da repetição.`}
         </SheetDescription>
       </SheetHeader>
 

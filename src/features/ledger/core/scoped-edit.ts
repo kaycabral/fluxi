@@ -82,6 +82,16 @@ function editAll(state: SeriesState, patch: OccurrencePatch): ScopedEditResult {
 }
 
 /**
+ * The series after its occurrence of `from` is moved to the month `to` (the
+ * date's month in the sheet): the start moves by as many months, the end
+ * stays. Opening the first occurrence and picking the month before makes the
+ * repetition start a month earlier.
+ */
+export function shiftStart(entry: Entry, from: Month, to: Month): Entry {
+  return { ...entry, startMonth: addMonths(entry.startMonth, diffMonths(from, to)) }
+}
+
+/**
  * The series cut to end right before `month` (a later occurrence): installments
  * keep the ones already due and their share of the total (leftover cents
  * included); other series end at `month - 1`.

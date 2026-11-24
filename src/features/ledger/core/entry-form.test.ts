@@ -1,0 +1,200 @@
+import { describe, expect, it } from 'vitest'
+import {
+  addTag,
+  DEFAULT_PARTS,
+  editEntryValues,
+  isEmptyPatch,
+  isOccurrenceEdit,
+  newEntryValues,
+  normalizeTag,
+  occurrencePatchOf,
+  partsPercentTotal,
+  percentToBps,
+  valuesToFields,
+  type EditTarget,
+  type EntryFormValues,
+} from './entry-form'
+import { makeEntry, makeOverride, salarySplit } from './fixtures'
+
+const ACC = '11111111-1111-4111-8111-111111111111'
+const ACC2 = '22222222-2222-4222-8222-222222222222'
+const CAT = '33333333-3333-4333-8333-333333333333'
+
+function values(overrides: Partial<EntryFormValues> = {}): EntryFormValues {
+  return {
+    ...newEntryValues({ date: '2026-12-10', accountId: ACC }),
+    amount: '260',
+    description: 'Luz',
+    categoryId: CAT,
+    pot: 'essential',
+    ...overrides,
+  }
+}
+
+describe('newEntryValues', () => {
+  it('starts as an expense in the variable pot', () => {
+    const v = newEntryValues({ date: '2026-12-10', accountId: ACC })
+    expect(v).toMatchObject({ kind: 'expense', pot: 'variable', recurrence: 'none', parts: [] })
+    expect(newEntryValues({ date: '2026-12-10', accountId: ACC, kind: 'income' }).pot).toBe('')
+  })
+})
+
+describe('valuesToFields', () => {
+  it('converts an expense', () => {
+    const result = valuesToFields(
+      values({ recurrence: 'monthly', endMonth: '2027-06', tags: ['casa'] }),
+    )
+    expect(result).toEqual({
+      ok: true,
+      fields: {
+        kind: 'expense',
+        description: 'Luz',
+        amountCents: 26000,
+        accountId: ACC,
+        toAccountId: null,
+        categoryId: CAT,
+        pot: 'essential',
+        tags: ['casa'],
+        startMonth: '2026-12',
+        day: 10,
+        recurrence: 'monthly',
+        installments: null,
+        endMonth: '2027-06',
+        parts: [],
+      },
+    })
+  })
+
+  it('drops fields that do not apply to the kind or recurrence', () => {
+    const income = valuesToFields(
+      values({ kind: 'income', endMonth: '2027-01', toAccountId: ACC2 }),
+    )
+    expect(income.ok && income.fields).toMatchObject({
+      pot: null,
+      endMonth: null,
+      toAccountId: null,
+    })
+    const transfer = valuesToFields(values({ kind: 'transfer', toAccountId: ACC2 }))
+    expect(transfer.ok && transfer.fields).toMatchObject({
+      categoryId: null,
+      pot: null,
+      toAccountId: ACC2,
+    })
+    const installments = valuesToFields(values({ recurrence: 'installments', installments: '12' }))
+    expect(installments.ok && installments.fields.installments).toBe(12)
+  })
+
+  it('takes the day from the first part when split', () => {
+    const result = valuesToFields(values({ split: true, parts: [...DEFAULT_PARTS] }))
+    expect(result.ok && result.fields.day).toBe(20)
+    expect(result.ok && result.fields.parts).toEqual([
+      { label: 'Adiantamento', bps: 4000, day: 20, nextMonth: false },
+      { label: 'Saldo', bps: 6000, day: 5, nextMonth: true },
+    ])
+  })
+
+  it('reports the first problem', () => {
+    expect(valuesToFields(values({ amount: '' }))).toEqual({ ok: false, error: 'Informe o valor.' })
+    expect(valuesToFields(values({ date: '' }))).toEqual({ ok: false, error: 'Informe a data.' })
+    expect(valuesToFields(values({ accountId: '' }))).toEqual({
+      ok: false,
+      error: 'Escolha a conta.',
+    })
+    expect(valuesToFields(values({ description: ' ' }))).toEqual({
+      ok: false,
+      error: 'Informe a descrição.',
+    })
+    expect(valuesToFields(values({ kind: 'transfer' }))).toEqual({
+      ok: false,
+      error: 'Escolha a conta de destino.',
+    })
+    expect(valuesToFields(values({ recurrence: 'installments', installments: 'x' }))).toEqual({
+      ok: false,
+      error: 'Informe as parcelas.',
+    })
+    const parts = DEFAULT_PARTS.map((p) => ({ ...p, percent: '50' })).slice(0, 1)
+    expect(valuesToFields(values({ split: true, parts }))).toEqual({
+      ok: false,
+      error: 'As partes precisam somar 100%.',
+    })
+  })
+})
+
+describe('editing', () => {
+  const entry = makeEntry({
+    id: 'e1',
+    amountCents: 26000,
+    day: 15,
+    startMonth: '2026-09',
+    tags: ['casa'],
+    categoryId: CAT,
+    accountId: ACC,
+  })
+  const target: EditTarget = {
+    entry,
+    parts: [],
+    overrides: [makeOverride({ month: '2026-12', amountCents: 30000 })],
+    month: '2026-12',
+  }
+
+  it('loads the occurrence values', () => {
+    expect(isOccurrenceEdit(target)).toBe(true)
+    expect(isOccurrenceEdit(null)).toBe(false)
+    expect(editEntryValues(target)).toMatchObject({
+      amount: '300,00',
+      date: '2026-12-15',
+      tags: ['casa'],
+      split: false,
+      installments: '',
+      endMonth: '',
+    })
+    expect(editEntryValues({ ...target, month: null })).toMatchObject({
+      amount: '260,00',
+      date: '2026-09-15',
+    })
+  })
+
+  it('loads parts as percentages', () => {
+    const salary = makeEntry({
+      id: 's',
+      kind: 'income',
+      pot: null,
+      recurrence: 'installments',
+      installments: 3,
+    })
+    const v = editEntryValues({
+      entry: salary,
+      parts: salarySplit('s'),
+      overrides: [],
+      month: null,
+    })
+    expect(v.split).toBe(true)
+    expect(v.installments).toBe('3')
+    expect(v.parts.map((p) => p.percent)).toEqual(['40', '60'])
+    expect(partsPercentTotal(v.parts)).toBe(100)
+  })
+
+  it('detects the amount/day patch of the occurrence', () => {
+    const fields = valuesToFields(values({ amount: '300', date: '2026-12-15' }))
+    if (!fields.ok) throw new Error(fields.error)
+    expect(isEmptyPatch(occurrencePatchOf(target, fields.fields))).toBe(true)
+    const changed = valuesToFields(values({ amount: '350', date: '2026-12-20' }))
+    if (!changed.ok) throw new Error(changed.error)
+    expect(occurrencePatchOf(target, changed.fields)).toEqual({ amountCents: 35000, day: 20 })
+    expect(occurrencePatchOf({ ...target, month: null }, changed.fields)).toEqual({})
+  })
+})
+
+describe('helpers', () => {
+  it('parses percentages', () => {
+    expect(percentToBps('40,5')).toBe(4050)
+    expect(percentToBps('x')).toBeNull()
+  })
+
+  it('normalizes tags', () => {
+    expect(normalizeTag(' #Viagem 2027 ')).toBe('viagem-2027')
+    expect(addTag(['a'], 'B')).toEqual(['a', 'b'])
+    expect(addTag(['a'], '#a')).toEqual(['a'])
+    expect(addTag(['a'], '  ')).toEqual(['a'])
+  })
+})

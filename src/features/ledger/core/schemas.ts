@@ -1,0 +1,174 @@
+import { z } from 'zod'
+import { POT_KEYS } from './types'
+
+/**
+ * Write-side validation shared by the forms (client) and the server actions
+ * (which re-validate everything; the client is never trusted). Mirrors the
+ * database checks so a bad payload is refused with a readable message before
+ * it reaches Postgres. Messages are pt-BR because the UI shows them as-is.
+ */
+
+const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/
+
+export const monthSchema = z.string().regex(MONTH, 'Mês inválido.')
+export const idSchema = z.uuid('Identificador inválido.')
+export const potKeySchema = z.enum(POT_KEYS)
+export const daySchema = z
+  .number('Informe o dia.')
+  .int('Dia inválido.')
+  .min(1, 'Dia inválido.')
+  .max(31, 'Dia inválido.')
+export const editScopeSchema = z.enum(['one', 'future', 'all'])
+export const accountTypeSchema = z.enum(['checking', 'credit', 'benefit', 'investment', 'loan'])
+
+// R$ 1 bilhão: far beyond a household, well inside bigint.
+const MAX_CENTS = 100_000_000_000
+
+export const entryPartSchema = z.object({
+  label: z.string().trim().min(1, 'Dê um nome a cada parte.').max(60),
+  bps: z.number().int().min(1, 'Cada parte precisa de mais de 0%.').max(10000),
+  day: daySchema,
+  nextMonth: z.boolean(),
+})
+
+type Issue = (path: string, message: string) => void
+
+type RefineInput = {
+  kind: 'income' | 'expense' | 'transfer'
+  accountId: string
+  toAccountId: string | null
+  categoryId: string | null
+  startMonth: string
+  recurrence: 'none' | 'monthly' | 'yearly' | 'installments'
+  installments: number | null
+  endMonth: string | null
+}
+
+function checkTransfer(v: RefineInput, issue: Issue): void {
+  if (v.kind !== 'transfer') {
+    if (v.toAccountId !== null) issue('toAccountId', 'Só transferências têm conta de destino.')
+    return
+  }
+  if (v.toAccountId === null) issue('toAccountId', 'Escolha a conta de destino.')
+  else if (v.toAccountId === v.accountId)
+    issue('toAccountId', 'Escolha uma conta diferente da origem.')
+  if (v.categoryId !== null) issue('categoryId', 'Transferência não tem categoria.')
+}
+
+function checkRecurrence(v: RefineInput, issue: Issue): void {
+  if ((v.recurrence === 'installments') !== (v.installments !== null)) {
+    issue('installments', 'Informe as parcelas.')
+  }
+  if (v.endMonth === null) return
+  if (v.recurrence !== 'monthly' && v.recurrence !== 'yearly') {
+    issue('endMonth', 'Só repetições mensais ou anuais têm data final.')
+  } else if (v.endMonth < v.startMonth) {
+    issue('endMonth', 'O fim não pode ser antes do início.')
+  }
+}
+
+/** Everything the entry form edits, already in domain units (cents, months, bps). */
+export const entryFieldsSchema = z
+  .object({
+    kind: z.enum(['income', 'expense', 'transfer']),
+    description: z.string().trim().min(1, 'Informe a descrição.').max(120),
+    amountCents: z
+      .number('Informe o valor.')
+      .int()
+      .min(1, 'Informe um valor maior que zero.')
+      .max(MAX_CENTS, 'Valor alto demais.'),
+    accountId: idSchema,
+    toAccountId: idSchema.nullable(),
+    categoryId: idSchema.nullable(),
+    pot: potKeySchema.nullable(),
+    tags: z.array(z.string().trim().min(1).max(40)).max(20, 'No máximo 20 tags.'),
+    startMonth: monthSchema,
+    day: daySchema,
+    recurrence: z.enum(['none', 'monthly', 'yearly', 'installments']),
+    installments: z.number().int().min(1, 'Informe as parcelas.').max(600).nullable(),
+    endMonth: monthSchema.nullable(),
+    parts: z.array(entryPartSchema).max(12),
+  })
+  .superRefine((v, ctx) => {
+    const issue: Issue = (path, message) => ctx.addIssue({ code: 'custom', path: [path], message })
+    checkTransfer(v, issue)
+    checkRecurrence(v, issue)
+    if (v.pot !== null && v.kind !== 'expense') issue('pot', 'Só saídas vão para um pote.')
+    if (v.parts.length > 0 && v.parts.reduce((sum, p) => sum + p.bps, 0) !== 10000) {
+      issue('parts', 'As partes precisam somar 100%.')
+    }
+    if (new Set(v.tags).size !== v.tags.length) issue('tags', 'Tag repetida.')
+  })
+
+export type EntryFields = z.infer<typeof entryFieldsSchema>
+
+/** Create: the client mints the id, so a double submit is a no-op. */
+export const createEntrySchema = z.object({ id: idSchema, fields: entryFieldsSchema })
+export type CreateEntryInput = z.infer<typeof createEntrySchema>
+
+/**
+ * Update. With `month` (editing one occurrence of a recurring entry) a change
+ * of amount/day on that occurrence needs a `scope`; the other fields apply to
+ * the whole series. Without `month` the entry is edited as a whole.
+ */
+export const updateEntrySchema = z.object({
+  entryId: idSchema,
+  month: monthSchema.nullable(),
+  scope: editScopeSchema.nullable(),
+  fields: entryFieldsSchema,
+})
+export type UpdateEntryInput = z.infer<typeof updateEntrySchema>
+
+export const deleteEntrySchema = z.object({
+  entryId: idSchema,
+  month: monthSchema.nullable(),
+  scope: editScopeSchema,
+})
+export type DeleteEntryInput = z.infer<typeof deleteEntrySchema>
+
+export const changeDaySchema = z.object({
+  entryId: idSchema,
+  month: monthSchema,
+  day: daySchema,
+  scope: editScopeSchema.nullable(),
+})
+export type ChangeDayInput = z.infer<typeof changeDaySchema>
+
+const nameSchema = z.string().trim().min(1, 'Informe o nome.').max(60, 'Nome longo demais.')
+
+export const createBankSchema = z.object({ id: idSchema, name: nameSchema })
+export const updateBankSchema = z.object({ id: idSchema, name: nameSchema })
+
+const centsSchema = z.number().int().min(-MAX_CENTS).max(MAX_CENTS)
+
+export const createAccountSchema = z.object({
+  id: idSchema,
+  bankId: idSchema,
+  name: nameSchema,
+  type: accountTypeSchema,
+  openingBalanceCents: centsSchema,
+})
+export const updateAccountSchema = z.object({
+  id: idSchema,
+  name: nameSchema,
+  type: accountTypeSchema,
+  openingBalanceCents: centsSchema,
+  archived: z.boolean(),
+})
+export type CreateAccountInput = z.infer<typeof createAccountSchema>
+export type UpdateAccountInput = z.infer<typeof updateAccountSchema>
+
+/** Pot targets in basis points of income; together they never exceed 100%. */
+export const potTargetsSchema = z
+  .record(potKeySchema, z.number().int().min(0).max(10000))
+  .refine((targets) => Object.values(targets).reduce((a, b) => a + b, 0) <= 10000, {
+    message: 'A soma dos potes não pode passar de 100%.',
+  })
+export type PotTargets = z.infer<typeof potTargetsSchema>
+
+export const countFromSchema = z.object({ month: monthSchema })
+
+/** First issue's message, for `{ ok: false, error }` results. */
+export function firstIssue(error: z.ZodError): string {
+  return error.issues[0]?.message ?? 'Dados inválidos.'
+}

@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
   addTag,
+  amountLabel,
   DEFAULT_PARTS,
   editEntryValues,
-  installmentsTotalHint,
+  installmentsHint,
   isEmptyPatch,
   isOccurrenceEdit,
   newEntryValues,
@@ -199,17 +200,21 @@ describe('helpers', () => {
     expect(addTag(['a'], '  ')).toEqual(['a'])
   })
 
-  it('spells out the total of an installment entry', () => {
-    const hint = installmentsTotalHint(
-      values({ amount: '2000', recurrence: 'installments', installments: '3' }),
-    )
-    expect(hint).toMatch(/^3× R\$\s2\.000 = R\$\s6\.000$/)
-    expect(installmentsTotalHint(values({ amount: '2000' }))).toBeNull()
-    expect(
-      installmentsTotalHint(values({ amount: '', recurrence: 'installments', installments: '3' })),
-    ).toBeNull()
-    expect(
-      installmentsTotalHint(values({ amount: '10', recurrence: 'installments', installments: '' })),
-    ).toBeNull()
+  it('labels the amount of an installment entry as its total', () => {
+    const parcelado = values({ recurrence: 'installments', installments: '3' })
+    expect(amountLabel(values(), false)).toBe('Valor (R$)')
+    expect(amountLabel(parcelado, false)).toBe('Valor total (R$)')
+    expect(amountLabel(parcelado, true)).toBe('Valor da parcela (R$)')
+  })
+
+  it('shows how the total is split into installments', () => {
+    const hint = (amount: string, installments: string, occurrence = false) =>
+      installmentsHint(values({ amount, recurrence: 'installments', installments }), occurrence)
+    expect(hint('6000', '3')).toMatch(/^3× R\$\s2\.000,00$/)
+    expect(hint('1000', '3')).toMatch(/^1× R\$\s333,34 \+ 2× R\$\s333,33$/)
+    expect(hint('6000', '3', true)).toBeNull()
+    expect(hint('', '3')).toBeNull()
+    expect(hint('10', '')).toBeNull()
+    expect(installmentsHint(values({ amount: '2000' }), false)).toBeNull()
   })
 })

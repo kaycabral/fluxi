@@ -1,6 +1,13 @@
-import { centsToInput, formatMoney, isoDate, monthLabel, parseMoneyInput } from './format'
+import {
+  centsToInput,
+  formatMoney,
+  formatMoneyExact,
+  isoDate,
+  monthLabel,
+  parseMoneyInput,
+} from './format'
 import type { Month } from './month'
-import { amountFor, dayFor, sortParts } from './occurrence'
+import { amountFor, dayFor, installmentShares, sortParts } from './occurrence'
 import { entryFieldsSchema, firstIssue, type EntryFields } from './schemas'
 import type { OccurrencePatch } from './scoped-edit'
 import type { Entry, EntryKind, EntryOverride, EntryPart, PotKey, Recurrence } from './types'
@@ -219,15 +226,23 @@ export function describeOccurrenceChange(
   return `${target.entry.description} em ${monthLabel(month)}: ${changes.join(', ')}`
 }
 
+/** Label of the amount field: an installment entry takes its total, one installment its own value. */
+export function amountLabel(values: EntryFormValues, occurrenceEdit: boolean): string {
+  if (values.recurrence !== 'installments') return 'Valor (R$)'
+  return occurrenceEdit ? 'Valor da parcela (R$)' : 'Valor total (R$)'
+}
+
 /**
- * "3× R$ 2.000 = R$ 6.000" under the amount of an installment entry:
- * the amount is per installment, so the total is spelled out. Null when the
- * entry is not in installments or the amount/count can't be read yet.
+ * How the total of an installment entry is split, under the amount field:
+ * "3× R$ 2.000,00", or "1× R$ 333,34 + 2× R$ 333,33" with leftover cents (they go
+ * on the first installment). Null when not applicable or not readable yet.
  */
-export function installmentsTotalHint(values: EntryFormValues): string | null {
-  if (values.recurrence !== 'installments') return null
-  const amountCents = parseMoneyInput(values.amount)
+export function installmentsHint(values: EntryFormValues, occurrenceEdit: boolean): string | null {
+  if (values.recurrence !== 'installments' || occurrenceEdit) return null
+  const totalCents = parseMoneyInput(values.amount)
   const count = parseIntOrNull(values.installments)
-  if (amountCents === null || count === null || count < 1) return null
-  return `${count}× ${formatMoney(amountCents)} = ${formatMoney(amountCents * count)}`
+  if (totalCents === null || count === null || count < 1) return null
+  const { first, rest } = installmentShares(totalCents, count)
+  if (first === rest || count === 1) return `${count}× ${formatMoneyExact(first)}`
+  return `1× ${formatMoneyExact(first)} + ${count - 1}× ${formatMoneyExact(rest)}`
 }

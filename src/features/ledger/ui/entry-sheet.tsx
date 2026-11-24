@@ -7,8 +7,9 @@ import {
 } from '@/features/ledger/adapters/actions/entries'
 import type { ActionResult } from '@/features/ledger/core/action-result'
 import {
+  amountLabel,
   describeOccurrenceChange,
-  installmentsTotalHint,
+  installmentsHint,
   isEmptyPatch,
   isOccurrenceEdit,
   newEntryValues,
@@ -169,7 +170,7 @@ export function EntryForm({
     set({ description: `${values.description} (cópia)` })
   }
 
-  const totalHint = installmentsTotalHint(values)
+  const totalHint = installmentsHint(values, occurrence !== null)
 
   return (
     <form
@@ -192,9 +193,7 @@ export function EntryForm({
         <KindToggle value={values.kind} onChange={changeKind} />
 
         <div className="grid gap-2">
-          <Label htmlFor="entry-amount">
-            {values.recurrence === 'installments' ? 'Valor da parcela (R$)' : 'Valor (R$)'}
-          </Label>
+          <Label htmlFor="entry-amount">{amountLabel(values, occurrence !== null)}</Label>
           <Input
             id="entry-amount"
             inputMode="decimal"

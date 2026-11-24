@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { makeEntry, makeOverride, salarySplit } from './fixtures'
 import { landingsIn } from './occurrence'
-import { applyScopedEdit, type SeriesState } from './scoped-edit'
+import { applyScopedEdit, endSeriesBefore, type SeriesState } from './scoped-edit'
 
 function ids() {
   let n = 0
@@ -100,7 +100,7 @@ describe('applyScopedEdit: future', () => {
       recurrence: 'installments',
       installments: 12,
       startMonth: '2027-02',
-      amountCents: 250000,
+      amountCents: 3000000,
     })
     const result = applyScopedEdit(
       { entry: buffet, parts: [], overrides: [] },
@@ -110,9 +110,35 @@ describe('applyScopedEdit: future', () => {
     expect(
       result.entries.map((e) => [e.startMonth, e.installments, e.amountCents, e.endMonth]),
     ).toEqual([
-      ['2027-02', 4, 250000, null],
-      ['2027-06', 8, 300000, null],
+      ['2027-02', 4, 1000000, null],
+      ['2027-06', 8, 2400000, null],
     ])
+  })
+
+  it('keeps the leftover cents on the installments already due', () => {
+    const ring = makeEntry({
+      recurrence: 'installments',
+      installments: 3,
+      startMonth: '2026-11',
+      amountCents: 100000,
+    })
+    const state = { entry: ring, parts: [], overrides: [] }
+    const split = applyScopedEdit(
+      state,
+      { month: '2026-12', patch: { day: 5 }, scope: 'future' },
+      ids(),
+    )
+    expect(split.entries.map((e) => [e.installments, e.amountCents])).toEqual([
+      [1, 33334],
+      [2, 66666],
+    ])
+    const all = applyScopedEdit(
+      state,
+      { month: '2026-12', patch: { amountCents: 40000 }, scope: 'all' },
+      ids(),
+    )
+    expect(all.entries[0]?.amountCents).toBe(120000)
+    expect(endSeriesBefore(ring, '2027-01')).toMatchObject({ installments: 2, amountCents: 66667 })
   })
 
   it('splits a yearly series and copies parts to the new entry', () => {

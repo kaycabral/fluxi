@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   centsToInput,
-  formatCompactMoney,
+  formatAmount,
   formatMoney,
   formatPercent,
   formatSignedMoney,
@@ -21,24 +21,27 @@ describe('format', () => {
     expect(monthLabel('2026-12')).toBe('dez/26')
     expect(monthLabel('2027-01')).toBe('jan/27')
     expect(monthLongLabel('2027-03')).toBe('março de 2027')
+    // Out-of-range months degrade instead of throwing.
+    expect(monthLabel('2026-13')).toBe('/26')
+    expect(monthLongLabel('2026-13')).toBe(' de 2026')
   })
 
-  it('formats whole reais with sign', () => {
-    expect(formatMoney(123456)).toBe('R$ 1.235')
-    expect(formatMoney(-245000)).toBe('-R$ 2.450')
-    expect(formatMoney(-20)).toBe('R$ 0')
-    expect(formatSignedMoney(1000)).toBe('+R$ 10')
-    expect(formatSignedMoney(-1000)).toBe('-R$ 10')
-    expect(formatSignedMoney(0)).toBe('R$ 0')
+  it('formats money with cents and sign', () => {
+    expect(formatMoney(123456)).toBe('R$ 1.234,56')
+    expect(formatMoney(-245000)).toBe('-R$ 2.450,00')
+    expect(formatMoney(-20)).toBe('-R$ 0,20')
+    expect(formatMoney(0)).toBe('R$ 0,00')
+    expect(formatSignedMoney(1000)).toBe('+R$ 10,00')
+    expect(formatSignedMoney(5)).toBe('+R$ 0,05')
+    expect(formatSignedMoney(-1000)).toBe('-R$ 10,00')
+    expect(formatSignedMoney(0)).toBe('R$ 0,00')
   })
 
-  it('compacts money for dense grids', () => {
-    expect(formatCompactMoney(960000)).toBe('9,6k')
-    expect(formatCompactMoney(1060000)).toBe('11k')
-    expect(formatCompactMoney(-2450000)).toBe('-25k')
-    expect(formatCompactMoney(26000)).toBe('260')
-    expect(formatCompactMoney(-26000)).toBe('-260')
-    expect(formatCompactMoney(10)).toBe('0')
+  it('formats amounts for dense grids without the symbol, keeping the cents', () => {
+    expect(formatAmount(1060000)).toBe('10.600,00')
+    expect(formatAmount(-2450050)).toBe('-24.500,50')
+    expect(formatAmount(26000)).toBe('260,00')
+    expect(formatAmount(10)).toBe('0,10')
   })
 
   it('formats percentages', () => {

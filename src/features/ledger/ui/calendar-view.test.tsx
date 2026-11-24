@@ -28,9 +28,9 @@ describe('CalendarView', () => {
   it('shows entries per day and highlights negative days', () => {
     renderCalendar()
     expect(screen.getByRole('heading', { name: 'Calendário · dez/26' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /7,0k Avulso/ })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /3,0k Saldo/ })).toBeInTheDocument()
-    // Day 3 ends at 1200 − 7000 = −5,8k.
+    expect(screen.getByRole('button', { name: /7\.000,00 Avulso/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /3\.000,00 Saldo/ })).toBeInTheDocument()
+    // Day 3 ends at 1200 − 7000 = −5.800,00.
     expect(screen.getByRole('group', { name: 'Dia 3, saldo negativo' })).toHaveClass(
       'bg-destructive/10',
     )
@@ -67,10 +67,10 @@ describe('CalendarView', () => {
       }),
     )
     const avulso = screen.getByRole('button', { name: /Avulso/ })
-    expect(avulso).toHaveAttribute('title', 'Avulso R$ 7.000 (atrasada)')
+    expect(avulso).toHaveAttribute('title', 'Avulso R$ 7.000,00 (atrasada)')
     expect(avulso).toHaveClass('ring-destructive')
     const transfer = screen.getByRole('button', { name: /Para o Nubank/ })
-    expect(transfer).toHaveAttribute('title', 'Para o Nubank R$ 400 (pago)')
+    expect(transfer).toHaveAttribute('title', 'Para o Nubank R$ 400,00 (pago)')
     expect(within(transfer).getByLabelText('pago')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Buffet/ })).not.toHaveClass('ring-destructive')
   })

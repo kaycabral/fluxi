@@ -209,7 +209,7 @@ describe('editing', () => {
     await userEvent.type(amount, '300')
     await userEvent.click(within(sheet).getByRole('button', { name: 'Salvar' }))
     const scope = await screen.findByRole('dialog', { name: 'Aplicar a mudança em…' })
-    expect(scope).toHaveTextContent('Luz em jan/27: valor R$ 260 → R$ 300')
+    expect(scope).toHaveTextContent('Luz em jan/27: valor R$ 260,00 → R$ 300,00')
     await userEvent.click(within(scope).getByRole('button', { name: 'Cancelar' }))
     expect(actions.updateEntryAction).not.toHaveBeenCalled()
 

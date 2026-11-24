@@ -12,7 +12,7 @@ export function toneOf(
   return ''
 }
 
-/** A money amount in whole reais, tabular, optionally signed and toned. */
+/** A money amount with cents, tabular, optionally signed and toned. */
 export function Money({
   cents,
   signed = false,

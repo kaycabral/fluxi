@@ -156,6 +156,8 @@ describe('painel layout', () => {
     expect(screen.getByRole('region', { name: 'shell com 2 bancos' })).toBeInTheDocument()
     expect(screen.getByRole('navigation', { name: 'Seções' })).toBeInTheDocument()
     expect(screen.getByText('conteúdo')).toBeInTheDocument()
+    const footer = screen.getByRole('navigation', { name: 'Rodapé' })
+    expect(footer).toContainElement(screen.getByRole('link', { name: 'Privacidade' }))
   })
 
   it('falls back to empty refs when the backend is down', async () => {

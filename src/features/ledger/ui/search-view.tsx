@@ -2,7 +2,7 @@
 
 import { accountLabel } from '@/features/ledger/core/account-filter'
 import { formatMoney, monthLabel, shortDate } from '@/features/ledger/core/format'
-import { POT_COLORS, POT_LABELS, RECURRENCE_LABELS } from '@/features/ledger/core/labels'
+import { POT_COLORS, POT_LABELS, potTint, RECURRENCE_LABELS } from '@/features/ledger/core/labels'
 import type { Month } from '@/features/ledger/core/month'
 import {
   activeFilters,
@@ -363,7 +363,8 @@ export function SearchView({ data, query, start, months }: Props) {
                     <TableRow
                       key={`${entry.id}-${landing.month}-${landing.part?.id ?? 'whole'}-${index}`}
                       tabIndex={0}
-                      className="cursor-pointer"
+                      data-pot={entry.pot ?? undefined}
+                      className={cn('cursor-pointer', potTint(entry.pot))}
                       onClick={() => openEdit(targetFor(data, landing))}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') openEdit(targetFor(data, landing))

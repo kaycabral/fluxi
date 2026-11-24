@@ -3,7 +3,7 @@
 import { decisionAccountIds } from '@/features/ledger/core/account-filter'
 import { calendarMonth } from '@/features/ledger/core/calendar'
 import { formatCompactMoney, formatMoney, monthLabel } from '@/features/ledger/core/format'
-import { POT_COLORS } from '@/features/ledger/core/labels'
+import { POT_COLORS, potTint } from '@/features/ledger/core/labels'
 import { addMonths, type Month } from '@/features/ledger/core/month'
 import type { Landing } from '@/features/ledger/core/occurrence'
 import { paymentStatus, type PaymentStatus } from '@/features/ledger/core/payments'
@@ -49,6 +49,7 @@ function EventChip({
       onClick={onOpen}
       className={cn(
         'bg-muted hover:bg-muted/70 block w-full truncate rounded-sm px-1 text-left text-[0.65rem] leading-4 sm:text-xs',
+        potTint(entry.pot),
         entry.kind === 'income' && 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-300',
         status === 'paid' && 'opacity-60',
         status === 'overdue' && 'ring-destructive text-destructive ring-1',

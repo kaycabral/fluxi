@@ -3,6 +3,7 @@
 import { accountLabel } from '@/features/ledger/core/account-filter'
 import { accountIdsInBucket } from '@/features/ledger/core/bucket'
 import { formatMoney, shortDate } from '@/features/ledger/core/format'
+import { potTint } from '@/features/ledger/core/labels'
 import type { Month } from '@/features/ledger/core/month'
 import { groupPayables, payableLandings, type PayableGroup } from '@/features/ledger/core/payments'
 import {
@@ -84,6 +85,8 @@ function GroupCard({ group, data }: { group: PayableGroup; data: LedgerData }) {
               return (
                 <TableRow
                   key={`${entry.id}-${landing.competence}-${landing.part?.id ?? 'whole'}-${index}`}
+                  data-pot={entry.pot ?? undefined}
+                  className={potTint(entry.pot)}
                 >
                   <TableCell
                     className={cn('font-mono', status === 'overdue' && 'text-destructive')}

@@ -4,6 +4,7 @@ import { changeDayAction } from '@/features/ledger/adapters/actions/entries'
 import { accountLabel, decisionAccountIds } from '@/features/ledger/core/account-filter'
 import { describeOccurrenceChange } from '@/features/ledger/core/entry-form'
 import { formatMoney, monthLabel } from '@/features/ledger/core/format'
+import { potTint } from '@/features/ledger/core/labels'
 import { paymentStatus } from '@/features/ledger/core/payments'
 import { dailyBalance, type DailyRow, type MonthResult } from '@/features/ledger/core/projection'
 import type { EditScope } from '@/features/ledger/core/scoped-edit'
@@ -192,8 +193,10 @@ export function MonthDetail({ result, data }: { result: MonthResult; data: Ledge
                 <TableRow
                   key={`${entry.id}-${landing.part?.id ?? 'whole'}-${index}`}
                   tabIndex={0}
+                  data-pot={entry.pot ?? undefined}
                   className={cn(
                     'cursor-pointer',
+                    potTint(entry.pot),
                     row.balanceAfterCents === daily.minBalanceCents && 'bg-amber-500/10',
                   )}
                   onClick={() => openEdit(targetFor(data, landing))}

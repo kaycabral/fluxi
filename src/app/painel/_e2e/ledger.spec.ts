@@ -151,21 +151,39 @@ test.describe('ledger critical flow', () => {
     await expect(page.getByRole('row', { name: /Aluguel E2E/ })).toContainText('-R$ 150')
   })
 
-  test('quick add on a calendar day, like a calendar event', async ({ page }) => {
-    await page.goto('/painel')
-    const day = page.getByRole('group', { name: new RegExp(`^Dia ${TODAY_DAY}(,|$)`) })
-    await day.getByRole('button', { name: /^Criar lançamento em/ }).click()
+  test('quick add on a calendar day, then pay it from its popup and see it in the week', async ({
+    page,
+  }) => {
+    await page.goto('/painel?modo=mes')
+    const create = page.locator('button[aria-current="date"]')
+    const day = page.getByRole('group').filter({ has: create })
+    await create.click()
     const form = page.getByRole('form', { name: 'Criar lançamento' })
-    await expect(form.getByLabel('Valor (R$)')).toBeFocused()
-    await form.getByLabel('Valor (R$)').fill('42,90')
+    await expect(form.getByLabel('Descrição')).toBeFocused()
     await form.getByLabel('Descrição').fill('Padaria E2E')
-    await form.getByLabel('Descrição').press('Enter')
+    await form.getByLabel('Valor (R$)').fill('42,90')
+    await form.getByLabel('Valor (R$)').press('Enter')
     await expect(form).toBeHidden()
 
     // The entry lands on that day and lowers the day's end balance (5.000,00 − 42,90).
-    await expect(day.getByRole('button', { name: /42,90 Padaria E2E/ })).toBeVisible()
+    const chip = day.getByRole('button', { name: /42,90 Padaria E2E/ })
+    await expect(chip).toBeVisible()
     await expect(day).toContainText('4.957,10')
-    // There is no floating button anymore; "Criar" opens the full sheet.
+
+    // Its popup, like a Google Calendar event: details and "Marcar como pago".
+    await chip.click()
+    const details = page.getByLabel('Detalhes de Padaria E2E')
+    await expect(details).toContainText('-R$ 42,90')
+    await expect(details).toContainText('Banco E2E · Conta E2E')
+    await details.getByRole('button', { name: 'Marcar como pago' }).click()
+    await expect(details).toContainText('Pago em')
+    await details.getByRole('button', { name: 'Fechar' }).click()
+    await expect(chip).toHaveClass(/opacity-50/)
+
+    // The week view (W) shows it too; "Criar" opens the full sheet.
+    await page.keyboard.press('w')
+    await expect(page.getByRole('button', { name: 'Visualização: Semana' })).toBeVisible()
+    await expect(page.getByRole('button', { name: /42,90 Padaria E2E/ })).toBeVisible()
     await page.getByRole('button', { name: 'Criar', exact: true }).click()
     await expect(page.getByRole('dialog', { name: 'Novo lançamento' })).toBeVisible()
   })

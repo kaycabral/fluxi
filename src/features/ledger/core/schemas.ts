@@ -140,7 +140,11 @@ const ISO_DAY = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/
 export const isoDaySchema = z
   .string()
   .regex(ISO_DAY, 'Data inválida.')
-  .refine((day) => new Date(`${day}T00:00:00Z`).toISOString().startsWith(day), 'Data inválida.')
+  // The refine also runs when the regex failed (zod 4), so it must not throw on garbage.
+  .refine((day) => {
+    const time = Date.parse(`${day}T00:00:00Z`)
+    return !Number.isNaN(time) && new Date(time).toISOString().startsWith(day)
+  }, 'Data inválida.')
 
 /** One payable occurrence: the entry, its competence month and, for a split entry, the part. */
 export const paymentKeySchema = z.object({

@@ -44,8 +44,14 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ refresh: vi.fn(), replace: vi.fn() }),
   usePathname: () => '/painel',
 }))
+let prefsCookie: string | undefined
 vi.mock('next/headers', () => ({
   headers: () => Promise.resolve(new Headers({ 'x-pathname': '/painel/contas' })),
+  cookies: () =>
+    Promise.resolve({
+      get: (name: string) =>
+        name === 'fluxi_calendar' && prefsCookie !== undefined ? { value: prefsCookie } : undefined,
+    }),
 }))
 vi.mock('@/features/ledger/ui/timeline-view', () => ({
   TimelineView: ({ window }: { window: { from: string; to: string } }) => (
@@ -69,8 +75,17 @@ vi.mock('@/features/ledger/ui/budget-view', () => ({
   BudgetView: ({ months }: { months: unknown[] }) => <p>budget {months.length}</p>,
 }))
 vi.mock('@/features/ledger/ui/calendar-view', () => ({
-  CalendarView: ({ month, account, today }: { month: string; account: string; today: string }) => (
-    <p>calendar {`${month}/${account}@${today}`}</p>
+  CalendarView: (props: {
+    view: string
+    date: string
+    account: string
+    today: string
+    prefs: { view: string; weekends: boolean }
+  }) => (
+    <p>
+      calendar {`${props.view} ${props.date}/${props.account}@${props.today}`}
+      {props.prefs.weekends ? '' : ' sem fins de semana'}
+    </p>
   ),
 }))
 vi.mock('@/features/ledger/ui/ledger-shell', () => ({
@@ -135,13 +150,35 @@ describe('painel pages', () => {
     expect(views.loadBudgetData).toHaveBeenCalledWith('u1', '2026-11')
   })
 
-  it('calendar reads month and account from the URL', async () => {
+  it('calendar reads view, date and account from the URL and loads what the view needs', async () => {
     render(
-      await CalendarPage({ searchParams: Promise.resolve({ mes: ['2027-02'], conta: 'abc' }) }),
+      await CalendarPage({
+        searchParams: Promise.resolve({ modo: 'semana', data: ['2027-02-27'], conta: 'abc' }),
+      }),
     )
-    expect(screen.getByText('calendar 2027-02/abc@2026-12-15')).toBeInTheDocument()
-    render(await CalendarPage({ searchParams: Promise.resolve({ mes: 'x' }) }))
-    expect(screen.getByText('calendar 2026-12/@2026-12-15')).toBeInTheDocument()
+    expect(screen.getByText('calendar week 2027-02-27/abc@2026-12-15')).toBeInTheDocument()
+    expect(views.loadLedgerData).toHaveBeenLastCalledWith(
+      'u1',
+      { from: '2027-02', to: '2027-02' },
+      '2026-11',
+    )
+  })
+
+  it('calendar falls back to old month links, then today, in the last view used', async () => {
+    prefsCookie = JSON.stringify({ view: 'year', weekends: false })
+    render(await CalendarPage({ searchParams: Promise.resolve({ mes: '2027-02' }) }))
+    expect(
+      screen.getByText('calendar year 2027-02-01/@2026-12-15 sem fins de semana'),
+    ).toBeInTheDocument()
+    prefsCookie = '{nada'
+    render(await CalendarPage({ searchParams: Promise.resolve({ data: 'ontem', modo: 'x' }) }))
+    expect(screen.getByText('calendar month 2026-12-15/@2026-12-15')).toBeInTheDocument()
+    expect(views.loadLedgerData).toHaveBeenLastCalledWith(
+      'u1',
+      { from: '2026-11', to: '2027-01' },
+      '2026-11',
+    )
+    prefsCookie = undefined
   })
 
   it('the old calendar route redirects to /painel keeping month and account', async () => {

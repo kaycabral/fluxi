@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_POTS } from './defaults'
-import { entryFieldsSchema, firstIssue, potTargetsSchema, type EntryFields } from './schemas'
+import {
+  entryFieldsSchema,
+  firstIssue,
+  isoDaySchema,
+  potTargetsSchema,
+  type EntryFields,
+} from './schemas'
 
 const ACC = '11111111-1111-4111-8111-111111111111'
 const ACC2 = '22222222-2222-4222-8222-222222222222'
@@ -69,5 +75,14 @@ describe('potTargetsSchema', () => {
     expect(result.success).toBe(false)
     if (!result.success)
       expect(firstIssue(result.error)).toBe('A soma dos potes não pode passar de 100%.')
+  })
+})
+
+describe('isoDaySchema', () => {
+  it('accepts real days and refuses anything else without throwing', () => {
+    expect(isoDaySchema.safeParse('2028-02-29').success).toBe(true)
+    expect(isoDaySchema.safeParse('2027-02-29').success).toBe(false)
+    expect(isoDaySchema.safeParse('').success).toBe(false)
+    expect(isoDaySchema.safeParse('ontem').success).toBe(false)
   })
 })

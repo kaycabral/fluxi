@@ -119,9 +119,36 @@ export function landingsIn(
   overrides: readonly EntryOverride[],
   month: Month,
 ): Landing[] {
+  return landingsWhere({ entry, parts, overrides }, month, false)
+}
+
+/**
+ * The opposite of {@link landingsIn}: what WOULD land in `month` from the
+ * skipped occurrences (to show them as ignored; they never count).
+ */
+export function skippedLandingsIn(
+  entry: Entry,
+  parts: readonly EntryPart[],
+  overrides: readonly EntryOverride[],
+  month: Month,
+): Landing[] {
+  return landingsWhere({ entry, parts, overrides }, month, true)
+}
+
+type Series = {
+  entry: Entry
+  parts: readonly EntryPart[]
+  overrides: readonly EntryOverride[]
+}
+
+function landingsWhere(
+  { entry, parts, overrides }: Series,
+  month: Month,
+  skipped: boolean,
+): Landing[] {
   const lastDay = daysInMonth(month)
   const lands = (competence: Month) =>
-    occursIn(entry, competence) && !isSkipped(entry, overrides, competence)
+    occursIn(entry, competence) && isSkipped(entry, overrides, competence) === skipped
   const ownParts = sortParts(parts.filter((p) => p.entryId === entry.id))
 
   if (ownParts.length === 0) {

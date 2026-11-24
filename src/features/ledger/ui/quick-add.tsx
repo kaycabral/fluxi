@@ -3,8 +3,18 @@
 import { createEntryAction } from '@/features/ledger/adapters/actions/entries'
 import { newEntryValues, valuesToFields } from '@/features/ledger/core/entry-form'
 import { dayLongLabel } from '@/features/ledger/core/format'
-import { Button, cn, Input, Label } from '@cbrl/design'
-import { Loader2 } from 'lucide-react'
+import type { Recurrence } from '@/features/ledger/core/types'
+import {
+  Button,
+  cn,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@cbrl/design'
+import { Banknote, Clock, Loader2, Wallet, X } from 'lucide-react'
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { defaultAccountOf, useLedgerUi } from './ledger-shell'
@@ -17,24 +27,37 @@ const QUICK_KINDS: { kind: QuickKind; label: string }[] = [
   { kind: 'income', label: 'Entrada' },
 ]
 
+type QuickRepeat = Extract<Recurrence, 'none' | 'monthly' | 'yearly'>
+
+const REPEAT_LABELS: Record<QuickRepeat, string> = {
+  none: 'Não se repete',
+  monthly: 'Todo mês',
+  yearly: 'Todo ano',
+}
+
+function isQuickRepeat(value: string): value is QuickRepeat {
+  return value in REPEAT_LABELS
+}
+
 /**
- * Quick add on a calendar day (like creating an event in Google Calendar):
- * kind, amount, description and account, saved as a one-off entry on `date`.
- * "Mais opções" carries what was typed to the full sheet (repetition, category,
- * pot, parts, transfer).
+ * Quick add on a calendar day, laid out like Google Calendar's: a big
+ * description, Saída/Entrada pills, the date with its repetition, then amount
+ * and account. "Mais opções" carries what was typed to the full sheet
+ * (installments, category, pot, parts, transfer).
  */
 export function QuickAddForm({ date, onDone }: { date: string; onDone: () => void }) {
   const { refs, openNew } = useLedgerUi()
   const [kind, setKind] = useState<QuickKind>('expense')
   const [amount, setAmount] = useState('')
   const [description, setDescription] = useState('')
+  const [recurrence, setRecurrence] = useState<QuickRepeat>('none')
   const [accountId, setAccountId] = useState(() => defaultAccountOf(refs))
   const [entryId] = useState(() => crypto.randomUUID())
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
   const accounts = refs.accounts.filter((a) => !a.archived)
 
-  const typed = { kind, amount, description, accountId }
+  const typed = { kind, amount, description, accountId, recurrence }
 
   function save() {
     const converted = valuesToFields({ ...newEntryValues({ date, accountId, kind }), ...typed })
@@ -62,58 +85,85 @@ export function QuickAddForm({ date, onDone }: { date: string; onDone: () => voi
   return (
     <form
       aria-label="Criar lançamento"
-      className="grid gap-3"
+      className="grid grid-cols-[1.25rem_1fr] items-center gap-x-4 gap-y-3"
       onSubmit={(e) => {
         e.preventDefault()
         save()
       }}
     >
-      <p className="text-muted-foreground text-sm first-letter:uppercase">{dayLongLabel(date)}</p>
-      <div
-        role="group"
-        aria-label="Tipo"
-        className="bg-muted grid grid-cols-2 gap-1 rounded-lg p-1"
-      >
+      <div className="col-span-2 -mt-1 -mr-1 flex justify-end">
+        <Button type="button" variant="ghost" size="icon-sm" aria-label="Fechar" onClick={onDone}>
+          <X />
+        </Button>
+      </div>
+      <span aria-hidden />
+      <Input
+        id="quick-description"
+        aria-label="Descrição"
+        list="quick-descriptions"
+        autoComplete="off"
+        placeholder="Adicionar descrição"
+        className="focus-visible:border-b-primary h-11 rounded-none border-0 border-b-2 px-0 text-xl shadow-none focus-visible:ring-0"
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
+      />
+      <datalist id="quick-descriptions">
+        {refs.descriptions.map((d) => (
+          <option key={d} value={d} />
+        ))}
+      </datalist>
+      <span aria-hidden />
+      <div role="group" aria-label="Tipo" className="flex gap-2">
         {QUICK_KINDS.map((option) => (
           <Button
             key={option.kind}
             type="button"
             size="sm"
-            variant={kind === option.kind ? 'outline' : 'ghost'}
+            variant={kind === option.kind ? 'secondary' : 'ghost'}
             aria-pressed={kind === option.kind}
-            className={cn(kind === option.kind && 'bg-background font-semibold shadow-sm')}
+            className={cn('rounded-md', kind === option.kind && 'font-semibold')}
             onClick={() => setKind(option.kind)}
           >
             {option.label}
           </Button>
         ))}
       </div>
-      <div className="grid gap-1.5">
-        <Label htmlFor="quick-amount">Valor (R$)</Label>
-        <Input
-          id="quick-amount"
-          inputMode="decimal"
-          autoComplete="off"
-          placeholder="0,00"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-        />
+      <Clock className="text-muted-foreground size-5" aria-hidden />
+      <div className="grid gap-0.5">
+        <p className="text-sm first-letter:uppercase">{dayLongLabel(date)}</p>
+        <Select
+          value={recurrence}
+          onValueChange={(value) => {
+            if (isQuickRepeat(value)) setRecurrence(value)
+          }}
+        >
+          <SelectTrigger
+            aria-label="Repetição"
+            size="sm"
+            className="text-muted-foreground h-auto w-fit border-0 p-0 text-xs shadow-none"
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.entries(REPEAT_LABELS).map(([value, label]) => (
+              <SelectItem key={value} value={value}>
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
-      <div className="grid gap-1.5">
-        <Label htmlFor="quick-description">Descrição</Label>
-        <Input
-          id="quick-description"
-          list="quick-descriptions"
-          autoComplete="off"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-        />
-        <datalist id="quick-descriptions">
-          {refs.descriptions.map((d) => (
-            <option key={d} value={d} />
-          ))}
-        </datalist>
-      </div>
+      <Banknote className="text-muted-foreground size-5" aria-hidden />
+      <Input
+        id="quick-amount"
+        aria-label="Valor (R$)"
+        inputMode="decimal"
+        autoComplete="off"
+        placeholder="Valor (R$)"
+        value={amount}
+        onChange={(e) => setAmount(e.target.value)}
+      />
+      <Wallet className="text-muted-foreground size-5" aria-hidden />
       <AccountSelect
         aria-label="Conta"
         banks={refs.banks}
@@ -122,15 +172,15 @@ export function QuickAddForm({ date, onDone }: { date: string; onDone: () => voi
         onValueChange={setAccountId}
       />
       {error !== null && (
-        <p role="alert" className="text-destructive text-sm">
+        <p role="alert" className="text-destructive col-span-2 text-sm">
           {error}
         </p>
       )}
-      <div className="flex items-center justify-between gap-2">
-        <Button type="button" variant="ghost" size="sm" onClick={moreOptions}>
+      <div className="col-span-2 flex items-center justify-end gap-2 pt-1">
+        <Button type="button" variant="ghost" onClick={moreOptions}>
           Mais opções
         </Button>
-        <Button type="submit" size="sm" disabled={pending}>
+        <Button type="submit" className="rounded-full px-6" disabled={pending}>
           {pending && <Loader2 className="animate-spin" />}
           Salvar
         </Button>

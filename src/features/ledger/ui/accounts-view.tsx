@@ -18,7 +18,7 @@ import {
   Switch,
 } from '@cbrl/design'
 import { Loader2, Plus } from 'lucide-react'
-import { useActionState, useEffect, useRef, useState } from 'react'
+import { startTransition, useActionState, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { Money } from './money'
 import { OptionSelect } from './selects'
@@ -44,10 +44,31 @@ function useFeedback(state: FormState, success?: string) {
   }, [state, success])
 }
 
-/** Submits the enclosing form when a field changed (blur for text, change for selects/switches). */
+/**
+ * Submits the form when a field changed (blur for text, change for selects and
+ * switches). The submit runs in an effect, after React committed the new
+ * values to the form's inputs, and several requests in one render coalesce.
+ */
 function useAutoSubmit() {
   const ref = useRef<HTMLFormElement>(null)
-  return { ref, submit: () => ref.current?.requestSubmit() }
+  const [requests, setRequests] = useState(0)
+  useEffect(() => {
+    if (requests > 0) ref.current?.requestSubmit()
+  }, [requests])
+  return { ref, submit: () => setRequests((n) => n + 1) }
+}
+
+/**
+ * Submit handler that dispatches the form action without React's automatic
+ * form reset (which would make the Radix switch/select revert to their initial
+ * values and submit again). Before hydration the form posts natively.
+ */
+function submitWithoutReset(action: (formData: FormData) => void) {
+  return (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const formData = new FormData(event.currentTarget)
+    startTransition(() => action(formData))
+  }
 }
 
 function BankNameForm({ bank }: { bank: Bank }) {
@@ -55,7 +76,12 @@ function BankNameForm({ bank }: { bank: Bank }) {
   const form = useAutoSubmit()
   useFeedback(state)
   return (
-    <form ref={form.ref} action={action} className="flex items-center gap-2">
+    <form
+      ref={form.ref}
+      action={action}
+      onSubmit={submitWithoutReset(action)}
+      className="flex items-center gap-2"
+    >
       <input type="hidden" name="id" value={bank.id} />
       <Input
         name="name"
@@ -101,10 +127,12 @@ function AccountRow({
   }
   const opening = signedCentsToInput(account.openingBalanceCents)
   const [type, setType] = useState<string>(account.type)
+  const [active, setActive] = useState(!account.archived)
   return (
     <form
       ref={form.ref}
       action={action}
+      onSubmit={submitWithoutReset(action)}
       className={cn(
         'border-border grid grid-cols-2 items-end gap-3 border-t py-3 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1.2fr)_minmax(0,1fr)_auto_auto_auto] [&>*]:min-w-0',
         account.archived && 'opacity-60',
@@ -126,14 +154,14 @@ function AccountRow({
         <Label htmlFor={`acc-type-${account.id}`} className="text-muted-foreground text-xs">
           Tipo
         </Label>
+        <input type="hidden" name="type" value={type} />
         <OptionSelect
           id={`acc-type-${account.id}`}
-          name="type"
           options={TYPE_OPTIONS}
           value={type}
           onValueChange={(next) => {
             setType(next)
-            setTimeout(form.submit, 0)
+            form.submit()
           }}
         />
       </div>
@@ -163,11 +191,14 @@ function AccountRow({
         </span>
       </div>
       <div className="flex items-center gap-2 py-2">
+        {active && <input type="hidden" name="active" value="on" />}
         <Switch
           id={`acc-active-${account.id}`}
-          name="active"
-          defaultChecked={!account.archived}
-          onCheckedChange={() => setTimeout(form.submit, 0)}
+          checked={active}
+          onCheckedChange={(checked) => {
+            setActive(checked)
+            form.submit()
+          }}
         />
         <Label htmlFor={`acc-active-${account.id}`} className="text-sm font-normal">
           Ativa
@@ -219,9 +250,9 @@ function NewAccountForm({ id, banks }: { id: string; banks: Bank[] }) {
       <input type="hidden" name="id" value={id} />
       <div className="grid gap-1">
         <Label htmlFor="new-account-bank">Banco</Label>
+        <input type="hidden" name="bankId" value={bankId} />
         <OptionSelect
           id="new-account-bank"
-          name="bankId"
           className="w-40"
           options={banks.map((b) => [b.id, b.name] as const)}
           value={bankId}
@@ -240,9 +271,9 @@ function NewAccountForm({ id, banks }: { id: string; banks: Bank[] }) {
       </div>
       <div className="grid gap-1">
         <Label htmlFor="new-account-type">Tipo</Label>
+        <input type="hidden" name="type" value={type} />
         <OptionSelect
           id="new-account-type"
-          name="type"
           className="w-40"
           options={TYPE_OPTIONS}
           value={type}

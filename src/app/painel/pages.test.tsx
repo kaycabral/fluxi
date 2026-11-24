@@ -1,0 +1,162 @@
+import { sampleData, sampleRefs } from '@/features/ledger/ui/test-fixtures'
+import { render, screen } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import CalendarPage from './calendario/page'
+import AccountsPage from './contas/page'
+import SearchPage from './lancamentos/page'
+import PainelLayout from './layout'
+import BudgetPage from './orcamento/page'
+import TimelinePage from './page'
+
+type Read<T> = { ok: true; data: T } | { ok: false }
+
+const views = {
+  loadRefs: vi.fn<() => Promise<Read<unknown>>>(),
+  loadCountFrom: vi.fn<() => Promise<Read<string | null>>>(),
+  loadLedgerData:
+    vi.fn<(userId: string, window: unknown, countFrom: unknown) => Promise<Read<unknown>>>(),
+  loadBudgetData: vi.fn<(userId: string, start: string) => Promise<Read<unknown>>>(),
+  loadAccountBalances:
+    vi.fn<(userId: string, first: string, later: string) => Promise<Read<unknown>>>(),
+}
+vi.mock('@/features/ledger/adapters/views', () => ({
+  loadRefs: () => views.loadRefs(),
+  loadCountFrom: () => views.loadCountFrom(),
+  loadLedgerData: (u: string, w: unknown, c: unknown) => views.loadLedgerData(u, w, c),
+  loadBudgetData: (u: string, s: string) => views.loadBudgetData(u, s),
+  loadAccountBalances: (u: string, f: string, l: string) => views.loadAccountBalances(u, f, l),
+}))
+vi.mock('@/app/painel/_lib/session', () => ({
+  requirePainelUser: () => Promise.resolve({ id: 'u1' }),
+  todayIso: () => '2026-12-15',
+}))
+const getServerUser = vi.fn<() => Promise<{ id: string } | null>>()
+vi.mock('@/lib/auth/server', () => ({ getServerUser: () => getServerUser() }))
+const redirect = vi.fn<(url: string) => never>()
+vi.mock('next/navigation', () => ({
+  redirect: (url: string) => redirect(url),
+  useRouter: () => ({ refresh: vi.fn(), replace: vi.fn() }),
+  usePathname: () => '/painel',
+}))
+vi.mock('next/headers', () => ({
+  headers: () => Promise.resolve(new Headers({ 'x-pathname': '/painel/contas' })),
+}))
+vi.mock('@/features/ledger/ui/timeline-view', () => ({
+  TimelineView: ({ window }: { window: { from: string; to: string } }) => (
+    <p>timeline {`${window.from}..${window.to}`}</p>
+  ),
+}))
+vi.mock('@/features/ledger/ui/search-view', () => ({
+  SearchView: ({ query }: { query: { text: string; from: string } }) => (
+    <p>search {`${query.text}@${query.from}`}</p>
+  ),
+}))
+vi.mock('@/features/ledger/ui/accounts-view', () => ({
+  AccountsView: ({ firstMonth }: { firstMonth: string }) => <p>accounts {firstMonth}</p>,
+}))
+vi.mock('@/features/ledger/ui/budget-view', () => ({
+  BudgetView: ({ months }: { months: unknown[] }) => <p>budget {months.length}</p>,
+}))
+vi.mock('@/features/ledger/ui/calendar-view', () => ({
+  CalendarView: ({ month, account }: { month: string; account: string }) => (
+    <p>calendar {`${month}/${account}`}</p>
+  ),
+}))
+vi.mock('@/features/ledger/ui/ledger-shell', () => ({
+  LedgerShell: ({ children, refs }: { children: React.ReactNode; refs: { banks: unknown[] } }) => (
+    <section aria-label={`shell com ${refs.banks.length} bancos`}>{children}</section>
+  ),
+}))
+vi.mock('./_components/topbar', () => ({ Topbar: () => <header>topbar</header> }))
+
+const ok = <T,>(data: T): Read<T> => ({ ok: true, data })
+
+beforeEach(() => {
+  views.loadRefs.mockResolvedValue(ok(sampleRefs()))
+  views.loadCountFrom.mockResolvedValue(ok('2026-11'))
+  views.loadLedgerData.mockResolvedValue(ok(sampleData()))
+  views.loadBudgetData.mockResolvedValue(ok({ pots: [], months: [{}, {}] }))
+  views.loadAccountBalances.mockResolvedValue(ok({ firstMonth: '2026-11' }))
+  getServerUser.mockResolvedValue({ id: 'u1' })
+})
+afterEach(() => vi.clearAllMocks())
+
+describe('painel pages', () => {
+  it('timeline loads the window around the count start', async () => {
+    render(await TimelinePage())
+    expect(screen.getByRole('heading', { level: 1, name: 'Linha do tempo' })).toBeInTheDocument()
+    expect(screen.getByText('timeline 2026-08..2028-12')).toBeInTheDocument()
+  })
+
+  it('search parses the URL query', async () => {
+    views.loadCountFrom.mockResolvedValue(ok(null))
+    render(await SearchPage({ searchParams: Promise.resolve({ q: 'luz' }) }))
+    expect(screen.getByText('search luz@2026-12')).toBeInTheDocument()
+    expect(views.loadLedgerData).toHaveBeenCalledWith(
+      'u1',
+      { from: '2026-12', to: '2027-11' },
+      null,
+    )
+  })
+
+  it('accounts load balances from the count start to a year later', async () => {
+    render(await AccountsPage())
+    expect(screen.getByText('accounts 2026-11')).toBeInTheDocument()
+    expect(views.loadAccountBalances).toHaveBeenCalledWith('u1', '2026-11', '2027-11')
+  })
+
+  it('budget loads 12 months from the count start', async () => {
+    render(await BudgetPage())
+    expect(screen.getByText('budget 2')).toBeInTheDocument()
+    expect(views.loadBudgetData).toHaveBeenCalledWith('u1', '2026-11')
+  })
+
+  it('calendar reads month and account from the URL', async () => {
+    render(
+      await CalendarPage({ searchParams: Promise.resolve({ mes: ['2027-02'], conta: 'abc' }) }),
+    )
+    expect(screen.getByText('calendar 2027-02/abc')).toBeInTheDocument()
+    render(await CalendarPage({ searchParams: Promise.resolve({ mes: 'x' }) }))
+    expect(screen.getByText('calendar 2026-12/')).toBeInTheDocument()
+  })
+
+  it('degrades every page when the backend is unavailable', async () => {
+    views.loadCountFrom.mockResolvedValue({ ok: false })
+    views.loadRefs.mockResolvedValue({ ok: false })
+    for (const page of [
+      await TimelinePage(),
+      await SearchPage({ searchParams: Promise.resolve({}) }),
+      await AccountsPage(),
+      await BudgetPage(),
+      await CalendarPage({ searchParams: Promise.resolve({}) }),
+    ]) {
+      const { unmount } = render(page)
+      expect(screen.getByRole('button', { name: 'Tentar de novo' })).toBeInTheDocument()
+      unmount()
+    }
+  })
+})
+
+describe('painel layout', () => {
+  it('wraps the pages in the ledger shell with the user refs', async () => {
+    render(await PainelLayout({ children: <p>conteúdo</p> }))
+    expect(screen.getByRole('region', { name: 'shell com 2 bancos' })).toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: 'Seções' })).toBeInTheDocument()
+    expect(screen.getByText('conteúdo')).toBeInTheDocument()
+  })
+
+  it('falls back to empty refs when the backend is down', async () => {
+    views.loadRefs.mockResolvedValue({ ok: false })
+    render(await PainelLayout({ children: null }))
+    expect(screen.getByRole('region', { name: 'shell com 0 bancos' })).toBeInTheDocument()
+  })
+
+  it('redirects a signed-out visitor to the login', async () => {
+    getServerUser.mockResolvedValue(null)
+    redirect.mockImplementation(() => {
+      throw new Error('redirected')
+    })
+    await expect(PainelLayout({ children: null })).rejects.toThrow('redirected')
+    expect(redirect).toHaveBeenCalledWith('/?login=1&next=%2Fpainel%2Fcontas')
+  })
+})

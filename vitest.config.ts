@@ -17,6 +17,8 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./vitest.setup.ts'],
+    // The ledger UI tests drive whole Radix flows (sheet → select → dialog).
+    testTimeout: 15_000,
     include: ['src/**/*.test.{ts,tsx}'],
     // The Postgres suite needs the local Supabase stack: `vitest.pg.config.ts`.
     exclude: [...configDefaults.exclude, 'src/**/*.pg.test.ts'],
@@ -30,10 +32,10 @@ export default defineConfig({
       // would only dilute the ratchet.
       exclude: [...coverageBase().exclude, 'src/db/**', 'src/features/*/adapters/**'],
       thresholds: {
-        statements: 79.55,
-        branches: 79.59,
-        functions: 78.86,
-        lines: 77.77,
+        statements: 93.65,
+        branches: 90.85,
+        functions: 93.22,
+        lines: 93.99,
         autoUpdate: true,
       },
     },

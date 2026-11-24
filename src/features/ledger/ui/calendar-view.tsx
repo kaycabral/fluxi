@@ -109,6 +109,8 @@ export function CalendarView({
             return (
               <div
                 key={day.day}
+                role="group"
+                aria-label={negative ? `Dia ${day.day}, saldo negativo` : `Dia ${day.day}`}
                 className={cn(
                   'border-border grid min-h-20 min-w-0 grid-rows-[auto_1fr_auto] gap-0.5 rounded border p-0.5 sm:min-h-24 sm:p-1',
                   negative && 'bg-destructive/10 border-destructive/40',

@@ -54,6 +54,7 @@ export function formatReport(input: ReportInput): string[] {
     `    valor negativo (invertido): ${stats.negativeFlipped}`,
     `    só valor zero (fora):      ${stats.zeroOnlyRuns} série(s)`,
     `  transferências pareadas:     ${stats.transfersPaired}`,
+    `  espelhos de benefício fora:  ${stats.mirrorsDropped} (saídas futuras não pagas)`,
     `  lançamentos:                 ${r.none + r.monthly + r.yearly} (mensal ${r.monthly}, anual ${r.yearly}, único ${r.none})`,
     `  exceções de valor/dia:       ${stats.valueOrDayOverrides}`,
     `  meses pulados:               ${stats.skippedMonths}`,
@@ -65,6 +66,9 @@ export function formatReport(input: ReportInput): string[] {
     '',
     ...comparisonLines('Verificação por conta', verification.byAccount, input.accountLabel),
     '',
-    `Divergências (mês × conta × movimento): ${verification.divergences}`,
+    `Divergências (mês × conta × movimento): ${verification.divergences}` +
+      (stats.mirrorsDropped > 0
+        ? ` (Notion menos ${stats.mirrorsDropped} espelho(s) descartado(s))`
+        : ''),
   ]
 }

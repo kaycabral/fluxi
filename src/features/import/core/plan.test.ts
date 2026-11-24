@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { page, prop, source, txPage, workspace } from './fixtures'
 import type { NotionSource } from './notion'
-import { buildImportPlan, planAsLedger, verifyPlan } from './plan'
+import { buildImportPlan, expectedFlows, planAsLedger, verifyPlan } from './plan'
+import { verifyLedger } from './verify'
 
 describe('buildImportPlan', () => {
   const plan = buildImportPlan(workspace)
@@ -25,6 +26,7 @@ describe('buildImportPlan', () => {
       negativeFlipped: 1,
       zeroOnlyRuns: 0,
       transfersPaired: 1,
+      mirrorsDropped: 0,
       entriesByRecurrence: { none: 3, monthly: 1, yearly: 1 },
       valueOrDayOverrides: 3,
       skippedMonths: 1,
@@ -119,5 +121,67 @@ describe('buildImportPlan', () => {
     expect(() =>
       buildImportPlan(source([txPage('t', { account: 'nope', month: 'm-2025-01' })])),
     ).toThrow(/unknown account/)
+  })
+})
+
+describe('buildImportPlan with benefit mirrors', () => {
+  const base = source([])
+  const va = page('acc-va', {
+    Name: prop.title('VA'),
+    Type: prop.select('Benefit'),
+    Status: prop.select('Active'),
+    Bank: prop.relation('bank-1'),
+  })
+  const tx = (id: string, movement: 'Inflow' | 'Outflow', month: string, extra = {}) =>
+    txPage(id, {
+      description: movement === 'Inflow' ? 'Crédito VA' : 'Uso VA',
+      amount: 800,
+      movement,
+      account: 'acc-va',
+      month: null,
+      due: `${month}-01`,
+      ...extra,
+    })
+  const months = ['2026-11', '2026-12', '2027-01', '2027-02', '2027-03']
+  const workspaceWithBenefit: NotionSource = {
+    ...base,
+    accounts: [...base.accounts, va],
+    transactions: [
+      ...months.map((m) => tx(`in-${m}`, 'Inflow', m)),
+      tx('out-2026-11', 'Outflow', '2026-11'),
+      tx('out-2026-12', 'Outflow', '2026-12', { date: '2026-12-01' }),
+      tx('out-2027-01', 'Outflow', '2027-01'),
+      tx('out-2027-02', 'Outflow', '2027-02', { amount: 700 }),
+      tx('out-2027-03', 'Outflow', '2027-03'),
+    ],
+  }
+  const plan = buildImportPlan(workspaceWithBenefit)
+
+  it('drops only the unpaid future mirrors and reports how many', () => {
+    expect(plan.stats.mirrorsDropped).toBe(2)
+    expect(plan.droppedExternalIds).toEqual(['out-2027-01', 'out-2027-03'])
+    expect(plan.links.map((l) => l.externalId)).not.toContain('out-2027-01')
+    expect(expectedFlows(plan)).toHaveLength(plan.originals.length - 2)
+  })
+
+  it('rebuilds the mirror series from what is left (gap skipped, trimmed end)', () => {
+    const outflows = plan.entries.filter((e) => e.kind === 'expense')
+    expect(outflows).toHaveLength(1)
+    expect(outflows[0]).toMatchObject({ startMonth: '2026-11', endMonth: '2027-02' })
+    expect(outflows[0]?.overrides).toEqual([
+      { month: '2027-01', amountCents: null, day: null, skipped: true },
+      { month: '2027-02', amountCents: 70000, day: null, skipped: false },
+    ])
+  })
+
+  it('verifies against the originals minus the dropped set, never silently', () => {
+    expect(verifyPlan(plan).divergences).toBe(0)
+    expect(verifyLedger(plan.originals, planAsLedger(plan)).divergences).toBe(2)
+  })
+
+  it('keeps every mirror before the count start', () => {
+    expect(
+      buildImportPlan(workspaceWithBenefit, { countFrom: '2028-01' }).stats.mirrorsDropped,
+    ).toBe(0)
   })
 })

@@ -11,6 +11,7 @@ describe('formatReport', () => {
         negativeFlipped: 1,
         zeroOnlyRuns: 0,
         transfersPaired: 1,
+        mirrorsDropped: 0,
         entriesByRecurrence: { none: 1, monthly: 2, yearly: 3 },
         valueOrDayOverrides: 5,
         skippedMonths: 6,
@@ -42,5 +43,30 @@ describe('formatReport', () => {
     expect(text).toMatch(/2026 .*sim/)
     expect(text).toMatch(/#1 acc .*NÃO/)
     expect(lines.at(-1)).toBe('Divergências (mês × conta × movimento): 1')
+  })
+
+  it('says how many benefit mirrors were dropped from the comparison', () => {
+    const lines = formatReport({
+      stats: {
+        transactions: 2,
+        skipped: { ignored: 0, incomplete: 0, noMonth: 0 },
+        importable: 2,
+        negativeFlipped: 0,
+        zeroOnlyRuns: 0,
+        transfersPaired: 0,
+        mirrorsDropped: 3,
+        entriesByRecurrence: { none: 1, monthly: 0, yearly: 0 },
+        valueOrDayOverrides: 0,
+        skippedMonths: 0,
+      },
+      counts: { banks: 1, accounts: 1, archivedAccounts: 0, payments: 0 },
+      categories: { toCreate: 0, reused: 0 },
+      verification: { byYear: [], byAccount: [], divergences: 0 },
+      accountLabel: (id) => id,
+    })
+    expect(lines.join('\n')).toContain('espelhos de benefício fora:  3')
+    expect(lines.at(-1)).toBe(
+      'Divergências (mês × conta × movimento): 0 (Notion menos 3 espelho(s) descartado(s))',
+    )
   })
 })

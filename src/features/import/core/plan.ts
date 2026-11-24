@@ -1,7 +1,9 @@
+import { bucketOfType } from '@/features/ledger/core/bucket'
 import type { AccountType, Entry, EntryOverride, PotKey } from '@/features/ledger/core/types'
 import { categoryKeyOf, planCategories, potOfEntry, type PlannedCategory } from './categories'
 import { groupIntoEntries, type PlannedEntry } from './grouping'
 import { toItems } from './items'
+import { dropBenefitMirrors } from './mirrors'
 import { relationOf, selectOf, textOf, type NotionPage, type NotionSource } from './notion'
 import { buildMonthIndex, toRecords, type RecordSkips } from './records'
 import { verifyLedger, type Flow, type Verification } from './verify'
@@ -11,6 +13,12 @@ import { verifyLedger, type Flow, type Verification } from './verify'
  * back to the Notion rows. Ids are local (Notion page ids for banks/accounts,
  * `e<n>` for entries, category keys); the adapter assigns database ids.
  */
+
+/** First month Fluxi counts balances from (`user_settings.count_from_month`). */
+export const COUNT_FROM_MONTH = '2026-12'
+
+/** A Notion money movement with the row it came from. */
+export type SourceFlow = Flow & { externalId: string }
 
 export type PlannedBank = { externalId: string; name: string; archived: boolean; sort: number }
 
@@ -38,6 +46,8 @@ export type ImportStats = {
   negativeFlipped: number
   zeroOnlyRuns: number
   transfersPaired: number
+  /** Future benefit mirror outflows left out on purpose (see `dropBenefitMirrors`). */
+  mirrorsDropped: number
   entriesByRecurrence: Record<PlannedEntry['recurrence'], number>
   valueOrDayOverrides: number
   skippedMonths: number
@@ -50,8 +60,10 @@ export type ImportPlan = {
   entries: PlannedLedgerEntry[]
   payments: PlannedPayment[]
   links: PlannedLink[]
-  /** Notion money movements the ledger must reproduce (account = Notion id). */
-  originals: Flow[]
+  /** Every importable Notion money movement (account = Notion id). */
+  originals: SourceFlow[]
+  /** Notion rows deliberately not imported (future benefit mirrors). */
+  droppedExternalIds: string[]
   stats: ImportStats
 }
 
@@ -127,7 +139,10 @@ function statsOf(entries: readonly PlannedEntry[]) {
 }
 
 /** Builds the plan from the raw workspace (pure; throws on unmappable accounts). */
-export function buildImportPlan(source: NotionSource): ImportPlan {
+export function buildImportPlan(
+  source: NotionSource,
+  options: { countFrom?: string } = {},
+): ImportPlan {
   const banks = planBanks(source.banks)
   const accounts = planAccounts(source.accounts, banks)
   const known = new Set(accounts.map((a) => a.externalId))
@@ -140,7 +155,11 @@ export function buildImportPlan(source: NotionSource): ImportPlan {
     throw new Error(`notion transaction ${unknown.externalId} points at an unknown account`)
   }
   const { items, transfersPaired } = toItems(records)
-  const { entries, zeroOnlyRuns } = groupIntoEntries(items)
+  const benefitIds = new Set(
+    accounts.filter((a) => bucketOfType(a.type) === 'benefit').map((a) => a.externalId),
+  )
+  const mirrors = dropBenefitMirrors(items, benefitIds, options.countFrom ?? COUNT_FROM_MONTH)
+  const { entries, zeroOnlyRuns } = groupIntoEntries(mirrors.kept)
   return {
     banks,
     accounts,
@@ -149,11 +168,13 @@ export function buildImportPlan(source: NotionSource): ImportPlan {
     payments: entries.flatMap(paymentsOf),
     links: entries.flatMap(linksOf),
     originals: records.map((r) => ({
+      externalId: r.externalId,
       month: r.month,
       accountId: r.accountId,
       movement: r.movement,
       amountCents: r.amountCents,
     })),
+    droppedExternalIds: mirrors.dropped.flatMap((item) => item.externalIds),
     stats: {
       transactions: source.transactions.length,
       skipped,
@@ -161,6 +182,7 @@ export function buildImportPlan(source: NotionSource): ImportPlan {
       negativeFlipped,
       zeroOnlyRuns,
       transfersPaired,
+      mirrorsDropped: mirrors.dropped.length,
       ...statsOf(entries),
     },
   }
@@ -189,7 +211,18 @@ export function planAsLedger(plan: ImportPlan): { entries: Entry[]; overrides: E
   }
 }
 
+/**
+ * What the ledger must reproduce: the Notion originals minus the rows the
+ * plan dropped explicitly (nothing else may go missing).
+ */
+export function expectedFlows(
+  plan: Pick<ImportPlan, 'originals' | 'droppedExternalIds'>,
+): SourceFlow[] {
+  const dropped = new Set(plan.droppedExternalIds)
+  return plan.originals.filter((flow) => !dropped.has(flow.externalId))
+}
+
 /** Verifies the plan itself before anything is written. */
 export function verifyPlan(plan: ImportPlan): Verification {
-  return verifyLedger(plan.originals, planAsLedger(plan))
+  return verifyLedger(expectedFlows(plan), planAsLedger(plan))
 }

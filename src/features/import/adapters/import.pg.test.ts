@@ -1,7 +1,7 @@
 import { fluxiDb, seedUser, truncateFluxiTables } from '@/db'
 import { accounts, entries, userSettings } from '@/db/schema'
 import { workspace } from '@/features/import/core/fixtures'
-import { buildImportPlan } from '@/features/import/core/plan'
+import { buildImportPlan, expectedFlows } from '@/features/import/core/plan'
 import { verifyLedger } from '@/features/import/core/verify'
 import { eq, sql } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
@@ -81,7 +81,7 @@ describe('Notion import (Postgres)', () => {
     expect(archived.filter((a) => a.archivedAt !== null)).toHaveLength(1)
 
     const written = await readImportedLedger(db(), ANA)
-    const originals = plan.originals.map((f) => ({
+    const originals = expectedFlows(plan).map((f) => ({
       ...f,
       accountId: written.accountIds.get(f.accountId) ?? '',
     }))

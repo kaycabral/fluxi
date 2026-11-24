@@ -11,7 +11,7 @@ import {
   userSettings,
 } from '@/db/schema'
 import { NOTION_KINDS, type NotionSource } from '@/features/import/core/notion'
-import type { ImportPlan } from '@/features/import/core/plan'
+import { COUNT_FROM_MONTH, type ImportPlan } from '@/features/import/core/plan'
 import { monthToDate } from '@/features/ledger/core/month'
 import { and, eq, inArray, sql } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
@@ -26,7 +26,6 @@ import { randomUUID } from 'node:crypto'
 
 export const NOTION_SOURCE = 'notion'
 export const CATEGORY_KIND = 'category'
-export const COUNT_FROM_MONTH = '2026-12'
 
 type Tx = Parameters<Parameters<FluxiDb['transaction']>[0]>[0]
 type Executor = FluxiDb | Tx

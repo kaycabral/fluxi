@@ -21,7 +21,12 @@ import {
   readNotionDump,
   readNotionToken,
 } from '@/features/import/adapters/notion.client'
-import { buildImportPlan, verifyPlan, type ImportPlan } from '@/features/import/core/plan'
+import {
+  buildImportPlan,
+  expectedFlows,
+  verifyPlan,
+  type ImportPlan,
+} from '@/features/import/core/plan'
 import { formatReport } from '@/features/import/core/report'
 import { verifyLedger, type Verification } from '@/features/import/core/verify'
 import { readLocalSupabase } from '@cbrl/supabase/local'
@@ -94,7 +99,7 @@ async function main(): Promise<number> {
 
   const summary = await writeImport(db, userId, { plan, source })
   const written = await readImportedLedger(db, userId)
-  const originals = plan.originals.map((f) => ({
+  const originals = expectedFlows(plan).map((f) => ({
     ...f,
     accountId: written.accountIds.get(f.accountId) ?? f.accountId,
   }))

@@ -25,14 +25,15 @@ export default defineConfig({
     // Re-semeado ao criar o fluxi a partir do baseline do imovil (sem o domínio).
     coverage: {
       ...coverageBase(),
-      // `src/db` is proven by the Postgres suite (`vitest.pg.config.ts`), not by
-      // this one: counting its queries here would only dilute the ratchet.
-      exclude: [...coverageBase().exclude, 'src/db/**'],
+      // `src/db` and the feature adapters are proven by the Postgres suite
+      // (`vitest.pg.config.ts`), not by this one: counting their queries here
+      // would only dilute the ratchet.
+      exclude: [...coverageBase().exclude, 'src/db/**', 'src/features/*/adapters/**'],
       thresholds: {
-        statements: 60.33,
-        branches: 54.43,
-        functions: 53.57,
-        lines: 59.14,
+        statements: 79.55,
+        branches: 79.59,
+        functions: 78.86,
+        lines: 77.77,
         autoUpdate: true,
       },
     },

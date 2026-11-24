@@ -1,0 +1,13 @@
+import { fluxiDb } from '@/db'
+import { requireEnvOneOf } from '@cbrl/env'
+
+/**
+ * Apply `drizzle/` to `POSTGRES_URL_NON_POOLING` (preferred: session/direct URL;
+ * the transaction pooler does not support the migrator's advisory lock) or
+ * `POSTGRES_URL`, on a dedicated pool closed afterwards. Locally both point at
+ * the Supabase stack (54422).
+ */
+await fluxiDb.migrate({
+  connectionString: requireEnvOneOf('POSTGRES_URL_NON_POOLING', 'POSTGRES_URL'),
+})
+process.stdout.write('fluxi migrations applied\n')

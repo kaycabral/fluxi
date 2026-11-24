@@ -1,0 +1,7 @@
+{
+  "src/components/auto-sign-in.tsx": {
+    "@typescript-eslint/no-unsafe-type-assertion": {
+      "count": 1
+    }
+  }
+}

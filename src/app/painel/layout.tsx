@@ -1,6 +1,7 @@
 import { PainelNav } from '@/app/painel/_components/painel-nav'
 import { Topbar } from '@/app/painel/_components/topbar'
 import { todayIso } from '@/app/painel/_lib/session'
+import { Footer } from '@/components/footer'
 import { loadRefs } from '@/features/ledger/adapters/views'
 import type { LedgerRefs } from '@/features/ledger/core/view'
 import { LedgerShell } from '@/features/ledger/ui/ledger-shell'
@@ -31,8 +32,10 @@ export default async function PainelLayout({ children }: { children: React.React
       <Topbar />
       <PainelNav />
       <LedgerShell refs={refs}>
-        <main className="flex-1 pb-24">{children}</main>
+        <main className="flex-1">{children}</main>
       </LedgerShell>
+      {/* Bottom padding clears the floating "+ Lançamento" button. */}
+      <Footer className="mt-12 pb-24" />
     </div>
   )
 }

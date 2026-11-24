@@ -4,17 +4,17 @@ Planejador de fluxo de caixa pessoal: um app Next.js na raiz do repo, com Supaba
 
 ## Layout
 
-| Caminho                                   | Papel                                                                                     |
-| ----------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `src/app`, `src/components`, `src/hooks`… | App Next.js (App Router): `/` (landing + login) e `/painel` (logado)                      |
-| `src/db`                                  | Schema Drizzle, queries e seed do Postgres (`@/db`)                                       |
-| `src/features/<slice>/core`               | Domínio puro da fatia (`ledger`): sem I/O, testado por unit                               |
-| `src/features/<slice>/adapters`           | Server-only: leituras/escritas no banco e `actions/` (server actions)                     |
-| `src/features/<slice>/ui`                 | Client components da fatia (as páginas em `src/app` só compõem)                           |
-| `drizzle/`, `drizzle.config.ts`           | Migrations versionadas                                                                    |
-| `scripts/`                                | `migrate.ts` (prod/CI), `migrate-local.ts`, `local-env.ts`, `seed.ts`, `import-notion.ts` |
-| `e2e/`, `src/**/_e2e/`, `_smoke/`         | Playwright (fixtures, specs E2E, smoke pós-deploy)                                        |
-| `supabase/`                               | Config do stack local (Docker)                                                            |
+| Caminho                                   | Papel                                                                                                                 |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `src/app`, `src/components`, `src/hooks`… | App Next.js (App Router): `/` (landing + login), `/painel` (logado), `/privacidade` e `/termos` (públicas, estáticas) |
+| `src/db`                                  | Schema Drizzle, queries e seed do Postgres (`@/db`)                                                                   |
+| `src/features/<slice>/core`               | Domínio puro da fatia (`ledger`): sem I/O, testado por unit                                                           |
+| `src/features/<slice>/adapters`           | Server-only: leituras/escritas no banco e `actions/` (server actions)                                                 |
+| `src/features/<slice>/ui`                 | Client components da fatia (as páginas em `src/app` só compõem)                                                       |
+| `drizzle/`, `drizzle.config.ts`           | Migrations versionadas                                                                                                |
+| `scripts/`                                | `migrate.ts` (prod/CI), `migrate-local.ts`, `local-env.ts`, `seed.ts`, `import-notion.ts`                             |
+| `e2e/`, `src/**/_e2e/`, `_smoke/`         | Playwright (fixtures, specs E2E, smoke pós-deploy)                                                                    |
+| `supabase/`                               | Config do stack local (Docker)                                                                                        |
 
 Rotas em português (`/painel`, `/painel/...`); código em inglês.
 

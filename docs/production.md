@@ -4,13 +4,13 @@ Runbook do ambiente de produção do fluxi: o que roda onde, como mudança chega
 
 ## Topologia
 
-| Peça                   | Onde                                                               |
-| ---------------------- | ------------------------------------------------------------------ |
-| App (Next.js)          | Vercel, Root Directory na raiz do repo, domínio `fluxi.vercel.app` |
-| Postgres, Auth         | Supabase, região `sa-east-1` (São Paulo)                           |
-| Funções (SSR, actions) | Vercel `gru1` (São Paulo), fixado em `vercel.json`                 |
-| Login                  | Só Google (provider Google do Supabase Auth)                       |
-| Migrations             | GitHub Actions, job `migrate-production` do `main.yml`             |
+| Peça                   | Onde                                                                    |
+| ---------------------- | ----------------------------------------------------------------------- |
+| App (Next.js)          | Vercel, Root Directory na raiz do repo, domínio `fluxi-cbrl.vercel.app` |
+| Postgres, Auth         | Supabase, região `sa-east-1` (São Paulo)                                |
+| Funções (SSR, actions) | Vercel `gru1` (São Paulo), fixado em `vercel.json`                      |
+| Login                  | Só Google (provider Google do Supabase Auth)                            |
+| Migrations             | GitHub Actions, job `migrate-production` do `main.yml`                  |
 
 **Ninguém acessa o banco de produção da própria máquina.** Dev local roda inteiro no stack Supabase em Docker (`pnpm db:start`); a URL do banco de prod existe só no secret do GitHub e nas envs da Vercel.
 
@@ -53,7 +53,8 @@ Runbook do ambiente de produção do fluxi: o que roda onde, como mudança chega
 
 ### Supabase Auth
 
-- Site URL: `https://fluxi.vercel.app`.
-- Redirect URLs: `https://fluxi.vercel.app/**` e o padrão dos previews da Vercel.
+- Site URL: `https://fluxi-cbrl.vercel.app`.
+- Redirect URLs: `https://fluxi-cbrl.vercel.app/**` e o padrão dos previews da Vercel.
 - Providers: Google ligado; Email desligado.
-- Google Cloud (OAuth client _Web_ de produção): origin `https://fluxi.vercel.app`; redirect URI `https://<ref>.supabase.co/auth/v1/callback`.
+- Google Cloud: projeto próprio `fluxi`, OAuth client _Web_ `fluxi-supabase-production` (origin `https://fluxi-cbrl.vercel.app`; redirect URI `https://<ref>.supabase.co/auth/v1/callback`).
+- O app OAuth está **em produção** (publicado sem verificação: só escopos básicos, sem logotipo, menos de 10 domínios). Branding com página inicial `https://fluxi-cbrl.vercel.app`, política `/privacidade` e termos `/termos`. Adicionar logotipo ou escopos sensíveis passa a exigir a verificação do Google.

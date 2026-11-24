@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { makeEntry, makeOverride, salarySplit } from './fixtures'
 import { landingsIn } from './occurrence'
-import { applyScopedEdit, endSeriesBefore, type SeriesState } from './scoped-edit'
+import { applyScopedEdit, endSeriesBefore, shiftStart, type SeriesState } from './scoped-edit'
 
 function ids() {
   let n = 0
@@ -63,6 +63,18 @@ describe('applyScopedEdit: all', () => {
     )
     expect(result.entries[0]).toMatchObject({ amountCents: 1000, day: 20 })
     expect(result.overrides.map((o) => o.month)).toEqual(['2026-10', '2027-01'])
+  })
+})
+
+describe('shiftStart', () => {
+  it('moves the start by the months the occurrence moved, keeping the end', () => {
+    const sub = makeEntry({ startMonth: '2027-01', endMonth: '2030-12' })
+    expect(shiftStart(sub, '2027-01', '2026-12')).toMatchObject({
+      startMonth: '2026-12',
+      endMonth: '2030-12',
+    })
+    expect(shiftStart(sub, '2027-03', '2027-05').startMonth).toBe('2027-03')
+    expect(shiftStart(sub, '2027-03', '2027-03')).toEqual(sub)
   })
 })
 

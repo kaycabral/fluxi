@@ -175,7 +175,7 @@ describe('updateEntry', () => {
 
   it('needs a scope when an occurrence amount changes', async () => {
     await expect(
-      updateEntry(ANA, id, expense(ana.accountId, { amountCents: 250000 }), {
+      updateEntry(ANA, id, expense(ana.accountId, { amountCents: 250000, startMonth: '2027-02' }), {
         month: '2027-02',
         scope: null,
       }),
@@ -184,20 +184,58 @@ describe('updateEntry', () => {
 
   it('applies series fields without a scope when amount and day are unchanged', async () => {
     await expect(
-      updateEntry(ANA, id, expense(ana.accountId, { description: 'Moradia', tags: [] }), {
-        month: '2027-02',
-        scope: null,
-      }),
+      updateEntry(
+        ANA,
+        id,
+        expense(ana.accountId, { description: 'Moradia', tags: [], startMonth: '2027-02' }),
+        {
+          month: '2027-02',
+          scope: null,
+        },
+      ),
     ).resolves.toEqual({ ok: true })
     const [row] = await entryRows(ANA)
     expect(row).toMatchObject({ description: 'Moradia', tags: [], startMonth: '2026-12-01' })
   })
 
-  it('"one" writes an override for that month only', async () => {
-    await updateEntry(ANA, id, expense(ana.accountId, { amountCents: 250000 }), {
+  it('moves the start of the repetition when the date goes to another month', async () => {
+    // The first occurrence (dez/26) moved to nov/26: the repetition starts a month earlier.
+    await expect(
+      updateEntry(ANA, id, expense(ana.accountId, { startMonth: '2026-11' }), {
+        month: '2026-12',
+        scope: null,
+      }),
+    ).resolves.toEqual({ ok: true })
+    const [row] = await entryRows(ANA)
+    expect(row).toMatchObject({ startMonth: '2026-11-01', endMonth: null, day: 10 })
+    // A later occurrence moved forward shifts the start by as many months.
+    await updateEntry(ANA, id, expense(ana.accountId, { startMonth: '2027-04' }), {
       month: '2027-02',
-      scope: 'one',
+      scope: null,
     })
+    expect((await entryRows(ANA))[0]?.startMonth).toBe('2027-01-01')
+  })
+
+  it('refuses to move the repetition past its end', async () => {
+    await expect(
+      updateEntry(ANA, id, expense(ana.accountId, { startMonth: '2027-06', endMonth: '2027-02' }), {
+        month: '2026-12',
+        scope: null,
+      }),
+    ).resolves.toEqual({ ok: false, reason: 'no_occurrence' })
+    expect((await entryRows(ANA))[0]?.startMonth).toBe('2026-12-01')
+  })
+
+  it('"one" writes an override for that month only', async () => {
+    await updateEntry(
+      ANA,
+      id,
+      expense(ana.accountId, { amountCents: 250000, startMonth: '2027-02' }),
+      {
+        month: '2027-02',
+        scope: 'one',
+      },
+    )
     expect(await expenseByMonth(ANA)).toMatchObject({
       '2027-01': 200000,
       '2027-02': 250000,
@@ -206,14 +244,24 @@ describe('updateEntry', () => {
   })
 
   it('"future" splits the series inside one transaction', async () => {
-    await updateEntry(ANA, id, expense(ana.accountId, { amountCents: 250000 }), {
-      month: '2027-02',
-      scope: 'one',
-    })
-    await updateEntry(ANA, id, expense(ana.accountId, { amountCents: 300000, day: 12 }), {
-      month: '2027-03',
-      scope: 'future',
-    })
+    await updateEntry(
+      ANA,
+      id,
+      expense(ana.accountId, { amountCents: 250000, startMonth: '2027-02' }),
+      {
+        month: '2027-02',
+        scope: 'one',
+      },
+    )
+    await updateEntry(
+      ANA,
+      id,
+      expense(ana.accountId, { amountCents: 300000, day: 12, startMonth: '2027-03' }),
+      {
+        month: '2027-03',
+        scope: 'future',
+      },
+    )
     const rows = await entryRows(ANA)
     expect(rows.map((r) => [r.startMonth, r.endMonth, r.amountCents, r.day])).toEqual([
       ['2026-12-01', '2027-02-01', 200000, 10],
@@ -230,14 +278,24 @@ describe('updateEntry', () => {
   })
 
   it('"all" edits the series and clears the patched field from overrides', async () => {
-    await updateEntry(ANA, id, expense(ana.accountId, { amountCents: 250000 }), {
-      month: '2027-02',
-      scope: 'one',
-    })
-    await updateEntry(ANA, id, expense(ana.accountId, { amountCents: 220000 }), {
-      month: '2027-01',
-      scope: 'all',
-    })
+    await updateEntry(
+      ANA,
+      id,
+      expense(ana.accountId, { amountCents: 250000, startMonth: '2027-02' }),
+      {
+        month: '2027-02',
+        scope: 'one',
+      },
+    )
+    await updateEntry(
+      ANA,
+      id,
+      expense(ana.accountId, { amountCents: 220000, startMonth: '2027-01' }),
+      {
+        month: '2027-01',
+        scope: 'all',
+      },
+    )
     expect(await overrideRows(id)).toHaveLength(0)
     expect(Object.values(await expenseByMonth(ANA))).toEqual([
       220000, 220000, 220000, 220000, 220000,
@@ -248,7 +306,7 @@ describe('updateEntry', () => {
     const result = await updateEntry(
       ANA,
       id,
-      expense(ana.accountId, { amountCents: 300000, endMonth: '2027-01' }),
+      expense(ana.accountId, { amountCents: 300000, endMonth: '2027-01', startMonth: '2027-03' }),
       { month: '2027-03', scope: 'future' },
     )
     expect(result).toEqual({ ok: false, reason: 'no_occurrence' })
@@ -315,7 +373,7 @@ describe('deleteEntry', () => {
   })
 
   it('"future" ends the series before the month', async () => {
-    await updateEntry(ANA, id, expense(ana.accountId, { amountCents: 1 }), {
+    await updateEntry(ANA, id, expense(ana.accountId, { amountCents: 1, startMonth: '2027-03' }), {
       month: '2027-03',
       scope: 'one',
     })

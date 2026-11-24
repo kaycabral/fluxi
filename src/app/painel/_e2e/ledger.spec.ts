@@ -89,11 +89,11 @@ test.describe('ledger critical flow', () => {
     await page.goto('/painel')
     await expect(page.getByRole('heading', { level: 1, name: 'Linha do tempo' })).toBeVisible()
     // Saldo total and Entradas are the available money only (the checking account's R$ 5.000).
-    await expect(timelineCell(page, /^Saldo total$/, THIS_MONTH)).toHaveText('5,0k')
-    await expect(timelineCell(page, /^Entradas$/, THIS_MONTH)).toHaveText('0')
+    await expect(timelineCell(page, /^Saldo total$/, THIS_MONTH)).toHaveText('5.000,00')
+    await expect(timelineCell(page, /^Entradas$/, THIS_MONTH)).toHaveText('0,00')
     // R$ 300 + R$ 800 in the benefit block.
-    await expect(timelineCell(page, /^Benefícios/, THIS_MONTH)).toHaveText('1,1k')
-    await expect(timelineCell(page, /^Vale E2E · VA E2E$/, NEXT_MONTH)).toHaveText('1,9k')
+    await expect(timelineCell(page, /^Benefícios/, THIS_MONTH)).toHaveText('1.100,00')
+    await expect(timelineCell(page, /^Vale E2E · VA E2E$/, NEXT_MONTH)).toHaveText('1.900,00')
     await expect(page.getByRole('row', { name: /Crédito VA E2E/ })).toHaveCount(0)
 
     await page.goto('/painel/contas')
@@ -118,8 +118,8 @@ test.describe('ledger critical flow', () => {
     await expect(sheet).toBeHidden()
 
     // It shows in the timeline totals and in this month's day by day.
-    await expect(expensesCell(page, THIS_MONTH)).toHaveText('-100')
-    await expect(expensesCell(page, LATER_MONTH)).toHaveText('-100')
+    await expect(expensesCell(page, THIS_MONTH)).toHaveText('-100,00')
+    await expect(expensesCell(page, LATER_MONTH)).toHaveText('-100,00')
     await expect(
       page.getByRole('heading', { name: `${monthLabel(THIS_MONTH)} dia a dia` }),
     ).toBeVisible()
@@ -145,9 +145,9 @@ test.describe('ledger critical flow', () => {
     await expect(edit).toBeHidden()
 
     // The split: this month keeps 100, next month on is 150.
-    await expect(expensesCell(page, THIS_MONTH)).toHaveText('-100')
-    await expect(expensesCell(page, NEXT_MONTH)).toHaveText('-150')
-    await expect(expensesCell(page, LATER_MONTH)).toHaveText('-150')
+    await expect(expensesCell(page, THIS_MONTH)).toHaveText('-100,00')
+    await expect(expensesCell(page, NEXT_MONTH)).toHaveText('-150,00')
+    await expect(expensesCell(page, LATER_MONTH)).toHaveText('-150,00')
     await expect(page.getByRole('row', { name: /Aluguel E2E/ })).toContainText('-R$ 150')
   })
 

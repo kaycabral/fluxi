@@ -40,10 +40,11 @@ const isEmptyOverride = (o: EntryOverride) => o.amountCents === null && o.day ==
  * entry stores the total, so a new installment amount becomes `amount × count`.
  */
 function patchEntry(entry: Entry, patch: OccurrencePatch): Entry {
-  const day = patch.day ?? entry.day
-  if (patch.amountCents === undefined) return { ...entry, day }
+  // A new day for the whole series pins it to that day number (no weekday rule).
+  const dayRule = patch.day === undefined ? {} : { day: patch.day, monthBy: 'day' as const }
+  if (patch.amountCents === undefined) return { ...entry, ...dayRule }
   const count = entry.recurrence === 'installments' ? Math.max(1, installmentCount(entry)) : 1
-  return { ...entry, amountCents: patch.amountCents * count, day }
+  return { ...entry, amountCents: patch.amountCents * count, ...dayRule }
 }
 
 function editOne(state: SeriesState, month: Month, patch: OccurrencePatch): ScopedEditResult {

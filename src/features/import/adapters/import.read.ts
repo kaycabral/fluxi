@@ -50,6 +50,8 @@ export async function readImportedLedger(db: FluxiDb, userId: string): Promise<I
       startMonth: monthFromDate(r.startMonth),
       day: r.day,
       recurrence: r.recurrence,
+      repeatEvery: r.repeatEvery,
+      monthBy: r.monthBy,
       installments: r.installments,
       endMonth: r.endMonth === null ? null : monthFromDate(r.endMonth),
     })),

@@ -32,7 +32,18 @@ function Opener() {
   const { openNew, openEdit } = useLedgerUi()
   return (
     <>
+      <button onClick={() => openNew()}>novo</button>
       <button onClick={() => openNew({ month: '2027-02' })}>abrir mês</button>
+      <button
+        onClick={() =>
+          openNew({
+            date: '2027-03-09',
+            values: { kind: 'income', amount: '50', description: 'Pix' },
+          })
+        }
+      >
+        abrir rascunho
+      </button>
       <button onClick={() => openEdit(targetFor(data, landingOf(IDS.power, '2027-01')))}>
         editar luz
       </button>
@@ -75,8 +86,9 @@ describe('useLedgerUi', () => {
 })
 
 describe('new entry', () => {
-  it('opens from the floating button and the N shortcut, not while typing', async () => {
+  it('opens from the N shortcut (not while typing); there is no floating button', async () => {
     renderShell()
+    expect(screen.queryByRole('button', { name: 'Novo lançamento' })).not.toBeInTheDocument()
     await userEvent.click(screen.getByLabelText('campo qualquer'))
     await userEvent.keyboard('n')
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
@@ -87,8 +99,30 @@ describe('new entry', () => {
     await userEvent.keyboard('{Escape}')
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
 
-    await userEvent.click(screen.getByRole('button', { name: 'Novo lançamento' }))
+    await userEvent.click(screen.getByRole('button', { name: 'novo' }))
     expect(await screen.findByRole('dialog', { name: 'Novo lançamento' })).toBeInTheDocument()
+  })
+
+  it('closes the full-page editor with its X', async () => {
+    renderShell()
+    await userEvent.click(screen.getByRole('button', { name: 'novo' }))
+    const sheet = await screen.findByRole('dialog', { name: 'Novo lançamento' })
+    expect(within(sheet).getByLabelText('Descrição')).toHaveFocus()
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Fechar' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+  })
+
+  it('opens on a given date with what the quick add typed', async () => {
+    renderShell()
+    await userEvent.click(screen.getByRole('button', { name: 'abrir rascunho' }))
+    const sheet = await screen.findByRole('dialog', { name: 'Novo lançamento' })
+    expect(within(sheet).getByLabelText('Data')).toHaveValue('2027-03-09')
+    expect(within(sheet).getByLabelText('Valor (R$)')).toHaveValue('50')
+    expect(within(sheet).getByLabelText('Descrição')).toHaveValue('Pix')
+    expect(within(sheet).getByRole('button', { name: 'Entrada' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
   })
 
   it('creates a monthly expense with tags and a category-suggested pot', async () => {
@@ -101,8 +135,20 @@ describe('new entry', () => {
     await userEvent.type(within(sheet).getByLabelText('Descrição'), 'Academia')
     await chooseOption('Categoria', 'Academia')
     expect(within(sheet).getByLabelText('Pote')).toHaveTextContent('Conforto')
-    await chooseOption('Repete', 'Todo mês')
-    await userEvent.type(within(sheet).getByLabelText('Até (opcional)'), '2027-06')
+    // Custom repetition, like Google Calendar's: every 2 months on the 3rd Monday, 3 times.
+    await chooseOption('Repetição', 'Personalizar…')
+    const custom = await screen.findByRole('dialog', { name: 'Recorrência personalizada' })
+    await userEvent.clear(within(custom).getByLabelText('Repetir a cada:'))
+    await userEvent.type(within(custom).getByLabelText('Repetir a cada:'), '2')
+    await userEvent.click(within(custom).getByLabelText('Na terceira segunda-feira'))
+    await userEvent.click(within(custom).getByLabelText('Após'))
+    await userEvent.clear(within(custom).getByLabelText('Ocorrências'))
+    await userEvent.type(within(custom).getByLabelText('Ocorrências'), '3')
+    await userEvent.click(within(custom).getByRole('button', { name: 'Concluir' }))
+    await waitFor(() => expect(custom).not.toBeInTheDocument())
+    expect(within(sheet).getByLabelText('Repetição')).toHaveTextContent(
+      'A cada 2 meses na terceira segunda-feira, até jun. de 2027',
+    )
     await userEvent.type(within(sheet).getByLabelText('Tags'), 'Saúde,')
     await userEvent.type(within(sheet).getByLabelText('Tags'), 'extra{Enter}')
     await userEvent.click(within(sheet).getByRole('button', { name: 'Remover tag extra' }))
@@ -121,6 +167,9 @@ describe('new entry', () => {
         startMonth: '2027-02',
         day: 15,
         recurrence: 'monthly',
+        repeatEvery: 2,
+        monthBy: 'weekday',
+        endMonth: '2027-06',
       },
     })
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
@@ -129,7 +178,7 @@ describe('new entry', () => {
   it('shows validation and server errors, and keeps tipo/conta on "Salvar e criar outro"', async () => {
     actions.createEntryAction.mockResolvedValueOnce({ ok: false, error: 'Falhou no servidor.' })
     renderShell()
-    await userEvent.click(screen.getByRole('button', { name: 'Novo lançamento' }))
+    await userEvent.click(screen.getByRole('button', { name: 'novo' }))
     const sheet = await screen.findByRole('dialog', { name: 'Novo lançamento' })
     await userEvent.click(within(sheet).getByRole('button', { name: 'Salvar' }))
     expect(within(sheet).getByRole('alert')).toHaveTextContent('Informe o valor.')
@@ -154,15 +203,15 @@ describe('new entry', () => {
 
   it('builds transfers and split entries', async () => {
     renderShell()
-    await userEvent.click(screen.getByRole('button', { name: 'Novo lançamento' }))
+    await userEvent.click(screen.getByRole('button', { name: 'novo' }))
     const sheet = await screen.findByRole('dialog', { name: 'Novo lançamento' })
     await userEvent.click(within(sheet).getByRole('button', { name: 'Transferência' }))
     expect(within(sheet).getByLabelText('Para a conta')).toHaveTextContent('BTG · Cartão')
     await userEvent.click(within(sheet).getByRole('button', { name: 'Saída' }))
-    await chooseOption('Repete', 'Parcelado')
+    await chooseOption('Repetição', 'Parcelado…')
     expect(within(sheet).getByLabelText('Parcelas')).toHaveValue(12)
+    expect(within(sheet).getByLabelText('Repetição')).toHaveTextContent('Parcelado…')
 
-    await userEvent.click(within(sheet).getByRole('button', { name: /Mais opções/ }))
     await userEvent.click(within(sheet).getByLabelText(/Dividir em mais de uma data/))
     expect(within(sheet).getByText('soma 100%')).toBeInTheDocument()
     await userEvent.click(within(sheet).getByRole('button', { name: 'Parte' }))

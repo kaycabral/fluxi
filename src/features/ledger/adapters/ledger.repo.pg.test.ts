@@ -248,6 +248,8 @@ describe('loading a window', () => {
       startMonth: '2026-12',
       day: 5,
       recurrence: 'monthly',
+      repeatEvery: 1,
+      monthBy: 'day',
       installments: null,
       endMonth: null,
     })

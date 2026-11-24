@@ -18,6 +18,12 @@ export type PotKey = (typeof POT_KEYS)[number]
 export type AccountType = 'checking' | 'credit' | 'benefit' | 'investment' | 'loan'
 export type EntryKind = 'income' | 'expense' | 'transfer'
 export type Recurrence = 'none' | 'monthly' | 'yearly' | 'installments'
+/**
+ * Which day a monthly series lands on (Google Calendar's options): the same
+ * day number, the same nth weekday ("4ª quinta-feira") or the last such
+ * weekday of the month, all taken from the start date.
+ */
+export type MonthBy = 'day' | 'weekday' | 'last_weekday'
 
 export type Bank = {
   id: string
@@ -62,6 +68,10 @@ export type Entry = {
   startMonth: Month
   day: number
   recurrence: Recurrence
+  /** Every N months (monthly) or N years (yearly); 1 otherwise. */
+  repeatEvery: number
+  /** `day` unless a monthly series lands on a weekday. */
+  monthBy: MonthBy
   installments: number | null
   endMonth: Month | null
 }

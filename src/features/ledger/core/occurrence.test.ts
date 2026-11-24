@@ -6,6 +6,7 @@ import {
   installmentShares,
   landingsIn,
   occursIn,
+  skippedLandingsIn,
   splitAmount,
 } from './occurrence'
 
@@ -203,5 +204,23 @@ describe('landingsIn', () => {
     const entry = makeEntry({ amountCents: 1000 })
     const parts = [makePart({ day: 30 })]
     expect(landingsIn(entry, parts, [], '2027-02')[0]?.day).toBe(28)
+  })
+})
+
+describe('skippedLandingsIn', () => {
+  it('lands only the skipped occurrences, where they would have landed', () => {
+    const entry = makeEntry()
+    const overrides = [makeOverride({ month: '2026-10', skipped: true, day: 3 })]
+    expect(skippedLandingsIn(entry, [], overrides, '2026-10')).toEqual([
+      expect.objectContaining({ competence: '2026-10', day: 3, part: null }),
+    ])
+    expect(skippedLandingsIn(entry, [], overrides, '2026-11')).toEqual([])
+  })
+
+  it('lands every part of a skipped split occurrence', () => {
+    const entry = makeEntry({ kind: 'income', pot: null, amountCents: 1000, startMonth: '2026-12' })
+    const overrides = [makeOverride({ month: '2027-01', skipped: true })]
+    const february = skippedLandingsIn(entry, salarySplit('e1'), overrides, '2027-02')
+    expect(february.map((l) => [l.part?.label, l.competence])).toEqual([['Saldo', '2027-01']])
   })
 })

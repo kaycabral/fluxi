@@ -1,4 +1,12 @@
-import { addMonths, daysInMonth, diffMonths, type Month } from './month'
+import {
+  addMonths,
+  daysInMonth,
+  diffMonths,
+  lastWeekdayDay,
+  nthWeekdayDay,
+  weekdayIn,
+  type Month,
+} from './month'
 import type { Entry, EntryOverride, EntryPart } from './types'
 
 /** One amount landing on one day of one month (a whole occurrence or one split part). */
@@ -28,11 +36,11 @@ export function occursIn(entry: Entry, month: Month): boolean {
     case 'none':
       return index === 0
     case 'yearly':
-      return index % 12 === 0 && withinEnd
+      return index % (12 * entry.repeatEvery) === 0 && withinEnd
     case 'installments':
       return index < installmentCount(entry)
     case 'monthly':
-      return withinEnd
+      return index % entry.repeatEvery === 0 && withinEnd
   }
 }
 
@@ -82,9 +90,29 @@ export function amountFor(entry: Entry, overrides: readonly EntryOverride[], mon
   return overrideFor(entry, overrides, month)?.amountCents ?? seriesAmountFor(entry, month)
 }
 
+/**
+ * The series day in `month`, overrides aside: the day number, or for a
+ * weekday rule the nth (or last) weekday of the start date, in `month`.
+ */
+export function ruleDay(entry: Entry, month: Month): number {
+  return dayByRule(entry, month)
+}
+
+/** {@link ruleDay} for a rule not saved yet (the repetition dialog). */
+export function dayByRule(
+  rule: Pick<Entry, 'startMonth' | 'day' | 'monthBy'>,
+  month: Month,
+): number {
+  if (rule.monthBy === 'day') return rule.day
+  const anchor = Math.min(rule.day, daysInMonth(rule.startMonth))
+  const weekday = weekdayIn(rule.startMonth, anchor)
+  if (rule.monthBy === 'last_weekday') return lastWeekdayDay(month, weekday)
+  return nthWeekdayDay(month, weekday, Math.ceil(anchor / 7))
+}
+
 /** Day of the occurrence whose competence is `month` (an override wins), unclamped. */
 export function dayFor(entry: Entry, overrides: readonly EntryOverride[], month: Month): number {
-  return overrideFor(entry, overrides, month)?.day ?? entry.day
+  return overrideFor(entry, overrides, month)?.day ?? ruleDay(entry, month)
 }
 
 /**
@@ -119,9 +147,36 @@ export function landingsIn(
   overrides: readonly EntryOverride[],
   month: Month,
 ): Landing[] {
+  return landingsWhere({ entry, parts, overrides }, month, false)
+}
+
+/**
+ * The opposite of {@link landingsIn}: what WOULD land in `month` from the
+ * skipped occurrences (to show them as ignored; they never count).
+ */
+export function skippedLandingsIn(
+  entry: Entry,
+  parts: readonly EntryPart[],
+  overrides: readonly EntryOverride[],
+  month: Month,
+): Landing[] {
+  return landingsWhere({ entry, parts, overrides }, month, true)
+}
+
+type Series = {
+  entry: Entry
+  parts: readonly EntryPart[]
+  overrides: readonly EntryOverride[]
+}
+
+function landingsWhere(
+  { entry, parts, overrides }: Series,
+  month: Month,
+  skipped: boolean,
+): Landing[] {
   const lastDay = daysInMonth(month)
   const lands = (competence: Month) =>
-    occursIn(entry, competence) && !isSkipped(entry, overrides, competence)
+    occursIn(entry, competence) && isSkipped(entry, overrides, competence) === skipped
   const ownParts = sortParts(parts.filter((p) => p.entryId === entry.id))
 
   if (ownParts.length === 0) {

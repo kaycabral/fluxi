@@ -72,6 +72,8 @@ export async function loadSeries(
       startMonth: monthFromDate(row.startMonth),
       day: row.day,
       recurrence: row.recurrence,
+      repeatEvery: row.repeatEvery,
+      monthBy: row.monthBy,
       installments: row.installments,
       endMonth: row.endMonth === null ? null : monthFromDate(row.endMonth),
     },

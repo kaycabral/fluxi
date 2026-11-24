@@ -10,20 +10,28 @@ import { isoDate } from '@/features/ledger/core/format'
 import type { Month } from '@/features/ledger/core/month'
 import type { EditScope } from '@/features/ledger/core/scoped-edit'
 import type { LedgerRefs } from '@/features/ledger/core/view'
-import { Button, Sheet, SheetContent, useIsMobile } from '@cbrl/design'
-import { Plus } from 'lucide-react'
+import { Dialog, DialogContent } from '@cbrl/design'
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { EntryForm } from './entry-sheet'
 import { ScopeDialog, type ScopeRequest } from './scope-dialog'
 
 type LedgerUi = {
   refs: LedgerRefs
-  /** New entry; `month` pre-fills the date (today's day in that month). */
-  openNew: (options?: { month?: Month }) => void
+  /**
+   * New entry. `date` pre-fills the date; else `month` (today's day in that
+   * month); else today. `values` carries what the quick add already typed.
+   */
+  openNew: (options?: NewEntryOptions) => void
   /** Edit an entry or one occurrence of it. */
   openEdit: (target: EditTarget) => void
   /** Ask where an occurrence change applies; null when cancelled. */
   requestScope: (request: ScopeRequest) => Promise<EditScope | null>
+}
+
+export type NewEntryOptions = {
+  month?: Month
+  date?: string
+  values?: Partial<EntryFormValues>
 }
 
 const LedgerUiContext = createContext<LedgerUi | null>(null)
@@ -50,12 +58,10 @@ function isTyping(target: EventTarget | null): boolean {
 }
 
 /**
- * Signed-in shell of the ledger: owns the entry sheet (side on desktop,
- * bottom on mobile), the scope dialog, the floating "+ Lançamento" button and
- * the N shortcut, and exposes them to the views through {@link useLedgerUi}.
+ * Signed-in shell of the ledger: owns the full-page entry editor (Google
+ * Calendar's event page), the scope dialog and the N shortcut, and exposes them to the views through {@link useLedgerUi}.
  */
 export function LedgerShell({ refs, children }: { refs: LedgerRefs; children: React.ReactNode }) {
-  const isMobile = useIsMobile()
   const [session, setSession] = useState<SheetSession | null>(null)
   const [open, setOpen] = useState(false)
   const [scopeRequest, setScopeRequest] = useState<ScopeRequest | null>(null)
@@ -65,15 +71,19 @@ export function LedgerShell({ refs, children }: { refs: LedgerRefs; children: Re
   const defaultAccountId = defaultAccountOf(refs)
 
   const openNew = useCallback(
-    (options?: { month?: Month }) => {
+    (options?: NewEntryOptions) => {
       const today = refs.today
       const date =
-        options?.month === undefined ? today : isoDate(options.month, Number(today.slice(8, 10)))
+        options?.date ??
+        (options?.month === undefined ? today : isoDate(options.month, Number(today.slice(8, 10))))
       counter.current += 1
       setSession({
         id: counter.current,
         target: null,
-        initial: newEntryValues({ date, accountId: defaultAccountId }),
+        initial: {
+          ...newEntryValues({ date, accountId: defaultAccountId, kind: options?.values?.kind }),
+          ...options?.values,
+        },
       })
       setOpen(true)
     },
@@ -118,23 +128,14 @@ export function LedgerShell({ refs, children }: { refs: LedgerRefs; children: Re
   return (
     <LedgerUiContext.Provider value={value}>
       {children}
-      <Button
-        size="lg"
-        className="fixed right-[max(1.25rem,env(safe-area-inset-right))] bottom-[max(1.25rem,env(safe-area-inset-bottom))] z-40 rounded-full shadow-lg"
-        onClick={() => openNew()}
-        aria-keyshortcuts="N"
-        aria-label="Novo lançamento"
-      >
-        <Plus /> Lançamento
-      </Button>
-      <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent
-          side={isMobile ? 'bottom' : 'right'}
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent
+          showCloseButton={false}
           onOpenAutoFocus={(event) => {
             event.preventDefault()
-            document.getElementById('entry-amount')?.focus()
+            document.getElementById('entry-description')?.focus()
           }}
-          className="max-h-[92dvh] gap-0 data-[side=bottom]:rounded-t-xl data-[side=right]:w-full data-[side=right]:sm:max-w-md"
+          className="flex h-dvh max-h-dvh w-screen max-w-none flex-col gap-0 rounded-none border-0 p-0 sm:max-w-none"
         >
           {session !== null && (
             <EntryForm
@@ -146,10 +147,10 @@ export function LedgerShell({ refs, children }: { refs: LedgerRefs; children: Re
               onDone={() => setOpen(false)}
             />
           )}
-          {/* Nested inside the sheet while it is open, so Radix stacks the layers (focus trap, outside clicks). */}
+          {/* Nested inside the dialog while it is open, so Radix stacks the layers (focus trap, outside clicks). */}
           {open && <ScopeDialog request={scopeRequest} onResolve={onResolveScope} />}
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
       {!open && <ScopeDialog request={scopeRequest} onResolve={onResolveScope} />}
     </LedgerUiContext.Provider>
   )

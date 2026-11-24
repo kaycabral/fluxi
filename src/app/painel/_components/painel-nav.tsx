@@ -6,15 +6,15 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 const LINKS: { href: Route; label: string }[] = [
-  { href: '/painel', label: 'Linha do tempo' },
+  { href: '/painel/linha-do-tempo', label: 'Linha do tempo' },
   { href: '/painel/a-pagar', label: 'A pagar' },
   { href: '/painel/lancamentos', label: 'Lançamentos' },
   { href: '/painel/contas', label: 'Bancos e contas' },
   { href: '/painel/orcamento', label: 'Orçamento' },
-  { href: '/painel/calendario', label: 'Calendário' },
+  { href: '/painel', label: 'Calendário' },
 ]
 
-/** Top navigation of the signed-in area (scrolls horizontally on narrow screens). */
+/** Top navigation of the MVP screens; "Calendário" leads to the new layout. Scrolls on narrow screens. */
 export function PainelNav() {
   const pathname = usePathname()
   return (

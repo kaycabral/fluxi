@@ -15,6 +15,8 @@ export function makeEntry(overrides: Partial<Entry> = {}): Entry {
     startMonth: '2026-09',
     day: 15,
     recurrence: 'monthly',
+    repeatEvery: 1,
+    monthBy: 'day',
     installments: null,
     endMonth: null,
     ...overrides,

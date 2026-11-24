@@ -67,6 +67,8 @@ function entryColumns(entry: Entry) {
     startMonth: monthToDate(entry.startMonth),
     day: entry.day,
     recurrence: entry.recurrence,
+    repeatEvery: entry.repeatEvery,
+    monthBy: entry.monthBy,
     installments: entry.installments,
     endMonth: entry.endMonth === null ? null : monthToDate(entry.endMonth),
   }
@@ -86,6 +88,8 @@ function entryFromFields(id: string, fields: EntryFields): Entry {
     startMonth: fields.startMonth,
     day: fields.day,
     recurrence: fields.recurrence,
+    repeatEvery: fields.repeatEvery,
+    monthBy: fields.monthBy,
     installments: fields.installments,
     endMonth: fields.endMonth,
   }

@@ -3,7 +3,15 @@ import type { Month } from './month'
 import { amountFor, dayFor, installmentShares, sortParts } from './occurrence'
 import { entryFieldsSchema, firstIssue, type EntryFields } from './schemas'
 import type { OccurrencePatch } from './scoped-edit'
-import type { Entry, EntryKind, EntryOverride, EntryPart, PotKey, Recurrence } from './types'
+import type {
+  Entry,
+  EntryKind,
+  EntryOverride,
+  EntryPart,
+  MonthBy,
+  PotKey,
+  Recurrence,
+} from './types'
 
 /**
  * The entry form's state (strings as typed) and its conversion to/from the
@@ -23,6 +31,9 @@ export type EntryFormValues = {
   categoryId: string
   pot: PotKey | ''
   recurrence: Recurrence
+  /** Every N months/years (custom repetition). */
+  repeatEvery: number
+  monthBy: MonthBy
   installments: string
   /** `YYYY-MM` or empty. */
   endMonth: string
@@ -59,6 +70,8 @@ export function newEntryValues(input: {
     categoryId: '',
     pot: input.kind === undefined || input.kind === 'expense' ? 'variable' : '',
     recurrence: 'none',
+    repeatEvery: 1,
+    monthBy: 'day',
     installments: '',
     endMonth: '',
     tags: [],
@@ -109,6 +122,8 @@ export function editEntryValues(target: EditTarget): EntryFormValues {
     categoryId: entry.categoryId ?? '',
     pot: entry.pot ?? '',
     recurrence: entry.recurrence,
+    repeatEvery: entry.repeatEvery,
+    monthBy: entry.monthBy,
     installments: entry.installments === null ? '' : String(entry.installments),
     endMonth: entry.endMonth ?? '',
     tags: [...entry.tags],
@@ -169,6 +184,9 @@ export function valuesToFields(values: EntryFormValues): FieldsResult {
     startMonth: date[1] ?? '',
     day: parts[0]?.day ?? Number(date[2]),
     recurrence: values.recurrence,
+    repeatEvery:
+      values.recurrence === 'monthly' || values.recurrence === 'yearly' ? values.repeatEvery : 1,
+    monthBy: values.recurrence === 'monthly' ? values.monthBy : 'day',
     installments:
       values.recurrence === 'installments' ? (parseIntOrNull(values.installments) ?? 0) : null,
     endMonth:

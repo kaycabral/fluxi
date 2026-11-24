@@ -1,6 +1,12 @@
 import { fluxiDb } from '@/db'
 import { accounts, banks, entries, userSettings } from '@/db/schema'
-import { isoDayOf, monthLabel, monthOf } from '@/features/ledger/core/format'
+import {
+  formatAmount,
+  isoDayOf,
+  monthLabel,
+  monthOf,
+  parseMoneyInput,
+} from '@/features/ledger/core/format'
 import { addMonths, diffMonths, monthToDate } from '@/features/ledger/core/month'
 import { expect, test } from '@e2e/fixtures'
 import type { Page } from '@playwright/test'
@@ -86,7 +92,7 @@ test.describe('ledger critical flow', () => {
   }) => {
     await seedBenefit(user.id)
 
-    await page.goto('/painel')
+    await page.goto('/painel/linha-do-tempo')
     await expect(page.getByRole('heading', { level: 1, name: 'Linha do tempo' })).toBeVisible()
     // Saldo total and Entradas are the available money only (the checking account's R$ 5.000).
     await expect(timelineCell(page, /^Saldo total$/, THIS_MONTH)).toHaveText('5.000,00')
@@ -102,18 +108,18 @@ test.describe('ledger critical flow', () => {
   })
 
   test('create a monthly expense, then split it from next month on', async ({ page }) => {
-    await page.goto('/painel')
+    await page.goto('/painel/linha-do-tempo')
     await expect(page.getByRole('heading', { level: 1, name: 'Linha do tempo' })).toBeVisible()
 
-    // Create a monthly expense through the floating button.
-    await page.getByRole('button', { name: 'Novo lançamento' }).click()
+    // Create a monthly expense through the N shortcut.
+    await page.keyboard.press('n')
     const sheet = page.getByRole('dialog', { name: 'Novo lançamento' })
     await expect(sheet).toBeVisible()
     await sheet.getByLabel('Valor (R$)').fill('100')
     await sheet.getByLabel('Descrição').fill('Aluguel E2E')
-    await sheet.getByLabel('Data').fill(`${THIS_MONTH}-10`)
-    await sheet.getByLabel('Repete').click()
-    await page.getByRole('option', { name: 'Todo mês' }).click()
+    await sheet.getByLabel('Data', { exact: true }).fill(`${THIS_MONTH}-10`)
+    await sheet.getByLabel('Repetição').click()
+    await page.getByRole('option', { name: 'Mensal no dia 10' }).click()
     await sheet.getByRole('button', { name: 'Salvar', exact: true }).click()
     await expect(sheet).toBeHidden()
 
@@ -151,6 +157,46 @@ test.describe('ledger critical flow', () => {
     await expect(page.getByRole('row', { name: /Aluguel E2E/ })).toContainText('-R$ 150')
   })
 
+  test('quick add on a calendar day, then pay it from its popup and see it in the week', async ({
+    page,
+  }) => {
+    await page.goto('/painel?modo=mes')
+    const create = page.locator('button[aria-current="date"]')
+    const day = page.getByRole('group').filter({ has: create })
+    // The end-of-day balance: the first money-only text of the day (before the chips' amounts).
+    const balance = day.getByText(/^-?\d{1,3}(\.\d{3})*,\d{2}$/).first()
+    const before = parseMoneyInput((await balance.textContent()) ?? '')
+    await create.click()
+    const form = page.getByRole('form', { name: 'Criar lançamento' })
+    await expect(form.getByLabel('Descrição')).toBeFocused()
+    await form.getByLabel('Descrição').fill('Padaria E2E')
+    await form.getByLabel('Valor (R$)').fill('42,90')
+    await form.getByLabel('Valor (R$)').press('Enter')
+    await expect(form).toBeHidden()
+
+    // The entry lands on that day and lowers the day's end balance by 42,90.
+    const chip = day.getByRole('button', { name: /42,90 Padaria E2E/ })
+    await expect(chip).toBeVisible()
+    await expect(balance).toHaveText(formatAmount((before ?? 0) - 4290))
+
+    // Its popup, like a Google Calendar event: details and "Marcar como pago".
+    await chip.click()
+    const details = page.getByLabel('Detalhes de Padaria E2E')
+    await expect(details).toContainText('-R$ 42,90')
+    await expect(details).toContainText('Banco E2E · Conta E2E')
+    await details.getByRole('button', { name: 'Marcar como pago' }).click()
+    await expect(details).toContainText('Pago em')
+    await details.getByRole('button', { name: 'Fechar' }).click()
+    await expect(chip).toHaveClass(/opacity-50/)
+
+    // The week view (W) shows it too; "Criar" opens the full sheet.
+    await page.keyboard.press('w')
+    await expect(page.getByRole('button', { name: 'Visualização: Semana' })).toBeVisible()
+    await expect(page.getByRole('button', { name: /42,90 Padaria E2E/ })).toBeVisible()
+    await page.getByRole('button', { name: 'Criar', exact: true }).click()
+    await expect(page.getByRole('dialog', { name: 'Novo lançamento' })).toBeVisible()
+  })
+
   test('mark a bill paid in A pagar, then see it paid in the day by day', async ({
     page,
     user,
@@ -177,8 +223,8 @@ test.describe('ledger critical flow', () => {
     await expect(soon.getByRole('row', { name: /Conta de luz E2E/ })).toContainText('R$ 230')
     await soon.getByRole('button', { name: 'Pago: Conta de luz E2E' }).click()
 
-    // It leaves the list (nothing else is due)…
-    await expect(page.getByText('Nada a pagar por enquanto')).toBeVisible()
+    // It leaves the list (other tests of this worker's user may still have bills due)…
+    await expect(page.getByRole('row', { name: /Conta de luz E2E/ })).toHaveCount(0)
     // …and shows as paid among this month's paid items.
     await page.getByLabel('Mostrar também os pagos deste mês').click()
     await expect(

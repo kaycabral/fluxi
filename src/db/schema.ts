@@ -84,6 +84,9 @@ export const entryKind = pgEnum('entry_kind', ['income', 'expense', 'transfer'])
 
 export const recurrence = pgEnum('recurrence', ['none', 'monthly', 'yearly', 'installments'])
 
+/** Day rule of a monthly series: the day number, its nth weekday or its last weekday. */
+export const monthBy = pgEnum('month_by', ['day', 'weekday', 'last_weekday'])
+
 /** A financial institution grouping accounts (e.g. "Nubank"). */
 export const banks = pgTable(
   'banks',
@@ -190,6 +193,9 @@ export const entries = pgTable(
     startMonth: month('start_month').notNull(),
     day: smallint('day').notNull(),
     recurrence: recurrence('recurrence').notNull(),
+    /** Every N months/years (monthly/yearly); 1 for the other recurrences. */
+    repeatEvery: smallint('repeat_every').notNull().default(1),
+    monthBy: monthBy('month_by').notNull().default('day'),
     installments: integer('installments'),
     endMonth: month('end_month'),
     createdAt: createdAt(),
@@ -222,6 +228,14 @@ export const entries = pgTable(
     check(
       'entries_end_month_valid',
       sql`${t.endMonth} is null or (${isFirstOfMonth(t.endMonth)} and ${t.endMonth} >= ${t.startMonth} and ${t.recurrence} in ('monthly', 'yearly'))`,
+    ),
+    check(
+      'entries_repeat_every_valid',
+      sql`${t.repeatEvery} between 1 and 99 and (${t.repeatEvery} = 1 or ${t.recurrence} in ('monthly', 'yearly'))`,
+    ),
+    check(
+      'entries_month_by_monthly_only',
+      sql`${t.monthBy} = 'day' or ${t.recurrence} = 'monthly'`,
     ),
     check(
       'entries_installments_valid',

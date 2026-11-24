@@ -17,6 +17,10 @@ export const IDS = {
   once: '00000000-0000-4000-8000-0000000000e3',
   transfer: '00000000-0000-4000-8000-0000000000e4',
   buffet: '00000000-0000-4000-8000-0000000000e5',
+  flash: '00000000-0000-4000-8000-0000000000b3',
+  va: '00000000-0000-4000-8000-0000000000a5',
+  voucher: '00000000-0000-4000-8000-0000000000e6',
+  market: '00000000-0000-4000-8000-0000000000e7',
 } as const
 
 export function sampleData(overrides: Partial<LedgerData> = {}): LedgerData {
@@ -137,6 +141,48 @@ export function sampleData(overrides: Partial<LedgerData> = {}): LedgerData {
     overrides: [],
     payments: [],
     ...overrides,
+  }
+}
+
+/** {@link sampleData} plus a benefit account (VA at "Flash") with a monthly credit and spending. */
+export function sampleDataWithBenefit(): LedgerData {
+  const data = sampleData()
+  return {
+    ...data,
+    banks: [...data.banks, { id: IDS.flash, name: 'Flash', sort: 2, archived: false }],
+    accounts: [
+      ...data.accounts,
+      {
+        id: IDS.va,
+        bankId: IDS.flash,
+        name: 'VA',
+        type: 'benefit',
+        openingBalanceCents: 30000,
+        archived: false,
+      },
+    ],
+    entries: [
+      ...data.entries,
+      makeEntry({
+        id: IDS.voucher,
+        kind: 'income',
+        description: 'Crédito VA',
+        amountCents: 80000,
+        day: 1,
+        accountId: IDS.va,
+        pot: null,
+        startMonth: '2026-12',
+      }),
+      makeEntry({
+        id: IDS.market,
+        description: 'Mercado VA',
+        amountCents: 20000,
+        day: 16,
+        accountId: IDS.va,
+        pot: 'essential',
+        startMonth: '2026-12',
+      }),
+    ],
   }
 }
 

@@ -6,6 +6,7 @@ import {
   bankIdOf,
   entryMatchesAccounts,
 } from './account-filter'
+import { accountIdsInBucket, type MoneyBucket } from './bucket'
 import { POT_LABELS } from './labels'
 import { addMonths, diffMonths, type Month } from './month'
 import type { Landing } from './occurrence'
@@ -52,6 +53,14 @@ export const STATUS_LABELS: Record<Exclude<StatusFilter, ''>, string> = {
   unpaid: 'Não pagos',
 }
 
+/** "Dinheiro" filter: every account, only available money or only benefits. */
+export type MoneyFilter = '' | MoneyBucket
+
+export const MONEY_LABELS: Record<Exclude<MoneyFilter, ''>, string> = {
+  available: 'Disponível',
+  benefit: 'Benefícios',
+}
+
 export type SearchQuery = {
   text: string
   from: Month
@@ -64,6 +73,7 @@ export type SearchQuery = {
   pot: PotKey | ''
   tag: string
   status: StatusFilter
+  money: MoneyFilter
   group: GroupKey | 'none'
 }
 
@@ -79,6 +89,7 @@ export function defaultSearchQuery(start: Month): SearchQuery {
     pot: '',
     tag: '',
     status: '',
+    money: '',
     group: 'month',
   }
 }
@@ -94,6 +105,7 @@ const PARAM_NAMES: Record<keyof SearchQuery, string> = {
   pot: 'pote',
   tag: 'tag',
   status: 'status',
+  money: 'dinheiro',
   group: 'agrupar',
 }
 
@@ -107,6 +119,7 @@ const QUERY_KEYS: readonly (keyof SearchQuery)[] = [
   'pot',
   'tag',
   'status',
+  'money',
   'group',
 ]
 
@@ -120,6 +133,7 @@ const paramsSchema = z.object({
   pot: z.enum(['', ...POT_KEYS]).catch(''),
   tag: z.string().max(40).catch(''),
   status: z.enum(['', 'paid', 'unpaid']).catch(''),
+  money: z.enum(['', 'available', 'benefit']).catch(''),
   group: z
     .enum(['none', ...GROUP_KEYS])
     .optional()
@@ -145,6 +159,7 @@ export function parseSearchQuery(params: RawParams, start: Month): SearchQuery {
     pot: first(params[PARAM_NAMES.pot]) ?? '',
     tag: first(params[PARAM_NAMES.tag]) ?? '',
     status: first(params[PARAM_NAMES.status]) ?? '',
+    money: first(params[PARAM_NAMES.money]) ?? '',
     group: first(params[PARAM_NAMES.group]),
   })
   const from = parsed.from ?? defaults.from
@@ -174,7 +189,7 @@ export function searchQueryToParams(query: SearchQuery, start: Month): string {
 }
 
 export type SearchContext = {
-  accounts: readonly Pick<Account, 'id' | 'bankId' | 'name'>[]
+  accounts: readonly Pick<Account, 'id' | 'bankId' | 'name' | 'type'>[]
   banks: readonly Pick<Bank, 'id' | 'name'>[]
   categories: readonly Pick<Category, 'id' | 'groupName' | 'name'>[]
   /** Needed by the status filter (none = nothing paid). */
@@ -235,13 +250,27 @@ function matchesStatus(landing: Landing, status: StatusFilter, ctx: SearchContex
   return status === 'paid' ? paid : !paid
 }
 
+/**
+ * Accounts the query covers: the account filter narrowed to the "Dinheiro"
+ * bucket; null = no restriction at all.
+ */
+export function searchAccountIds(
+  query: Pick<SearchQuery, 'account' | 'money'>,
+  accounts: SearchContext['accounts'],
+): string[] | null {
+  const ids = accountIdsOf(query.account, accounts)
+  if (query.money === '') return ids
+  const inBucket = accountIdsInBucket(accounts, query.money)
+  return ids === null ? inBucket : ids.filter((id) => inBucket.includes(id))
+}
+
 /** Occurrences of the query's months that match its filters, in date order. */
 export function searchOccurrences(
   months: readonly MonthResult[],
   query: SearchQuery,
   ctx: SearchContext,
 ): Occurrence[] {
-  const ids = accountIdsOf(query.account, ctx.accounts)
+  const ids = searchAccountIds(query, ctx.accounts)
   return months
     .filter((m) => m.month >= query.from && m.month <= query.to)
     .flatMap((m) => m.landings)
@@ -372,7 +401,7 @@ function potOrEmpty(value: string): PotKey | '' {
 }
 
 export type ActiveFilter = {
-  key: 'text' | 'kind' | 'account' | 'category' | 'pot' | 'tag' | 'status'
+  key: 'text' | 'kind' | 'account' | 'category' | 'pot' | 'tag' | 'status' | 'money'
   label: string
 }
 
@@ -407,5 +436,6 @@ export function activeFilters(query: SearchQuery, ctx: SearchContext): ActiveFil
   if (query.pot !== '') out.push({ key: 'pot', label: POT_LABELS[query.pot] })
   if (query.tag !== '') out.push({ key: 'tag', label: `#${query.tag}` })
   if (query.status !== '') out.push({ key: 'status', label: STATUS_LABELS[query.status] })
+  if (query.money !== '') out.push({ key: 'money', label: MONEY_LABELS[query.money] })
   return out
 }

@@ -3,7 +3,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { LedgerShell } from './ledger-shell'
-import { IDS, sampleData, sampleRefs } from './test-fixtures'
+import { IDS, sampleData, sampleDataWithBenefit, sampleRefs } from './test-fixtures'
 import { TimelineView } from './timeline-view'
 
 type Result = { ok: true } | { ok: false; error: string }
@@ -80,6 +80,32 @@ describe('TimelineView', () => {
     await userEvent.click(screen.getByRole('button', { name: 'out/26' }))
     expect(screen.getByRole('heading', { name: 'out/26' })).toBeInTheDocument()
     expect(screen.getByText(/Este mês está antes do início da contagem/)).toBeInTheDocument()
+  })
+
+  it('keeps benefits out of the available rows and lists them in their own block', async () => {
+    renderTimeline(sampleDataWithBenefit())
+    const cells = (label: string) =>
+      within(rowOf(label))
+        .getAllByRole('cell')
+        .map((c) => c.textContent)
+    // Same available figures as without the benefit account.
+    expect(cells('Saldo total')[4]).toBe('-3,6k')
+    expect(cells('Entradas')[4]).toBe('5,0k')
+    expect(
+      screen.queryByRole('button', { name: 'Mostrar contas de Flash' }),
+    ).not.toBeInTheDocument()
+    // dez/26: 300 + 800 − 200 = 900; jan/27: + 600 = 1,5k.
+    const block = screen.getByRole('rowgroup', { name: 'Benefícios' })
+    expect(within(block).getAllByRole('row')).toHaveLength(2)
+    expect(cells('Benefícios')[4]).toBe('900')
+    expect(cells('Benefícios')[5]).toBe('1,5k')
+    expect(cells('Flash · VA')[4]).toBe('900')
+    // The day by day "Todo o disponível" ignores the benefit; picking the account shows it.
+    expect(screen.queryByText('Mercado VA')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByLabelText('Conta'))
+    await userEvent.click(await screen.findByRole('option', { name: 'Flash · VA' }))
+    expect(screen.getByText('Mercado VA')).toBeInTheDocument()
+    expect(screen.getByText(/começa com R\$ 300/)).toBeInTheDocument()
   })
 
   it('filters the day by day by account', async () => {

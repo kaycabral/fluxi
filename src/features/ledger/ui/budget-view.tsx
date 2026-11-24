@@ -80,8 +80,9 @@ export function BudgetView({ pots, months }: { pots: BudgetPot[]; months: Budget
         <CardContent>
           <form action={action} className="grid gap-4">
             <p className="text-muted-foreground text-sm">
-              Cada pote recebe uma fatia da renda. A soma não passa de 100%: para aumentar um,
-              reduza outro antes.
+              Cada pote recebe uma fatia da renda que entra nas contas de dinheiro disponível
+              (benefícios ficam de fora). A soma não passa de 100%: para aumentar um, reduza outro
+              antes.
             </p>
             <div className="bg-muted flex h-3.5 overflow-hidden rounded" aria-hidden>
               {POT_KEYS.map((key) => (
@@ -156,8 +157,8 @@ export function BudgetView({ pots, months }: { pots: BudgetPot[]; months: Budget
             <h2>Semáforo mensal</h2>
           </CardTitle>
           <CardDescription>
-            Planejado ÷ renda do mês. Verde dentro da meta, amarelo até 20% fora, vermelho além
-            disso.
+            Planejado ÷ renda disponível do mês; gastos pagos com benefícios não entram. Verde
+            dentro da meta, amarelo até 20% fora, vermelho além disso.
           </CardDescription>
         </CardHeader>
         <CardContent className="overflow-x-auto">

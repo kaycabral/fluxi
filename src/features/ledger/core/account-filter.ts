@@ -1,3 +1,4 @@
+import { accountIdsInBucket } from './bucket'
 import type { Account, Bank, Entry } from './types'
 
 /**
@@ -25,6 +26,24 @@ export function accountIdsOf(
   const bankId = bankIdOf(filter)
   if (bankId !== null) return accounts.filter((a) => a.bankId === bankId).map((a) => a.id)
   return [filter]
+}
+
+/**
+ * Accounts a DECISION view (day by day, calendar) covers: "all" means every
+ * available account (benefits are never mixed in); a bank means its available
+ * accounts, or all of them when it only holds benefits; an account id is
+ * itself, a benefit account included.
+ */
+export function decisionAccountIds(
+  filter: AccountFilter,
+  accounts: readonly Pick<Account, 'id' | 'bankId' | 'type'>[],
+): string[] {
+  if (filter === '') return accountIdsInBucket(accounts, 'available')
+  const bankId = bankIdOf(filter)
+  if (bankId === null) return [filter]
+  const own = accounts.filter((a) => a.bankId === bankId)
+  const available = accountIdsInBucket(own, 'available')
+  return available.length > 0 ? available : own.map((a) => a.id)
 }
 
 /** Whether an entry moves money in any account the filter covers. */

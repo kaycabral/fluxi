@@ -1,7 +1,8 @@
 import 'server-only'
 
+import { budgetMonthOf, type BudgetMonth } from '@/features/ledger/core/budget'
 import { addMonths, type Month } from '@/features/ledger/core/month'
-import type { BudgetPot, PotKey } from '@/features/ledger/core/types'
+import type { BudgetPot } from '@/features/ledger/core/types'
 import type { LedgerData, LedgerRefs } from '@/features/ledger/core/view'
 import { readBackend, type BackendRead } from '@/lib/backend-read'
 import {
@@ -54,14 +55,12 @@ export function loadLedgerData(
   })
 }
 
-export type BudgetMonth = { month: Month; incomeCents: number; byPot: Record<PotKey, number> }
-
 export type BudgetData = {
   pots: BudgetPot[]
   months: BudgetMonth[]
 }
 
-/** Targets and the 12 counted months from `start` (income and planned expense per pot). */
+/** Targets and the 12 counted months from `start` (available income and planned expense per pot). */
 export function loadBudgetData(userId: string, start: Month): Promise<BackendRead<BudgetData>> {
   return readBackend('budget', async () => {
     const [pots, projection] = await Promise.all([
@@ -70,11 +69,7 @@ export function loadBudgetData(userId: string, start: Month): Promise<BackendRea
     ])
     return {
       pots,
-      months: projection.months.map((m) => ({
-        month: m.month,
-        incomeCents: m.incomeCents,
-        byPot: m.byPot,
-      })),
+      months: projection.months.map(budgetMonthOf),
     }
   })
 }

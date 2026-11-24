@@ -1,9 +1,9 @@
 import { INITIAL_FORM_STATE, type FormState } from '@/features/ledger/core/action-result'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AccountsView, type AccountsViewProps } from './accounts-view'
-import { IDS, sampleData } from './test-fixtures'
+import { IDS, sampleData, sampleDataWithBenefit } from './test-fixtures'
 
 const saveBankAction = vi.fn<(prev: FormState, data: FormData) => Promise<FormState>>()
 const saveAccountAction = vi.fn<(prev: FormState, data: FormData) => Promise<FormState>>()
@@ -52,6 +52,31 @@ describe('AccountsView', () => {
     expect(screen.getByText('-R$ 10')).toBeInTheDocument()
     expect(screen.getAllByText('Fim de dez/27').length).toBeGreaterThan(0)
     expect(screen.getByText(/no dia 1º de dez\/26/)).toBeInTheDocument()
+  })
+
+  it('totals available money apart from the total with benefits', () => {
+    const data = sampleDataWithBenefit()
+    render(
+      <AccountsView
+        {...props({
+          banks: data.banks,
+          accounts: data.accounts,
+          firstClosing: {
+            [IDS.cc]: 50000,
+            [IDS.card]: -1000,
+            [IDS.nucc]: 20000,
+            [IDS.old]: 99999,
+            [IDS.va]: 30000,
+          },
+        })}
+      />,
+    )
+    const cells = (label: string) =>
+      within(screen.getByRole('row', { name: new RegExp(`^${label}`) })).getAllByRole('cell')
+    // Archived accounts stay out; the benefit only enters the second total.
+    expect(cells('Total disponível')[0]).toHaveTextContent('R$ 690')
+    expect(cells('Total com benefícios')[0]).toHaveTextContent('R$ 990')
+    expect(cells('Total com benefícios')[1]).toHaveTextContent('–')
   })
 
   it('saves a renamed bank on blur', async () => {

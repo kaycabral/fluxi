@@ -1,6 +1,6 @@
 'use client'
 
-import { accountIdsOf } from '@/features/ledger/core/account-filter'
+import { decisionAccountIds } from '@/features/ledger/core/account-filter'
 import { calendarMonth } from '@/features/ledger/core/calendar'
 import { formatCompactMoney, formatMoney, monthLabel } from '@/features/ledger/core/format'
 import { POT_COLORS } from '@/features/ledger/core/labels'
@@ -82,7 +82,9 @@ export function CalendarView({
   const { openEdit, refs } = useLedgerUi()
   const grid = useMemo(() => {
     const [result] = projectWindow(data, month, month)
-    return result === undefined ? null : calendarMonth(result, accountIdsOf(account, data.accounts))
+    return result === undefined
+      ? null
+      : calendarMonth(result, decisionAccountIds(account, data.accounts))
   }, [data, month, account])
 
   return (
@@ -98,7 +100,7 @@ export function CalendarView({
             banks={data.banks}
             accounts={data.accounts}
             withBanks
-            allLabel="Todas as contas"
+            allLabel="Todo o disponível"
             value={account}
             onValueChange={(next) => router.replace(calendarHref(month, next), { scroll: false })}
           />
@@ -161,8 +163,9 @@ export function CalendarView({
           })}
         </div>
         <p className="text-muted-foreground text-xs">
-          O número no canto de cada dia é o saldo ao fim daquele dia na conta escolhida. ✓ marca o
-          que já foi pago ou recebido; contorno vermelho, o que está atrasado.
+          O número no canto de cada dia é o saldo ao fim daquele dia na conta escolhida (por padrão,
+          todo o dinheiro disponível, sem benefícios). ✓ marca o que já foi pago ou recebido;
+          contorno vermelho, o que está atrasado.
         </p>
       </CardContent>
     </Card>

@@ -1,7 +1,7 @@
 'use client'
 
 import { changeDayAction } from '@/features/ledger/adapters/actions/entries'
-import { accountIdsOf, accountLabel } from '@/features/ledger/core/account-filter'
+import { accountLabel, decisionAccountIds } from '@/features/ledger/core/account-filter'
 import { describeOccurrenceChange } from '@/features/ledger/core/entry-form'
 import { formatMoney, monthLabel } from '@/features/ledger/core/format'
 import { paymentStatus } from '@/features/ledger/core/payments'
@@ -115,7 +115,7 @@ export function MonthDetail({ result, data }: { result: MonthResult; data: Ledge
     )
   }
 
-  const daily = dailyBalance(result, accountIdsOf(filter, data.accounts))
+  const daily = dailyBalance(result, decisionAccountIds(filter, data.accounts))
   if (daily === null) return null
   const firstNegative = daily.rows.find((r) => r.balanceAfterCents < 0)
   const label = (id: string | null) => accountLabel(id, data.accounts, data.banks)
@@ -133,7 +133,7 @@ export function MonthDetail({ result, data }: { result: MonthResult; data: Ledge
             banks={data.banks}
             accounts={data.accounts}
             withBanks
-            allLabel="Todas as contas"
+            allLabel="Todo o disponível"
             value={filter}
             onValueChange={setFilter}
           />
@@ -252,8 +252,9 @@ export function MonthDetail({ result, data }: { result: MonthResult; data: Ledge
           </TableBody>
         </Table>
         <p className="text-muted-foreground text-xs">
-          Escolha uma conta para ver se ela aguenta o mês sozinha. Mude o dia direto na coluna
-          &quot;Dia&quot;.
+          &quot;Todo o disponível&quot; soma as contas de dinheiro livre; benefícios só aparecem
+          escolhendo a conta deles. Escolha uma conta para ver se ela aguenta o mês sozinha. Mude o
+          dia direto na coluna &quot;Dia&quot;.
         </p>
       </CardContent>
     </Card>

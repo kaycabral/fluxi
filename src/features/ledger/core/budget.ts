@@ -1,3 +1,5 @@
+import type { Month } from './month'
+import type { MonthResult } from './projection'
 import { POT_KEYS, type BudgetPot, type PotKey } from './types'
 
 /** Pot targets (bps of income) and the monthly traffic light. 10000 bps = 100%. */
@@ -55,4 +57,16 @@ export function trafficLight(key: PotKey, actualRatio: number, targetRatio: numb
 /** Share of `incomeCents` (0 without income). */
 export function ratioOf(cents: number, incomeCents: number): number {
   return incomeCents > 0 ? cents / incomeCents : 0
+}
+
+export type BudgetMonth = { month: Month; incomeCents: number; byPot: Record<PotKey, number> }
+
+/**
+ * What the pots measure in a month: income into AVAILABLE accounts and the
+ * expenses paid from them. Benefit accounts neither raise the base income nor
+ * consume pots (their money can only go to what the benefit covers).
+ */
+export function budgetMonthOf(result: Pick<MonthResult, 'month' | 'byBucket'>): BudgetMonth {
+  const { incomeCents, byPot } = result.byBucket.available
+  return { month: result.month, incomeCents, byPot }
 }

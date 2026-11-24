@@ -15,8 +15,8 @@ function project(countFrom: string) {
     parts: [],
     overrides: [],
     accounts: [
-      { id: 'cc', openingBalanceCents: 30000 },
-      { id: 'nu', openingBalanceCents: 20000 },
+      { id: 'cc', type: 'checking', openingBalanceCents: 30000 },
+      { id: 'nu', type: 'checking', openingBalanceCents: 20000 },
     ],
     months: ['2026-11', '2026-12'],
     countFrom,
@@ -41,6 +41,35 @@ describe('calendarMonth', () => {
     const nubank = calendarMonth(dec, ['nu'])
     expect(nubank.days[2]?.landings).toHaveLength(1)
     expect(nubank.days[30]?.endBalanceCents).toBe(10000)
+  })
+
+  it('runs only the accounts it is given (benefits stay out of the available set)', () => {
+    const [dec] = projectMonths({
+      entries: [
+        ...entries,
+        makeEntry({
+          id: 'meal',
+          amountCents: 4000,
+          day: 3,
+          accountId: 'va',
+          startMonth: '2026-12',
+        }),
+      ],
+      parts: [],
+      overrides: [],
+      accounts: [
+        { id: 'cc', type: 'checking', openingBalanceCents: 30000 },
+        { id: 'nu', type: 'checking', openingBalanceCents: 20000 },
+        { id: 'va', type: 'benefit', openingBalanceCents: 9000 },
+      ],
+      months: ['2026-12'],
+      countFrom: null,
+    })
+    if (dec === undefined) throw new Error('no month')
+    const available = calendarMonth(dec, ['cc', 'nu'])
+    expect(available.days[2]?.landings.map((l) => l.entry.id)).toEqual(['rent', 'gym'])
+    expect(available.days[2]?.endBalanceCents).toBe(-10000)
+    expect(calendarMonth(dec, ['va']).days[2]?.endBalanceCents).toBe(5000)
   })
 
   it('has no balances before the count start', () => {

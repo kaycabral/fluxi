@@ -13,10 +13,44 @@ const LATER_MONTH = addMonths(THIS_MONTH, 2)
 // The timeline starts 3 months before the count start (= this month).
 const FIRST_COLUMN = addMonths(THIS_MONTH, -3)
 
+/** The compact cell of `month` in the timeline row whose first cell is `label`. */
+function timelineCell(page: Page, label: RegExp, month: string) {
+  const row = page.locator('tr', { has: page.locator('td:first-child', { hasText: label }) })
+  return row.locator('td').nth(1 + diffMonths(FIRST_COLUMN, month))
+}
+
 /** The compact "Saídas" cell of `month` in the timeline table. */
 function expensesCell(page: Page, month: string) {
   const row = page.locator('tr', { has: page.locator('td', { hasText: /^Saídas$/ }) })
   return row.locator('td').nth(1 + diffMonths(FIRST_COLUMN, month))
+}
+
+/** A benefit account (R$ 300 opening) at its own bank with a monthly R$ 800 credit. */
+async function seedBenefit(userId: string) {
+  const db = fluxiDb.db()
+  const [bank] = await db.insert(banks).values({ userId, name: 'Vale E2E' }).returning()
+  if (bank === undefined) throw new Error('bank not created')
+  const [benefit] = await db
+    .insert(accounts)
+    .values({
+      userId,
+      bankId: bank.id,
+      name: 'VA E2E',
+      type: 'benefit',
+      openingBalanceCents: 30000,
+    })
+    .returning()
+  if (benefit === undefined) throw new Error('account not created')
+  await db.insert(entries).values({
+    userId,
+    kind: 'income',
+    description: 'Crédito VA E2E',
+    amountCents: 80000,
+    accountId: benefit.id,
+    startMonth: monthToDate(THIS_MONTH),
+    day: 1,
+    recurrence: 'monthly',
+  })
 }
 
 test.describe('ledger critical flow', () => {
@@ -44,6 +78,27 @@ test.describe('ledger critical flow', () => {
       .update(userSettings)
       .set({ countFromMonth: monthToDate(THIS_MONTH) })
       .where(eq(userSettings.userId, user.id))
+  })
+
+  test('benefits stay out of the available balance and show in their own block', async ({
+    page,
+    user,
+  }) => {
+    await seedBenefit(user.id)
+
+    await page.goto('/painel')
+    await expect(page.getByRole('heading', { level: 1, name: 'Linha do tempo' })).toBeVisible()
+    // Saldo total and Entradas are the available money only (the checking account's R$ 5.000).
+    await expect(timelineCell(page, /^Saldo total$/, THIS_MONTH)).toHaveText('5,0k')
+    await expect(timelineCell(page, /^Entradas$/, THIS_MONTH)).toHaveText('0')
+    // R$ 300 + R$ 800 in the benefit block.
+    await expect(timelineCell(page, /^Benefícios/, THIS_MONTH)).toHaveText('1,1k')
+    await expect(timelineCell(page, /^Vale E2E · VA E2E$/, NEXT_MONTH)).toHaveText('1,9k')
+    await expect(page.getByRole('row', { name: /Crédito VA E2E/ })).toHaveCount(0)
+
+    await page.goto('/painel/contas')
+    await expect(page.getByRole('row', { name: /^Total disponível/ })).toContainText('R$ 5.000')
+    await expect(page.getByRole('row', { name: /^Total com benefícios/ })).toContainText('R$ 6.100')
   })
 
   test('create a monthly expense, then split it from next month on', async ({ page }) => {

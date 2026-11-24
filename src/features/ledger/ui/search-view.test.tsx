@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { LedgerShell } from './ledger-shell'
 import { SearchView } from './search-view'
-import { IDS, sampleData, sampleRefs } from './test-fixtures'
+import { IDS, sampleData, sampleDataWithBenefit, sampleRefs } from './test-fixtures'
 
 const replace = vi.fn<(href: string, options?: unknown) => void>()
 vi.mock('next/navigation', () => ({ useRouter: () => ({ replace, refresh: vi.fn() }) }))
@@ -19,10 +19,10 @@ const START = '2026-12'
 const MONTHS = ['2026-11', '2026-12', '2027-01', '2027-02']
 const base: SearchQuery = { ...defaultSearchQuery(START), to: '2027-01' }
 
-function renderSearch(query: Partial<SearchQuery> = {}) {
+function renderSearch(query: Partial<SearchQuery> = {}, data = sampleData()) {
   return render(
     <LedgerShell refs={sampleRefs()}>
-      <SearchView data={sampleData()} query={{ ...base, ...query }} start={START} months={MONTHS} />
+      <SearchView data={data} query={{ ...base, ...query }} start={START} months={MONTHS} />
     </LedgerShell>,
   )
 }
@@ -69,6 +69,21 @@ describe('SearchView', () => {
     expect(screen.getByText('1/12')).toBeInTheDocument()
     expect(screen.getAllByText('Adiantamento').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Essencial').length).toBeGreaterThan(0)
+  })
+
+  it('filters by money bucket through the URL', async () => {
+    renderSearch({ group: 'none' }, sampleDataWithBenefit())
+    expect(screen.getAllByText('Mercado VA').length).toBeGreaterThan(0)
+    await userEvent.click(screen.getByLabelText('Dinheiro'))
+    await userEvent.click(await screen.findByRole('option', { name: 'Disponível' }))
+    expect(lastHref()).toContain('dinheiro=available')
+  })
+
+  it('lists only benefit occurrences with Benefícios', () => {
+    renderSearch({ group: 'none', money: 'benefit' }, sampleDataWithBenefit())
+    expect(screen.getAllByText('Mercado VA').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Luz')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Remover filtro Benefícios' })).toBeInTheDocument()
   })
 
   it('updates the URL from the filters', async () => {

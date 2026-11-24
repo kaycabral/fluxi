@@ -320,7 +320,7 @@ describe('loading a window', () => {
       [ana.checkingId]: 1080000,
       [ana.savingsId]: 20000,
     })
-    expect(months[1]?.incomeCents).toBe(400000)
+    expect(months[1]?.byBucket.available.incomeCents).toBe(400000)
   })
 
   it('projects from the window start without count_from_month', async () => {

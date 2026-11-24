@@ -1,8 +1,25 @@
+import { bucketOfAccount, type MoneyBucket } from './bucket'
 import type { Month } from './month'
 import { landingsIn, type Landing } from './occurrence'
 import type { Account, Entry, EntryOverride, EntryPart, PotKey } from './types'
 
 export type Balances = Record<string, number>
+
+/** Month totals of one money bucket (see {@link MoneyBucket}). */
+export type BucketTotals = {
+  /** Income into the bucket plus transfers coming from the other bucket. */
+  incomeCents: number
+  /**
+   * Expenses paid from the bucket plus transfers going to the other bucket
+   * (a transfer within the bucket moves money between accounts, not out of it).
+   */
+  expenseCents: number
+  netCents: number
+  /** Expense entries only (transfers never consume a pot). */
+  byPot: Record<PotKey, number>
+  /** Expense entries without a pot. */
+  unallocatedCents: number
+}
 
 export type MonthResult = {
   month: Month
@@ -10,13 +27,11 @@ export type MonthResult = {
   counted: boolean
   /** Ordered by day, income first within a day, then input order. */
   landings: Landing[]
-  incomeCents: number
-  /** Expenses only (transfers move money between accounts, not out of it). */
-  expenseCents: number
-  netCents: number
-  byPot: Record<PotKey, number>
-  /** Expenses without a pot. */
-  unallocatedCents: number
+  /**
+   * Totals per bucket. Decision views read `available`; benefits are never
+   * mixed into it.
+   */
+  byBucket: Record<MoneyBucket, BucketTotals>
   openingBalances: Balances | null
   closingBalances: Balances | null
 }
@@ -25,7 +40,8 @@ export type ProjectionInput = {
   entries: readonly Entry[]
   parts: readonly EntryPart[]
   overrides: readonly EntryOverride[]
-  accounts: readonly Pick<Account, 'id' | 'openingBalanceCents'>[]
+  /** The type decides the bucket of each account. */
+  accounts: readonly Pick<Account, 'id' | 'openingBalanceCents' | 'type'>[]
   /**
    * Months to project. Balances accumulate from `countFrom` (or the first
    * month when null) in ascending order, so for correct balances the range
@@ -73,30 +89,34 @@ function emptyByPot(): Record<PotKey, number> {
   }
 }
 
-type Totals = Pick<
-  MonthResult,
-  'incomeCents' | 'expenseCents' | 'netCents' | 'byPot' | 'unallocatedCents'
->
+function emptyTotals(): BucketTotals {
+  return { incomeCents: 0, expenseCents: 0, netCents: 0, byPot: emptyByPot(), unallocatedCents: 0 }
+}
 
-function totalsOf(landings: readonly Landing[]): Totals {
-  const byPot = emptyByPot()
-  let incomeCents = 0
-  let expenseCents = 0
-  let unallocatedCents = 0
+function totalsOf(
+  landings: readonly Landing[],
+  accounts: ProjectionInput['accounts'],
+): Record<MoneyBucket, BucketTotals> {
+  const byBucket = { available: emptyTotals(), benefit: emptyTotals() }
   for (const { entry, amountCents } of landings) {
-    if (entry.kind === 'income') incomeCents += amountCents
-    if (entry.kind !== 'expense') continue
-    expenseCents += amountCents
-    if (entry.pot === null) unallocatedCents += amountCents
-    else byPot[entry.pot] += amountCents
+    const from = byBucket[bucketOfAccount(entry.accountId, accounts)]
+    if (entry.kind === 'income') from.incomeCents += amountCents
+    else if (entry.kind === 'expense') {
+      from.expenseCents += amountCents
+      if (entry.pot === null) from.unallocatedCents += amountCents
+      else from.byPot[entry.pot] += amountCents
+    } else if (entry.toAccountId !== null) {
+      const to = byBucket[bucketOfAccount(entry.toAccountId, accounts)]
+      if (to !== from) {
+        from.expenseCents += amountCents
+        to.incomeCents += amountCents
+      }
+    }
   }
-  return {
-    incomeCents,
-    expenseCents,
-    netCents: incomeCents - expenseCents,
-    byPot,
-    unallocatedCents,
+  for (const totals of Object.values(byBucket)) {
+    totals.netCents = totals.incomeCents - totals.expenseCents
   }
+  return byBucket
 }
 
 function applyToBalances(balances: Map<string, number>, landings: readonly Landing[]): void {
@@ -125,7 +145,7 @@ export function projectMonths(input: ProjectionInput): MonthResult[] {
       month,
       counted,
       landings,
-      ...totalsOf(landings),
+      byBucket: totalsOf(landings, input.accounts),
       openingBalances,
       closingBalances: counted ? snapshot() : null,
     }

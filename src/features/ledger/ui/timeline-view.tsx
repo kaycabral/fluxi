@@ -2,6 +2,7 @@
 
 import { setCountFromAction } from '@/features/ledger/adapters/actions/settings'
 import { INITIAL_FORM_STATE } from '@/features/ledger/core/action-result'
+import { bucketOfType } from '@/features/ledger/core/bucket'
 import { formatCompactMoney, monthLabel } from '@/features/ledger/core/format'
 import { ACCOUNT_TYPE_LABELS } from '@/features/ledger/core/labels'
 import { monthRange, type Month } from '@/features/ledger/core/month'
@@ -113,8 +114,13 @@ export function TimelineView({ data, window, today }: Props) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const selectedResult = months.find((m) => m.month === selected) ?? months[0]
 
-  const active = data.accounts.filter((a) => !a.archived)
+  const activeAccounts = data.accounts.filter((a) => !a.archived)
+  // Decision rows use available money only; benefits get their own block below.
+  const active = activeAccounts.filter((a) => bucketOfType(a.type) === 'available')
   const activeIds = active.map((a) => a.id)
+  const benefits = activeAccounts.filter((a) => bucketOfType(a.type) === 'benefit')
+  const benefitIds = benefits.map((a) => a.id)
+  const bankName = (bankId: string) => data.banks.find((b) => b.id === bankId)?.name
   const countFromLabel = monthLabel(data.countFrom ?? window.from)
 
   if (data.accounts.length === 0) {
@@ -177,7 +183,7 @@ export function TimelineView({ data, window, today }: Props) {
                     Entradas
                   </td>
                   {months.map((m) => (
-                    <ValueCell key={m.month} result={m} cents={m.incomeCents} />
+                    <ValueCell key={m.month} result={m} cents={m.byBucket.available.incomeCents} />
                   ))}
                 </tr>
                 <tr className="border-b">
@@ -189,13 +195,22 @@ export function TimelineView({ data, window, today }: Props) {
                     Saídas
                   </td>
                   {months.map((m) => (
-                    <ValueCell key={m.month} result={m} cents={-m.expenseCents} />
+                    <ValueCell
+                      key={m.month}
+                      result={m}
+                      cents={-m.byBucket.available.expenseCents}
+                    />
                   ))}
                 </tr>
                 <tr className="border-foreground/20 border-t border-b font-semibold">
                   <td className={firstColClass}>Resultado do mês</td>
                   {months.map((m) => (
-                    <ValueCell key={m.month} result={m} cents={m.netCents} tone />
+                    <ValueCell
+                      key={m.month}
+                      result={m}
+                      cents={m.byBucket.available.netCents}
+                      tone
+                    />
                   ))}
                 </tr>
                 <tr className="bg-primary/10 border-b font-semibold">
@@ -273,11 +288,45 @@ export function TimelineView({ data, window, today }: Props) {
                   ]
                 })}
               </tbody>
+              {benefits.length > 0 && (
+                <tbody className="text-muted-foreground" aria-label="Benefícios">
+                  <tr className="border-t-foreground/20 border-t border-b font-medium">
+                    <td className={firstColClass}>
+                      Benefícios <span className="text-xs font-normal">(fora do saldo total)</span>
+                    </td>
+                    {months.map((m) => (
+                      <ValueCell
+                        key={m.month}
+                        result={m}
+                        cents={sumBalances(m.closingBalances, benefitIds)}
+                      />
+                    ))}
+                  </tr>
+                  {benefits.map((account) => {
+                    const bank = bankName(account.bankId)
+                    return (
+                      <tr key={account.id} className="border-b">
+                        <td className={cn(firstColClass, 'pl-6')}>
+                          {bank === undefined ? account.name : `${bank} · ${account.name}`}
+                        </td>
+                        {months.map((m) => (
+                          <ValueCell
+                            key={m.month}
+                            result={m}
+                            cents={sumBalances(m.closingBalances, [account.id])}
+                          />
+                        ))}
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              )}
             </table>
           </div>
           <p className="text-muted-foreground text-xs">
             Meses antes de {countFromLabel} aparecem apagados e não entram no saldo. Cada conta
-            começa com o saldo inicial cadastrado em Bancos e contas.
+            começa com o saldo inicial cadastrado em Bancos e contas. Entradas, saídas e saldo total
+            contam só o dinheiro disponível; contas de benefício (VA, VR e afins) aparecem à parte.
           </p>
         </CardContent>
       </Card>

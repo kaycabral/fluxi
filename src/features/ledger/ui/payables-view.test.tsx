@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { LedgerShell } from './ledger-shell'
 import { PayablesView } from './payables-view'
-import { IDS, sampleData, sampleRefs } from './test-fixtures'
+import { IDS, sampleData, sampleDataWithBenefit, sampleRefs } from './test-fixtures'
 
 type Result = { ok: true } | { ok: false; error: string }
 const markPaidAction = vi.fn<(input: unknown) => Promise<Result>>()
@@ -118,6 +118,19 @@ describe('PayablesView', () => {
         partId: null,
       }),
     )
+  })
+
+  it('leaves benefit-account occurrences out unless asked', async () => {
+    renderPayables(sampleDataWithBenefit())
+    expect(screen.queryByText('Mercado VA')).not.toBeInTheDocument()
+    expect(screen.queryByText('Crédito VA')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByLabelText('Incluir contas de benefício'))
+    expect(screen.getAllByText('Mercado VA').length).toBeGreaterThan(0)
+  })
+
+  it('offers the benefit switch only when there is a benefit account', () => {
+    renderPayables()
+    expect(screen.queryByLabelText('Incluir contas de benefício')).not.toBeInTheDocument()
   })
 
   it('opens an occurrence in the sheet', async () => {

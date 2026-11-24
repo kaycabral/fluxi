@@ -8,11 +8,13 @@ import {
   drillDown,
   groupOccurrences,
   parseSearchQuery,
+  searchAccountIds,
   searchOccurrences,
   searchQueryToParams,
   searchTotals,
   type GroupKey,
   type SearchContext,
+  type SearchQuery,
 } from './search'
 
 const ctx: SearchContext = {
@@ -21,8 +23,8 @@ const ctx: SearchContext = {
     { id: 'nu', name: 'Nubank' },
   ],
   accounts: [
-    { id: 'cc', bankId: 'btg', name: 'Conta' },
-    { id: 'nucc', bankId: 'nu', name: 'Conta' },
+    { id: 'cc', bankId: 'btg', name: 'Conta', type: 'checking' },
+    { id: 'nucc', bankId: 'nu', name: 'Conta', type: 'checking' },
   ],
   categories: [
     { id: 'cat-salary', groupName: 'Renda', name: 'Salário' },
@@ -84,8 +86,8 @@ const months = projectMonths({
   parts: salarySplit('salary'),
   overrides: [],
   accounts: [
-    { id: 'cc', openingBalanceCents: 0 },
-    { id: 'nucc', openingBalanceCents: 0 },
+    { id: 'cc', type: 'checking', openingBalanceCents: 0 },
+    { id: 'nucc', type: 'checking', openingBalanceCents: 0 },
   ],
   months: monthRange('2026-12', '2027-02'),
   countFrom: '2026-12',
@@ -105,6 +107,7 @@ describe('search query in the URL', () => {
         agrupar: ['category'],
         tag: 'x',
         status: 'unpaid',
+        dinheiro: 'benefit',
       },
       '2026-12',
     )
@@ -117,7 +120,9 @@ describe('search query in the URL', () => {
       group: 'category',
       tag: 'x',
       status: 'unpaid',
+      money: 'benefit',
     })
+    expect(parseSearchQuery({ dinheiro: 'livre' }, '2026-12').money).toBe('')
     expect(parseSearchQuery({ status: 'pago' }, '2026-12').status).toBe('')
     expect(parseSearchQuery({ de: '2027-05', ate: '2027-01' }, '2026-12').to).toBe('2027-05')
     expect(parseSearchQuery({ de: 'bad' }, '2026-12').from).toBe('2026-12')
@@ -127,7 +132,13 @@ describe('search query in the URL', () => {
     expect(searchQueryToParams(defaultSearchQuery('2026-12'), '2026-12')).toBe('')
     const params = new URLSearchParams(
       searchQueryToParams(
-        { ...defaultSearchQuery('2026-12'), text: 'luz', to: '2027-03', status: 'paid' },
+        {
+          ...defaultSearchQuery('2026-12'),
+          text: 'luz',
+          to: '2027-03',
+          status: 'paid',
+          money: 'available',
+        },
         '2026-12',
       ),
     )
@@ -135,6 +146,7 @@ describe('search query in the URL', () => {
     expect(params.get('de')).toBe('2026-12')
     expect(params.get('ate')).toBe('2027-03')
     expect(params.get('status')).toBe('paid')
+    expect(params.get('dinheiro')).toBe('available')
     expect(parseSearchQuery(Object.fromEntries(params), '2026-12')).toMatchObject({
       text: 'luz',
       to: '2027-03',
@@ -191,6 +203,80 @@ describe('searchOccurrences', () => {
     expect(toNubank.every((o) => o.valueCents === 40000)).toBe(true)
     const unfiltered = searchOccurrences(months, { ...base, kind: 'transfer' }, ctx)
     expect(unfiltered.every((o) => o.valueCents === 0)).toBe(true)
+  })
+})
+
+describe('searchOccurrences by money bucket', () => {
+  const bucketCtx: SearchContext = {
+    ...ctx,
+    accounts: [
+      { id: 'cc', bankId: 'btg', name: 'Conta', type: 'checking' },
+      { id: 'va', bankId: 'btg', name: 'VA', type: 'benefit' },
+    ],
+  }
+  const bucketMonths = projectMonths({
+    entries: [
+      makeEntry({ id: 'rent', description: 'Aluguel', amountCents: 200000, accountId: 'cc' }),
+      makeEntry({ id: 'voucher', kind: 'income', pot: null, accountId: 'va', amountCents: 90000 }),
+      makeEntry({ id: 'market', description: 'Mercado', accountId: 'va', amountCents: 30000 }),
+      makeEntry({
+        id: 'top-up',
+        kind: 'transfer',
+        pot: null,
+        accountId: 'cc',
+        toAccountId: 'va',
+        amountCents: 10000,
+      }),
+    ],
+    parts: [],
+    overrides: [],
+    accounts: [
+      { id: 'cc', type: 'checking', openingBalanceCents: 0 },
+      { id: 'va', type: 'benefit', openingBalanceCents: 0 },
+    ],
+    months: ['2026-12'],
+    countFrom: '2026-12',
+  })
+  const query = { ...defaultSearchQuery('2026-12'), to: '2026-12', group: 'none' as const }
+  const run = (money: SearchQuery['money'], account = '') =>
+    searchOccurrences(bucketMonths, { ...query, money, account }, bucketCtx).map((o) => [
+      o.landing.entry.id,
+      o.valueCents,
+    ])
+
+  it('lists everything with Tudo, benefit spending included in category totals', () => {
+    expect(run('')).toEqual([
+      ['voucher', 90000],
+      ['rent', -200000],
+      ['market', -30000],
+      ['top-up', 0],
+    ])
+  })
+
+  it('narrows to a bucket and values cross-bucket transfers inside it', () => {
+    expect(run('available')).toEqual([
+      ['rent', -200000],
+      ['top-up', -10000],
+    ])
+    expect(run('benefit')).toEqual([
+      ['voucher', 90000],
+      ['market', -30000],
+      ['top-up', 10000],
+    ])
+  })
+
+  it('intersects the bucket with the account filter', () => {
+    expect(searchAccountIds({ account: 'b:btg', money: 'benefit' }, bucketCtx.accounts)).toEqual([
+      'va',
+    ])
+    expect(searchAccountIds({ account: '', money: '' }, bucketCtx.accounts)).toBeNull()
+    expect(run('available', 'va')).toEqual([])
+  })
+
+  it('shows the bucket as a filter chip', () => {
+    expect(activeFilters({ ...query, money: 'benefit' }, bucketCtx)).toEqual([
+      { key: 'money', label: 'Benefícios' },
+    ])
   })
 })
 

@@ -85,7 +85,7 @@ async function overrideRows(entryId: string) {
 
 async function expenseByMonth(userId: string): Promise<Record<string, number>> {
   const { months } = await projectLedger(userId, { from: '2026-12', to: '2027-04' })
-  return Object.fromEntries(months.map((m) => [m.month, m.expenseCents]))
+  return Object.fromEntries(months.map((m) => [m.month, m.byBucket.available.expenseCents]))
 }
 
 let ana: Setup

@@ -4,6 +4,7 @@ import {
   accountLabel,
   bankFilter,
   bankIdOf,
+  decisionAccountIds,
   entryMatchesAccounts,
   filterLabel,
 } from './account-filter'
@@ -25,6 +26,19 @@ describe('account filter', () => {
     expect(accountIdsOf(bankFilter('btg'), accounts)).toEqual(['cc', 'card'])
     expect(accountIdsOf('nucc', accounts)).toEqual(['nucc'])
     expect(bankIdOf('nucc')).toBeNull()
+  })
+
+  it('covers available money only in decision views, unless a benefit is picked', () => {
+    const typed = [
+      { id: 'cc', bankId: 'btg', type: 'checking' },
+      { id: 'va', bankId: 'btg', type: 'benefit' },
+      { id: 'card', bankId: 'nu', type: 'credit' },
+      { id: 'vr', bankId: 'flash', type: 'benefit' },
+    ] as const
+    expect(decisionAccountIds('', typed)).toEqual(['cc', 'card'])
+    expect(decisionAccountIds(bankFilter('btg'), typed)).toEqual(['cc'])
+    expect(decisionAccountIds(bankFilter('flash'), typed)).toEqual(['vr'])
+    expect(decisionAccountIds('va', typed)).toEqual(['va'])
   })
 
   it('matches entries on either side of a transfer', () => {

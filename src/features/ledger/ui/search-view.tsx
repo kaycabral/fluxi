@@ -10,12 +10,14 @@ import {
   GROUP_KEYS,
   GROUP_LABELS,
   groupOccurrences,
+  searchAccountIds,
   searchOccurrences,
   searchQueryToParams,
   searchTotals,
   type ActiveFilter,
   type GroupKey,
   type KindFilter,
+  type MoneyFilter,
   type SearchQuery,
   type StatusFilter,
 } from '@/features/ledger/core/search'
@@ -65,6 +67,16 @@ const STATUS_OPTIONS = [
 
 function isStatus(value: string): value is StatusFilter {
   return STATUS_OPTIONS.some(([k]) => k === value)
+}
+
+const MONEY_OPTIONS = [
+  ['', 'Tudo'],
+  ['available', 'Disponível'],
+  ['benefit', 'Benefícios'],
+] as const
+
+function isMoney(value: string): value is MoneyFilter {
+  return MONEY_OPTIONS.some(([k]) => k === value)
 }
 
 const GROUP_OPTIONS = [
@@ -129,7 +141,7 @@ export function SearchView({ data, query, start, months }: Props) {
   const totals = searchTotals(occurrences, query)
   const chips = activeFilters(query, ctx)
   const tags = distinctTags(data.entries)
-  const filtered = query.account !== ''
+  const filtered = searchAccountIds(query, data.accounts) !== null
 
   const clearFilter = (key: ActiveFilter['key']) => {
     if (key === 'text') setText('')
@@ -197,6 +209,17 @@ export function SearchView({ data, query, start, months }: Props) {
                 allLabel="Todas as contas"
                 value={query.account}
                 onValueChange={(account) => update({ account })}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="q-money">Dinheiro</Label>
+              <OptionSelect
+                id="q-money"
+                options={MONEY_OPTIONS}
+                value={query.money}
+                onValueChange={(money) => {
+                  if (isMoney(money)) update({ money })
+                }}
               />
             </div>
             <div className="grid gap-1.5">
@@ -281,6 +304,7 @@ export function SearchView({ data, query, start, months }: Props) {
                     pot: '',
                     tag: '',
                     status: '',
+                    money: '',
                   })
                 }}
               >

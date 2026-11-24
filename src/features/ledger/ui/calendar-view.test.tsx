@@ -47,7 +47,7 @@ describe('CalendarView', () => {
       `/painel/calendario?mes=2026-11&conta=${IDS.nucc}`,
     )
     await userEvent.click(screen.getByLabelText('Conta'))
-    await userEvent.click(await screen.findByRole('option', { name: 'Todas as contas' }))
+    await userEvent.click(await screen.findByRole('option', { name: 'Todo o disponível' }))
     expect(replace).toHaveBeenCalledWith('/painel/calendario?mes=2026-12', { scroll: false })
   })
 

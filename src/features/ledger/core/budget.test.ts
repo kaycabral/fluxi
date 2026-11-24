@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  budgetMonthOf,
   clampTarget,
   freeBps,
   maxBpsFor,
@@ -9,6 +10,8 @@ import {
   trafficLight,
 } from './budget'
 import { DEFAULT_POTS } from './defaults'
+import { makeEntry } from './fixtures'
+import { projectMonths } from './projection'
 
 describe('budget', () => {
   const targets = targetsOf(DEFAULT_POTS)
@@ -41,5 +44,37 @@ describe('budget', () => {
   it('computes ratios safely', () => {
     expect(ratioOf(50, 200)).toBe(0.25)
     expect(ratioOf(50, 0)).toBe(0)
+  })
+})
+
+describe('budgetMonthOf', () => {
+  it('measures pots against available income, ignoring benefit income and spending', () => {
+    const [december] = projectMonths({
+      entries: [
+        makeEntry({ id: 'salary', kind: 'income', pot: null, amountCents: 1000000 }),
+        makeEntry({ id: 'rent', pot: 'essential', amountCents: 300000 }),
+        makeEntry({
+          id: 'voucher',
+          kind: 'income',
+          pot: null,
+          accountId: 'va',
+          amountCents: 90000,
+        }),
+        makeEntry({ id: 'groceries', pot: 'essential', accountId: 'va', amountCents: 80000 }),
+      ],
+      parts: [],
+      overrides: [],
+      accounts: [
+        { id: 'checking', type: 'checking', openingBalanceCents: 0 },
+        { id: 'va', type: 'benefit', openingBalanceCents: 0 },
+      ],
+      months: ['2026-12'],
+      countFrom: null,
+    })
+    if (december === undefined) throw new Error('no month')
+    const month = budgetMonthOf(december)
+    expect(month).toMatchObject({ month: '2026-12', incomeCents: 1000000 })
+    expect(month.byPot.essential).toBe(300000)
+    expect(ratioOf(month.byPot.essential, month.incomeCents)).toBe(0.3)
   })
 })

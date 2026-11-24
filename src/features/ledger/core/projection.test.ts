@@ -4,9 +4,9 @@ import { monthRange } from './month'
 import { dailyBalance, effectOn, projectMonths, type MonthResult } from './projection'
 
 const accounts = [
-  { id: 'checking', openingBalanceCents: 100000 },
-  { id: 'nubank', openingBalanceCents: 20000 },
-]
+  { id: 'checking', type: 'checking', openingBalanceCents: 100000 },
+  { id: 'nubank', type: 'credit', openingBalanceCents: 20000 },
+] as const
 
 const salary = makeEntry({
   id: 'salary',
@@ -56,10 +56,10 @@ function monthOf(results: MonthResult[], month: string): MonthResult {
 describe('projectMonths', () => {
   it('totals income, expenses (without transfers), net and pots', () => {
     const december = monthOf(project(), '2026-12')
-    expect(december.incomeCents).toBe(500000)
-    expect(december.expenseCents).toBe(223000)
-    expect(december.netCents).toBe(277000)
-    expect(december.byPot).toEqual({
+    expect(december.byBucket.available.incomeCents).toBe(500000)
+    expect(december.byBucket.available.expenseCents).toBe(223000)
+    expect(december.byBucket.available.netCents).toBe(277000)
+    expect(december.byBucket.available.byPot).toEqual({
       essential: 200000,
       comfort: 13000,
       guilt_free: 0,
@@ -67,7 +67,7 @@ describe('projectMonths', () => {
       variable: 0,
       investment: 0,
     })
-    expect(december.unallocatedCents).toBe(10000)
+    expect(december.byBucket.available.unallocatedCents).toBe(10000)
   })
 
   it('orders landings by day, income first within a day, then input order', () => {
@@ -87,8 +87,8 @@ describe('projectMonths', () => {
       counted: false,
       openingBalances: null,
       closingBalances: null,
-      incomeCents: 500000,
     })
+    expect(november?.byBucket.available.incomeCents).toBe(500000)
     expect(december?.counted).toBe(true)
     expect(december?.openingBalances).toEqual({ checking: 100000, nubank: 20000 })
     expect(december?.closingBalances).toEqual({
@@ -114,7 +114,11 @@ describe('projectMonths', () => {
       months: ['2026-12'],
       countFrom: null,
     })
-    expect(result).toMatchObject({ incomeCents: 0, expenseCents: 0, netCents: 0 })
+    expect(result?.byBucket.available).toMatchObject({
+      incomeCents: 0,
+      expenseCents: 0,
+      netCents: 0,
+    })
     expect(result?.closingBalances).toEqual({ checking: 60000, nubank: 60000 })
   })
 
@@ -148,11 +152,86 @@ describe('projectMonths', () => {
       months: monthRange('2026-12', '2027-01'),
       countFrom: '2026-12',
     })
-    expect(results.map((r) => [r.incomeCents, r.expenseCents])).toEqual([
+    expect(
+      results.map((r) => [r.byBucket.available.incomeCents, r.byBucket.available.expenseCents]),
+    ).toEqual([
       [400000, 200000],
       [600000, 0],
     ])
     expect(results[1]?.closingBalances?.checking).toBe(100000 + 1000000 - 200000)
+  })
+})
+
+describe('projectMonths buckets', () => {
+  const benefitAccounts = [
+    { id: 'checking', type: 'checking', openingBalanceCents: 100000 },
+    { id: 'va', type: 'benefit', openingBalanceCents: 5000 },
+  ] as const
+  const voucher = makeEntry({
+    id: 'voucher',
+    kind: 'income',
+    pot: null,
+    amountCents: 80000,
+    day: 1,
+    accountId: 'va',
+  })
+  const groceries = makeEntry({
+    id: 'groceries',
+    amountCents: 30000,
+    day: 8,
+    pot: 'essential',
+    accountId: 'va',
+  })
+  const topUp = makeEntry({
+    id: 'top-up',
+    kind: 'transfer',
+    amountCents: 10000,
+    day: 9,
+    pot: null,
+    accountId: 'checking',
+    toAccountId: 'va',
+  })
+
+  function projectBuckets(entries = [salary, rent, voucher, groceries]) {
+    const [result] = projectMonths({
+      entries,
+      parts: [],
+      overrides: [],
+      accounts: benefitAccounts,
+      months: ['2026-12'],
+      countFrom: null,
+    })
+    if (result === undefined) throw new Error('no month')
+    return result
+  }
+
+  it('keeps benefit income and expenses out of the available totals and pots', () => {
+    const { byBucket, closingBalances } = projectBuckets()
+    expect(byBucket.available).toMatchObject({
+      incomeCents: 500000,
+      expenseCents: 200000,
+      netCents: 300000,
+    })
+    expect(byBucket.available.byPot.essential).toBe(200000)
+    expect(byBucket.benefit).toMatchObject({
+      incomeCents: 80000,
+      expenseCents: 30000,
+      netCents: 50000,
+    })
+    expect(byBucket.benefit.byPot.essential).toBe(30000)
+    expect(closingBalances).toEqual({ checking: 400000, va: 55000 })
+  })
+
+  it('counts a transfer between the buckets as out of one and into the other', () => {
+    const { byBucket } = projectBuckets([topUp])
+    expect(byBucket.available).toMatchObject({ incomeCents: 0, expenseCents: 10000 })
+    expect(byBucket.benefit).toMatchObject({ incomeCents: 10000, expenseCents: 0 })
+    expect(byBucket.available.unallocatedCents).toBe(0)
+  })
+
+  it('treats accounts it does not know as available', () => {
+    const { byBucket } = projectBuckets([makeEntry({ accountId: 'ghost', amountCents: 700 })])
+    expect(byBucket.available.expenseCents).toBe(700)
   })
 })
 

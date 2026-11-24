@@ -64,10 +64,24 @@ const SPLIT: EntryFields['parts'] = [
 ]
 
 async function paymentRows() {
+  // Deterministic order: payments of one occurrence can share month and paidOn
+  // (one per part), so ties fall back to the part's position, then the entry.
   const rows = await db()
-    .select()
+    .select({
+      userId: occurrencePayments.userId,
+      entryId: occurrencePayments.entryId,
+      month: occurrencePayments.month,
+      partId: occurrencePayments.partId,
+      paidOn: occurrencePayments.paidOn,
+    })
     .from(occurrencePayments)
-    .orderBy(asc(occurrencePayments.month), asc(occurrencePayments.paidOn))
+    .leftJoin(entryParts, eq(entryParts.id, occurrencePayments.partId))
+    .orderBy(
+      asc(occurrencePayments.month),
+      asc(occurrencePayments.paidOn),
+      sql`${entryParts.sort} asc nulls first`,
+      asc(occurrencePayments.entryId),
+    )
   return rows.map((r) => ({
     userId: r.userId,
     entryId: r.entryId,

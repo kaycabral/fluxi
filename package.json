@@ -27,6 +27,7 @@
     "db:env": "tsx scripts/local-env.ts",
     "db:seed": "tsx scripts/seed.ts",
     "import:notion": "tsx scripts/import-notion.ts",
+    "pluggy:sync": "tsx scripts/pluggy-sync.ts",
     "prepare": "node .husky/install.mjs"
   },
   "engines": {

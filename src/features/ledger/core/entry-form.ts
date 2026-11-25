@@ -2,7 +2,7 @@ import { centsToInput, formatMoney, isoDate, monthLabel, parseMoneyInput } from 
 import type { Month } from './month'
 import { amountFor, dayFor, installmentShares, sortParts } from './occurrence'
 import { entryFieldsSchema, firstIssue, type EntryFields } from './schemas'
-import type { OccurrencePatch } from './scoped-edit'
+import { sameSplit, type OccurrencePatch } from './scoped-edit'
 import type {
   Entry,
   EntryKind,
@@ -202,7 +202,7 @@ export function valuesToFields(values: EntryFormValues): FieldsResult {
 }
 
 /**
- * Amount/day change on the edited occurrence (empty when neither changed).
+ * Amount/day/split change on the edited occurrence (empty when none changed).
  * The day only counts for entries without parts (parts carry their own days).
  */
 export function occurrencePatchOf(target: EditTarget, fields: EntryFields): OccurrencePatch {
@@ -217,11 +217,15 @@ export function occurrencePatchOf(target: EditTarget, fields: EntryFields): Occu
   ) {
     patch.day = fields.day
   }
+  const own = target.parts.filter((p) => p.entryId === target.entry.id)
+  if (!sameSplit(fields.parts, own)) {
+    patch.parts = fields.parts.map((p, sort) => ({ id: '', entryId: target.entry.id, sort, ...p }))
+  }
   return patch
 }
 
 export function isEmptyPatch(patch: OccurrencePatch): boolean {
-  return patch.amountCents === undefined && patch.day === undefined
+  return patch.amountCents === undefined && patch.day === undefined && patch.parts === undefined
 }
 
 /** Normalize a typed tag (`#Viagem 2027 ` → `viagem-2027`); empty when nothing is left. */
@@ -290,6 +294,13 @@ export function describeOccurrenceChange(
   }
   if (patch.day !== undefined)
     changes.push(`dia ${dayFor(target.entry, target.overrides, month)} → ${patch.day}`)
+  if (patch.parts !== undefined) {
+    changes.push(
+      patch.parts.length === 0
+        ? 'sem divisão'
+        : `divisão ${patch.parts.map((p) => `${String(p.bps / 100).replace('.', ',')}% dia ${p.day}`).join(' + ')}`,
+    )
+  }
   return `${target.entry.description} em ${monthLabel(month)}: ${changes.join(', ')}`
 }
 

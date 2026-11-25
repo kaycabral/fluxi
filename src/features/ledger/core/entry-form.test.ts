@@ -5,6 +5,7 @@ import {
   amountLabel,
   DEFAULT_PARTS,
   deleteMonthOf,
+  describeOccurrenceChange,
   editEntryValues,
   installmentsHint,
   isEmptyPatch,
@@ -206,6 +207,36 @@ describe('editing', () => {
     if (!changed.ok) throw new Error(changed.error)
     expect(occurrencePatchOf(target, changed.fields)).toEqual({ amountCents: 35000, day: 20 })
     expect(occurrencePatchOf({ ...target, month: null }, changed.fields)).toEqual({})
+  })
+
+  it('detects a new split of the occurrence and describes it', () => {
+    const split = valuesToFields(
+      values({
+        amount: '300',
+        date: '2026-12-15',
+        split: true,
+        parts: [
+          { label: 'Adiantamento', percent: '40', day: '15', nextMonth: false },
+          { label: 'Saldo', percent: '60', day: '30', nextMonth: false },
+        ],
+      }),
+    )
+    if (!split.ok) throw new Error(split.error)
+    const patch = occurrencePatchOf(target, split.fields)
+    expect(isEmptyPatch(patch)).toBe(false)
+    expect(patch.parts?.map((p) => [p.label, p.bps, p.day])).toEqual([
+      ['Adiantamento', 4000, 15],
+      ['Saldo', 6000, 30],
+    ])
+    expect(describeOccurrenceChange(target, '2026-12', patch)).toBe(
+      'Luz em dez/26: divisão 40% dia 15 + 60% dia 30',
+    )
+    const unsplit = { ...target, parts: salarySplit(target.entry.id) }
+    const whole = valuesToFields(values({ amount: '300', date: '2026-12-15' }))
+    if (!whole.ok) throw new Error(whole.error)
+    expect(
+      describeOccurrenceChange(unsplit, '2026-12', occurrencePatchOf(unsplit, whole.fields)),
+    ).toBe('Luz em dez/26: sem divisão')
   })
 })
 

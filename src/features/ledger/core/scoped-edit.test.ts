@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { makeEntry, makeOverride, salarySplit } from './fixtures'
 import { landingsIn } from './occurrence'
-import { applyScopedEdit, endSeriesBefore, shiftStart, type SeriesState } from './scoped-edit'
+import {
+  applyScopedEdit,
+  endSeriesBefore,
+  sameSplit,
+  shiftStart,
+  type SeriesState,
+} from './scoped-edit'
 
 function ids() {
   let n = 0
@@ -211,5 +217,91 @@ describe('applyScopedEdit: guards', () => {
         ids(),
       ),
     ).toThrow('no occurrence')
+  })
+})
+
+describe('applyScopedEdit: new split', () => {
+  const salary = makeEntry({
+    kind: 'income',
+    pot: null,
+    amountCents: 1000,
+    day: 30,
+    startMonth: '2026-01',
+  })
+  const split = salarySplit('e1').map((p) => ({ ...p, nextMonth: false }))
+
+  it('splits only from the edited month on with `future` (earlier months stay whole)', () => {
+    const result = applyScopedEdit(
+      { entry: salary, parts: [], overrides: [] },
+      { month: '2026-12', patch: { amountCents: 2000, parts: split }, scope: 'future' },
+      ids(),
+    )
+    const [before, after] = result.entries
+    if (before === undefined || after === undefined) throw new Error('expected a split')
+    expect([before.endMonth, after.startMonth, after.amountCents, after.day]).toEqual([
+      '2026-11',
+      '2026-12',
+      2000,
+      20,
+    ])
+    expect(result.parts.map((p) => [p.entryId, p.label, p.bps])).toEqual([
+      ['new-1', 'Adiantamento', 4000],
+      ['new-1', 'Saldo', 6000],
+    ])
+    const landings = (month: string) =>
+      result.entries.flatMap((e) =>
+        landingsIn(e, result.parts, result.overrides, month).map((l) => [l.day, l.amountCents]),
+      )
+    expect(landings('2026-11')).toEqual([[30, 1000]])
+    expect(landings('2026-12')).toEqual([
+      [20, 800],
+      [5, 1200],
+    ])
+  })
+
+  it('keeps the old split on the old series when `future` changes it', () => {
+    const result = applyScopedEdit(
+      { entry: salary, parts: salarySplit('e1'), overrides: [] },
+      { month: '2026-06', patch: { parts: [] }, scope: 'future' },
+      ids(),
+    )
+    expect(result.parts.map((p) => p.entryId)).toEqual(['e1', 'e1'])
+  })
+
+  it('replaces the split of the whole series with `all`', () => {
+    const result = applyScopedEdit(
+      { entry: salary, parts: [], overrides: [] },
+      { month: '2026-06', patch: { parts: split }, scope: 'all' },
+      ids(),
+    )
+    expect(result.entries.map((e) => [e.id, e.day])).toEqual([['e1', 20]])
+    expect(result.parts.map((p) => [p.id, p.entryId])).toEqual([
+      ['e1-a', 'e1'],
+      ['e1-b', 'e1'],
+    ])
+  })
+
+  it('compares a drafted split with the entry parts, in order', () => {
+    const current = salarySplit('e1')
+    const drafted = current.map(({ label, bps, day, nextMonth }) => ({
+      label,
+      bps,
+      day,
+      nextMonth,
+    }))
+    expect(sameSplit(drafted, [...current].reverse())).toBe(true)
+    expect(sameSplit([...drafted].reverse(), current)).toBe(false)
+    expect(sameSplit(drafted.slice(1), current)).toBe(false)
+    expect(sameSplit([], [])).toBe(true)
+  })
+
+  it('refuses a new split on one occurrence', () => {
+    expect(() =>
+      applyScopedEdit(
+        { entry: salary, parts: [], overrides: [] },
+        { month: '2026-06', patch: { parts: split }, scope: 'one' },
+        ids(),
+      ),
+    ).toThrow(RangeError)
   })
 })

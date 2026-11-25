@@ -18,24 +18,18 @@ describe('PainelNav', () => {
       'aria-current',
       'page',
     )
-    expect(screen.getByRole('link', { name: 'Calendário' })).not.toHaveAttribute('aria-current')
     expect(screen.getAllByRole('link').map((l) => l.textContent)).toEqual([
       'Linha do tempo',
       'A pagar',
-      'Lançamentos',
       'Bancos e contas',
       'Orçamento',
-      'Calendário',
     ])
   })
 
   it('marks nested sections', () => {
-    pathname = '/painel/lancamentos'
+    pathname = '/painel/a-pagar'
     render(<PainelNav />)
-    expect(screen.getByRole('link', { name: 'Lançamentos' })).toHaveAttribute(
-      'aria-current',
-      'page',
-    )
+    expect(screen.getByRole('link', { name: 'A pagar' })).toHaveAttribute('aria-current', 'page')
     expect(screen.getByRole('link', { name: 'Linha do tempo' })).not.toHaveAttribute('aria-current')
   })
 })

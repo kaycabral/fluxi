@@ -1,11 +1,11 @@
 import { sampleData, sampleRefs } from '@/features/ledger/ui/test-fixtures'
 import { render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import SearchPage from './(app)/lancamentos/page'
 import AppLayout from './(app)/layout'
 import CalendarPage from './(app)/page'
 import PayablesPage from './(legacy)/a-pagar/page'
 import AccountsPage from './(legacy)/contas/page'
-import SearchPage from './(legacy)/lancamentos/page'
 import LegacyLayout from './(legacy)/layout'
 import TimelinePage from './(legacy)/linha-do-tempo/page'
 import BudgetPage from './(legacy)/orcamento/page'
@@ -45,12 +45,19 @@ vi.mock('next/navigation', () => ({
   usePathname: () => '/painel',
 }))
 let prefsCookie: string | undefined
+let searchCookie: string | undefined
 vi.mock('next/headers', () => ({
   headers: () => Promise.resolve(new Headers({ 'x-pathname': '/painel/contas' })),
   cookies: () =>
     Promise.resolve({
-      get: (name: string) =>
-        name === 'fluxi_calendar' && prefsCookie !== undefined ? { value: prefsCookie } : undefined,
+      get: (name: string) => {
+        const jar: Record<string, string | undefined> = {
+          fluxi_calendar: prefsCookie,
+          fluxi_lancamentos: searchCookie,
+        }
+        const value = jar[name]
+        return value === undefined ? undefined : { value }
+      },
     }),
 }))
 vi.mock('@/features/ledger/ui/timeline-view', () => ({
@@ -59,8 +66,8 @@ vi.mock('@/features/ledger/ui/timeline-view', () => ({
   ),
 }))
 vi.mock('@/features/ledger/ui/search-view', () => ({
-  SearchView: ({ query }: { query: { text: string; from: string } }) => (
-    <p>search {`${query.text}@${query.from}`}</p>
+  SearchView: ({ initialQuery }: { initialQuery: { text: string; from: string } }) => (
+    <p>search {`${initialQuery.text}@${initialQuery.from}`}</p>
   ),
 }))
 vi.mock('@/features/ledger/ui/payables-view', () => ({
@@ -127,15 +134,16 @@ describe('painel pages', () => {
     expect(screen.getByText('payables 2026-11..2027-01@2026-12-15')).toBeInTheDocument()
   })
 
-  it('search parses the URL query', async () => {
-    views.loadCountFrom.mockResolvedValue(ok(null))
-    render(await SearchPage({ searchParams: Promise.resolve({ q: 'luz' }) }))
-    expect(screen.getByText('search luz@2026-12')).toBeInTheDocument()
+  it('search loads the whole ledger with the query this browser left', async () => {
+    searchCookie = JSON.stringify({ text: 'luz', from: '2027-01-01' })
+    render(await SearchPage())
+    expect(screen.getByText('search luz@2027-01-01')).toBeInTheDocument()
     expect(views.loadLedgerData).toHaveBeenCalledWith(
       'u1',
-      { from: '2026-12', to: '2027-11' },
+      { from: '1900-01', to: '9999-12' },
       null,
     )
+    searchCookie = undefined
   })
 
   it('accounts load balances from the count start to a year later', async () => {
@@ -198,10 +206,11 @@ describe('painel pages', () => {
   it('degrades every page when the backend is unavailable', async () => {
     views.loadCountFrom.mockResolvedValue({ ok: false })
     views.loadRefs.mockResolvedValue({ ok: false })
+    views.loadLedgerData.mockResolvedValue({ ok: false })
     for (const page of [
       await TimelinePage(),
       await PayablesPage(),
-      await SearchPage({ searchParams: Promise.resolve({}) }),
+      await SearchPage(),
       await AccountsPage(),
       await BudgetPage(),
       await CalendarPage({ searchParams: Promise.resolve({}) }),

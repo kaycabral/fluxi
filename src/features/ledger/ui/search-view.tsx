@@ -1,24 +1,29 @@
 'use client'
 
 import { accountLabel } from '@/features/ledger/core/account-filter'
-import { formatMoney, monthLabel, shortDate } from '@/features/ledger/core/format'
-import { POT_COLORS, POT_LABELS, potTint, RECURRENCE_LABELS } from '@/features/ledger/core/labels'
-import type { Month } from '@/features/ledger/core/month'
+import { shortDate } from '@/features/ledger/core/format'
+import { POT_COLORS, RECURRENCE_LABELS } from '@/features/ledger/core/labels'
+import { paymentFor } from '@/features/ledger/core/payments'
 import {
   activeFilters,
-  drillDown,
-  GROUP_KEYS,
-  GROUP_LABELS,
-  groupOccurrences,
+  EMPTY_SEARCH_QUERY,
+  landingBounds,
+  ledgerSpan,
+  pickerRange,
+  SEARCH_QUERY_COOKIE,
   searchAccountIds,
   searchOccurrences,
-  searchQueryToParams,
   searchTotals,
+  searchWindow,
+  serializeSearchQuery,
+  SORT_LABELS,
   type ActiveFilter,
-  type GroupKey,
   type KindFilter,
   type MoneyFilter,
+  type Occurrence,
   type SearchQuery,
+  type SearchTotals,
+  type SortOrder,
   type StatusFilter,
 } from '@/features/ledger/core/search'
 import { isPotKey } from '@/features/ledger/core/types'
@@ -32,25 +37,36 @@ import {
 import {
   Badge,
   Button,
-  Card,
-  CardContent,
   cn,
-  Input,
-  Label,
-  Table,
-  TableBody,
-  TableCell,
-  TableFooter,
-  TableHead,
-  TableHeader,
-  TableRow,
+  DateField,
+  Field,
+  FieldGroup,
+  FieldLabel,
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+  List,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  Typography,
 } from '@cbrl/design'
-import { X } from 'lucide-react'
-import { useRouter } from 'next/navigation'
-import { useEffect, useMemo, useState } from 'react'
+import { Plus, Search, SlidersHorizontal, X } from 'lucide-react'
+import { useDeferredValue, useMemo, useState } from 'react'
 import { useLedgerUi } from './ledger-shell'
 import { Money } from './money'
-import { AccountSelect, CategorySelect, MonthSelect, OptionSelect, PotSelect } from './selects'
+import { AccountSelect, CategorySelect, OptionSelect, PotSelect } from './selects'
+
+const PAGE_SIZE = 50
+
+const SORT_OPTIONS = [
+  ['desc', SORT_LABELS.desc],
+  ['asc', SORT_LABELS.asc],
+] as const
+
+function isSort(value: string): value is SortOrder {
+  return value === 'desc' || value === 'asc'
+}
 
 const KIND_OPTIONS = [
   ['', 'Todos'],
@@ -65,64 +81,60 @@ const STATUS_OPTIONS = [
   ['unpaid', 'Não pagos'],
 ] as const
 
-function isStatus(value: string): value is StatusFilter {
-  return STATUS_OPTIONS.some(([k]) => k === value)
-}
-
 const MONEY_OPTIONS = [
   ['', 'Tudo'],
   ['available', 'Disponível'],
   ['benefit', 'Benefícios'],
 ] as const
 
-function isMoney(value: string): value is MoneyFilter {
-  return MONEY_OPTIONS.some(([k]) => k === value)
-}
-
-const GROUP_OPTIONS = [
-  ['none', GROUP_LABELS.none],
-  ...GROUP_KEYS.map((k) => [k, GROUP_LABELS[k]] as const),
-] as const
-
 function isKind(value: string): value is KindFilter {
   return KIND_OPTIONS.some(([k]) => k === value)
 }
 
-function isGroup(value: string): value is GroupKey | 'none' {
-  return value === 'none' || GROUP_KEYS.some((k) => k === value)
+function isStatus(value: string): value is StatusFilter {
+  return STATUS_OPTIONS.some(([k]) => k === value)
+}
+
+function isMoney(value: string): value is MoneyFilter {
+  return MONEY_OPTIONS.some(([k]) => k === value)
 }
 
 type Props = {
+  /** The whole ledger (the list filters it on the client). */
   data: LedgerData
-  query: SearchQuery
-  /** Default start month (for the URL defaults). */
-  start: Month
-  /** Months offered by De/Até. */
-  months: Month[]
+  /** The query this browser left last time (cookie). */
+  initialQuery: SearchQuery
+  /** `YYYY-MM-DD`. */
+  today: string
 }
 
-/** "Lançamentos": filters in the URL, totals, grouped table or the list of occurrences. */
-export function SearchView({ data, query, start, months }: Props) {
-  const router = useRouter()
-  const { openEdit } = useLedgerUi()
-  const [text, setText] = useState(query.text)
+/** Remember the query in this browser (read back by the server on the next visit). */
+function rememberQuery(query: SearchQuery) {
+  const secure = window.location.protocol === 'https:' ? '; Secure' : ''
+  document.cookie = `${SEARCH_QUERY_COOKIE}=${encodeURIComponent(serializeSearchQuery(query))}; Path=/painel/lancamentos; Max-Age=${60 * 60 * 24 * 365}; SameSite=Lax${secure}`
+}
 
-  const navigate = (next: SearchQuery) => {
-    const params = searchQueryToParams(next, start)
-    router.replace(params === '' ? '/painel/lancamentos' : `/painel/lancamentos?${params}`, {
-      scroll: false,
-    })
-  }
+/**
+ * "Lançamentos": every occurrence of the ledger as a flat list, newest first,
+ * with a live search box and the other filters behind a "Filtros" button.
+ * Everything runs on the client over the loaded ledger, so typing never
+ * reaches the server; the query is remembered per browser.
+ */
+export function SearchView({ data, initialQuery, today }: Props) {
+  const { openEdit, openNew } = useLedgerUi()
+  const [query, setQuery] = useState(initialQuery)
+  const [page, setPage] = useState(1)
+  // Typing stays instant; filtering a long ledger renders at lower priority.
+  const applied = useDeferredValue(query)
+
   const update = (patch: Partial<SearchQuery>) => {
     const next = { ...query, ...patch }
-    navigate(next.from > next.to ? { ...next, to: next.from } : next)
+    const fixed =
+      next.from !== '' && next.to !== '' && next.to < next.from ? { ...next, to: next.from } : next
+    setQuery(fixed)
+    setPage(1)
+    rememberQuery(fixed)
   }
-
-  useEffect(() => {
-    if (text === query.text) return
-    const timer = setTimeout(() => navigate({ ...query, text }), 300)
-    return () => clearTimeout(timer)
-  })
 
   const ctx = useMemo(
     () => ({
@@ -133,385 +145,366 @@ export function SearchView({ data, query, start, months }: Props) {
     }),
     [data],
   )
+  const span = useMemo(() => ledgerSpan(data.entries, today.slice(0, 7)), [data.entries, today])
+  const window = searchWindow(span, applied)
   const results = useMemo(
-    () => projectWindow(data, query.from, query.to),
-    [data, query.from, query.to],
+    () => projectWindow(data, window.from, window.to),
+    [data, window.from, window.to],
   )
-  const occurrences = useMemo(() => searchOccurrences(results, query, ctx), [results, query, ctx])
-  const totals = searchTotals(occurrences, query)
-  const chips = activeFilters(query, ctx)
-  const tags = distinctTags(data.entries)
-  const filtered = searchAccountIds(query, data.accounts) !== null
+  const occurrences = useMemo(
+    () => searchOccurrences(results, applied, ctx),
+    [results, applied, ctx],
+  )
+  const chips = activeFilters(query, ctx).filter((c) => c.key !== 'text')
+  const filtered = searchAccountIds(applied, data.accounts) !== null
+  const pageCount = Math.max(1, Math.ceil(occurrences.length / PAGE_SIZE))
+  const current = Math.min(page, pageCount)
+  const visible = occurrences.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE)
+  const anyFilter = query.text.trim() !== '' || chips.length > 0
+  const totals = useMemo(() => searchTotals(occurrences), [occurrences])
+  const bounds = useMemo(() => landingBounds(results, span), [results, span])
 
-  const clearFilter = (key: ActiveFilter['key']) => {
-    if (key === 'text') setText('')
-    update({ [key]: '' })
+  const label = (id: string | null) => accountLabel(id, data.accounts, data.banks)
+  const clearFilters = () => update({ ...EMPTY_SEARCH_QUERY, text: query.text })
+  const clearChip = (key: ActiveFilter['key']) => {
+    if (key === 'period') update({ from: '', to: '' })
+    else if (key === 'sort') update({ sort: EMPTY_SEARCH_QUERY.sort })
+    else update({ [key]: '' })
   }
 
   return (
     <div className="grid gap-4">
-      <Card>
-        <CardContent className="grid gap-3">
-          <form
-            role="search"
-            className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-2 md:grid-cols-4"
-            onSubmit={(e) => {
-              e.preventDefault()
-              navigate({ ...query, text })
-            }}
-          >
-            <div className="grid gap-1.5 min-[400px]:col-span-2">
-              <Label htmlFor="q-text">Descrição contém</Label>
-              <Input
-                id="q-text"
-                name="q"
-                value={text}
-                placeholder="Ex.: salário, luz, carro"
-                onChange={(e) => setText(e.target.value)}
-              />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="q-from">De</Label>
-              <MonthSelect
-                id="q-from"
-                months={months}
-                value={query.from}
-                onValueChange={(from) => update({ from })}
-              />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="q-to">Até</Label>
-              <MonthSelect
-                id="q-to"
-                months={months.filter((m) => m >= query.from)}
-                value={query.to}
-                onValueChange={(to) => update({ to })}
-              />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="q-kind">Tipo</Label>
-              <OptionSelect
-                id="q-kind"
-                options={KIND_OPTIONS}
-                value={query.kind}
-                onValueChange={(kind) => {
-                  if (isKind(kind)) update({ kind })
-                }}
-              />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="q-account">Banco ou conta</Label>
-              <AccountSelect
-                id="q-account"
-                banks={data.banks}
-                accounts={data.accounts}
-                withBanks
-                allLabel="Todas as contas"
-                value={query.account}
-                onValueChange={(account) => update({ account })}
-              />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="q-money">Dinheiro</Label>
-              <OptionSelect
-                id="q-money"
-                options={MONEY_OPTIONS}
-                value={query.money}
-                onValueChange={(money) => {
-                  if (isMoney(money)) update({ money })
-                }}
-              />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="q-category">Categoria</Label>
-              <CategorySelect
-                id="q-category"
-                categories={data.categories}
-                withGroups
-                emptyLabel="Todas"
-                value={query.category}
-                onValueChange={(category) => update({ category })}
-              />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="q-pot">Pote</Label>
-              <PotSelect
-                id="q-pot"
-                allLabel="Todos"
-                value={query.pot}
-                onValueChange={(pot) => update({ pot: isPotKey(pot) ? pot : '' })}
-              />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="q-tag">Tag</Label>
-              <OptionSelect
-                id="q-tag"
-                options={[['', 'Todas'], ...tags.map((t) => [t, `#${t}`] as const)]}
-                value={query.tag}
-                onValueChange={(tag) => update({ tag })}
-              />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="q-status">Status</Label>
-              <OptionSelect
-                id="q-status"
-                options={STATUS_OPTIONS}
-                value={query.status}
-                onValueChange={(status) => {
-                  if (isStatus(status)) update({ status })
-                }}
-              />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="q-group">Agrupar por</Label>
-              <OptionSelect
-                id="q-group"
-                options={GROUP_OPTIONS}
-                value={query.group}
-                onValueChange={(group) => {
-                  if (isGroup(group)) update({ group })
-                }}
-              />
-            </div>
-          </form>
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline">
-              {monthLabel(query.from)} a {monthLabel(query.to)}
-            </Badge>
-            {chips.map((chip) => (
-              <Badge key={chip.key} variant="secondary" className="gap-1">
-                {chip.label}
-                <button
-                  type="button"
-                  aria-label={`Remover filtro ${chip.label}`}
-                  onClick={() => clearFilter(chip.key)}
-                >
-                  <X className="size-3" />
-                </button>
-              </Badge>
-            ))}
-            {chips.length > 0 && (
-              <Button
-                variant="link"
-                size="xs"
-                onClick={() => {
-                  setText('')
-                  update({
-                    text: '',
-                    kind: '',
-                    account: '',
-                    category: '',
-                    pot: '',
-                    tag: '',
-                    status: '',
-                    money: '',
-                  })
-                }}
-              >
-                limpar filtros
-              </Button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      <dl className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-        {[
-          ['Lançamentos', String(totals.count), ''],
-          ['Entradas', formatMoney(totals.incomeCents), 'text-emerald-700 dark:text-emerald-400'],
-          ['Saídas', formatMoney(totals.expenseCents), 'text-destructive'],
-          ['Total', formatMoney(totals.totalCents), ''],
-          ['Média por mês', formatMoney(totals.monthlyAverageCents), ''],
-        ].map(([label, value, tone]) => (
-          <div
-            key={label}
-            className="bg-card ring-foreground/10 grid gap-0.5 rounded-lg px-3 py-2 ring-1"
-          >
-            <dt className="text-muted-foreground text-xs tracking-wide uppercase">{label}</dt>
-            <dd className={cn('font-mono text-lg tabular-nums', tone)}>{value}</dd>
-          </div>
-        ))}
-      </dl>
-
-      <Card>
-        <CardContent>
-          {query.group === 'none' ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Data</TableHead>
-                  <TableHead>Descrição</TableHead>
-                  <TableHead>Conta</TableHead>
-                  <TableHead>Categoria</TableHead>
-                  <TableHead>Pote</TableHead>
-                  <TableHead>Repete</TableHead>
-                  <TableHead className="text-right">Valor</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {occurrences.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-muted-foreground py-6 text-center">
-                      Nenhum lançamento encontrado.
-                    </TableCell>
-                  </TableRow>
+      <div className="flex items-start justify-between gap-3">
+        <div className="grid gap-1">
+          <Typography variant="pageTitle" as="h1">
+            Lançamentos
+          </Typography>
+          <Summary count={occurrences.length} totals={totals} />
+        </div>
+        <Button size="sm" onClick={() => openNew()} aria-keyshortcuts="N">
+          <Plus /> Criar
+        </Button>
+      </div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <InputGroup className="sm:max-w-xs">
+          <InputGroupAddon align="inline-start">
+            <Search />
+          </InputGroupAddon>
+          <InputGroupInput
+            type="search"
+            value={query.text}
+            onChange={(e) => update({ text: e.target.value })}
+            placeholder="Buscar por descrição"
+            aria-label="Buscar lançamentos"
+          />
+        </InputGroup>
+        <FiltersPopover
+          data={data}
+          query={query}
+          count={chips.length}
+          range={pickerRange(bounds, today)}
+          onChange={update}
+          onClear={clearFilters}
+        />
+      </div>
+      {chips.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          {chips.map((chip) => (
+            <FilterChip key={chip.key} chip={chip} onClear={() => clearChip(chip.key)} />
+          ))}
+          <Button variant="link" size="xs" onClick={clearFilters}>
+            Limpar filtros
+          </Button>
+        </div>
+      )}
+      <List<Occurrence>
+        // TODO(@cbrl/design > 0.3.0, toolkit#51): drop once the List's clickable rows span the
+        // row and align left (button rows are content-sized and centered in 0.3.0).
+        className="[&_button[data-slot=list-item]]:w-full [&_button[data-slot=list-item]]:text-left"
+        items={visible}
+        getKey={({ landing }, index) =>
+          `${landing.entry.id}-${landing.month}-${landing.part?.id ?? 'whole'}-${index}`
+        }
+        empty={
+          anyFilter
+            ? {
+                title: 'Nenhum lançamento encontrado',
+                description: 'Tente outra busca ou limpe os filtros.',
+              }
+            : {
+                title: 'Nenhum lançamento ainda',
+                description: 'Use "Criar" para lançar a primeira entrada ou saída.',
+              }
+        }
+        pagination={{
+          page: current,
+          pageCount,
+          onPageChange: setPage,
+          labels: {
+            root: 'Paginação',
+            previous: 'Página anterior',
+            next: 'Próxima página',
+            page: (n) => `Página ${n}`,
+          },
+        }}
+        renderItem={({ landing, valueCents }) => {
+          const { entry } = landing
+          const paid = paymentFor(landing, data.payments) !== undefined
+          const date = shortDate(landing.month, landing.day)
+          const category = data.categories.find((c) => c.id === entry.categoryId)?.name
+          const account =
+            entry.kind === 'transfer'
+              ? `${label(entry.accountId)} → ${label(entry.toAccountId)}`
+              : label(entry.accountId)
+          return {
+            leading: (
+              <span
+                aria-hidden
+                className={cn(
+                  'size-2.5 shrink-0 rounded-xs',
+                  entry.pot === null ? 'bg-muted-foreground/40' : POT_COLORS[entry.pot],
                 )}
-                {occurrences.map(({ landing, valueCents }, index) => {
-                  const { entry } = landing
-                  const label = (id: string | null) => accountLabel(id, data.accounts, data.banks)
-                  return (
-                    <TableRow
-                      key={`${entry.id}-${landing.month}-${landing.part?.id ?? 'whole'}-${index}`}
-                      tabIndex={0}
-                      data-pot={entry.pot ?? undefined}
-                      className={cn('cursor-pointer', potTint(entry.pot))}
-                      onClick={() => openEdit(targetFor(data, landing))}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') openEdit(targetFor(data, landing))
-                      }}
-                    >
-                      <TableCell className="font-mono">
-                        {shortDate(landing.month, landing.day)}
-                      </TableCell>
-                      <TableCell>
-                        {entry.description}
-                        {landing.part !== null && (
-                          <Badge variant="outline" className="ml-1.5">
-                            {landing.part.label}
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {entry.kind === 'transfer'
-                          ? `${label(entry.accountId)} → ${label(entry.toAccountId)}`
-                          : label(entry.accountId)}
-                      </TableCell>
-                      <TableCell>
-                        {data.categories.find((c) => c.id === entry.categoryId)?.name ?? '–'}
-                      </TableCell>
-                      <TableCell>
-                        {entry.pot === null ? (
-                          '–'
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5">
-                            <span
-                              className={cn('size-2 rounded-xs', POT_COLORS[entry.pot])}
-                              aria-hidden
-                            />
-                            {POT_LABELS[entry.pot]}
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">
-                          {installmentLabel(landing) ?? RECURRENCE_LABELS[entry.recurrence]}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {entry.kind === 'transfer' && !filtered ? (
-                          <span className="text-muted-foreground text-xs">interna</span>
-                        ) : (
-                          <Money cents={valueCents} tone />
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-              <TableFooter>
-                <TableRow>
-                  <TableCell colSpan={6}>Total</TableCell>
-                  <TableCell className="text-right">
-                    <Money cents={totals.totalCents} />
-                  </TableCell>
-                </TableRow>
-              </TableFooter>
-            </Table>
-          ) : (
-            <GroupedTable
-              groups={groupOccurrences(occurrences, query.group, ctx)}
-              group={query.group}
-              totals={totals}
-              onDrill={(key) => {
-                if (query.group === 'none') return
-                const next = drillDown(query, query.group, key)
-                setText(next.text)
-                navigate(next)
-              }}
-            />
-          )}
-        </CardContent>
-      </Card>
+              />
+            ),
+            title: entry.description,
+            badge: (
+              <span className="hidden gap-1 sm:flex">
+                {landing.part !== null && <Badge variant="outline">{landing.part.label}</Badge>}
+                {entry.recurrence !== 'none' && (
+                  <Badge variant="outline">
+                    {installmentLabel(landing) ?? RECURRENCE_LABELS[entry.recurrence]}
+                  </Badge>
+                )}
+              </span>
+            ),
+            description: (
+              <>
+                {/* The meta column (the date) only shows from `sm` up. */}
+                <span className="sm:hidden">{date} · </span>
+                {[account, category].filter(Boolean).join(' · ')}
+              </>
+            ),
+            meta: date,
+            trailing:
+              entry.kind === 'transfer' && !filtered ? (
+                <span className="text-muted-foreground text-xs font-normal">interna</span>
+              ) : (
+                <Money cents={valueCents} tone />
+              ),
+            trailingHint: paid ? paidLabel(entry.kind) : undefined,
+            onClick: () => openEdit(targetFor(data, landing)),
+          }
+        }}
+      />
     </div>
   )
 }
 
-function GroupedTable({
-  groups,
-  group,
-  totals,
-  onDrill,
-}: {
-  groups: ReturnType<typeof groupOccurrences>
-  group: GroupKey
-  totals: ReturnType<typeof searchTotals>
-  onDrill: (key: string) => void
-}) {
-  const max = Math.max(1, ...groups.map((g) => Math.abs(g.totalCents)))
+/**
+ * Count and sum of what the filters left: the net first (what the selection
+ * adds up to), then money in and out, right under the title.
+ */
+function Summary({ count, totals }: { count: number; totals: SearchTotals }) {
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>{GROUP_LABELS[group]}</TableHead>
-          <TableHead className="text-right">Qtde</TableHead>
-          <TableHead className="text-right">Total</TableHead>
-          <TableHead>Proporção</TableHead>
-          <TableHead>
-            <span className="sr-only">Ações</span>
-          </TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {groups.length === 0 && (
-          <TableRow>
-            <TableCell colSpan={5} className="text-muted-foreground py-6 text-center">
-              Nenhum lançamento encontrado.
-            </TableCell>
-          </TableRow>
-        )}
-        {groups.map((g) => (
-          <TableRow key={`${g.key}-${g.label}`}>
-            <TableCell>{group === 'month' ? monthLabel(g.label) : g.label}</TableCell>
-            <TableCell className="text-right">{g.count}</TableCell>
-            <TableCell className="text-right">
-              <Money cents={g.totalCents} tone />
-            </TableCell>
-            <TableCell>
-              <div className="bg-muted h-2 min-w-20 overflow-hidden rounded-full" aria-hidden>
-                <div
-                  className="bg-primary h-full"
-                  style={{ width: `${(Math.abs(g.totalCents) / max) * 100}%` }}
-                />
-              </div>
-            </TableCell>
-            <TableCell>
-              <Button variant="link" size="xs" onClick={() => onDrill(g.key)}>
-                ver lançamentos
-              </Button>
-            </TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-      <TableFooter>
-        <TableRow>
-          <TableCell>Total</TableCell>
-          <TableCell className="text-right">{totals.count}</TableCell>
-          <TableCell className="text-right">
-            <Money cents={totals.totalCents} />
-          </TableCell>
-          <TableCell colSpan={2} />
-        </TableRow>
-      </TableFooter>
-    </Table>
+    // A polite live region: screen readers hear the new count and sums as filters change.
+    <dl
+      role="status"
+      aria-label="Resumo"
+      className="text-muted-foreground flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm"
+    >
+      <div className="flex gap-1">
+        <dt className="sr-only">Quantidade</dt>
+        <dd>
+          {count} {count === 1 ? 'lançamento' : 'lançamentos'}
+        </dd>
+      </div>
+      <div className="flex gap-1.5">
+        <dt>Saldo</dt>
+        <dd>
+          <Money cents={totals.netCents} tone className="font-semibold" />
+        </dd>
+      </div>
+      <div className="flex gap-1.5">
+        <dt>Entradas</dt>
+        <dd>
+          <Money cents={totals.incomeCents} tone />
+        </dd>
+      </div>
+      <div className="flex gap-1.5">
+        <dt>Saídas</dt>
+        <dd>
+          <Money cents={totals.expenseCents} tone />
+        </dd>
+      </div>
+    </dl>
+  )
+}
+
+/** "Pago", or "Recebido" for income. */
+function paidLabel(kind: LedgerData['entries'][number]['kind']): string {
+  return kind === 'income' ? 'Recebido' : 'Pago'
+}
+
+function FilterChip({ chip, onClear }: { chip: ActiveFilter; onClear: () => void }) {
+  return (
+    <Button
+      variant="secondary"
+      size="xs"
+      aria-label={`Remover filtro ${chip.label}`}
+      onClick={onClear}
+    >
+      {chip.label}
+      <X />
+    </Button>
+  )
+}
+
+function FiltersPopover({
+  data,
+  query,
+  count,
+  range,
+  onChange,
+  onClear,
+}: {
+  data: LedgerData
+  query: SearchQuery
+  /** Years the pickers' month/year selects offer (those with occurrences). */
+  range: { min: string; max: string }
+  /** Filters in use (search text aside), shown on the button. */
+  count: number
+  onChange: (patch: Partial<SearchQuery>) => void
+  onClear: () => void
+}) {
+  const tags = distinctTags(data.entries)
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="outline" size="sm">
+          <SlidersHorizontal /> Filtros
+          {count > 0 && <Badge>{count}</Badge>}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-80">
+        <FieldGroup className="gap-3">
+          <Field>
+            <FieldLabel htmlFor="q-sort">Ordenar</FieldLabel>
+            <OptionSelect
+              id="q-sort"
+              options={SORT_OPTIONS}
+              value={query.sort}
+              onValueChange={(sort) => {
+                if (isSort(sort)) onChange({ sort })
+              }}
+            />
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field>
+              <FieldLabel htmlFor="q-from">De</FieldLabel>
+              <DateField
+                id="q-from"
+                value={query.from}
+                min={range.min}
+                max={range.max}
+                captionLayout="dropdown"
+                placeholder="Início"
+                onValueChange={(from) => onChange({ from })}
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="q-to">Até</FieldLabel>
+              <DateField
+                id="q-to"
+                value={query.to}
+                min={range.min}
+                max={range.max}
+                captionLayout="dropdown"
+                placeholder="Fim"
+                onValueChange={(to) => onChange({ to })}
+              />
+            </Field>
+          </div>
+          <Field>
+            <FieldLabel htmlFor="q-kind">Tipo</FieldLabel>
+            <OptionSelect
+              id="q-kind"
+              options={KIND_OPTIONS}
+              value={query.kind}
+              onValueChange={(kind) => {
+                if (isKind(kind)) onChange({ kind })
+              }}
+            />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="q-account">Banco ou conta</FieldLabel>
+            <AccountSelect
+              id="q-account"
+              banks={data.banks}
+              accounts={data.accounts}
+              withBanks
+              allLabel="Todas as contas"
+              value={query.account}
+              onValueChange={(account) => onChange({ account })}
+            />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="q-money">Dinheiro</FieldLabel>
+            <OptionSelect
+              id="q-money"
+              options={MONEY_OPTIONS}
+              value={query.money}
+              onValueChange={(money) => {
+                if (isMoney(money)) onChange({ money })
+              }}
+            />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="q-category">Categoria</FieldLabel>
+            <CategorySelect
+              id="q-category"
+              categories={data.categories}
+              withGroups
+              emptyLabel="Todas"
+              value={query.category}
+              onValueChange={(category) => onChange({ category })}
+            />
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field>
+              <FieldLabel htmlFor="q-pot">Pote</FieldLabel>
+              <PotSelect
+                id="q-pot"
+                allLabel="Todos"
+                value={query.pot}
+                onValueChange={(pot) => onChange({ pot: isPotKey(pot) ? pot : '' })}
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="q-tag">Tag</FieldLabel>
+              <OptionSelect
+                id="q-tag"
+                options={[['', 'Todas'], ...tags.map((t) => [t, `#${t}`] as const)]}
+                value={query.tag}
+                onValueChange={(tag) => onChange({ tag })}
+              />
+            </Field>
+          </div>
+          <Field>
+            <FieldLabel htmlFor="q-status">Status</FieldLabel>
+            <OptionSelect
+              id="q-status"
+              options={STATUS_OPTIONS}
+              value={query.status}
+              onValueChange={(status) => {
+                if (isStatus(status)) onChange({ status })
+              }}
+            />
+          </Field>
+          <Button variant="ghost" size="sm" disabled={count === 0} onClick={onClear}>
+            Limpar filtros
+          </Button>
+        </FieldGroup>
+      </PopoverContent>
+    </Popover>
   )
 }

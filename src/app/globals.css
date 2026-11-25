@@ -32,3 +32,16 @@ body {
   line-height: 1.5;
   font-feature-settings: 'cv11', 'ss01';
 }
+
+/*
+ * TODO(@cbrl/design > 0.3.0, toolkit#51): drop. The calendar's arrow bar
+ * covers the month/year selects (captionLayout="dropdown") and swallows their
+ * clicks; only the arrows should take pointer events.
+ */
+.rdp-nav {
+  pointer-events: none;
+}
+
+.rdp-nav > button {
+  pointer-events: auto;
+}

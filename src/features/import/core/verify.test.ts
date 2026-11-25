@@ -5,13 +5,12 @@ import { expandLedger, verifyLedger, type Flow } from './verify'
 const flow = (month: string, amountCents: number, patch: Partial<Flow> = {}): Flow => ({
   month,
   accountId: 'checking',
-  movement: 'Outflow',
   amountCents,
   ...patch,
 })
 
 describe('verifyLedger', () => {
-  const entry = makeEntry({ startMonth: '2026-01', endMonth: '2026-03', amountCents: 1000 })
+  const entry = makeEntry({ startMonth: '2026-01', endMonth: '2026-03', amountCents: -1000 })
   const overrides = [
     {
       entryId: 'e1',
@@ -24,7 +23,7 @@ describe('verifyLedger', () => {
   ]
 
   it('accepts a ledger that reproduces the originals', () => {
-    const result = verifyLedger([flow('2026-01', 1000), flow('2026-03', 1000)], {
+    const result = verifyLedger([flow('2026-01', -1000), flow('2026-03', -1000)], {
       entries: [entry],
       overrides,
     })
@@ -38,9 +37,9 @@ describe('verifyLedger', () => {
     ])
   })
 
-  it('counts every diverging (month, account, movement) cell', () => {
+  it('counts every diverging (month, account, direction) cell', () => {
     const result = verifyLedger(
-      [flow('2026-01', 1000), flow('2026-02', 1000), flow('2026-04', 5, { movement: 'Inflow' })],
+      [flow('2026-01', -1000), flow('2026-02', -1000), flow('2026-04', 5)],
       {
         entries: [entry],
         overrides,
@@ -63,14 +62,15 @@ describe('verifyLedger', () => {
     const income = makeEntry({
       id: 'i',
       kind: 'income',
+      amountCents: 26000,
       pot: null,
       recurrence: 'none',
       startMonth: '2026-01',
     })
     expect(expandLedger({ entries: [transfer, income], overrides: [] }, ['2026-01'])).toEqual([
+      flow('2026-01', -26000),
+      flow('2026-01', 26000, { accountId: 'savings' }),
       flow('2026-01', 26000),
-      flow('2026-01', 26000, { accountId: 'savings', movement: 'Inflow' }),
-      flow('2026-01', 26000, { movement: 'Inflow' }),
     ])
   })
 

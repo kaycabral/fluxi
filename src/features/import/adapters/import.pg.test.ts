@@ -105,7 +105,7 @@ describe('Notion import (Postgres)', () => {
       userId: ANA,
       kind: 'expense',
       description: 'Manual',
-      amountCents: 100,
+      amountCents: -100,
       accountId: account.id,
       startMonth: '2026-12-01',
       day: 1,

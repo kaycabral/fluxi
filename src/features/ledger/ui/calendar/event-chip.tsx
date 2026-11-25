@@ -9,6 +9,7 @@ import {
   dayLongLabel,
   formatAmount,
   formatMoney,
+  formatSignedMoney,
   isoDate,
   monthLabel,
 } from '@/features/ledger/core/format'
@@ -45,6 +46,7 @@ import {
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { useLedgerUi } from '../ledger-shell'
+import { toneOf } from '../money'
 import { paidMessage } from '../paid-controls'
 import { POPUP_CLASS, POPUP_PLACEMENT, useCalendar, usePopupSide } from './context'
 
@@ -70,8 +72,8 @@ function chipColors(landing: Landing, pots: readonly Pot[]): string | undefined 
   return potTint(entry.pot, pots) ?? 'bg-muted'
 }
 
-const STATUS_TITLES: Record<PaymentStatus, (kind: Landing['entry']['kind']) => string> = {
-  paid: (kind) => (kind === 'income' ? 'recebido' : 'pago'),
+const STATUS_TITLES: Record<PaymentStatus, (amountCents: number) => string> = {
+  paid: (amountCents) => (amountCents > 0 ? 'recebido' : 'pago'),
   overdue: () => 'atrasada',
   upcoming: () => '',
 }
@@ -94,10 +96,10 @@ export function EventChip({
   const [open, setOpen] = useState(false)
   const [side, measureSide] = usePopupSide()
   const status = skipped ? 'upcoming' : paymentStatus(landing, data.payments, today)
-  const statusTitle = skipped ? 'ignorado' : STATUS_TITLES[status](landing.entry.kind)
+  const statusTitle = skipped ? 'ignorado' : STATUS_TITLES[status](landing.amountCents)
   const title = landingTitle(landing)
   const movable = !skipped && isMovable(landing)
-  const amount = formatAmount(landing.amountCents)
+  const amount = formatAmount(chipCents(landing))
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -105,7 +107,7 @@ export function EventChip({
         <button
           type="button"
           onClick={(e) => measureSide(e.currentTarget)}
-          title={`${title} ${formatMoney(landing.amountCents)}${statusTitle === '' ? '' : ` (${statusTitle})`}`}
+          title={`${title} ${signedAmount(landing)}${statusTitle === '' ? '' : ` (${statusTitle})`}`}
           draggable={movable}
           onDragStart={(e) => {
             // Firefox only starts a drag with data set.
@@ -140,7 +142,17 @@ export function EventChip({
             </span>
           ) : (
             <>
-              <span className="w-28 shrink-0 text-right font-medium tabular-nums">{amount}</span>
+              <span
+                className={cn(
+                  'w-28 shrink-0 text-right font-medium tabular-nums',
+                  status !== 'overdue' &&
+                    !skipped &&
+                    landing.entry.kind !== 'transfer' &&
+                    toneOf(landing.amountCents),
+                )}
+              >
+                {amount}
+              </span>
               <span className="truncate">{title}</span>
             </>
           )}
@@ -175,7 +187,7 @@ export function EventDetails({
   const target = targetFor(data, landing)
   const payment = paymentFor(landing, data.payments)
   const status = paymentStatus(landing, data.payments, today)
-  const label = paidLabel(entry.kind)
+  const label = paidLabel(landing.amountCents)
 
   function edit() {
     onClose()
@@ -210,7 +222,7 @@ export function EventDetails({
       const marking = payment === undefined
       const result = marking ? await markPaidAction(key) : await unmarkPaidAction(key)
       if (!result.ok) toast.error(result.error)
-      else offerUndo(result, paidMessage(landing.entry.kind, marking))
+      else offerUndo(result, paidMessage(landing.amountCents, marking))
     })
   }
 
@@ -282,12 +294,15 @@ function repeatLabel(landing: Landing): string {
     : `${RECURRENCE_LABELS[recurrence]} · parcela ${installment}`
 }
 
-/** `-R$ 10,00` for expenses, `+R$ 10,00` for income, plain for transfers. */
+/** What a chip shows: the signed amount, a transfer's magnitude (its accounts show the way). */
+function chipCents(landing: Landing): number {
+  return landing.entry.kind === 'transfer' ? Math.abs(landing.amountCents) : landing.amountCents
+}
+
+/** `-R$ 10,00` out, `+R$ 10,00` in; transfers plain. */
 function signedAmount(landing: Landing): string {
-  const money = formatMoney(landing.amountCents)
-  if (landing.entry.kind === 'income') return `+${money}`
-  if (landing.entry.kind === 'expense') return `-${money}`
-  return money
+  const cents = chipCents(landing)
+  return landing.entry.kind === 'transfer' ? formatMoney(cents) : formatSignedMoney(cents)
 }
 
 type Row = { icon: React.ComponentType<{ className?: string }>; label: string; text: string }
@@ -300,21 +315,21 @@ function statusLine(input: {
   today: string
 }): Row {
   const { landing, skipped, payment, status, today } = input
-  const kind = landing.entry.kind
+  const inflow = landing.amountCents > 0
   if (skipped)
     return { icon: EyeOff, label: 'Situação', text: 'Ignorado neste mês: não conta no saldo' }
   if (status === 'paid') {
     return {
       icon: CircleCheck,
       label: 'Situação',
-      text: `${paidLabel(kind)} em ${dayLongLabel(payment?.paidOn ?? today)}`,
+      text: `${paidLabel(landing.amountCents)} em ${dayLongLabel(payment?.paidOn ?? today)}`,
     }
   }
   if (status === 'overdue') return { icon: CircleAlert, label: 'Situação', text: 'Atrasada' }
   return {
     icon: CircleDashed,
     label: 'Situação',
-    text: kind === 'income' ? 'A receber' : 'A pagar',
+    text: inflow ? 'A receber' : 'A pagar',
   }
 }
 

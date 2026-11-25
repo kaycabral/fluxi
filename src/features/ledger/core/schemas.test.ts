@@ -15,7 +15,7 @@ const CAT = '33333333-3333-4333-8333-333333333333'
 const valid: EntryFields = {
   kind: 'expense',
   description: 'Luz',
-  amountCents: 26000,
+  amountCents: -26000,
   accountId: ACC,
   toAccountId: null,
   categoryId: CAT,
@@ -59,7 +59,12 @@ describe('entryFieldsSchema', () => {
       'As partes precisam somar 100%.',
     )
     expect(issue({ tags: ['a', 'a'] })).toBe('Tag repetida.')
-    expect(issue({ amountCents: 0 })).toBe('Informe um valor maior que zero.')
+    expect(issue({ amountCents: 0 })).toBe('Informe um valor diferente de zero.')
+    expect(issue({ amountCents: -100_000_000_001 })).toBe('Valor alto demais.')
+    expect(issue({ amountCents: 26000 })).toBeNull()
+    expect(
+      issue({ kind: 'transfer', toAccountId: ACC2, categoryId: null, pot: null, amountCents: 100 }),
+    ).toBe('Transferência sai da conta de origem (valor negativo).')
     expect(issue({ day: 32 })).toBe('Dia inválido.')
     expect(issue({ startMonth: '2026-13' })).toBe('Mês inválido.')
   })
@@ -93,7 +98,7 @@ describe('entryFieldsSchema · repetition rule', () => {
   const base = {
     kind: 'expense' as const,
     description: 'Luz',
-    amountCents: 1000,
+    amountCents: -1000,
     accountId: '00000000-0000-4000-8000-0000000000a1',
     toAccountId: null,
     categoryId: null,

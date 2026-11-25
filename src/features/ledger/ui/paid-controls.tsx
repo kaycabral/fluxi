@@ -5,7 +5,6 @@ import type { ActionResult } from '@/features/ledger/core/action-result'
 import { paidLabel } from '@/features/ledger/core/labels'
 import type { Landing } from '@/features/ledger/core/occurrence'
 import { paymentKeyOf } from '@/features/ledger/core/payments'
-import type { EntryKind } from '@/features/ledger/core/types'
 import {
   Button,
   Checkbox,
@@ -27,8 +26,8 @@ export function occurrenceName(landing: Landing): string {
 }
 
 /** "Marcado como pago." / "Desmarcado como recebido.": the toast of a payment write. */
-export function paidMessage(kind: EntryKind, marked: boolean): string {
-  return `${marked ? 'Marcado' : 'Desmarcado'} como ${paidLabel(kind).toLowerCase()}.`
+export function paidMessage(amountCents: number, marked: boolean): string {
+  return `${marked ? 'Marcado' : 'Desmarcado'} como ${paidLabel(amountCents).toLowerCase()}.`
 }
 
 /** Mark (`marked`) or unmark one occurrence: errors become toasts, a success offers "Desfazer". */
@@ -39,7 +38,7 @@ function usePaymentWrite(landing: Landing) {
     startTransition(async () => {
       const result = await write()
       if (!result.ok) toast.error(result.error)
-      else offerUndo(result, paidMessage(landing.entry.kind, marked))
+      else offerUndo(result, paidMessage(landing.amountCents, marked))
     })
   }
   return { pending, run }
@@ -50,7 +49,7 @@ export function PaidCheckbox({ landing, paid }: { landing: Landing; paid: boolea
   const { offerUndo } = useLedgerUi()
   const [, startTransition] = useTransition()
   const [optimistic, setOptimistic] = useOptimistic(paid)
-  const label = paidLabel(landing.entry.kind)
+  const label = paidLabel(landing.amountCents)
   return (
     <Checkbox
       aria-label={`${label}: ${occurrenceName(landing)}`}
@@ -64,7 +63,7 @@ export function PaidCheckbox({ landing, paid }: { landing: Landing; paid: boolea
           const key = paymentKeyOf(landing)
           const result = next ? await markPaidAction(key) : await unmarkPaidAction(key)
           if (!result.ok) toast.error(result.error)
-          else offerUndo(result, paidMessage(landing.entry.kind, next))
+          else offerUndo(result, paidMessage(landing.amountCents, next))
         })
       }}
     />
@@ -78,7 +77,7 @@ export function PayButton({ landing }: { landing: Landing }) {
   const [date, setDate] = useState(refs.today)
   const [open, setOpen] = useState(false)
   const id = useId()
-  const label = paidLabel(landing.entry.kind)
+  const label = paidLabel(landing.amountCents)
   const name = occurrenceName(landing)
   const key = paymentKeyOf(landing)
 

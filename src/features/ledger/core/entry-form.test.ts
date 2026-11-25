@@ -11,11 +11,13 @@ import {
   installmentsHint,
   isEmptyPatch,
   isOccurrenceEdit,
+  isReversed,
   newEntryValues,
   normalizeTag,
   occurrencePatchOf,
   partsPercentTotal,
   percentToBps,
+  signedAmountOf,
   tagSuggestions,
   valuesToFields,
   type EditTarget,
@@ -50,6 +52,40 @@ describe('newEntryValues', () => {
   })
 })
 
+describe('signed amounts', () => {
+  it('signs the typed magnitude by kind, flipped by refund (never for a transfer)', () => {
+    expect(signedAmountOf('income', false, 500)).toBe(500)
+    expect(signedAmountOf('expense', false, 500)).toBe(-500)
+    expect(signedAmountOf('expense', true, 500)).toBe(500)
+    expect(signedAmountOf('income', true, 500)).toBe(-500)
+    expect(signedAmountOf('transfer', true, 500)).toBe(-500)
+    expect(Object.is(signedAmountOf('expense', false, 0), 0)).toBe(true)
+    expect(isReversed('expense', 500)).toBe(true)
+    expect(isReversed('expense', -500)).toBe(false)
+    expect(isReversed('income', -500)).toBe(true)
+    expect(isReversed('transfer', -500)).toBe(false)
+  })
+
+  it('stores a refund positive and loads it back checked, showing the magnitude', () => {
+    const result = valuesToFields(values({ refund: true }))
+    if (!result.ok) throw new Error(result.error)
+    expect(result.fields.amountCents).toBe(26000)
+    const refund = makeEntry({ amountCents: 26000, accountId: ACC })
+    const target: EditTarget = { entry: refund, parts: [], overrides: [], month: null }
+    expect(editEntryValues(target)).toMatchObject({ amount: '260,00', refund: true })
+    const expense = { ...target, entry: { ...refund, amountCents: -26000 } }
+    expect(editEntryValues(expense)).toMatchObject({ amount: '260,00', refund: false })
+  })
+
+  it('names a refund change in the scope dialog by its sign', () => {
+    const entry = makeEntry({ amountCents: -26000 })
+    const target: EditTarget = { entry, parts: [], overrides: [], month: '2026-12' }
+    expect(describeOccurrenceChange(target, '2026-12', { amountCents: 26000 })).toBe(
+      'Luz em dez/26: valor -R$ 260,00 → R$ 260,00',
+    )
+  })
+})
+
 describe('defaultPotOf', () => {
   const pot = (key: string, sort: number, archived = false) => ({ key, sort, archived })
   it('prefers "Variável" while active, else the first active pot, else none', () => {
@@ -69,7 +105,7 @@ describe('valuesToFields', () => {
       fields: {
         kind: 'expense',
         description: 'Luz',
-        amountCents: 26000,
+        amountCents: -26000,
         accountId: ACC,
         toAccountId: null,
         categoryId: CAT,
@@ -145,7 +181,7 @@ describe('valuesToFields', () => {
 describe('editing', () => {
   const entry = makeEntry({
     id: 'e1',
-    amountCents: 26000,
+    amountCents: -26000,
     day: 15,
     startMonth: '2026-09',
     tags: ['casa'],
@@ -155,7 +191,7 @@ describe('editing', () => {
   const target: EditTarget = {
     entry,
     parts: [],
-    overrides: [makeOverride({ month: '2026-12', amountCents: 30000 })],
+    overrides: [makeOverride({ month: '2026-12', amountCents: -30000 })],
     month: '2026-12',
   }
 
@@ -180,7 +216,7 @@ describe('editing', () => {
     const ring = makeEntry({
       recurrence: 'installments',
       installments: 3,
-      amountCents: 600000,
+      amountCents: -600000,
       startMonth: '2026-11',
       day: 24,
     })
@@ -219,7 +255,7 @@ describe('editing', () => {
     expect(isEmptyPatch(occurrencePatchOf(target, fields.fields))).toBe(true)
     const changed = valuesToFields(values({ amount: '350', date: '2026-12-20' }))
     if (!changed.ok) throw new Error(changed.error)
-    expect(occurrencePatchOf(target, changed.fields)).toEqual({ amountCents: 35000, day: 20 })
+    expect(occurrencePatchOf(target, changed.fields)).toEqual({ amountCents: -35000, day: 20 })
     expect(occurrencePatchOf({ ...target, month: null }, changed.fields)).toEqual({})
   })
 

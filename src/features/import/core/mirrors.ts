@@ -24,19 +24,20 @@ export function dropBenefitMirrors(
   fromMonth: Month,
 ): MirrorSplit {
   const inBenefit = (item: LedgerItem) =>
-    benefitAccountIds.has(item.accountId) && item.amountCents > 0
-  // Inflow amounts still available to cancel a mirror, per account and month.
+    benefitAccountIds.has(item.accountId) && item.amountCents !== 0
+  // Inflow magnitudes still available to cancel a mirror, per account and month
+  // (amounts are signed: a mirror outflow matches an inflow by absolute value).
   const inflows = new Map<string, number[]>()
   for (const item of items) {
     if (item.kind !== 'income' || !inBenefit(item)) continue
-    inflows.set(slotOf(item), [...(inflows.get(slotOf(item)) ?? []), item.amountCents])
+    inflows.set(slotOf(item), [...(inflows.get(slotOf(item)) ?? []), Math.abs(item.amountCents)])
   }
   const result: MirrorSplit = { kept: [], dropped: [] }
   for (const item of items) {
     const candidate =
       item.kind === 'expense' && inBenefit(item) && item.month >= fromMonth && item.paidOn === null
     const amounts = candidate ? (inflows.get(slotOf(item)) ?? []) : []
-    const match = amounts.indexOf(item.amountCents)
+    const match = amounts.indexOf(Math.abs(item.amountCents))
     if (match < 0) {
       result.kept.push(item)
       continue

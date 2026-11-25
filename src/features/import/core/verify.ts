@@ -6,12 +6,19 @@ import type { Movement } from './records'
 /**
  * Proof that the import is lossless: re-expands the ledger with the app's own
  * occurrence rules (`landingsIn`) and compares the money it moves with the
- * Notion originals, per (month, account, movement). A transfer counts as an
+ * Notion originals, per (month, account, direction). Flows are signed like
+ * the ledger (negative = money leaves the account). A transfer counts as an
  * outflow of its account and an inflow of its destination, exactly like the
  * two Notion rows it replaced.
  */
 
-export type Flow = { month: Month; accountId: string; movement: Movement; amountCents: number }
+/** One money movement of an account in a month; `amountCents` signed (outflow negative). */
+export type Flow = { month: Month; accountId: string; amountCents: number }
+
+/** A Notion row's flow: its magnitude signed by its movement. */
+export function signedFlowCents(movement: Movement, amountCents: number): number {
+  return movement === 'Inflow' ? amountCents : -amountCents
+}
 
 export type FlowTotals = { inflowCents: number; outflowCents: number }
 
@@ -20,7 +27,7 @@ export type ComparisonRow = { key: string; notion: FlowTotals; fluxi: FlowTotals
 export type Verification = {
   byYear: ComparisonRow[]
   byAccount: ComparisonRow[]
-  /** Cells of (month, account, movement) whose totals differ. */
+  /** Cells of (month, account, direction) whose totals differ. */
   divergences: number
 }
 
@@ -52,12 +59,11 @@ export function expandLedger(ledger: LedgerToVerify, months: readonly Month[]): 
 function flowsOf(entry: Entry, month: Month, amountCents: number): Flow[] {
   if (entry.kind === 'transfer') {
     return [
-      { month, accountId: entry.accountId, movement: 'Outflow', amountCents },
-      { month, accountId: entry.toAccountId ?? '', movement: 'Inflow', amountCents },
+      { month, accountId: entry.accountId, amountCents },
+      { month, accountId: entry.toAccountId ?? '', amountCents: -amountCents },
     ]
   }
-  const movement = entry.kind === 'income' ? 'Inflow' : 'Outflow'
-  return [{ month, accountId: entry.accountId, movement, amountCents }]
+  return [{ month, accountId: entry.accountId, amountCents }]
 }
 
 function totalsBy(flows: readonly Flow[], keyOf: (flow: Flow) => string): Map<string, FlowTotals> {
@@ -65,8 +71,9 @@ function totalsBy(flows: readonly Flow[], keyOf: (flow: Flow) => string): Map<st
   for (const flow of flows) {
     const key = keyOf(flow)
     const slot = totals.get(key) ?? { inflowCents: 0, outflowCents: 0 }
-    if (flow.movement === 'Inflow') slot.inflowCents += flow.amountCents
-    else slot.outflowCents += flow.amountCents
+    // Totals stay magnitudes per direction (the report prints them side by side).
+    if (flow.amountCents > 0) slot.inflowCents += flow.amountCents
+    else slot.outflowCents -= flow.amountCents
     totals.set(key, slot)
   }
   return totals

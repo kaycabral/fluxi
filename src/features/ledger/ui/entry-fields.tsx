@@ -16,6 +16,26 @@ import { useId, useState } from 'react'
 
 const KINDS: readonly EntryKind[] = ['income', 'expense', 'transfer']
 
+/** "Estorno/reembolso": an expense that brings money back (stored positive). */
+export function RefundCheckbox({
+  id,
+  checked,
+  onChange,
+}: {
+  id: string
+  checked: boolean
+  onChange: (checked: boolean) => void
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <Checkbox id={id} checked={checked} onCheckedChange={(c) => onChange(c === true)} />
+      <Label htmlFor={id} className="text-sm font-normal">
+        Estorno/reembolso
+      </Label>
+    </div>
+  )
+}
+
 /** Entrada | Saída | Transferência (or just the `kinds` given). */
 export function KindToggle({
   value,

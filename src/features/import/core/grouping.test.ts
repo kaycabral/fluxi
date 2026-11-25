@@ -21,7 +21,7 @@ describe('groupIntoEntries', () => {
       recurrence: 'monthly',
       startMonth: '2026-01',
       endMonth: '2026-03',
-      amountCents: 10000,
+      amountCents: -10000,
       day: 10,
       overrides: [],
     })
@@ -62,15 +62,15 @@ describe('groupIntoEntries', () => {
 
   it('uses the mode as base and turns differing months into amount/day overrides', () => {
     const items = [
-      item({ month: '2026-01', amountCents: 5000, day: 5 }),
-      item({ month: '2026-02', amountCents: 5000, day: 5 }),
-      item({ month: '2026-03', amountCents: 7000, day: 5 }),
-      item({ month: '2026-04', amountCents: 5000, day: 8 }),
+      item({ month: '2026-01', amountCents: -5000, day: 5 }),
+      item({ month: '2026-02', amountCents: -5000, day: 5 }),
+      item({ month: '2026-03', amountCents: -7000, day: 5 }),
+      item({ month: '2026-04', amountCents: -5000, day: 8 }),
     ]
     const [entry] = groupIntoEntries(items).entries
-    expect(entry).toMatchObject({ amountCents: 5000, day: 5 })
+    expect(entry).toMatchObject({ amountCents: -5000, day: 5 })
     expect(entry?.overrides).toEqual([
-      { month: '2026-03', amountCents: 7000, day: null, skipped: false },
+      { month: '2026-03', amountCents: -7000, day: null, skipped: false },
       { month: '2026-04', amountCents: null, day: 8, skipped: false },
     ])
   })
@@ -98,9 +98,9 @@ describe('groupIntoEntries', () => {
 
   it('skips zero-amount months and drops runs made only of zeros', () => {
     const items = [
-      item({ month: '2026-01', amountCents: 4300 }),
+      item({ month: '2026-01', amountCents: -4300 }),
       item({ month: '2026-02', amountCents: 0 }),
-      item({ month: '2026-03', amountCents: 4300 }),
+      item({ month: '2026-03', amountCents: -4300 }),
       item({ month: '2026-01', amountCents: 0, descriptionKey: 'zero', description: 'Zero' }),
     ]
     const result = groupIntoEntries(items)

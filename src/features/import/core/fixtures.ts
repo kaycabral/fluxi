@@ -86,7 +86,7 @@ export function item(overrides: Partial<LedgerItem> = {}): LedgerItem {
     kind: 'expense',
     month: '2026-01',
     day: 10,
-    amountCents: 10000,
+    amountCents: -10000,
     accountId: 'acc-1',
     toAccountId: null,
     description: 'Aluguel',

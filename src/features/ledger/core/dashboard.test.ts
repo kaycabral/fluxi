@@ -12,8 +12,8 @@ function project(countFrom: string | null = '2026-12') {
   return projectMonths({
     entries: [
       makeEntry({ id: 'salary', kind: 'income', pot: null, amountCents: 500000, day: 5 }),
-      makeEntry({ id: 'rent', amountCents: 400000, day: 10 }),
-      makeEntry({ id: 'card', amountCents: 300000, day: 20 }),
+      makeEntry({ id: 'rent', amountCents: -400000, day: 10 }),
+      makeEntry({ id: 'card', amountCents: -300000, day: 20 }),
       makeEntry({
         id: 'voucher',
         kind: 'income',

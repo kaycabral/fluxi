@@ -95,13 +95,9 @@ function BillList({ group, data }: { group: PayableGroup; data: LedgerData }) {
                       : label(entry.accountId)}
                   </span>
                   {entry.kind === 'transfer' ? (
-                    <Money cents={landing.amountCents} className="shrink-0" />
+                    <Money cents={Math.abs(landing.amountCents)} className="shrink-0" />
                   ) : (
-                    <Money
-                      cents={entry.kind === 'income' ? landing.amountCents : -landing.amountCents}
-                      tone
-                      className="shrink-0"
-                    />
+                    <Money cents={landing.amountCents} tone className="shrink-0" />
                   )}
                 </span>
               </button>

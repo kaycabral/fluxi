@@ -6,7 +6,7 @@ const BENEFITS = new Set(['va'])
 const credit = (month: string, amountCents = 80000, id = `in-${month}`) =>
   item({ kind: 'income', accountId: 'va', month, amountCents, externalIds: [id] })
 const mirror = (month: string, patch: Parameters<typeof item>[0] = {}) =>
-  item({ accountId: 'va', month, amountCents: 80000, externalIds: [`out-${month}`], ...patch })
+  item({ accountId: 'va', month, amountCents: -80000, externalIds: [`out-${month}`], ...patch })
 
 const ids = (items: readonly { externalIds: readonly string[] }[]) =>
   items.flatMap((i) => i.externalIds)
@@ -32,11 +32,11 @@ describe('dropBenefitMirrors', () => {
   it('needs the same amount, account and month, and an available-money account never matches', () => {
     const items = [
       credit('2027-01'),
-      mirror('2027-01', { amountCents: 79999 }),
+      mirror('2027-01', { amountCents: -79999 }),
       mirror('2027-02'),
-      item({ accountId: 'checking', month: '2027-01', amountCents: 80000 }),
+      item({ accountId: 'checking', month: '2027-01', amountCents: -80000 }),
       item({ kind: 'income', accountId: 'checking', month: '2027-03', amountCents: 5000 }),
-      item({ accountId: 'checking', month: '2027-03', amountCents: 5000 }),
+      item({ accountId: 'checking', month: '2027-03', amountCents: -5000 }),
       credit('2027-03', 0),
       mirror('2027-03', { amountCents: 0 }),
     ]
@@ -53,7 +53,7 @@ describe('dropBenefitMirrors', () => {
         accountId: 'va',
         toAccountId: 'vr',
         month: '2027-01',
-        amountCents: 80000,
+        amountCents: -80000,
         externalIds: ['t'],
       }),
     ]

@@ -186,16 +186,14 @@ export type SearchContext = {
 
 export type Occurrence = {
   landing: Landing
-  /** Signed value in the filtered accounts (or income/expense sign without an account filter). */
+  /** Signed value in the filtered accounts (or the signed amount without an account filter). */
   valueCents: number
 }
 
-/** Signed value of a landing: in `ids` when filtered; otherwise income +, expense −, transfer 0. */
+/** Signed value of a landing: in `ids` when filtered; otherwise its signed amount, transfer 0. */
 export function occurrenceValue(landing: Landing, ids: readonly string[] | null): number {
   if (ids !== null) return ids.reduce((sum, id) => sum + effectOn(landing, id), 0)
-  const { kind } = landing.entry
-  if (kind === 'transfer') return 0
-  return kind === 'income' ? landing.amountCents : -landing.amountCents
+  return landing.entry.kind === 'transfer' ? 0 : landing.amountCents
 }
 
 function categoryOf(categoryId: string | null, ctx: SearchContext) {

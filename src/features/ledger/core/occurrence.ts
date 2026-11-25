@@ -61,17 +61,33 @@ export function isSkipped(
 }
 
 /**
- * Split an installment total into `count` installments: equal floored shares,
- * the leftover cents on the first one (like a card statement), so they sum
- * exactly to the total.
+ * Split a signed amount by splitting its magnitude with `splitAbs` and giving
+ * every share the amount's sign, so a negative amount rounds exactly like its
+ * absolute value (same floors, same leftover cents, negated).
+ */
+export function splitSigned(
+  amountCents: number,
+  splitAbs: (absCents: number) => number[],
+): number[] {
+  const sign = amountCents < 0 ? -1 : 1
+  return splitAbs(Math.abs(amountCents)).map((share) => (share === 0 ? 0 : sign * share))
+}
+
+/**
+ * Split a signed installment total into `count` installments: equal floored
+ * shares of the magnitude, the leftover cents on the first one (like a card
+ * statement), so they sum exactly to the total ({@link splitSigned}).
  */
 export function installmentShares(
   totalCents: number,
   count: number,
 ): { first: number; rest: number } {
   const n = Math.max(1, count)
-  const rest = Math.floor(totalCents / n)
-  return { first: totalCents - rest * (n - 1), rest }
+  const [first = 0, rest = 0] = splitSigned(totalCents, (abs) => {
+    const share = Math.floor(abs / n)
+    return [abs - share * (n - 1), share]
+  })
+  return { first, rest }
 }
 
 /**
@@ -116,19 +132,23 @@ export function dayFor(entry: Entry, overrides: readonly EntryOverride[], month:
 }
 
 /**
- * Split `amountCents` by the parts' basis points, in part order. Each share is
- * floored; when the parts total exactly 10000 bps the last part takes the
- * rounding remainder, so the shares sum exactly to the amount. (Parts that do
- * not total 10000 bps are invalid input; they get plain floored shares.)
+ * Split the signed `amountCents` by the parts' basis points, in part order.
+ * Each share of the magnitude is floored; when the parts total exactly 10000
+ * bps the last part takes the rounding remainder, so the shares sum exactly to
+ * the amount; every share keeps the amount's sign ({@link splitSigned}).
+ * (Parts that do not total 10000 bps are invalid input; they get plain
+ * floored shares.)
  */
 export function splitAmount(amountCents: number, parts: readonly EntryPart[]): number[] {
-  const shares = parts.map((part) => Math.floor((amountCents * part.bps) / 10000))
-  const totalBps = parts.reduce((sum, part) => sum + part.bps, 0)
-  if (totalBps === 10000 && shares.length > 0) {
-    const others = shares.slice(0, -1).reduce((sum, share) => sum + share, 0)
-    shares[shares.length - 1] = amountCents - others
-  }
-  return shares
+  return splitSigned(amountCents, (abs) => {
+    const shares = parts.map((part) => Math.floor((abs * part.bps) / 10000))
+    const totalBps = parts.reduce((sum, part) => sum + part.bps, 0)
+    if (totalBps === 10000 && shares.length > 0) {
+      const others = shares.slice(0, -1).reduce((sum, share) => sum + share, 0)
+      shares[shares.length - 1] = abs - others
+    }
+    return shares
+  })
 }
 
 export function sortParts(parts: readonly EntryPart[]): EntryPart[] {

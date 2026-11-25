@@ -115,7 +115,8 @@ export type PotCell = {
 
 /** One pot in one month: planned spending, its share of income and the light against the plan. */
 export function potCell(pot: Pick<Pot, 'key' | 'goal'>, month: BudgetMonth): PotCell {
-  const plannedCents = month.byPot[pot.key] ?? 0
+  // Refunds can take a pot below zero in the totals; the cell shows it as nothing spent.
+  const plannedCents = Math.max(0, month.byPot[pot.key] ?? 0)
   const ratio = ratioOf(plannedCents, month.incomeCents)
   if (month.plan === null) {
     return { plannedCents, ratio, targetBps: null, targetCents: null, light: null }

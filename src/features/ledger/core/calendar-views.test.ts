@@ -96,8 +96,8 @@ describe('views', () => {
 })
 
 describe('dayCells', () => {
-  const rent = makeEntry({ id: 'rent', amountCents: 50000, day: 3, accountId: 'cc' })
-  const gym = makeEntry({ id: 'gym', amountCents: 10000, day: 3, accountId: 'nu' })
+  const rent = makeEntry({ id: 'rent', amountCents: -50000, day: 3, accountId: 'cc' })
+  const gym = makeEntry({ id: 'gym', amountCents: -10000, day: 3, accountId: 'nu' })
   const overrides = [makeOverride({ entryId: 'gym', month: '2026-12', skipped: true, day: 8 })]
   const results = projectMonths({
     entries: [rent, gym],
@@ -137,7 +137,7 @@ describe('dayCells', () => {
 })
 
 describe('withDateMoves', () => {
-  const rent = makeEntry({ id: 'rent', amountCents: 50000, day: 3, accountId: 'cc' })
+  const rent = makeEntry({ id: 'rent', amountCents: -50000, day: 3, accountId: 'cc' })
   const results = projectMonths({
     entries: [rent],
     parts: [],

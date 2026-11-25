@@ -75,7 +75,7 @@ async function seedLedger(userId: string, salaryCents: number): Promise<Fixture>
     userId,
     kind: 'transfer',
     description: 'Reserva',
-    amountCents: 10000,
+    amountCents: -10000,
     accountId: checking.id,
     toAccountId: savings.id,
     startMonth: '2026-12-01',
@@ -198,8 +198,8 @@ describe('user isolation', () => {
     expect(anaLedger.accounts.map((a) => a.id).sort()).toEqual(
       [ana.checkingId, ana.savingsId].sort(),
     )
-    expect(anaLedger.entries.map((e) => e.amountCents).sort()).toEqual([10000, 1000000])
-    expect(biaLedger.entries.map((e) => e.amountCents).sort()).toEqual([10000, 500000])
+    expect(anaLedger.entries.map((e) => e.amountCents).sort()).toEqual([-10000, 1000000])
+    expect(biaLedger.entries.map((e) => e.amountCents).sort()).toEqual([-10000, 500000])
     expect(anaLedger.countFrom).toBe('2026-12')
     expect(biaLedger.countFrom).toBeNull()
   })
@@ -211,7 +211,7 @@ describe('user isolation', () => {
         userId: ANA,
         kind: 'expense',
         description: 'Passagem',
-        amountCents: 50000,
+        amountCents: -50000,
         accountId: ana.checkingId,
         startMonth: '2026-12-01',
         day: 10,
@@ -241,7 +241,7 @@ describe('user isolation', () => {
         userId: BIA,
         kind: 'expense',
         description: 'Invasão',
-        amountCents: 100,
+        amountCents: -100,
         accountId: ana.checkingId,
         startMonth: '2026-12-01',
         day: 1,
@@ -324,7 +324,7 @@ describe('loading a window', () => {
           userId: ANA,
           kind: 'expense',
           description: 'Antiga',
-          amountCents: 100,
+          amountCents: -100,
           accountId: ana.checkingId,
           startMonth: '2026-01-01',
           day: 1,
@@ -335,7 +335,7 @@ describe('loading a window', () => {
           userId: ANA,
           kind: 'expense',
           description: 'Única antiga',
-          amountCents: 100,
+          amountCents: -100,
           accountId: ana.checkingId,
           startMonth: '2026-06-01',
           day: 1,
@@ -345,7 +345,7 @@ describe('loading a window', () => {
           userId: ANA,
           kind: 'expense',
           description: 'Futura',
-          amountCents: 100,
+          amountCents: -100,
           accountId: ana.checkingId,
           startMonth: '2027-03-01',
           day: 1,
@@ -355,7 +355,7 @@ describe('loading a window', () => {
           userId: ANA,
           kind: 'expense',
           description: 'Termina no mês anterior',
-          amountCents: 100,
+          amountCents: -100,
           accountId: ana.checkingId,
           startMonth: '2026-01-01',
           day: 1,
@@ -389,7 +389,7 @@ describe('check constraints', () => {
   const base = () => ({
     userId: ANA,
     description: 'x',
-    amountCents: 100,
+    amountCents: -100,
     accountId: ana.checkingId,
     startMonth: '2026-12-01',
     day: 10,
@@ -444,7 +444,12 @@ describe('check constraints', () => {
     [
       'zero amount',
       { kind: 'expense', recurrence: 'none', amountCents: 0 },
-      'entries_amount_positive',
+      'entries_amount_nonzero',
+    ],
+    [
+      'transfer entering its source account',
+      { kind: 'transfer', recurrence: 'none', toAccount: true, amountCents: 100 },
+      'entries_transfer_negative',
     ],
     ['day 32', { kind: 'expense', recurrence: 'none', day: 32 }, 'entries_day_range'],
   ] as const)('rejects %s', async (_label, variant, constraint) => {
@@ -476,9 +481,9 @@ describe('check constraints', () => {
     const override = await rejection(
       db()
         .insert(entryOverrides)
-        .values({ userId: ANA, entryId: ana.entryId, month: '2027-02-01', amountCents: -5 }),
+        .values({ userId: ANA, entryId: ana.entryId, month: '2027-02-01', amountCents: 0 }),
     )
-    expect(override.constraint).toBe('entry_overrides_amount_positive')
+    expect(override.constraint).toBe('entry_overrides_amount_nonzero')
     const pot = await rejection(
       db().execute(sql`update budget_plan_targets set target_bps = 10001 where user_id = ${ANA}`),
     )

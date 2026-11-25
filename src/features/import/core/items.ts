@@ -13,6 +13,7 @@ export type LedgerItem = {
   kind: EntryKind
   month: string
   day: number
+  /** Signed like the ledger: an outflow (and a transfer, from its source) is negative. */
   amountCents: number
   accountId: string
   toAccountId: string | null
@@ -32,7 +33,7 @@ function single(record: TxRecord): LedgerItem {
     kind: record.movement === 'Inflow' ? 'income' : 'expense',
     month: record.month,
     day: record.day,
-    amountCents: record.amountCents,
+    amountCents: record.movement === 'Inflow' ? record.amountCents : -record.amountCents,
     accountId: record.accountId,
     toAccountId: null,
     description: record.description,

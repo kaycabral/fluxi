@@ -20,7 +20,7 @@ export type MonthResult = {
   month: Month
   /** False before `countFrom`: totals are still computed, balances are not. */
   counted: boolean
-  /** Ordered by day, income first within a day, then input order. */
+  /** Ordered by day, inflows first within a day, then input order. */
   landings: Landing[]
   totals: MonthTotals
   openingBalances: Balances | null
@@ -41,7 +41,8 @@ export type ProjectionInput = {
   countFrom: Month | null
 }
 
-const kindOrder = (landing: Landing) => (landing.entry.kind === 'income' ? 0 : 1)
+/** Inflows (positive amounts) before outflows on the same day. */
+const kindOrder = (landing: Landing) => (landing.amountCents > 0 ? 0 : 1)
 
 function orderLandings(landings: Landing[]): Landing[] {
   return landings
@@ -55,19 +56,27 @@ function orderLandings(landings: Landing[]): Landing[] {
     .map(({ landing }) => landing)
 }
 
-/** Signed effect of a landing on one account. */
+/**
+ * Signed effect of a landing on one account. Amounts are signed from the
+ * source account's point of view (negative = money leaves it); a transfer's
+ * destination gets the opposite.
+ */
 export function effectOn(landing: Landing, accountId: string): number {
   const { entry, amountCents } = landing
   if (entry.kind === 'transfer') {
     return (
-      (entry.toAccountId === accountId ? amountCents : 0) -
-      (entry.accountId === accountId ? amountCents : 0)
+      (entry.accountId === accountId ? amountCents : 0) -
+      (entry.toAccountId === accountId ? amountCents : 0)
     )
   }
-  if (entry.accountId !== accountId) return 0
-  return entry.kind === 'income' ? amountCents : -amountCents
+  return entry.accountId === accountId ? amountCents : 0
 }
 
+/**
+ * Totals in magnitudes: income is the signed sum of income amounts (reversals
+ * reduce it), expenses the negated sum of expense amounts (refunds reduce it
+ * and may take a pot below zero; consumers clamp only when displaying).
+ */
 function totalsOf(landings: readonly Landing[]): MonthTotals {
   const totals: MonthTotals = {
     incomeCents: 0,
@@ -79,9 +88,10 @@ function totalsOf(landings: readonly Landing[]): MonthTotals {
   for (const { entry, amountCents } of landings) {
     if (entry.kind === 'income') totals.incomeCents += amountCents
     else if (entry.kind === 'expense') {
-      totals.expenseCents += amountCents
-      if (entry.pot === null) totals.unallocatedCents += amountCents
-      else totals.byPot[entry.pot] = (totals.byPot[entry.pot] ?? 0) + amountCents
+      const spent = -amountCents
+      totals.expenseCents += spent
+      if (entry.pot === null) totals.unallocatedCents += spent
+      else totals.byPot[entry.pot] = (totals.byPot[entry.pot] ?? 0) + spent
     }
   }
   totals.netCents = totals.incomeCents - totals.expenseCents

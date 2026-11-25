@@ -335,7 +335,7 @@ describe('CalendarView · quick add', () => {
     expect(vi.mocked(createEntryAction).mock.calls[0]?.[0]).toMatchObject({
       fields: {
         kind: 'expense',
-        amountCents: 4290,
+        amountCents: -4290,
         description: 'Padaria',
         accountId: IDS.cc,
         startMonth: '2026-12',

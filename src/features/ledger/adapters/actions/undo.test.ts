@@ -74,7 +74,7 @@ describe('undo actions', () => {
       fields: {
         kind: 'expense',
         description: 'Luz',
-        amountCents: 26000,
+        amountCents: -26000,
         accountId: '22222222-2222-4222-8222-222222222222',
         toAccountId: null,
         categoryId: null,

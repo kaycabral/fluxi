@@ -100,7 +100,7 @@ describe('budgetMonths', () => {
         amountCents: 1000000,
         startMonth: '2026-11',
       }),
-      makeEntry({ id: 'rent', pot: 'essential', amountCents: 400000, startMonth: '2026-11' }),
+      makeEntry({ id: 'rent', pot: 'essential', amountCents: -400000, startMonth: '2026-11' }),
       makeEntry({
         id: 'voucher',
         kind: 'income',
@@ -113,7 +113,7 @@ describe('budgetMonths', () => {
         id: 'groceries',
         pot: 'essential',
         accountId: 'va',
-        amountCents: 100000,
+        amountCents: -100000,
         startMonth: '2026-11',
       }),
     ],
@@ -151,6 +151,15 @@ describe('budgetMonths', () => {
     expect(potCell(essential, before)).toMatchObject({ targetBps: null, light: null })
     // A pot the version leaves out has a 0% target.
     expect(potCell({ key: 'comfort', goal: 'limit' }, november).targetBps).toBe(0)
+  })
+
+  it('shows a pot that refunds took below zero as nothing spent', () => {
+    const refunded: BudgetMonth = { ...december, byPot: { essential: -5000 } }
+    expect(potCell({ key: 'essential', goal: 'limit' }, refunded)).toMatchObject({
+      plannedCents: 0,
+      ratio: 0,
+      light: 'good',
+    })
   })
 
   it('summarizes the lights of a month', () => {

@@ -27,7 +27,7 @@ function expense(patch: Partial<EntryFields> = {}): EntryFields {
   return {
     kind: 'expense',
     description: 'Aluguel',
-    amountCents: 200000,
+    amountCents: -200000,
     accountId,
     toAccountId: null,
     categoryId: null,
@@ -130,7 +130,7 @@ describe('undo', () => {
       ANA,
       id,
       expense({
-        amountCents: 250000,
+        amountCents: -250000,
         startMonth: '2027-01',
         parts: [
           { label: 'Adiantamento', bps: 4000, day: 20, nextMonth: false },

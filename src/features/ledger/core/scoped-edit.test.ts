@@ -4,6 +4,8 @@ import { landingsIn } from './occurrence'
 import {
   applyScopedEdit,
   endSeriesBefore,
+  resignAmount,
+  resignForKind,
   sameSplit,
   shiftStart,
   type SeriesState,
@@ -159,6 +161,25 @@ describe('applyScopedEdit: future', () => {
     expect(endSeriesBefore(ring, '2027-01')).toMatchObject({ installments: 2, amountCents: 66667 })
   })
 
+  it('splits a negative installment total exactly like its magnitude', () => {
+    const ring = makeEntry({
+      recurrence: 'installments',
+      installments: 3,
+      startMonth: '2026-11',
+      amountCents: -100000,
+    })
+    const split = applyScopedEdit(
+      { entry: ring, parts: [], overrides: [] },
+      { month: '2026-12', patch: { day: 5 }, scope: 'future' },
+      ids(),
+    )
+    expect(split.entries.map((e) => [e.installments, e.amountCents])).toEqual([
+      [1, -33334],
+      [2, -66666],
+    ])
+    expect(endSeriesBefore(ring, '2027-01')).toMatchObject({ installments: 2, amountCents: -66667 })
+  })
+
   it('splits a yearly series and copies parts to the new entry', () => {
     const yearly = makeEntry({ recurrence: 'yearly', startMonth: '2026-12', amountCents: 780000 })
     const parts = [...salarySplit('e1'), ...salarySplit('other')]
@@ -303,5 +324,35 @@ describe('applyScopedEdit: new split', () => {
         ids(),
       ),
     ).toThrow(RangeError)
+  })
+})
+
+describe('resignForKind', () => {
+  const refund = makeEntry({ amountCents: 5000 })
+  const state: SeriesState = {
+    entry: refund,
+    parts: [],
+    overrides: [
+      makeOverride({ month: '2026-10', amountCents: 7000 }),
+      makeOverride({ month: '2026-11' }),
+    ],
+  }
+
+  it('flips amounts only when the natural direction flips, and makes transfers negative', () => {
+    expect(resignAmount('expense', 'income', -100)).toBe(100)
+    expect(resignAmount('income', 'expense', 100)).toBe(-100)
+    expect(resignAmount('expense', 'expense', 100)).toBe(100)
+    expect(resignAmount('income', 'transfer', 100)).toBe(-100)
+    expect(resignAmount('transfer', 'expense', -100)).toBe(-100)
+  })
+
+  it('re-signs the entry and its override amounts, or keeps the same state', () => {
+    expect(resignForKind(state, 'expense')).toBe(state)
+    const income = resignForKind(state, 'income')
+    expect(income.entry.amountCents).toBe(-5000)
+    expect(income.overrides.map((o) => o.amountCents)).toEqual([-7000, null])
+    const transfer = resignForKind(state, 'transfer')
+    expect(transfer.entry.amountCents).toBe(-5000)
+    expect(transfer.overrides.map((o) => o.amountCents)).toEqual([-7000, null])
   })
 })

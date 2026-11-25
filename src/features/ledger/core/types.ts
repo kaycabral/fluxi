@@ -85,7 +85,12 @@ export type Entry = {
   id: string
   kind: EntryKind
   description: string
-  /** Amount of each occurrence; for `installments`, the TOTAL (see `seriesAmountFor`). */
+  /**
+   * Amount of each occurrence, signed from `accountId`'s point of view
+   * (negative = money leaves it): an expense is normally negative (positive =
+   * refund), an income positive (negative = reversal), a transfer always
+   * negative. For `installments`, the TOTAL (see `seriesAmountFor`).
+   */
   amountCents: number
   accountId: string
   toAccountId: string | null
@@ -116,6 +121,7 @@ export type EntryPart = {
 export type EntryOverride = {
   entryId: string
   month: Month
+  /** Signed like the entry's amount; null = the series amount. */
   amountCents: number | null
   day: number | null
   /** No occurrence this month (never counts). */

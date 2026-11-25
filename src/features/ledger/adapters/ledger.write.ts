@@ -8,6 +8,7 @@ import type { EntryFields } from '@/features/ledger/core/schemas'
 import {
   applyScopedEdit,
   endSeriesBefore,
+  resignForKind,
   sameSplit,
   shiftStart,
   type EditScope,
@@ -212,11 +213,21 @@ async function persistScopedEdit(
     if (copied.length > 0) await tx.insert(entryParts).values(copied.map((p) => partRow(userId, p)))
     await movePaymentsToSplit(tx, userId, state, { entry: split, parts: copied })
   }
+  await replaceOverrides(tx, userId, state.entry.id, result.overrides)
+}
+
+/** Replace `entryId`'s overrides by `overrides` (a series split's may point at the new entry). */
+async function replaceOverrides(
+  tx: Tx,
+  userId: string,
+  entryId: string,
+  overrides: readonly EntryOverride[],
+): Promise<void> {
   await tx
     .delete(entryOverrides)
-    .where(and(eq(entryOverrides.entryId, state.entry.id), eq(entryOverrides.userId, userId)))
-  if (result.overrides.length > 0) {
-    await tx.insert(entryOverrides).values(result.overrides.map((o) => overrideRow(userId, o)))
+    .where(and(eq(entryOverrides.entryId, entryId), eq(entryOverrides.userId, userId)))
+  if (overrides.length > 0) {
+    await tx.insert(entryOverrides).values(overrides.map((o) => overrideRow(userId, o)))
   }
 }
 
@@ -260,13 +271,17 @@ export async function updateEntry(
 ): Promise<WriteResult> {
   return guarded(() =>
     db().transaction(async (tx) => {
-      const state = await loadSeries(tx, userId, entryId)
-      if (state === null) return fail('not_found')
+      const loaded = await loadSeries(tx, userId, entryId)
+      if (loaded === null) return fail('not_found')
+      // A new kind re-signs the stored amounts (expense → income flips them; transfer is negative).
+      const state = resignForKind(loaded, fields.kind)
+      const resigned = state !== loaded
       const parts = keepPartIds(partsFromFields(entryId, fields), state.parts)
 
       if (occurrence === null || state.entry.recurrence === 'none') {
         const undo = await captureUndo(tx, userId, [entryId])
         await writeEntryRow(tx, userId, entryFromFields(entryId, fields))
+        if (resigned) await replaceOverrides(tx, userId, entryId, state.overrides)
         await replaceParts(tx, userId, entryId, parts)
         await syncPayments(tx, userId, entryId)
         return undoable(undo)
@@ -294,6 +309,7 @@ export async function updateEntry(
       if (!occursIn(series, moved)) throw new ScopeError('no_occurrence')
       const undo = await captureUndo(tx, userId, [entryId])
       await writeEntryRow(tx, userId, series)
+      if (resigned) await replaceOverrides(tx, userId, entryId, state.overrides)
       if (isEmpty(patch) || occurrence.scope === null) {
         await syncPayments(tx, userId, entryId)
         return undoable(undo)

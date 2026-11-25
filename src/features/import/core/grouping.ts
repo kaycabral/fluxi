@@ -10,7 +10,8 @@ import type { LedgerItem } from './items'
  * otherwise it is cut into monthly runs that tolerate gaps of up to
  * {@link MAX_MONTHLY_GAP} months (missing months become skipped overrides). The
  * series amount/day is the mode of the run; differing months become overrides.
- * A zero-amount occurrence (the ledger requires > 0) is a skipped month; a run
+ * A zero-amount occurrence (the ledger requires a non-zero signed amount) is a
+ * skipped month; a run
  * of only zeros produces nothing.
  */
 
@@ -142,7 +143,7 @@ function recurrenceOf(size: number, step: 1 | 12): PlannedEntry['recurrence'] {
 
 function entryOf(run: Run, key: string): PlannedEntry | null {
   const { items, first, step } = run
-  const paying = items.filter((item) => item.amountCents > 0)
+  const paying = items.filter((item) => item.amountCents !== 0)
   const amountCents = mode(paying.map((item) => item.amountCents))
   const day = mode(items.map((item) => item.day))
   if (amountCents === undefined || day === undefined) return null

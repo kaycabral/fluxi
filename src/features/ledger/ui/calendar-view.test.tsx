@@ -153,6 +153,17 @@ describe('CalendarView · month', () => {
     expect(push).toHaveBeenCalledOnce()
   })
 
+  it('keeps the month when the wheel is inside a popup or its select list', async () => {
+    renderCalendar()
+    await userEvent.click(emptyPartOf(10))
+    const form = await screen.findByRole('form', { name: 'Criar lançamento' })
+    fireEvent.wheel(form, { deltaY: 200 })
+    await userEvent.click(within(form).getByLabelText('Conta'))
+    fireEvent.wheel(await screen.findByRole('listbox'), { deltaY: 200 })
+    expect(push).not.toHaveBeenCalled()
+    expect(screen.getByRole('listbox')).toBeInTheDocument()
+  })
+
   it('shows "Mais N" when the entries do not fit, with the whole day in a card', async () => {
     const base = sampleData()
     const extra = base.entries.map((entry) =>

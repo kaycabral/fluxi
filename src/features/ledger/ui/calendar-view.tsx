@@ -35,7 +35,12 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useOptimistic, useState, useTransition } from 'react'
 import { toast } from 'sonner'
-import { calendarHref, CalendarProvider, type CalendarContextValue } from './calendar/context'
+import {
+  CALENDAR_TODAY_EVENT,
+  calendarHref,
+  CalendarProvider,
+  type CalendarContextValue,
+} from './calendar/context'
 import { DayColumns } from './calendar/day-columns'
 import { MonthGrid } from './calendar/month-grid'
 import { ScheduleList } from './calendar/schedule-list'
@@ -151,8 +156,10 @@ export function CalendarView({
       const key = event.key.toUpperCase()
       const target = CALENDAR_VIEWS.find((v) => VIEW_SHORTCUTS[v] === key)
       if (target !== undefined) go(target, date)
-      else if (key === 'T') go(view, null)
-      else if (key === 'J') go(view, shiftDate(view, date, 1))
+      else if (key === 'T') {
+        go(view, null)
+        window.dispatchEvent(new Event(CALENDAR_TODAY_EVENT))
+      } else if (key === 'J') go(view, shiftDate(view, date, 1))
       else if (key === 'K') go(view, shiftDate(view, date, -1))
       else return
       event.preventDefault()
@@ -184,7 +191,11 @@ export function CalendarView({
       >
         <header className="flex flex-wrap items-center gap-2 px-3 py-2 md:px-4">
           <Button variant="outline" className="rounded-full px-5" asChild>
-            <Link href={calendarHref(view, null, account)} aria-keyshortcuts="T">
+            <Link
+              href={calendarHref(view, null, account)}
+              aria-keyshortcuts="T"
+              onClick={() => window.dispatchEvent(new Event(CALENDAR_TODAY_EVENT))}
+            >
               Hoje
             </Link>
           </Button>

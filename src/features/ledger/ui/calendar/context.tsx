@@ -38,6 +38,9 @@ export function useCalendar(): CalendarContextValue {
   return value
 }
 
+/** Fired when "Hoje" is pressed, so views can re-reveal today even if the URL didn't change. */
+export const CALENDAR_TODAY_EVENT = 'fluxi:calendar-today'
+
 /** `/painel?modo=…&data=…&conta=…`; no `data` means today. */
 export function calendarHref(view: CalendarViewMode, date: string | null, account: string) {
   const params = new URLSearchParams({ modo: VIEW_SLUGS[view] })

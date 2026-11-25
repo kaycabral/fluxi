@@ -64,6 +64,13 @@
       "when": 1795567966896,
       "tag": "0008_undo_snapshots",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1795625128760,
+      "tag": "0009_deleted_occurrences",
+      "breakpoints": true
     }
   ]
 }

@@ -217,6 +217,12 @@ describe('skippedLandingsIn', () => {
     expect(skippedLandingsIn(entry, [], overrides, '2026-11')).toEqual([])
   })
 
+  it('never lands an occurrence the user deleted', () => {
+    const entry = makeEntry()
+    const overrides = [makeOverride({ month: '2026-10', skipped: true, deleted: true })]
+    expect(skippedLandingsIn(entry, [], overrides, '2026-10')).toEqual([])
+  })
+
   it('lands every part of a skipped split occurrence', () => {
     const entry = makeEntry({ kind: 'income', pot: null, amountCents: 1000, startMonth: '2026-12' })
     const overrides = [makeOverride({ month: '2027-01', skipped: true })]

@@ -91,7 +91,10 @@ export type EntryOverride = {
   month: Month
   amountCents: number | null
   day: number | null
+  /** No occurrence this month (never counts). */
   skipped: boolean
+  /** Deleted by the user ("Só este mês"): skipped and never shown, unlike a month the import skipped. */
+  deleted: boolean
 }
 
 export function isPotKey(value: string): value is PotKey {

@@ -297,7 +297,14 @@ export const entryOverrides = pgTable(
     month: month('month').notNull(),
     amountCents: cents('amount_cents'),
     day: smallint('day'),
+    /** No occurrence this month (never counts). */
     skipped: boolean('skipped').notNull().default(false),
+    /**
+     * The user deleted this one occurrence ("Só este mês"): skipped and never
+     * shown, not even with "Mostrar ignorados" (that shows months skipped by
+     * the import).
+     */
+    deleted: boolean('deleted').notNull().default(false),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -312,6 +319,7 @@ export const entryOverrides = pgTable(
     check('entry_overrides_month_first_day', isFirstOfMonth(t.month)),
     check('entry_overrides_amount_positive', sql`${t.amountCents} is null or ${t.amountCents} > 0`),
     check('entry_overrides_day_range', sql`${t.day} is null or ${isDayOfMonth(t.day)}`),
+    check('entry_overrides_deleted_is_skipped', sql`not ${t.deleted} or ${t.skipped}`),
   ],
 ).enableRLS()
 

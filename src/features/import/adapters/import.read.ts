@@ -61,6 +61,7 @@ export async function readImportedLedger(db: FluxiDb, userId: string): Promise<I
       amountCents: r.amountCents,
       day: r.day,
       skipped: r.skipped,
+      deleted: r.deleted,
     })),
     accountIds: new Map(
       accountRows.flatMap((r) =>

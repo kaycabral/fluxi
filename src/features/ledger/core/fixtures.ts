@@ -43,6 +43,7 @@ export function makeOverride(overrides: Partial<EntryOverride> = {}): EntryOverr
     amountCents: null,
     day: null,
     skipped: false,
+    deleted: false,
     ...overrides,
   }
 }

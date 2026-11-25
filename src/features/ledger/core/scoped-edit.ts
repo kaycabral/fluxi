@@ -92,6 +92,7 @@ function editOne(state: SeriesState, month: Month, patch: OccurrencePatch): Scop
     amountCents: null,
     day: null,
     skipped: false,
+    deleted: false,
   }
   const next: EntryOverride = {
     ...current,

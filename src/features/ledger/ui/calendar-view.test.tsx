@@ -452,7 +452,23 @@ describe('CalendarView · views and preferences', () => {
       data: sampleData({
         payments: [{ entryId: IDS.transfer, month: '2026-12', partId: null, paidOn: '2026-12-06' }],
         overrides: [
-          { entryId: IDS.power, month: '2026-12', amountCents: null, day: null, skipped: true },
+          {
+            entryId: IDS.power,
+            month: '2026-12',
+            amountCents: null,
+            day: null,
+            skipped: true,
+            deleted: false,
+          },
+          // Deleted by the user: gone, even with "Mostrar ignorados".
+          {
+            entryId: IDS.buffet,
+            month: '2026-12',
+            amountCents: null,
+            day: null,
+            skipped: true,
+            deleted: true,
+          },
         ],
       }),
     })
@@ -478,6 +494,7 @@ describe('CalendarView · views and preferences', () => {
     )
     const ignored = screen.getByRole('button', { name: /Luz/ })
     expect(ignored).toHaveClass('line-through')
+    expect(screen.queryByRole('button', { name: /Buffet/ })).not.toBeInTheDocument()
     await userEvent.click(ignored)
     const details = await screen.findByLabelText('Detalhes de Luz')
     expect(details).toHaveTextContent('Ignorado neste mês')

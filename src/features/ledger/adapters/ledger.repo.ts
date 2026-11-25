@@ -195,6 +195,7 @@ export async function listEntryOverrides(
     amountCents: r.amountCents,
     day: r.day,
     skipped: r.skipped,
+    deleted: r.deleted,
   }))
 }
 

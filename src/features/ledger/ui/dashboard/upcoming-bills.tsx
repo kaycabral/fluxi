@@ -15,7 +15,6 @@ import {
   type LedgerData,
 } from '@/features/ledger/core/view'
 import {
-  Badge,
   Card,
   CardContent,
   CardDescription,
@@ -25,6 +24,7 @@ import {
   EmptyState,
   Tabs,
   TabsContent,
+  TabsCount,
   TabsList,
   TabsTrigger,
 } from '@cbrl/design'
@@ -54,8 +54,8 @@ function BillList({ group, data }: { group: PayableGroup; data: LedgerData }) {
   const { openEdit } = useLedgerUi()
   const label = (id: string | null) => accountLabel(id, data.accounts, data.banks)
   return (
-    <div className="grid gap-2">
-      <ul className="divide-border grid max-h-80 divide-y overflow-y-auto">
+    <div className="flex h-full min-h-0 flex-col gap-2">
+      <ul className="divide-border -mr-2 min-h-0 flex-1 divide-y overflow-y-auto pr-2">
         {group.items.map(({ landing, date }) => {
           const { entry } = landing
           const installment = installmentLabel(landing)
@@ -112,7 +112,7 @@ function BillList({ group, data }: { group: PayableGroup; data: LedgerData }) {
           )
         })}
       </ul>
-      <p className="text-muted-foreground text-xs">
+      <p className="text-muted-foreground border-t pt-2 text-xs">
         {[
           group.expenseCents > 0 && `A pagar ${formatMoney(group.expenseCents)}`,
           group.incomeCents > 0 && `A receber ${formatMoney(group.incomeCents)}`,
@@ -139,28 +139,25 @@ export function UpcomingBills({ data, today }: { data: LedgerData; today: string
   const byKey = new Map(groups.map((g) => [g.key, g]))
 
   return (
-    <Card className="min-w-0">
+    <Card className="h-[30rem] min-w-0">
       <CardHeader>
         <CardTitle asChild>
           <h2>Próximas contas</h2>
         </CardTitle>
         <CardDescription>O que falta pagar ou receber, por urgência.</CardDescription>
       </CardHeader>
-      <CardContent>
-        <Tabs defaultValue={initialTab(groups)}>
-          <TabsList className="w-full justify-start overflow-x-auto">
+      <CardContent className="min-h-0 flex-1">
+        <Tabs defaultValue={initialTab(groups)} className="h-full gap-3">
+          <TabsList variant="line">
             {TABS.map((tab) => {
               const count = byKey.get(tab.key)?.items.length ?? 0
               return (
-                <TabsTrigger key={tab.key} value={tab.key} className="gap-1.5 px-1.5 text-xs">
+                <TabsTrigger key={tab.key} value={tab.key}>
                   {tab.label}
                   {count > 0 && (
-                    <Badge
-                      variant={tab.key === 'overdue' ? 'destructive' : 'secondary'}
-                      className="h-4 min-w-4 px-1 text-[10px] tabular-nums"
-                    >
+                    <TabsCount tone={tab.key === 'overdue' ? 'destructive' : 'default'}>
                       {count}
-                    </Badge>
+                    </TabsCount>
                   )}
                 </TabsTrigger>
               )
@@ -169,9 +166,9 @@ export function UpcomingBills({ data, today }: { data: LedgerData; today: string
           {TABS.map((tab) => {
             const group = byKey.get(tab.key)
             return (
-              <TabsContent key={tab.key} value={tab.key} className="pt-2">
+              <TabsContent key={tab.key} value={tab.key} className="min-h-0">
                 {group === undefined ? (
-                  <EmptyState title={tab.empty} className="py-6" />
+                  <EmptyState title={tab.empty} className="h-full justify-center py-6" />
                 ) : (
                   <BillList group={group} data={data} />
                 )}

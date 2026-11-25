@@ -324,7 +324,7 @@ export function DashboardView({
 
         <UpcomingBills data={data} today={today} />
 
-        <Card className="min-w-0 lg:col-span-2">
+        <Card className="h-[22rem] min-w-0 lg:col-span-2">
           <CardHeader>
             <CardTitle asChild>
               <h2>Saldo projetado</h2>
@@ -343,7 +343,7 @@ export function DashboardView({
           </CardContent>
         </Card>
 
-        <Card className="min-w-0">
+        <Card className="h-[22rem] min-w-0">
           <CardHeader>
             <CardTitle asChild>
               <h2>Potes em {monthLabel(month)}</h2>
@@ -353,7 +353,7 @@ export function DashboardView({
               {` · renda ${formatMoney(budget.incomeCents)}`}
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="-mr-2 min-h-0 flex-1 overflow-y-auto pr-2">
             <PotsThisMonth pots={pots} month={budget} />
           </CardContent>
         </Card>

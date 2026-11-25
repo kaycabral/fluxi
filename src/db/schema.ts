@@ -514,3 +514,80 @@ export const importRaw = pgTable(
     primaryKey({ name: 'import_raw_pk', columns: [t.userId, t.source, t.kind, t.externalId] }),
   ],
 ).enableRLS()
+
+/**
+ * Bank feed (Open Finance via Pluggy / Meu Pluggy): an external account as the
+ * institution reports it, refreshed by `pnpm pluggy:sync`. `account_id` maps it
+ * onto a fluxi account (null until the user maps it); deleting the fluxi
+ * account only unmaps the feed. `balance_cents` is the last reported balance
+ * (credit cards: the open bill, positive = owed).
+ */
+export const bankFeedAccounts = pgTable(
+  'bank_feed_accounts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: ownerId(),
+    source: text('source').notNull(),
+    externalId: text('external_id').notNull(),
+    itemId: text('item_id').notNull(),
+    institution: text('institution').notNull(),
+    name: text('name').notNull(),
+    type: text('type').notNull(),
+    subtype: text('subtype').notNull(),
+    balanceCents: cents('balance_cents').notNull(),
+    accountId: uuid('account_id'),
+    syncedAt: timestamp('synced_at', { withTimezone: true }).notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    unique('bank_feed_accounts_id_user_id_unique').on(t.id, t.userId),
+    unique('bank_feed_accounts_external_unique').on(t.userId, t.source, t.externalId),
+    foreignKey({
+      name: 'bank_feed_accounts_account_fk',
+      columns: [t.accountId, t.userId],
+      foreignColumns: [accounts.id, accounts.userId],
+    }).onDelete('set null'),
+    index('bank_feed_accounts_account_id_idx').on(t.accountId),
+  ],
+).enableRLS()
+
+/**
+ * One real transaction of a feed account. `amount_cents` is signed from the
+ * holder's view (DEBIT < 0, CREDIT > 0, also on credit cards). Counterparty
+ * documents (`paymentData`) are deliberately NOT stored.
+ */
+export const bankTransactions = pgTable(
+  'bank_transactions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: ownerId(),
+    feedAccountId: uuid('feed_account_id').notNull(),
+    externalId: text('external_id').notNull(),
+    date: date('date', { mode: 'string' }).notNull(),
+    amountCents: cents('amount_cents').notNull(),
+    description: text('description').notNull(),
+    status: text('status').notNull(),
+    category: text('category'),
+    installmentNumber: smallint('installment_number'),
+    totalInstallments: smallint('total_installments'),
+    billMonth: month('bill_month'),
+    syncedAt: timestamp('synced_at', { withTimezone: true }).notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    unique('bank_transactions_external_unique').on(t.userId, t.feedAccountId, t.externalId),
+    foreignKey({
+      name: 'bank_transactions_feed_account_fk',
+      columns: [t.feedAccountId, t.userId],
+      foreignColumns: [bankFeedAccounts.id, bankFeedAccounts.userId],
+    }).onDelete('cascade'),
+    index('bank_transactions_feed_account_date_idx').on(t.feedAccountId, t.date),
+    check('bank_transactions_status', sql`${t.status} in ('POSTED', 'PENDING')`),
+    check(
+      'bank_transactions_bill_month_first_day',
+      sql`${t.billMonth} is null or ${isFirstOfMonth(t.billMonth)}`,
+    ),
+  ],
+).enableRLS()

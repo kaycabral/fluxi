@@ -224,7 +224,9 @@ export const categories = pgTable(
  * A "lançamento": one income, expense or transfer, possibly recurring from
  * `start_month` (monthly/yearly until `end_month`, or a fixed count of
  * installments). Per-month exceptions live in `entry_overrides`; split payments
- * in `entry_parts`.
+ * in `entry_parts`. `amount_cents` is signed from `account_id`'s point of view
+ * (negative = money leaves it; a transfer is always negative and its
+ * destination gets the opposite).
  */
 export const entries = pgTable(
   'entries',
@@ -280,7 +282,8 @@ export const entries = pgTable(
     index('entries_account_id_idx').on(t.accountId),
     index('entries_to_account_id_idx').on(t.toAccountId),
     index('entries_category_id_idx').on(t.categoryId),
-    check('entries_amount_positive', sql`${t.amountCents} > 0`),
+    check('entries_amount_nonzero', sql`${t.amountCents} <> 0`),
+    check('entries_transfer_negative', sql`${t.kind} <> 'transfer' or ${t.amountCents} < 0`),
     check('entries_day_range', isDayOfMonth(t.day)),
     check('entries_start_month_first_day', isFirstOfMonth(t.startMonth)),
     check(
@@ -375,7 +378,7 @@ export const entryOverrides = pgTable(
     }).onDelete('cascade'),
     index('entry_overrides_user_id_month_idx').on(t.userId, t.month),
     check('entry_overrides_month_first_day', isFirstOfMonth(t.month)),
-    check('entry_overrides_amount_positive', sql`${t.amountCents} is null or ${t.amountCents} > 0`),
+    check('entry_overrides_amount_nonzero', sql`${t.amountCents} is null or ${t.amountCents} <> 0`),
     check('entry_overrides_day_range', sql`${t.day} is null or ${isDayOfMonth(t.day)}`),
     check('entry_overrides_deleted_is_skipped', sql`not ${t.deleted} or ${t.skipped}`),
   ],

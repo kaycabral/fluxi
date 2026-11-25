@@ -52,7 +52,7 @@ const salary = makeEntry({
 const power = makeEntry({
   id: 'power',
   description: 'Luz',
-  amountCents: 26000,
+  amountCents: -26000,
   accountId: 'cc',
   categoryId: 'cat-power',
   startMonth: '2026-12',
@@ -60,7 +60,7 @@ const power = makeEntry({
 const net = makeEntry({
   id: 'net',
   description: 'Internet',
-  amountCents: 12000,
+  amountCents: -12000,
   accountId: 'nucc',
   categoryId: 'cat-net',
   pot: 'comfort',
@@ -70,7 +70,7 @@ const transfer = makeEntry({
   id: 'tr',
   kind: 'transfer',
   description: 'Para o Nubank',
-  amountCents: 40000,
+  amountCents: -40000,
   accountId: 'cc',
   toAccountId: 'nucc',
   pot: null,
@@ -79,7 +79,7 @@ const transfer = makeEntry({
 const loose = makeEntry({
   id: 'loose',
   description: 'Avulso',
-  amountCents: 5000,
+  amountCents: -5000,
   accountId: 'cc',
   pot: null,
   recurrence: 'none',
@@ -272,16 +272,16 @@ describe('searchOccurrences by money bucket', () => {
   }
   const bucketMonths = projectMonths({
     entries: [
-      makeEntry({ id: 'rent', description: 'Aluguel', amountCents: 200000, accountId: 'cc' }),
+      makeEntry({ id: 'rent', description: 'Aluguel', amountCents: -200000, accountId: 'cc' }),
       makeEntry({ id: 'voucher', kind: 'income', pot: null, accountId: 'va', amountCents: 90000 }),
-      makeEntry({ id: 'market', description: 'Mercado', accountId: 'va', amountCents: 30000 }),
+      makeEntry({ id: 'market', description: 'Mercado', accountId: 'va', amountCents: -30000 }),
       makeEntry({
         id: 'top-up',
         kind: 'transfer',
         pot: null,
         accountId: 'cc',
         toAccountId: 'va',
-        amountCents: 10000,
+        amountCents: -10000,
       }),
     ],
     parts: [],

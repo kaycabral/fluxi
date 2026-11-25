@@ -14,7 +14,7 @@ import {
   type OccurrencePayment,
 } from './payments'
 
-const rent = makeEntry({ id: 'rent', description: 'Aluguel', day: 10, amountCents: 200000 })
+const rent = makeEntry({ id: 'rent', description: 'Aluguel', day: 10, amountCents: -200000 })
 const salary = makeEntry({
   id: 'salary',
   kind: 'income',
@@ -69,8 +69,8 @@ describe('paymentStatus', () => {
 describe('groupPayables', () => {
   const today = '2026-11-24'
   const bills = [
-    makeEntry({ id: 'late', day: 3, amountCents: 1000 }),
-    makeEntry({ id: 'today', day: 24, amountCents: 2000 }),
+    makeEntry({ id: 'late', day: 3, amountCents: -1000 }),
+    makeEntry({ id: 'today', day: 24, amountCents: -2000 }),
     makeEntry({ id: 'soon', kind: 'income', pot: null, day: 30, amountCents: 5000 }),
     makeEntry({
       id: 'move',
@@ -78,9 +78,9 @@ describe('groupPayables', () => {
       pot: null,
       toAccountId: 'savings',
       day: 28,
-      amountCents: 700,
+      amountCents: -700,
     }),
-    makeEntry({ id: 'paid', day: 1, amountCents: 3000 }),
+    makeEntry({ id: 'paid', day: 1, amountCents: -3000 }),
   ]
   const november = bills.flatMap((e) => landingsIn(e, [], [], '2026-11'))
   const december = bills.flatMap((e) => landingsIn(e, [], [], '2026-12'))

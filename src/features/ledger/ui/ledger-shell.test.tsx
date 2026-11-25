@@ -116,6 +116,20 @@ describe('new entry', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
   })
 
+  it('saves an expense marked as refund with a positive amount', async () => {
+    renderShell()
+    await userEvent.click(screen.getByRole('button', { name: 'novo' }))
+    const sheet = await screen.findByRole('dialog', { name: 'Novo lançamento' })
+    await userEvent.type(within(sheet).getByLabelText('Descrição'), 'Estorno loja')
+    await userEvent.type(within(sheet).getByLabelText('Valor'), '50,00')
+    await userEvent.click(within(sheet).getByLabelText('Estorno/reembolso'))
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Salvar' }))
+    await waitFor(() => expect(actions.createEntryAction).toHaveBeenCalledOnce())
+    expect(actions.createEntryAction.mock.calls[0]?.[0]).toMatchObject({
+      fields: { kind: 'expense', amountCents: 5000 },
+    })
+  })
+
   it('opens on a given date with what the quick add typed', async () => {
     renderShell()
     await userEvent.click(screen.getByRole('button', { name: 'abrir rascunho' }))
@@ -199,7 +213,7 @@ describe('new entry', () => {
       fields: {
         kind: 'expense',
         description: 'Academia',
-        amountCents: 123450,
+        amountCents: -123450,
         accountId: IDS.cc,
         categoryId: IDS.gymCat,
         pot: 'comfort',

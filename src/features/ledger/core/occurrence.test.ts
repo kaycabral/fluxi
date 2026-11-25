@@ -8,6 +8,7 @@ import {
   occursIn,
   skippedLandingsIn,
   splitAmount,
+  splitSigned,
 } from './occurrence'
 
 describe('occursIn', () => {
@@ -63,6 +64,11 @@ describe('installments split the total', () => {
     expect(installmentShares(100000, 3)).toEqual({ first: 33334, rest: 33333 })
   })
 
+  it('splits a negative total like its magnitude, negated', () => {
+    expect(installmentShares(-100000, 3)).toEqual({ first: -33334, rest: -33333 })
+    expect(installmentShares(-2, 3)).toEqual({ first: -2, rest: 0 })
+  })
+
   it('amountFor gives each installment its share (an override still wins)', () => {
     const ring = makeEntry({
       recurrence: 'installments',
@@ -81,21 +87,21 @@ describe('installments split the total', () => {
 describe('amountFor / dayFor', () => {
   const entry = makeEntry()
   const overrides = [
-    makeOverride({ month: '2026-10', amountCents: 31000 }),
+    makeOverride({ month: '2026-10', amountCents: -31000 }),
     makeOverride({ month: '2026-11', day: 3 }),
     makeOverride({ entryId: 'other', month: '2026-12', amountCents: 1 }),
   ]
 
   it('use the entry by default and the override when set', () => {
-    expect(amountFor(entry, overrides, '2026-09')).toBe(26000)
-    expect(amountFor(entry, overrides, '2026-10')).toBe(31000)
-    expect(amountFor(entry, overrides, '2026-11')).toBe(26000)
+    expect(amountFor(entry, overrides, '2026-09')).toBe(-26000)
+    expect(amountFor(entry, overrides, '2026-10')).toBe(-31000)
+    expect(amountFor(entry, overrides, '2026-11')).toBe(-26000)
     expect(dayFor(entry, overrides, '2026-10')).toBe(15)
     expect(dayFor(entry, overrides, '2026-11')).toBe(3)
   })
 
   it("ignore other entries' overrides", () => {
-    expect(amountFor(entry, overrides, '2026-12')).toBe(26000)
+    expect(amountFor(entry, overrides, '2026-12')).toBe(-26000)
   })
 })
 
@@ -116,6 +122,24 @@ describe('splitAmount', () => {
 
   it('returns nothing for no parts', () => {
     expect(splitAmount(1000, [])).toEqual([])
+  })
+
+  it('rounds a negative amount exactly like its magnitude, negated', () => {
+    const parts = [makePart({ bps: 3333 }), makePart({ bps: 3333 }), makePart({ bps: 3334 })]
+    expect(splitAmount(-100, parts)).toEqual([-33, -33, -34])
+    expect(splitAmount(-1001, salarySplit('e1'))).toEqual([-400, -601])
+    expect(splitAmount(-1001, [makePart({ bps: 5000 }), makePart({ bps: 2500 })])).toEqual([
+      -500, -250,
+    ])
+  })
+})
+
+describe('splitSigned', () => {
+  it('splits the magnitude and reapplies the sign, never producing -0', () => {
+    const halves = (abs: number) => [Math.floor(abs / 2), abs - Math.floor(abs / 2)]
+    expect(splitSigned(7, halves)).toEqual([3, 4])
+    expect(splitSigned(-7, halves)).toEqual([-3, -4])
+    expect(Object.is(splitSigned(-1, halves)[0], 0)).toBe(true)
   })
 })
 

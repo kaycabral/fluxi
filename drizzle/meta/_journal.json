@@ -92,6 +92,13 @@
       "when": 1795646680909,
       "tag": "0012_bank_feed",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1795649039892,
+      "tag": "0013_signed_amounts",
+      "breakpoints": true
     }
   ]
 }

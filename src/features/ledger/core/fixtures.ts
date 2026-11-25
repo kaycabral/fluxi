@@ -6,7 +6,7 @@ export function makeEntry(overrides: Partial<Entry> = {}): Entry {
     id: 'e1',
     kind: 'expense',
     description: 'Luz',
-    amountCents: 26000,
+    amountCents: -26000,
     accountId: 'checking',
     toAccountId: null,
     categoryId: null,

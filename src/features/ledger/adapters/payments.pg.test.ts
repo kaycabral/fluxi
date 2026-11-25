@@ -42,7 +42,7 @@ function rent(accountId: string, patch: Partial<EntryFields> = {}): EntryFields 
   return {
     kind: 'expense',
     description: 'Aluguel',
-    amountCents: 200000,
+    amountCents: -200000,
     accountId,
     toAccountId: null,
     categoryId: null,
@@ -244,7 +244,7 @@ describe('payments under scoped edits and deletes', () => {
     await updateEntry(
       ANA,
       entryId,
-      rent(anaAccount, { amountCents: 210000, startMonth: '2027-01' }),
+      rent(anaAccount, { amountCents: -210000, startMonth: '2027-01' }),
       {
         month: '2027-01',
         scope: 'future',

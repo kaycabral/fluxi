@@ -111,7 +111,7 @@ export function sampleData(overrides: Partial<LedgerData> = {}): LedgerData {
       makeEntry({
         id: IDS.power,
         description: 'Luz',
-        amountCents: 26000,
+        amountCents: -26000,
         day: 15,
         accountId: IDS.cc,
         categoryId: IDS.powerCat,
@@ -122,7 +122,7 @@ export function sampleData(overrides: Partial<LedgerData> = {}): LedgerData {
       makeEntry({
         id: IDS.once,
         description: 'Avulso',
-        amountCents: 700000,
+        amountCents: -700000,
         day: 3,
         accountId: IDS.cc,
         pot: 'variable',
@@ -133,7 +133,7 @@ export function sampleData(overrides: Partial<LedgerData> = {}): LedgerData {
         id: IDS.transfer,
         kind: 'transfer',
         description: 'Para o Nubank',
-        amountCents: 40000,
+        amountCents: -40000,
         day: 6,
         accountId: IDS.cc,
         toAccountId: IDS.nucc,
@@ -143,7 +143,7 @@ export function sampleData(overrides: Partial<LedgerData> = {}): LedgerData {
       makeEntry({
         id: IDS.buffet,
         description: 'Buffet',
-        amountCents: 3000000,
+        amountCents: -3000000,
         day: 25,
         accountId: IDS.cc,
         pot: 'comfort',
@@ -191,7 +191,7 @@ export function sampleDataWithBenefit(): LedgerData {
       makeEntry({
         id: IDS.market,
         description: 'Mercado VA',
-        amountCents: 20000,
+        amountCents: -20000,
         day: 16,
         accountId: IDS.va,
         pot: 'essential',

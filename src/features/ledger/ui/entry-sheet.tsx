@@ -39,7 +39,7 @@ import {
   X,
 } from 'lucide-react'
 import { useState, useTransition } from 'react'
-import { KindToggle, PartsEditor, TagsField, TitleInput } from './entry-fields'
+import { KindToggle, PartsEditor, RefundCheckbox, TagsField, TitleInput } from './entry-fields'
 import { MoneyInput } from './money-input'
 import { RepeatField } from './repeat-field'
 import type { ScopeRequest } from './scope-dialog'
@@ -89,6 +89,8 @@ export function EntryForm({
     const category = refs.categories.find((c) => c.id === values.categoryId)
     set({
       kind,
+      // A refund is an expense's; another kind takes its natural direction.
+      refund: kind === values.kind ? values.refund : false,
       pot:
         kind === 'expense'
           ? values.pot || activePot(category?.defaultPot) || defaultPotOf(refs.pots)
@@ -331,6 +333,13 @@ export function EntryForm({
               <p id="entry-amount-total" className="text-muted-foreground min-h-4 text-xs">
                 {totalHint}
               </p>
+              {values.kind === 'expense' && (
+                <RefundCheckbox
+                  id="entry-refund"
+                  checked={values.refund}
+                  onChange={(refund) => set({ refund })}
+                />
+              )}
             </div>
           </DetailRow>
 

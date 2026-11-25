@@ -7,7 +7,7 @@ import type { EntryKind } from '@/features/ledger/core/types'
 import { Button } from '@cbrl/design'
 import { Banknote, Clock, Loader2, Repeat, Wallet, X } from 'lucide-react'
 import { useState, useTransition } from 'react'
-import { KindToggle, TitleInput } from './entry-fields'
+import { KindToggle, RefundCheckbox, TitleInput } from './entry-fields'
 import { defaultAccountOf, useLedgerUi } from './ledger-shell'
 import { MoneyInput } from './money-input'
 import { RepeatField, type RepeatValue } from './repeat-field'
@@ -25,6 +25,7 @@ export function QuickAddForm({ date, onDone }: { date: string; onDone: () => voi
   const { refs, openNew, offerUndo } = useLedgerUi()
   const [kind, setKind] = useState<EntryKind>('expense')
   const [amount, setAmount] = useState('')
+  const [refund, setRefund] = useState(false)
   const [description, setDescription] = useState('')
   const [repeat, setRepeat] = useState<RepeatValue>({
     recurrence: 'none',
@@ -39,7 +40,14 @@ export function QuickAddForm({ date, onDone }: { date: string; onDone: () => voi
   const [pending, startTransition] = useTransition()
   const accounts = refs.accounts.filter((a) => !a.archived)
 
-  const typed = { kind, amount, description, accountId, ...repeat }
+  const typed = {
+    kind,
+    amount,
+    refund: kind === 'expense' && refund,
+    description,
+    accountId,
+    ...repeat,
+  }
 
   function save() {
     const converted = valuesToFields({
@@ -97,6 +105,12 @@ export function QuickAddForm({ date, onDone }: { date: string; onDone: () => voi
       <RepeatField date={date} value={repeat} onChange={setRepeat} />
       <Banknote className="text-muted-foreground size-5" aria-hidden />
       <MoneyInput id="quick-amount" aria-label="Valor" value={amount} onValueChange={setAmount} />
+      {kind === 'expense' && (
+        <>
+          <span aria-hidden />
+          <RefundCheckbox id="quick-refund" checked={refund} onChange={setRefund} />
+        </>
+      )}
       <Wallet className="text-muted-foreground size-5" aria-hidden />
       <AccountSelect
         aria-label="Conta"

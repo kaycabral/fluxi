@@ -23,7 +23,13 @@ export type PartDraft = { label: string; percent: string; day: string; nextMonth
 
 export type EntryFormValues = {
   kind: EntryKind
+  /** Magnitude as typed; the sign comes from `kind` and `refund` ({@link signedAmountOf}). */
   amount: string
+  /**
+   * Against the kind's natural direction: an expense refund ("Estorno/reembolso",
+   * stored positive) or an income reversal (kept only when editing one).
+   */
+  refund: boolean
   description: string
   /** `YYYY-MM-DD`: its month is the start month (or the edited occurrence), its day the day. */
   date: string
@@ -57,6 +63,23 @@ export const DEFAULT_PARTS: readonly PartDraft[] = [
   { label: 'Saldo', percent: '60', day: '5', nextMonth: true },
 ]
 
+/** Natural direction of a kind: income enters (+), expenses and transfers leave (−). */
+const naturalSign = (kind: EntryKind): 1 | -1 => (kind === 'income' ? 1 : -1)
+
+/** Whether a signed amount goes against its kind (expense refund, income reversal). */
+export function isReversed(kind: EntryKind, amountCents: number): boolean {
+  return Math.sign(amountCents) === -naturalSign(kind)
+}
+
+/**
+ * The signed amount for a typed magnitude: the kind's direction, flipped by
+ * `refund` (never for a transfer, which always leaves its source account).
+ */
+export function signedAmountOf(kind: EntryKind, refund: boolean, magnitude: number): number {
+  const sign = refund && kind !== 'transfer' ? -naturalSign(kind) : naturalSign(kind)
+  return magnitude === 0 ? 0 : sign * magnitude
+}
+
 /**
  * Pot a new expense starts in: "Variável" while it is active (the catch-all
  * pot), else the first active pot, else none.
@@ -76,6 +99,7 @@ export function newEntryValues(input: {
   return {
     kind: input.kind ?? 'expense',
     amount: '',
+    refund: false,
     description: '',
     date: input.date,
     accountId: input.accountId,
@@ -127,7 +151,8 @@ export function editEntryValues(target: EditTarget): EntryFormValues {
   const day = occurrence === null ? entry.day : dayFor(entry, target.overrides, occurrence)
   return {
     kind: entry.kind,
-    amount: centsToInput(amountCents),
+    amount: centsToInput(Math.abs(amountCents)),
+    refund: isReversed(entry.kind, amountCents),
     description: entry.description,
     date: isoDate(month, day),
     accountId: entry.accountId,
@@ -171,8 +196,9 @@ export type FieldsResult = { ok: true; fields: EntryFields } | { ok: false; erro
 
 /** Form values → validated domain fields. */
 export function valuesToFields(values: EntryFormValues): FieldsResult {
-  const amountCents = parseMoneyInput(values.amount)
-  if (amountCents === null) return { ok: false, error: 'Informe o valor.' }
+  const magnitude = parseMoneyInput(values.amount)
+  if (magnitude === null) return { ok: false, error: 'Informe o valor.' }
+  const amountCents = signedAmountOf(values.kind, values.refund, magnitude)
   const date = /^(\d{4}-\d{2})-(\d{2})$/.exec(values.date)
   if (date === null) return { ok: false, error: 'Informe a data.' }
   const parts = values.split
@@ -302,8 +328,11 @@ export function describeOccurrenceChange(
 ): string {
   const changes: string[] = []
   if (patch.amountCents !== undefined) {
-    const before = formatMoney(amountFor(target.entry, target.overrides, month))
-    changes.push(`valor ${before} → ${formatMoney(patch.amountCents)}`)
+    const before = amountFor(target.entry, target.overrides, month)
+    // Magnitudes, unless the direction changes too (an expense turned refund).
+    const show =
+      Math.sign(before) === Math.sign(patch.amountCents) ? Math.abs : (cents: number) => cents
+    changes.push(`valor ${formatMoney(show(before))} → ${formatMoney(show(patch.amountCents))}`)
   }
   if (patch.day !== undefined)
     changes.push(`dia ${dayFor(target.entry, target.overrides, month)} → ${patch.day}`)

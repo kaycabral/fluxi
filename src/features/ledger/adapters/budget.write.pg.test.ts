@@ -40,7 +40,7 @@ async function anaEntry(pot: string): Promise<{ ok: boolean }> {
   return createEntry(ANA, randomUUID(), {
     kind: 'expense',
     description: 'Passagem',
-    amountCents: 10000,
+    amountCents: -10000,
     accountId,
     toAccountId: null,
     categoryId: null,

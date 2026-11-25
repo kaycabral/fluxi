@@ -80,11 +80,12 @@ export const entryFieldsSchema = z
   .object({
     kind: z.enum(['income', 'expense', 'transfer']),
     description: z.string().trim().min(1, 'Informe a descrição.').max(120),
+    /** Signed from `accountId`'s point of view: negative = money leaves it. */
     amountCents: z
       .number('Informe o valor.')
       .int()
-      .min(1, 'Informe um valor maior que zero.')
-      .max(MAX_CENTS, 'Valor alto demais.'),
+      .refine((cents) => cents !== 0, 'Informe um valor diferente de zero.')
+      .refine((cents) => Math.abs(cents) <= MAX_CENTS, 'Valor alto demais.'),
     accountId: idSchema,
     toAccountId: idSchema.nullable(),
     categoryId: idSchema.nullable(),
@@ -106,6 +107,9 @@ export const entryFieldsSchema = z
   .superRefine((v, ctx) => {
     const issue: Issue = (path, message) => ctx.addIssue({ code: 'custom', path: [path], message })
     checkTransfer(v, issue)
+    if (v.kind === 'transfer' && v.amountCents > 0) {
+      issue('amountCents', 'Transferência sai da conta de origem (valor negativo).')
+    }
     checkRecurrence(v, issue)
     if (v.pot !== null && v.kind !== 'expense') issue('pot', 'Só saídas vão para um pote.')
     if (v.parts.length > 0 && v.parts.reduce((sum, p) => sum + p.bps, 0) !== 10000) {

@@ -1,6 +1,6 @@
 import { addMonths, diffMonths, type Month } from './month'
 import { installmentCount, installmentShares, occursIn } from './occurrence'
-import type { Entry, EntryOverride, EntryPart } from './types'
+import type { Entry, EntryKind, EntryOverride, EntryPart } from './types'
 
 export type EditScope = 'one' | 'future' | 'all'
 
@@ -34,6 +34,33 @@ export type ScopedEditResult = {
   parts: EntryPart[]
   /** Complete override set of every entry in `entries`. */
   overrides: EntryOverride[]
+}
+
+/**
+ * A signed amount re-signed for a kind change: a transfer always leaves its
+ * source (negative); otherwise the sign flips only when the kind's natural
+ * direction does (income ↔ expense), so a refund stays a refund.
+ */
+export function resignAmount(from: EntryKind, to: EntryKind, amountCents: number): number {
+  if (to === 'transfer') return -Math.abs(amountCents)
+  return (from === 'income') === (to === 'income') ? amountCents : -amountCents
+}
+
+/** The series re-signed for `kind` (amount and override amounts); the same state when nothing changes. */
+export function resignForKind(state: SeriesState, kind: EntryKind): SeriesState {
+  const { entry } = state
+  const resign = (cents: number) => resignAmount(entry.kind, kind, cents)
+  const changed =
+    resign(entry.amountCents) !== entry.amountCents ||
+    state.overrides.some((o) => o.amountCents !== null && resign(o.amountCents) !== o.amountCents)
+  if (!changed) return state
+  return {
+    entry: { ...entry, amountCents: resign(entry.amountCents) },
+    parts: state.parts,
+    overrides: state.overrides.map((o) =>
+      o.amountCents === null ? o : { ...o, amountCents: resign(o.amountCents) },
+    ),
+  }
 }
 
 const ownParts = (state: SeriesState) => state.parts.filter((p) => p.entryId === state.entry.id)

@@ -5,8 +5,8 @@ import { projectMonths } from './projection'
 import { initialSelectedMonth, sumBalances, timelineWindow } from './timeline'
 
 const entries = [
-  makeEntry({ id: 'rent', amountCents: 50000, day: 3, accountId: 'cc', startMonth: '2026-12' }),
-  makeEntry({ id: 'gym', amountCents: 10000, day: 3, accountId: 'nu', startMonth: '2026-12' }),
+  makeEntry({ id: 'rent', amountCents: -50000, day: 3, accountId: 'cc', startMonth: '2026-12' }),
+  makeEntry({ id: 'gym', amountCents: -10000, day: 3, accountId: 'nu', startMonth: '2026-12' }),
 ]
 
 function project(countFrom: string) {
@@ -86,7 +86,7 @@ describe('calendarMonth', () => {
         ...entries,
         makeEntry({
           id: 'meal',
-          amountCents: 4000,
+          amountCents: -4000,
           day: 3,
           accountId: 'va',
           startMonth: '2026-12',

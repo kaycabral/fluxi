@@ -80,7 +80,6 @@ function GroupCard({ group, data }: { group: PayableGroup; data: LedgerData }) {
             {group.items.map(({ landing, status, payment }, index) => {
               const { entry } = landing
               const installment = installmentLabel(landing)
-              const sign = entry.kind === 'income' ? 1 : -1
               return (
                 <TableRow
                   key={`${entry.id}-${landing.competence}-${landing.part?.id ?? 'whole'}-${index}`}
@@ -113,7 +112,9 @@ function GroupCard({ group, data }: { group: PayableGroup; data: LedgerData }) {
                   <TableCell className="text-right">
                     <Money
                       cents={
-                        entry.kind === 'transfer' ? landing.amountCents : sign * landing.amountCents
+                        entry.kind === 'transfer'
+                          ? Math.abs(landing.amountCents)
+                          : landing.amountCents
                       }
                       signed={entry.kind !== 'transfer'}
                       tone={entry.kind !== 'transfer'}

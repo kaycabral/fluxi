@@ -141,7 +141,9 @@ export function groupPayables(
     const items = buckets.get(key)
     if (items === undefined) return []
     items.sort((a, b) => a.date.localeCompare(b.date))
+    // Income is signed positive, expenses and transfers negative: totals are magnitudes.
     const total = (kind: Entry['kind']) =>
+      (kind === 'income' ? 1 : -1) *
       items
         .filter((i) => i.landing.entry.kind === kind)
         .reduce((sum, i) => sum + i.landing.amountCents, 0)

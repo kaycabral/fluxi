@@ -17,20 +17,20 @@ const salary = makeEntry({
   day: 5,
   startMonth: '2026-11',
 })
-const rent = makeEntry({ id: 'rent', amountCents: 200000, day: 10, pot: 'essential' })
+const rent = makeEntry({ id: 'rent', amountCents: -200000, day: 10, pot: 'essential' })
 const gym = makeEntry({
   id: 'gym',
-  amountCents: 13000,
+  amountCents: -13000,
   day: 5,
   pot: 'comfort',
   accountId: 'nubank',
 })
-const misc = makeEntry({ id: 'misc', amountCents: 10000, day: 28, pot: null })
+const misc = makeEntry({ id: 'misc', amountCents: -10000, day: 28, pot: null })
 const transfer = makeEntry({
   id: 'transfer',
   kind: 'transfer',
   description: 'Para o Nubank',
-  amountCents: 40000,
+  amountCents: -40000,
   day: 6,
   pot: null,
   toAccountId: 'nubank',
@@ -61,6 +61,35 @@ describe('projectMonths', () => {
     expect(december.totals.netCents).toBe(277000)
     expect(december.totals.byPot).toEqual({ essential: 200000, comfort: 13000 })
     expect(december.totals.unallocatedCents).toBe(10000)
+  })
+
+  it('takes refunds off the expenses and reversals off the income, never the other way', () => {
+    const refund = makeEntry({ id: 'refund', amountCents: 5000, day: 5, pot: 'comfort' })
+    const reversal = makeEntry({ id: 'reversal', kind: 'income', pot: null, amountCents: -1000 })
+    const [, december] = projectMonths({
+      entries: [gym, refund, reversal, salary],
+      parts: [],
+      overrides: [],
+      accounts,
+      months: monthRange('2026-11', '2026-12'),
+      countFrom: '2026-12',
+    })
+    if (december === undefined) throw new Error('missing december')
+    expect(december.totals).toEqual({
+      incomeCents: 499000,
+      expenseCents: 8000,
+      netCents: 491000,
+      byPot: { comfort: 8000 },
+      unallocatedCents: 0,
+    })
+    // A refund is an inflow: same day, it lands before the outflows.
+    expect(december.landings.map((l) => l.entry.id)).toEqual([
+      'refund',
+      'salary',
+      'gym',
+      'reversal',
+    ])
+    expect(december.closingBalances).toEqual({ checking: 604000, nubank: 7000 })
   })
 
   it('orders landings by day, income first within a day, then input order', () => {
@@ -117,7 +146,7 @@ describe('projectMonths', () => {
 
   it('sorts the months it is given and starts unknown accounts at zero', () => {
     const results = projectMonths({
-      entries: [makeEntry({ accountId: 'ghost', amountCents: 500 })],
+      entries: [makeEntry({ accountId: 'ghost', amountCents: -500 })],
       parts: [],
       overrides: [],
       accounts: [],
@@ -168,7 +197,7 @@ describe('projectMonths with benefit accounts', () => {
   })
   const groceries = makeEntry({
     id: 'groceries',
-    amountCents: 30000,
+    amountCents: -30000,
     day: 8,
     pot: 'essential',
     accountId: 'va',
@@ -176,7 +205,7 @@ describe('projectMonths with benefit accounts', () => {
   const topUp = makeEntry({
     id: 'top-up',
     kind: 'transfer',
-    amountCents: 10000,
+    amountCents: -10000,
     day: 9,
     pot: null,
     accountId: 'checking',

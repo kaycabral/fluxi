@@ -2,7 +2,7 @@
 
 import { accountLabel } from '@/features/ledger/core/account-filter'
 import { shortDate } from '@/features/ledger/core/format'
-import { potDot, RECURRENCE_LABELS } from '@/features/ledger/core/labels'
+import { paidLabel, potDot, RECURRENCE_LABELS } from '@/features/ledger/core/labels'
 import { paymentFor } from '@/features/ledger/core/payments'
 import {
   activeFilters,
@@ -287,7 +287,7 @@ export function SearchView({ data, initialQuery, today }: Props) {
               ) : (
                 <Money cents={valueCents} tone />
               ),
-            trailingHint: paid ? paidLabel(entry.kind) : undefined,
+            trailingHint: paid ? paidLabel(landing.amountCents) : undefined,
             onClick: () => openEdit(targetFor(data, landing)),
           }
         }}
@@ -334,11 +334,6 @@ function Summary({ count, totals }: { count: number; totals: SearchTotals }) {
       </div>
     </dl>
   )
-}
-
-/** "Pago", or "Recebido" for income. */
-function paidLabel(kind: LedgerData['entries'][number]['kind']): string {
-  return kind === 'income' ? 'Recebido' : 'Pago'
 }
 
 function FilterChip({ chip, onClear }: { chip: ActiveFilter; onClear: () => void }) {

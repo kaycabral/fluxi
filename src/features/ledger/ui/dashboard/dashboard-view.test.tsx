@@ -24,6 +24,10 @@ vi.mock('@/features/ledger/adapters/actions/entries', () => ({
   deleteEntryAction: vi.fn(),
   changeDayAction: vi.fn(),
 }))
+const setCountFromAction = vi.fn<(prev: unknown, data: FormData) => Promise<unknown>>()
+vi.mock('@/features/ledger/adapters/actions/settings', () => ({
+  setCountFromAction: (p: unknown, d: FormData) => setCountFromAction(p, d),
+}))
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 
 const PLAN: BudgetPlan = {
@@ -125,6 +129,15 @@ describe('DashboardView', () => {
     renderDashboard(sampleData({ entries: [], parts: [] }))
     expect(screen.getByRole('tab', { name: /7 dias/ })).toHaveAttribute('aria-selected', 'true')
     expect(screen.getByText('Nada vence nos próximos 7 dias.')).toBeInTheDocument()
+  })
+
+  it('changes where balances start counting from the header', async () => {
+    setCountFromAction.mockResolvedValue({ ok: true, error: null, savedAt: 1 })
+    renderDashboard()
+    await userEvent.click(screen.getByLabelText('Contar a partir de'))
+    await userEvent.click(await screen.findByRole('option', { name: 'nov/26' }))
+    await waitFor(() => expect(setCountFromAction).toHaveBeenCalledOnce())
+    expect(setCountFromAction.mock.calls[0]?.[1].get('month')).toBe('2026-11')
   })
 
   it('asks for a first account before anything else', () => {

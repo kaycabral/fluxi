@@ -1,7 +1,5 @@
 'use client'
 
-import { setCountFromAction } from '@/features/ledger/adapters/actions/settings'
-import { INITIAL_FORM_STATE } from '@/features/ledger/core/action-result'
 import { formatAmount, monthLabel } from '@/features/ledger/core/format'
 import { ACCOUNT_TYPE_LABELS } from '@/features/ledger/core/labels'
 import { monthRange, type Month } from '@/features/ledger/core/month'
@@ -17,14 +15,11 @@ import {
   CardTitle,
   cn,
   EmptyState,
-  Label,
 } from '@cbrl/design'
 import { ChevronDown, ChevronRight } from 'lucide-react'
-import Link from 'next/link'
-import { startTransition, useActionState, useEffect, useMemo, useState } from 'react'
-import { toast } from 'sonner'
+import { useMemo, useState } from 'react'
+import { CountFromForm } from './count-from-form'
 import { MonthDetail } from './month-detail'
-import { MonthSelect } from './selects'
 
 type Props = {
   data: LedgerData
@@ -56,49 +51,6 @@ function ValueCell({
     >
       {cents === null ? '–' : formatAmount(cents)}
     </td>
-  )
-}
-
-function CountFromForm({
-  value,
-  months,
-  onSaved,
-}: {
-  value: Month | null
-  months: Month[]
-  onSaved: (m: Month) => void
-}) {
-  const [state, formAction, pending] = useActionState(setCountFromAction, INITIAL_FORM_STATE)
-  const [current, setCurrent] = useState(value ?? '')
-  useEffect(() => {
-    if (state.error !== null) toast.error(state.error)
-  }, [state])
-
-  return (
-    <form action={formAction} className="flex flex-wrap items-center gap-2 text-sm">
-      <Label htmlFor="count-from">Contar a partir de</Label>
-      <MonthSelect
-        id="count-from"
-        name="month"
-        className="w-28"
-        months={months}
-        value={current}
-        disabled={pending}
-        onValueChange={(month) => {
-          setCurrent(month)
-          onSaved(month)
-          const formData = new FormData()
-          formData.set('month', month)
-          startTransition(() => formAction(formData))
-        }}
-      />
-      <span className="text-muted-foreground text-xs">
-        saldos iniciais em{' '}
-        <Link href="/painel/contas" className="text-primary underline-offset-2 hover:underline">
-          Bancos e contas
-        </Link>
-      </span>
-    </form>
   )
 }
 

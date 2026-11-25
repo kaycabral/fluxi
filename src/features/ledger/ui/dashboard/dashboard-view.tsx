@@ -14,7 +14,7 @@ import {
   monthLongLabel,
 } from '@/features/ledger/core/format'
 import { POT_DOT_CLASSES } from '@/features/ledger/core/labels'
-import { addMonths, type Month } from '@/features/ledger/core/month'
+import { addMonths, monthRange, type Month } from '@/features/ledger/core/month'
 import type { BudgetPlan, Pot } from '@/features/ledger/core/types'
 import { projectWindow, type LedgerData } from '@/features/ledger/core/view'
 import {
@@ -37,6 +37,7 @@ import { ArrowRight, TrendingDown, TrendingUp } from 'lucide-react'
 import Link from 'next/link'
 import { useMemo } from 'react'
 import { TrafficLight, useBudgetMonth } from '../budget/traffic-light'
+import { CountFromForm } from '../count-from-form'
 import { Money, toneOf } from '../money'
 import { UpcomingBills } from './upcoming-bills'
 
@@ -230,11 +231,20 @@ export function DashboardView({
   const monthEndDelta = snapshot === null ? null : snapshot.monthEndCents - snapshot.todayCents
 
   const header = (
-    <div className="grid gap-1">
-      <Typography variant="pageTitle" as="h1">
-        Painel
-      </Typography>
-      <p className="text-muted-foreground text-sm first-letter:uppercase">{dayLongLabel(today)}</p>
+    <div className="flex flex-wrap items-end justify-between gap-3">
+      <div className="grid gap-1">
+        <Typography variant="pageTitle" as="h1">
+          Painel
+        </Typography>
+        <p className="text-muted-foreground text-sm first-letter:uppercase">
+          {dayLongLabel(today)}
+        </p>
+      </div>
+      <CountFromForm
+        value={data.countFrom}
+        months={monthRange(addMonths(month, -24), addMonths(month, 12))}
+        showAccountsLink={false}
+      />
     </div>
   )
 

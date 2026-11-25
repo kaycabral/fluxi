@@ -39,13 +39,13 @@ describe('buildImportPlan', () => {
       kind: 'expense',
       pot: 'essential',
       recurrence: 'monthly',
-      amountCents: 150000,
+      amountCents: -150000,
       day: 5,
       startMonth: '2025-01',
       endMonth: '2025-04',
     })
     expect(rentEntry?.overrides).toEqual([
-      { month: '2025-02', amountCents: 160000, day: null, skipped: false },
+      { month: '2025-02', amountCents: -160000, day: null, skipped: false },
       { month: '2025-03', amountCents: null, day: null, skipped: true },
       { month: '2025-04', amountCents: null, day: 8, skipped: false },
     ])
@@ -61,6 +61,8 @@ describe('buildImportPlan', () => {
       pot: null,
       categoryKey: null,
     })
+    // Signed from the source account: a transfer always leaves it.
+    expect(reserve?.amountCents).toBeLessThan(0)
     expect(plan.categories.map((c) => [c.groupName, c.name, c.defaultPot])).toEqual([
       ['Moradia', 'Pagamento de aluguel', 'essential'],
       ['Transporte', 'IPVA e licenciamento', 'essential'],
@@ -170,7 +172,7 @@ describe('buildImportPlan with benefit mirrors', () => {
     expect(outflows[0]).toMatchObject({ startMonth: '2026-11', endMonth: '2027-02' })
     expect(outflows[0]?.overrides).toEqual([
       { month: '2027-01', amountCents: null, day: null, skipped: true },
-      { month: '2027-02', amountCents: 70000, day: null, skipped: false },
+      { month: '2027-02', amountCents: -70000, day: null, skipped: false },
     ])
   })
 

@@ -22,6 +22,14 @@ describe('toItems', () => {
     })
   })
 
+  it('signs a paired transfer from its source account (negative)', () => {
+    const { items } = toItems([
+      transferRow('in', { movement: 'Inflow', accountId: 'acc-2' }),
+      transferRow('out', { movement: 'Outflow', accountId: 'acc-1' }),
+    ])
+    expect(items.map((i) => [i.kind, Math.sign(i.amountCents)])).toEqual([['transfer', -1]])
+  })
+
   it('leaves unpaired rows as income/expense with their category', () => {
     const { items, transfersPaired } = toItems([
       transferRow('out', { movement: 'Outflow', accountId: 'acc-1' }),
@@ -31,6 +39,8 @@ describe('toItems', () => {
     ])
     expect(transfersPaired).toBe(0)
     expect(items.map((i) => i.kind)).toEqual(['expense', 'income', 'income', 'income'])
+    // Signed like the ledger: outflows negative, inflows positive.
+    expect(items.map((i) => Math.sign(i.amountCents))).toEqual([-1, 1, 1, 1])
     expect(items[0]?.subCategory).toBe(TRANSFER_SUBCATEGORY)
   })
 

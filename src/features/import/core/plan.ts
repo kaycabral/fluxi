@@ -6,7 +6,7 @@ import { toItems } from './items'
 import { dropBenefitMirrors } from './mirrors'
 import { relationOf, selectOf, textOf, type NotionPage, type NotionSource } from './notion'
 import { buildMonthIndex, toRecords, type RecordSkips } from './records'
-import { verifyLedger, type Flow, type Verification } from './verify'
+import { signedFlowCents, verifyLedger, type Flow, type Verification } from './verify'
 
 /**
  * The whole Notion → fluxi import as data: what to create and how it maps
@@ -171,8 +171,7 @@ export function buildImportPlan(
       externalId: r.externalId,
       month: r.month,
       accountId: r.accountId,
-      movement: r.movement,
-      amountCents: r.amountCents,
+      amountCents: signedFlowCents(r.movement, r.amountCents),
     })),
     droppedExternalIds: mirrors.dropped.flatMap((item) => item.externalIds),
     stats: {

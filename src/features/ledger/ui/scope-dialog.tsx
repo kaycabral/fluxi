@@ -20,6 +20,8 @@ export type ScopeRequest = {
   kind: 'edit' | 'delete'
   /** E.g. "Luz em dez/26: valor R$ 260 → R$ 300". */
   description: string
+  /** Hide "Só este mês" (a new split applies to the repetition, not to one month). */
+  seriesOnly?: boolean
 }
 
 const OPTIONS: Record<ScopeRequest['kind'], { value: EditScope; title: string; hint: string }[]> = {
@@ -57,6 +59,8 @@ export function ScopeDialog({
 }) {
   const [scope, setScope] = useState<EditScope>('future')
   const kind = request?.kind ?? 'edit'
+  const seriesOnly = request?.seriesOnly === true
+  const effective: EditScope = seriesOnly && scope === 'one' ? 'future' : scope
 
   return (
     <Dialog
@@ -71,29 +75,31 @@ export function ScopeDialog({
           <DialogDescription>{request?.description}</DialogDescription>
         </DialogHeader>
         <RadioGroup
-          value={scope}
+          value={effective}
           onValueChange={(value) => {
             if (isScope(value)) setScope(value)
           }}
           className="gap-2"
         >
-          {OPTIONS[kind].map((option) => (
-            <Label
-              key={option.value}
-              htmlFor={`scope-${option.value}`}
-              className="border-border hover:bg-muted/50 flex cursor-pointer items-start gap-3 rounded-md border p-3 font-normal"
-            >
-              <RadioGroupItem
-                id={`scope-${option.value}`}
-                value={option.value}
-                className="mt-0.5"
-              />
-              <span className="grid gap-0.5">
-                <span className="text-sm font-medium">{option.title}</span>
-                <span className="text-muted-foreground text-xs">{option.hint}</span>
-              </span>
-            </Label>
-          ))}
+          {OPTIONS[kind]
+            .filter((option) => !(seriesOnly && option.value === 'one'))
+            .map((option) => (
+              <Label
+                key={option.value}
+                htmlFor={`scope-${option.value}`}
+                className="border-border hover:bg-muted/50 flex cursor-pointer items-start gap-3 rounded-md border p-3 font-normal"
+              >
+                <RadioGroupItem
+                  id={`scope-${option.value}`}
+                  value={option.value}
+                  className="mt-0.5"
+                />
+                <span className="grid gap-0.5">
+                  <span className="text-sm font-medium">{option.title}</span>
+                  <span className="text-muted-foreground text-xs">{option.hint}</span>
+                </span>
+              </Label>
+            ))}
         </RadioGroup>
         <DialogFooter>
           <Button variant="outline" onClick={() => onResolve(null)}>
@@ -101,7 +107,7 @@ export function ScopeDialog({
           </Button>
           <Button
             variant={kind === 'delete' ? 'destructive' : 'default'}
-            onClick={() => onResolve(scope)}
+            onClick={() => onResolve(effective)}
           >
             {kind === 'delete' ? 'Excluir' : 'Aplicar'}
           </Button>

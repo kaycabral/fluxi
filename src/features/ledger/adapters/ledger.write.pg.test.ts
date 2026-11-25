@@ -176,6 +176,50 @@ describe('updateEntry', () => {
     ).resolves.toEqual({ ok: false, reason: 'scope_required' })
   })
 
+  describe('a new split on an occurrence', () => {
+    const split: EntryFields['parts'] = [
+      { label: 'Adiantamento', bps: 4000, day: 15, nextMonth: false },
+      { label: 'Saldo', bps: 6000, day: 30, nextMonth: false },
+    ]
+    const withSplit = () => expense(ana.accountId, { startMonth: '2027-02', day: 15, parts: split })
+    const partsOf = (entryId: string) =>
+      db().select().from(entryParts).where(eq(entryParts.entryId, entryId)).orderBy(entryParts.sort)
+
+    it('needs a scope, and a series scope', async () => {
+      await expect(
+        updateEntry(ANA, id, withSplit(), { month: '2027-02', scope: null }),
+      ).resolves.toEqual({ ok: false, reason: 'scope_required' })
+      await expect(
+        updateEntry(ANA, id, withSplit(), { month: '2027-02', scope: 'one' }),
+      ).resolves.toEqual({ ok: false, reason: 'split_needs_series' })
+      expect(await partsOf(id)).toEqual([])
+    })
+
+    it('"future" splits only the new series; earlier months stay whole', async () => {
+      await expect(
+        updateEntry(ANA, id, withSplit(), { month: '2027-02', scope: 'future' }),
+      ).resolves.toEqual({ ok: true })
+      const [before, after] = await entryRows(ANA)
+      if (before === undefined || after === undefined) throw new Error('expected a split')
+      expect([before.id, before.endMonth, before.day]).toEqual([id, '2027-01-01', 10])
+      expect([after.startMonth, after.day]).toEqual(['2027-02-01', 15])
+      expect(await partsOf(id)).toEqual([])
+      expect((await partsOf(after.id)).map((p) => [p.label, p.bps, p.day])).toEqual([
+        ['Adiantamento', 4000, 15],
+        ['Saldo', 6000, 30],
+      ])
+    })
+
+    it('"all" splits the whole series', async () => {
+      await expect(
+        updateEntry(ANA, id, withSplit(), { month: '2027-02', scope: 'all' }),
+      ).resolves.toEqual({ ok: true })
+      const rows = await entryRows(ANA)
+      expect(rows.map((r) => [r.id, r.startMonth, r.day])).toEqual([[id, '2026-12-01', 15]])
+      expect(await partsOf(id)).toHaveLength(2)
+    })
+  })
+
   it('applies series fields without a scope when amount and day are unchanged', async () => {
     await expect(
       updateEntry(

@@ -7,6 +7,11 @@ export type EditScope = 'one' | 'future' | 'all'
 export type OccurrencePatch = {
   amountCents?: number
   day?: number
+  /**
+   * New split of the series (empty: no split), as parts of the edited entry.
+   * Series-level: it applies with `future` or `all`, never to one month.
+   */
+  parts?: readonly EntryPart[]
 }
 
 export type ScopedEdit = {
@@ -33,6 +38,32 @@ export type ScopedEditResult = {
 
 const ownParts = (state: SeriesState) => state.parts.filter((p) => p.entryId === state.entry.id)
 
+type PartSpec = Pick<EntryPart, 'label' | 'bps' | 'day' | 'nextMonth'>
+
+/** Whether `next` (in order) is the same split as the entry's `current` parts. */
+export function sameSplit(next: readonly PartSpec[], current: readonly EntryPart[]): boolean {
+  const ordered = [...current].sort((a, b) => a.sort - b.sort)
+  return (
+    next.length === ordered.length &&
+    next.every((p, i) => {
+      const c = ordered[i]
+      return (
+        c !== undefined &&
+        c.label === p.label &&
+        c.bps === p.bps &&
+        c.day === p.day &&
+        c.nextMonth === p.nextMonth
+      )
+    })
+  )
+}
+
+/** The series' parts after the patch (the new split, or the current one). */
+const patchedParts = (state: SeriesState, patch: OccurrencePatch): EntryPart[] =>
+  patch.parts === undefined
+    ? ownParts(state)
+    : patch.parts.map((p) => ({ ...p, entryId: state.entry.id }))
+
 const isEmptyOverride = (o: EntryOverride) => o.amountCents === null && o.day === null && !o.skipped
 
 /**
@@ -40,14 +71,19 @@ const isEmptyOverride = (o: EntryOverride) => o.amountCents === null && o.day ==
  * entry stores the total, so a new installment amount becomes `amount × count`.
  */
 function patchEntry(entry: Entry, patch: OccurrencePatch): Entry {
+  // A new split takes its first part's day (the entry's day while it is split).
+  const day = patch.day ?? patch.parts?.[0]?.day
   // A new day for the whole series pins it to that day number (no weekday rule).
-  const dayRule = patch.day === undefined ? {} : { day: patch.day, monthBy: 'day' as const }
+  const dayRule = day === undefined ? {} : { day, monthBy: 'day' as const }
   if (patch.amountCents === undefined) return { ...entry, ...dayRule }
   const count = entry.recurrence === 'installments' ? Math.max(1, installmentCount(entry)) : 1
   return { ...entry, amountCents: patch.amountCents * count, ...dayRule }
 }
 
 function editOne(state: SeriesState, month: Month, patch: OccurrencePatch): ScopedEditResult {
+  if (patch.parts !== undefined) {
+    throw new RangeError('a new split applies to the series, not to one occurrence')
+  }
   const { entry } = state
   const own = state.overrides.filter((o) => o.entryId === entry.id)
   const current = own.find((o) => o.month === month) ?? {
@@ -79,7 +115,7 @@ function editAll(state: SeriesState, patch: OccurrencePatch): ScopedEditResult {
       day: patch.day === undefined ? o.day : null,
     }))
     .filter((o) => !isEmptyOverride(o))
-  return { entries: [patchEntry(entry, patch)], parts: ownParts(state), overrides }
+  return { entries: [patchEntry(entry, patch)], parts: patchedParts(state, patch), overrides }
 }
 
 /**
@@ -114,7 +150,11 @@ function editFuture(
   const { entry } = state
   const own = state.overrides.filter((o) => o.entryId === entry.id)
   if (month === entry.startMonth) {
-    return { entries: [patchEntry(entry, patch)], parts: ownParts(state), overrides: own }
+    return {
+      entries: [patchEntry(entry, patch)],
+      parts: patchedParts(state, patch),
+      overrides: own,
+    }
   }
 
   const done = diffMonths(entry.startMonth, month)
@@ -133,7 +173,12 @@ function editFuture(
     },
     patch,
   )
-  const copiedParts = ownParts(state).map((p) => ({ ...p, id: newId(), entryId: after.id }))
+  // The new series gets the new split (or copies of the current one); the old keeps its own.
+  const copiedParts = patchedParts(state, patch).map((p) => ({
+    ...p,
+    id: newId(),
+    entryId: after.id,
+  }))
 
   return {
     entries: [before, after],
@@ -147,15 +192,16 @@ function editFuture(
 
 /**
  * Apply an amount/day change made on the occurrence of `month`:
- * - `one`: a per-month override (merged into an existing one);
+ * - `one`: a per-month override (merged into an existing one); a new split
+ *   (`patch.parts`) cannot apply to one month and throws;
  * - `future`: from `month` on. At the series start it edits the entry;
  *   otherwise it SPLITS the series: the original ends at `month - 1` (or keeps
  *   the installments already due, and their share of the total) and a new
  *   entry starts at `month` with the patch, the remaining installments (and
- *   their share of the total), copies of the parts and the overrides from
- *   `month` on;
- * - `all`: edits the entry and clears the patched fields from every override
- *   (dropping overrides left empty).
+ *   their share of the total), the new split (or copies of the current parts)
+ *   and the overrides from `month` on;
+ * - `all`: edits the entry (and its split) and clears the patched fields
+ *   from every override (dropping overrides left empty).
  *
  * The patch amount is per occurrence; for installments (whose entry stores
  * the total) it is multiplied by the installment count.

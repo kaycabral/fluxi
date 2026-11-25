@@ -107,6 +107,7 @@ export function EntryForm({
     const scope = await requestScope({
       kind: 'edit',
       description: describeOccurrenceChange(target, occurrence, patch),
+      seriesOnly: patch.parts !== undefined,
     })
     return scope ?? undefined
   }

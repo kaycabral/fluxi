@@ -7,12 +7,18 @@ export type FormState = { ok: boolean; error: string | null; savedAt: number }
 export const INITIAL_FORM_STATE: FormState = { ok: false, error: null, savedAt: 0 }
 
 export type WriteFailureReason =
-  'not_found' | 'invalid_reference' | 'scope_required' | 'no_occurrence' | 'over_budget'
+  | 'not_found'
+  | 'invalid_reference'
+  | 'scope_required'
+  | 'split_needs_series'
+  | 'no_occurrence'
+  | 'over_budget'
 
 const MESSAGES: Record<WriteFailureReason, string> = {
   not_found: 'Não encontrado. Atualize a página e tente de novo.',
   invalid_reference: 'Conta, banco ou categoria inválida.',
   scope_required: 'Escolha onde aplicar a mudança.',
+  split_needs_series: 'A divisão vale para a repetição: escolha "Este e os próximos" ou "Todos".',
   no_occurrence: 'Esse lançamento não ocorre nesse mês.',
   over_budget: 'A soma dos potes não pode passar de 100%.',
 }

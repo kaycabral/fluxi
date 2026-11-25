@@ -16,6 +16,7 @@ import type { EntryFields, PotTargets } from '@/features/ledger/core/schemas'
 import {
   applyScopedEdit,
   endSeriesBefore,
+  sameSplit,
   shiftStart,
   type EditScope,
   type OccurrencePatch,
@@ -209,6 +210,12 @@ async function persistScopedEdit(
   const [edited, split] = result.entries
   if (edited === undefined) return
   await writeEntryRow(tx, userId, edited)
+  await replaceParts(
+    tx,
+    userId,
+    edited.id,
+    result.parts.filter((p) => p.entryId === edited.id),
+  )
   if (split !== undefined) {
     await tx.insert(entries).values({ id: split.id, userId, ...entryColumns(split) })
     const copied = result.parts.filter((p) => p.entryId === split.id)
@@ -223,26 +230,33 @@ async function persistScopedEdit(
   }
 }
 
-function patchOf(state: SeriesState, month: Month, fields: EntryFields): OccurrencePatch {
+function patchOf(
+  state: SeriesState,
+  month: Month,
+  fields: EntryFields,
+  parts: readonly EntryPart[],
+): OccurrencePatch {
   const patch: OccurrencePatch = {}
   if (fields.amountCents !== amountFor(state.entry, state.overrides, month))
     patch.amountCents = fields.amountCents
   if (fields.parts.length === 0 && fields.day !== dayFor(state.entry, state.overrides, month))
     patch.day = fields.day
+  if (!sameSplit(fields.parts, state.parts)) patch.parts = parts
   return patch
 }
 
 const isEmpty = (patch: OccurrencePatch) =>
-  patch.amountCents === undefined && patch.day === undefined
+  patch.amountCents === undefined && patch.day === undefined && patch.parts === undefined
 
 export type OccurrenceEdit = { month: Month; scope: EditScope | null }
 
 /**
  * Update an entry. Without `occurrence` (or for a non-recurring entry) every
  * field is replaced. With `occurrence` on a recurring entry, the series-level
- * fields (description, accounts, category, pot, tags, recurrence, parts) apply
- * to the series and an amount/day change on that occurrence goes through
- * {@link applyScopedEdit} with the given scope (`scope_required` without one).
+ * fields (description, accounts, category, pot, tags, recurrence) apply to the
+ * series and an amount/day/split change on that occurrence goes through
+ * {@link applyScopedEdit} with the given scope (`scope_required` without one;
+ * a new split cannot apply to one month: `split_needs_series`).
  */
 export async function updateEntry(
   userId: string,
@@ -264,8 +278,11 @@ export async function updateEntry(
       }
 
       if (!occursIn(state.entry, occurrence.month)) return fail('no_occurrence')
-      const patch = patchOf(state, occurrence.month, fields)
+      const patch = patchOf(state, occurrence.month, fields, parts)
       if (!isEmpty(patch) && occurrence.scope === null) return fail('scope_required')
+      if (patch.parts !== undefined && occurrence.scope === 'one') {
+        return fail('split_needs_series')
+      }
 
       // A new month on the date moves the repetition's start by as many months.
       const moved = fields.startMonth
@@ -273,7 +290,7 @@ export async function updateEntry(
         {
           ...entryFromFields(entryId, fields),
           amountCents: state.entry.amountCents,
-          day: fields.parts.length > 0 ? fields.day : state.entry.day,
+          day: state.entry.day,
           startMonth: state.entry.startMonth,
         },
         occurrence.month,
@@ -281,13 +298,12 @@ export async function updateEntry(
       )
       if (!occursIn(series, moved)) throw new ScopeError('no_occurrence')
       await writeEntryRow(tx, userId, series)
-      await replaceParts(tx, userId, entryId, parts)
       if (isEmpty(patch) || occurrence.scope === null) {
         await syncPayments(tx, userId, entryId)
         return ok
       }
 
-      const next: SeriesState = { entry: series, parts, overrides: state.overrides }
+      const next: SeriesState = { entry: series, parts: state.parts, overrides: state.overrides }
       const result = applyScopedEdit(
         next,
         { month: moved, patch, scope: occurrence.scope },

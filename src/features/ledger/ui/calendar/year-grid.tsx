@@ -1,7 +1,7 @@
 'use client'
 
-import { cellOf, monthWeeks } from '@/features/ledger/core/calendar-views'
-import { dayLongLabel } from '@/features/ledger/core/format'
+import { cellOf, monthDays, monthWeeks } from '@/features/ledger/core/calendar-views'
+import { dayLongLabel, formatAmount } from '@/features/ledger/core/format'
 import { cn, Popover, PopoverContent, PopoverTrigger } from '@cbrl/design'
 import { useState } from 'react'
 import { POPUP_CLASS, POPUP_PLACEMENT, useCalendar } from './context'
@@ -26,7 +26,8 @@ const WEEKDAY_INITIALS = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S']
 /**
  * Year view: twelve mini months (6 rows each, neighbour days muted, like
  * Google Calendar). A dot marks days with entries, red numbers the days that
- * end negative; clicking a day opens its list.
+ * end negative; clicking a day opens its list. Each month's header shows the
+ * accumulated balance at the end of its last day.
  */
 export function YearGrid() {
   const { date } = useCalendar()
@@ -41,6 +42,10 @@ export function YearGrid() {
 }
 
 function MiniMonth({ name, month }: { name: string; month: string }) {
+  const { cells } = useCalendar()
+  // Accumulated balance at the end of the month's last day.
+  const lastDay = monthDays(month).at(-1) ?? `${month}-01`
+  const endBalance = cellOf(cells, lastDay).endBalanceCents
   const weeks = monthWeeks(month)
   // Always 6 rows, like Google Calendar, so the months line up.
   while (weeks.length < 6) {
@@ -56,7 +61,20 @@ function MiniMonth({ name, month }: { name: string; month: string }) {
   }
   return (
     <section aria-label={name} className="grid gap-1">
-      <h2 className="px-1 text-sm font-medium">{name}</h2>
+      <div className="flex items-baseline justify-between gap-2 px-1">
+        <h2 className="text-sm font-medium">{name}</h2>
+        {endBalance !== null && (
+          <span
+            aria-label={`Saldo no fim de ${name}`}
+            className={cn(
+              'text-muted-foreground text-xs tabular-nums',
+              endBalance < 0 && 'text-destructive font-semibold',
+            )}
+          >
+            {formatAmount(endBalance)}
+          </span>
+        )}
+      </div>
       <div className="grid grid-cols-7 text-center text-[0.7rem]">
         {WEEKDAY_INITIALS.map((initial, i) => (
           <span key={`${initial}-${i}`} className="text-muted-foreground py-1">

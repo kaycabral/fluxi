@@ -3,6 +3,7 @@ import { accounts, banks } from '@/db/schema'
 import { monthLabel, monthOf } from '@/features/ledger/core/format'
 import { addMonths } from '@/features/ledger/core/month'
 import { expect, test } from '@e2e/fixtures'
+import { eq } from 'drizzle-orm'
 
 const THIS_MONTH = monthOf(new Date())
 
@@ -20,6 +21,14 @@ test.describe('dashboard and budget', () => {
       type: 'checking',
       openingBalanceCents: 500000,
     })
+  })
+
+  // The E2E user lives for the whole worker: leave no accounts behind for the
+  // specs that run after this one (their balances would be off).
+  test.afterEach(async ({ user }) => {
+    const db = fluxiDb.db()
+    await db.delete(accounts).where(eq(accounts.userId, user.id))
+    await db.delete(banks).where(eq(banks.userId, user.id))
   })
 
   test('the dashboard sums up the money and links to the budget', async ({ page }) => {

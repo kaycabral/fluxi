@@ -154,7 +154,7 @@ test.describe('ledger critical flow', () => {
   test('quick add on a calendar day, then pay it from its popup and see it in the week', async ({
     page,
   }) => {
-    await page.goto('/painel?modo=mes')
+    await page.goto('/painel/calendario?modo=mes')
     const create = page.locator('button[aria-current="date"]')
     const day = page.getByRole('group').filter({ has: create })
     // The end-of-day balance: the first money-only text of the day (before the chips' amounts).
@@ -261,7 +261,7 @@ test.describe('ledger critical flow', () => {
     const quickAdd = page.getByRole('form', { name: 'Criar lançamento' })
 
     // Day view: one column, the whole width.
-    await page.goto('/painel?modo=dia')
+    await page.goto('/painel/calendario?modo=dia')
     await page.getByRole('button', { name: /Popup E2E/ }).click()
     await expect.poll(() => isOnScreen(page, details)).toBe(true)
     await page.keyboard.press('Escape')
@@ -272,15 +272,16 @@ test.describe('ledger critical flow', () => {
     await page.keyboard.press('Escape')
 
     // Schedule: one row per entry, the whole width.
-    await page.goto('/painel?modo=programacao')
+    await page.goto('/painel/calendario?modo=programacao')
     await page.getByRole('button', { name: /Popup E2E/ }).click()
     await expect.poll(() => isOnScreen(page, details)).toBe(true)
     await page.keyboard.press('Escape')
 
     // Month on a phone: the popup is wider than the room beside any day.
     await page.setViewportSize({ width: 390, height: 844 })
-    await page.goto('/painel?modo=mes')
-    await page.locator('button[aria-current="date"]').click()
+    await page.goto('/painel/calendario?modo=mes')
+    // The day's chips may cover its middle: click the day itself, wherever it is free.
+    await page.locator('button[aria-current="date"]').dispatchEvent('click')
     await expect.poll(() => isOnScreen(page, quickAdd)).toBe(true)
   })
 
@@ -299,7 +300,7 @@ test.describe('ledger critical flow', () => {
         day: TODAY_DAY,
         recurrence: 'none',
       })
-    await page.goto('/painel?modo=dia')
+    await page.goto('/painel/calendario?modo=dia')
     const chip = page.getByRole('button', { name: /Desfazer E2E/ })
     const details = page.getByLabel('Detalhes de Desfazer E2E')
 

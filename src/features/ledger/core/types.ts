@@ -5,15 +5,8 @@ import type { Month } from './month'
  * {@link Month} and money as integer cents. Basis points: 10000 = 100%.
  */
 
-export const POT_KEYS = [
-  'essential',
-  'comfort',
-  'guilt_free',
-  'education',
-  'variable',
-  'investment',
-] as const
-export type PotKey = (typeof POT_KEYS)[number]
+/** Stable id of a pot (`pots.key`): the 6 seeded pots keep their historic keys. */
+export type PotKey = string
 
 export type AccountType = 'checking' | 'credit' | 'benefit' | 'investment' | 'loan'
 export type EntryKind = 'income' | 'expense' | 'transfer'
@@ -49,9 +42,43 @@ export type Category = {
   archived: boolean
 }
 
-export type BudgetPot = {
+/** The 14 colors a pot can take (Tailwind palette names). */
+export const POT_COLORS = [
+  'violet',
+  'orange',
+  'pink',
+  'emerald',
+  'yellow',
+  'blue',
+  'sky',
+  'rose',
+  'teal',
+  'lime',
+  'amber',
+  'indigo',
+  'fuchsia',
+  'slate',
+] as const
+export type PotColor = (typeof POT_COLORS)[number]
+
+/** `limit`: spend up to the target. `minimum`: put aside at least the target (investment). */
+export type PotGoal = 'limit' | 'minimum'
+
+export type Pot = {
   key: PotKey
-  targetBps: number
+  name: string
+  color: PotColor
+  goal: PotGoal
+  sort: number
+  archived: boolean
+}
+
+/** A budget version: pot targets (bps of income) from `startsMonth` until the next plan. */
+export type BudgetPlan = {
+  id: string
+  startsMonth: Month
+  /** Missing pot = 0%. */
+  targets: Record<PotKey, number>
 }
 
 export type Entry = {
@@ -97,6 +124,6 @@ export type EntryOverride = {
   deleted: boolean
 }
 
-export function isPotKey(value: string): value is PotKey {
-  return POT_KEYS.some((key) => key === value)
+export function isPotColor(value: string): value is PotColor {
+  return POT_COLORS.some((color) => color === value)
 }

@@ -3,12 +3,14 @@ import 'server-only'
 import {
   accounts,
   banks,
-  budgetPots,
+  budgetPlans,
+  budgetPlanTargets,
   categories,
   entries,
   entryOverrides,
   entryParts,
   occurrencePayments,
+  pots,
   userSettings,
 } from '@/db/schema'
 import { addMonths, monthFromDate, monthToDate, type Month } from '@/features/ledger/core/month'
@@ -16,12 +18,14 @@ import type { OccurrencePayment } from '@/features/ledger/core/payments'
 import type {
   Account,
   Bank,
-  BudgetPot,
+  BudgetPlan,
   Category,
   Entry,
   EntryOverride,
   EntryPart,
+  Pot,
 } from '@/features/ledger/core/types'
+import { isPotColor } from '@/features/ledger/core/types'
 import { fluxiDb } from '@/lib/db'
 import { and, asc, eq, gte, inArray, isNull, lte, ne, or, sql } from 'drizzle-orm'
 
@@ -36,7 +40,7 @@ export type LedgerSnapshot = {
   banks: Bank[]
   accounts: Account[]
   categories: Category[]
-  pots: BudgetPot[]
+  pots: Pot[]
   countFrom: Month | null
   entries: Entry[]
   parts: EntryPart[]
@@ -92,13 +96,41 @@ export async function listCategories(userId: string): Promise<Category[]> {
   }))
 }
 
-export async function listBudgetPots(userId: string): Promise<BudgetPot[]> {
+/** Every pot of `userId`, archived ones included, in the user's order. */
+export async function listPots(userId: string): Promise<Pot[]> {
   const rows = await db()
-    .select({ key: budgetPots.key, targetBps: budgetPots.targetBps })
-    .from(budgetPots)
-    .where(eq(budgetPots.userId, userId))
-    .orderBy(asc(budgetPots.sort))
-  return rows
+    .select()
+    .from(pots)
+    .where(eq(pots.userId, userId))
+    .orderBy(asc(pots.sort), asc(pots.createdAt))
+  return rows.map((r) => ({
+    key: r.key,
+    name: r.name,
+    // The column is free text; an unknown color falls back to gray.
+    color: isPotColor(r.color) ? r.color : 'slate',
+    goal: r.goal === 'minimum' ? 'minimum' : 'limit',
+    sort: r.sort,
+    archived: r.archivedAt !== null,
+  }))
+}
+
+/** Budget versions of `userId`, oldest first, each with its targets. */
+export async function listBudgetPlans(userId: string): Promise<BudgetPlan[]> {
+  const [planRows, targetRows] = await Promise.all([
+    db()
+      .select()
+      .from(budgetPlans)
+      .where(eq(budgetPlans.userId, userId))
+      .orderBy(asc(budgetPlans.startsMonth)),
+    db().select().from(budgetPlanTargets).where(eq(budgetPlanTargets.userId, userId)),
+  ])
+  return planRows.map((plan) => ({
+    id: plan.id,
+    startsMonth: monthFromDate(plan.startsMonth),
+    targets: Object.fromEntries(
+      targetRows.filter((t) => t.planId === plan.id).map((t) => [t.potKey, t.targetBps]),
+    ),
+  }))
 }
 
 export async function getCountFrom(userId: string): Promise<Month | null> {
@@ -228,11 +260,11 @@ export async function listOccurrencePayments(
 
 /** Everything the core needs to project `userId`'s ledger over `window`. */
 export async function loadLedger(userId: string, window: MonthWindow): Promise<LedgerSnapshot> {
-  const [bankRows, accountRows, categoryRows, pots, countFrom, entryRows] = await Promise.all([
+  const [bankRows, accountRows, categoryRows, potRows, countFrom, entryRows] = await Promise.all([
     listBanks(userId),
     listAccounts(userId),
     listCategories(userId),
-    listBudgetPots(userId),
+    listPots(userId),
     getCountFrom(userId),
     listEntries(userId, window),
   ])
@@ -246,7 +278,7 @@ export async function loadLedger(userId: string, window: MonthWindow): Promise<L
     banks: bankRows,
     accounts: accountRows,
     categories: categoryRows,
-    pots,
+    pots: potRows,
     countFrom,
     entries: entryRows,
     parts,

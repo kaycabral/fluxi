@@ -1,18 +1,10 @@
 import 'server-only'
 
-import {
-  accounts,
-  banks,
-  budgetPots,
-  entries,
-  entryOverrides,
-  entryParts,
-  userSettings,
-} from '@/db/schema'
+import { accounts, banks, entries, entryOverrides, entryParts, userSettings } from '@/db/schema'
 import { monthToDate, type Month } from '@/features/ledger/core/month'
 import { amountFor, dayFor, occursIn } from '@/features/ledger/core/occurrence'
 import { keepPartIds } from '@/features/ledger/core/payments'
-import type { EntryFields, PotTargets } from '@/features/ledger/core/schemas'
+import type { EntryFields } from '@/features/ledger/core/schemas'
 import {
   applyScopedEdit,
   endSeriesBefore,
@@ -23,13 +15,7 @@ import {
   type ScopedEditResult,
   type SeriesState,
 } from '@/features/ledger/core/scoped-edit'
-import {
-  POT_KEYS,
-  type AccountType,
-  type Entry,
-  type EntryOverride,
-  type EntryPart,
-} from '@/features/ledger/core/types'
+import type { AccountType, Entry, EntryOverride, EntryPart } from '@/features/ledger/core/types'
 import { and, eq, gte, notInArray, sql } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
 import { movePaymentsToSplit, syncPayments } from './payments.write'
@@ -51,7 +37,7 @@ import {
  * every UPDATE/DELETE filters by it, so a foreign id is a no-op
  * (`not_found`); inserts that point at another user's account/category are
  * refused by the composite `(id, user_id)` foreign keys (`invalid_reference`).
- * Multi-row changes (scoped edits, series splits, pot targets) run in one
+ * Multi-row changes (scoped edits, series splits) run in one
  * transaction with the entry row locked.
  */
 
@@ -476,20 +462,6 @@ export async function updateAccount(
     .where(and(eq(accounts.id, input.id), eq(accounts.userId, userId)))
     .returning({ id: accounts.id })
   return rows.length === 0 ? fail('not_found') : ok
-}
-
-/** Replace the pot targets; refused when they would sum past 100%. */
-export async function setPotTargets(userId: string, targets: PotTargets): Promise<WriteResult> {
-  if (POT_KEYS.reduce((sum, key) => sum + targets[key], 0) > 10000) return fail('over_budget')
-  return db().transaction(async (tx) => {
-    for (const key of POT_KEYS) {
-      await tx
-        .update(budgetPots)
-        .set({ targetBps: targets[key], updatedAt: sql`now()` })
-        .where(and(eq(budgetPots.userId, userId), eq(budgetPots.key, key)))
-    }
-    return ok
-  })
 }
 
 export async function setCountFrom(userId: string, month: Month): Promise<WriteResult> {

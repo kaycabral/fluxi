@@ -1,11 +1,11 @@
 import { fluxiDb, seedUser, truncateFluxiTables } from '@/db'
-import { accounts, banks, budgetPots, entries, entryOverrides, entryParts } from '@/db/schema'
+import { accounts, banks, entries, entryOverrides, entryParts } from '@/db/schema'
 import type { EntryFields } from '@/features/ledger/core/schemas'
 import { pgErrorOf } from '@cbrl/pg'
-import { and, eq } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
-import { getCountFrom, listAccounts, listBanks, listBudgetPots } from './ledger.repo'
+import { getCountFrom, listAccounts, listBanks } from './ledger.repo'
 import {
   changeOccurrenceDay,
   createAccount,
@@ -13,7 +13,6 @@ import {
   createEntry,
   deleteEntry,
   setCountFrom,
-  setPotTargets,
   updateAccount,
   updateBank,
   updateEntry,
@@ -82,7 +81,7 @@ async function overrideRows(entryId: string) {
 
 async function expenseByMonth(userId: string): Promise<Record<string, number>> {
   const { months } = await projectLedger(userId, { from: '2026-12', to: '2027-04' })
-  return Object.fromEntries(months.map((m) => [m.month, m.byBucket.available.expenseCents]))
+  return Object.fromEntries(months.map((m) => [m.month, m.totals.expenseCents]))
 }
 
 let ana: Setup
@@ -540,36 +539,6 @@ describe('banks and accounts', () => {
 })
 
 describe('settings', () => {
-  it('sets pot targets within 100% and only for the user', async () => {
-    await expect(
-      setPotTargets(ANA, {
-        essential: 4300,
-        comfort: 700,
-        guilt_free: 700,
-        education: 300,
-        variable: 800,
-        investment: 3200,
-      }),
-    ).resolves.toMatchObject({ ok: true })
-    await expect(
-      setPotTargets(ANA, {
-        essential: 9000,
-        comfort: 700,
-        guilt_free: 700,
-        education: 300,
-        variable: 800,
-        investment: 3200,
-      }),
-    ).resolves.toEqual({ ok: false, reason: 'over_budget' })
-    expect((await listBudgetPots(ANA)).find((p) => p.key === 'essential')?.targetBps).toBe(4300)
-    expect((await listBudgetPots(BIA)).find((p) => p.key === 'essential')?.targetBps).toBe(3300)
-    const rows = await db()
-      .select()
-      .from(budgetPots)
-      .where(and(eq(budgetPots.userId, ANA), eq(budgetPots.key, 'essential')))
-    expect(rows).toHaveLength(1)
-  })
-
   it('sets count_from_month per user', async () => {
     await setCountFrom(ANA, '2027-03')
     await expect(getCountFrom(ANA)).resolves.toBe('2027-03')

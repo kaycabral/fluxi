@@ -9,6 +9,7 @@ import type { ActionResult } from '@/features/ledger/core/action-result'
 import { INCOME_CATEGORY_GROUP } from '@/features/ledger/core/defaults'
 import {
   amountLabel,
+  defaultPotOf,
   deleteMonthOf,
   describeOccurrenceChange,
   installmentsHint,
@@ -23,7 +24,7 @@ import {
 import { monthLabel } from '@/features/ledger/core/format'
 import type { EntryFields } from '@/features/ledger/core/schemas'
 import type { EditScope } from '@/features/ledger/core/scoped-edit'
-import { isPotKey, type EntryKind } from '@/features/ledger/core/types'
+import type { EntryKind } from '@/features/ledger/core/types'
 import type { LedgerRefs } from '@/features/ledger/core/view'
 import { Button, cn, DateField, DialogDescription, DialogTitle, Input, Label } from '@cbrl/design'
 import {
@@ -79,11 +80,19 @@ export function EntryForm({
   const occurrence = isOccurrenceEdit(target) && target !== null ? target.month : null
   const isTransfer = values.kind === 'transfer'
 
+  /** A category's suggested pot, unless it was archived since. */
+  function activePot(key: string | null | undefined): string {
+    return refs.pots.some((p) => p.key === key && !p.archived) ? (key ?? '') : ''
+  }
+
   function changeKind(kind: EntryKind) {
     const category = refs.categories.find((c) => c.id === values.categoryId)
     set({
       kind,
-      pot: kind === 'expense' ? values.pot || category?.defaultPot || 'variable' : '',
+      pot:
+        kind === 'expense'
+          ? values.pot || activePot(category?.defaultPot) || defaultPotOf(refs.pots)
+          : '',
       toAccountId:
         kind === 'transfer' && values.toAccountId === ''
           ? (accounts.find((a) => a.id !== values.accountId)?.id ?? '')
@@ -92,7 +101,7 @@ export function EntryForm({
   }
 
   function changeCategory(categoryId: string) {
-    const suggested = refs.categories.find((c) => c.id === categoryId)?.defaultPot
+    const suggested = activePot(refs.categories.find((c) => c.id === categoryId)?.defaultPot)
     set({ categoryId, pot: values.kind === 'expense' && suggested ? suggested : values.pot })
   }
 
@@ -139,7 +148,12 @@ export function EntryForm({
       offerUndo(result, 'Lançamento salvo.')
       if (!again) return onDone()
       setValues(
-        newEntryValues({ date: values.date, accountId: values.accountId, kind: values.kind }),
+        newEntryValues({
+          date: values.date,
+          accountId: values.accountId,
+          kind: values.kind,
+          defaultPot: defaultPotOf(refs.pots),
+        }),
       )
       setEntryId(crypto.randomUUID())
     })
@@ -368,8 +382,9 @@ export function EntryForm({
                     <Label htmlFor="entry-pot">Pote</Label>
                     <PotSelect
                       id="entry-pot"
+                      pots={refs.pots}
                       value={values.pot}
-                      onValueChange={(pot) => set({ pot: isPotKey(pot) ? pot : '' })}
+                      onValueChange={(pot) => set({ pot })}
                     />
                   </div>
                 )}

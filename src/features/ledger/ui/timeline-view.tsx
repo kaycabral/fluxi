@@ -1,8 +1,5 @@
 'use client'
 
-import { setCountFromAction } from '@/features/ledger/adapters/actions/settings'
-import { INITIAL_FORM_STATE } from '@/features/ledger/core/action-result'
-import { bucketOfType } from '@/features/ledger/core/bucket'
 import { formatAmount, monthLabel } from '@/features/ledger/core/format'
 import { ACCOUNT_TYPE_LABELS } from '@/features/ledger/core/labels'
 import { monthRange, type Month } from '@/features/ledger/core/month'
@@ -18,14 +15,11 @@ import {
   CardTitle,
   cn,
   EmptyState,
-  Label,
 } from '@cbrl/design'
 import { ChevronDown, ChevronRight } from 'lucide-react'
-import Link from 'next/link'
-import { startTransition, useActionState, useEffect, useMemo, useState } from 'react'
-import { toast } from 'sonner'
+import { useMemo, useState } from 'react'
+import { CountFromForm } from './count-from-form'
 import { MonthDetail } from './month-detail'
-import { MonthSelect } from './selects'
 
 type Props = {
   data: LedgerData
@@ -60,49 +54,6 @@ function ValueCell({
   )
 }
 
-function CountFromForm({
-  value,
-  months,
-  onSaved,
-}: {
-  value: Month | null
-  months: Month[]
-  onSaved: (m: Month) => void
-}) {
-  const [state, formAction, pending] = useActionState(setCountFromAction, INITIAL_FORM_STATE)
-  const [current, setCurrent] = useState(value ?? '')
-  useEffect(() => {
-    if (state.error !== null) toast.error(state.error)
-  }, [state])
-
-  return (
-    <form action={formAction} className="flex flex-wrap items-center gap-2 text-sm">
-      <Label htmlFor="count-from">Contar a partir de</Label>
-      <MonthSelect
-        id="count-from"
-        name="month"
-        className="w-28"
-        months={months}
-        value={current}
-        disabled={pending}
-        onValueChange={(month) => {
-          setCurrent(month)
-          onSaved(month)
-          const formData = new FormData()
-          formData.set('month', month)
-          startTransition(() => formAction(formData))
-        }}
-      />
-      <span className="text-muted-foreground text-xs">
-        saldos iniciais em{' '}
-        <Link href="/painel/contas" className="text-primary underline-offset-2 hover:underline">
-          Bancos e contas
-        </Link>
-      </span>
-    </form>
-  )
-}
-
 /** "Mês a mês": totals, total and per-bank balances per month; a month opens its day-by-day detail. */
 export function TimelineView({ data, window, today }: Props) {
   const months = useMemo(
@@ -114,13 +65,8 @@ export function TimelineView({ data, window, today }: Props) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const selectedResult = months.find((m) => m.month === selected) ?? months[0]
 
-  const activeAccounts = data.accounts.filter((a) => !a.archived)
-  // Decision rows use available money only; benefits get their own block below.
-  const active = activeAccounts.filter((a) => bucketOfType(a.type) === 'available')
+  const active = data.accounts.filter((a) => !a.archived)
   const activeIds = active.map((a) => a.id)
-  const benefits = activeAccounts.filter((a) => bucketOfType(a.type) === 'benefit')
-  const benefitIds = benefits.map((a) => a.id)
-  const bankName = (bankId: string) => data.banks.find((b) => b.id === bankId)?.name
   const countFromLabel = monthLabel(data.countFrom ?? window.from)
 
   if (data.accounts.length === 0) {
@@ -183,7 +129,7 @@ export function TimelineView({ data, window, today }: Props) {
                     Entradas
                   </td>
                   {months.map((m) => (
-                    <ValueCell key={m.month} result={m} cents={m.byBucket.available.incomeCents} />
+                    <ValueCell key={m.month} result={m} cents={m.totals.incomeCents} />
                   ))}
                 </tr>
                 <tr className="border-b">
@@ -195,22 +141,13 @@ export function TimelineView({ data, window, today }: Props) {
                     Saídas
                   </td>
                   {months.map((m) => (
-                    <ValueCell
-                      key={m.month}
-                      result={m}
-                      cents={-m.byBucket.available.expenseCents}
-                    />
+                    <ValueCell key={m.month} result={m} cents={-m.totals.expenseCents} />
                   ))}
                 </tr>
                 <tr className="border-foreground/20 border-t border-b font-semibold">
                   <td className={firstColClass}>Resultado do mês</td>
                   {months.map((m) => (
-                    <ValueCell
-                      key={m.month}
-                      result={m}
-                      cents={m.byBucket.available.netCents}
-                      tone
-                    />
+                    <ValueCell key={m.month} result={m} cents={m.totals.netCents} tone />
                   ))}
                 </tr>
                 <tr className="bg-primary/10 border-b font-semibold">
@@ -288,45 +225,11 @@ export function TimelineView({ data, window, today }: Props) {
                   ]
                 })}
               </tbody>
-              {benefits.length > 0 && (
-                <tbody className="text-muted-foreground" aria-label="Benefícios">
-                  <tr className="border-t-foreground/20 border-t border-b font-medium">
-                    <td className={firstColClass}>
-                      Benefícios <span className="text-xs font-normal">(fora do saldo total)</span>
-                    </td>
-                    {months.map((m) => (
-                      <ValueCell
-                        key={m.month}
-                        result={m}
-                        cents={sumBalances(m.closingBalances, benefitIds)}
-                      />
-                    ))}
-                  </tr>
-                  {benefits.map((account) => {
-                    const bank = bankName(account.bankId)
-                    return (
-                      <tr key={account.id} className="border-b">
-                        <td className={cn(firstColClass, 'pl-6')}>
-                          {bank === undefined ? account.name : `${bank} · ${account.name}`}
-                        </td>
-                        {months.map((m) => (
-                          <ValueCell
-                            key={m.month}
-                            result={m}
-                            cents={sumBalances(m.closingBalances, [account.id])}
-                          />
-                        ))}
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              )}
             </table>
           </div>
           <p className="text-muted-foreground text-xs">
             Meses antes de {countFromLabel} aparecem apagados e não entram no saldo. Cada conta
-            começa com o saldo inicial cadastrado em Bancos e contas. Entradas, saídas e saldo total
-            contam só o dinheiro disponível; contas de benefício (VA, VR e afins) aparecem à parte.
+            começa com o saldo inicial cadastrado em Bancos e contas.
           </p>
         </CardContent>
       </Card>

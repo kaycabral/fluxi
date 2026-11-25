@@ -86,30 +86,18 @@ describe('TimelineView', () => {
     expect(screen.getByText(/Este mês está antes do início da contagem/)).toBeInTheDocument()
   })
 
-  it('keeps benefits out of the available rows and lists them in their own block', async () => {
+  it('counts benefit accounts in the totals, the banks and the day by day', () => {
     renderTimeline(sampleDataWithBenefit())
     const cells = (label: string) =>
       within(rowOf(label))
         .getAllByRole('cell')
         .map((c) => c.textContent)
-    // Same available figures as without the benefit account.
-    expect(cells('Saldo total')[4]).toBe('-3.560,00')
-    expect(cells('Entradas')[4]).toBe('5.000,00')
-    expect(
-      screen.queryByRole('button', { name: 'Mostrar contas de Flash' }),
-    ).not.toBeInTheDocument()
-    // dez/26: 300 + 800 − 200 = 900; jan/27: + 600 = 1.500.
-    const block = screen.getByRole('rowgroup', { name: 'Benefícios' })
-    expect(within(block).getAllByRole('row')).toHaveLength(2)
-    expect(cells('Benefícios')[4]).toBe('900,00')
-    expect(cells('Benefícios')[5]).toBe('1.500,00')
-    expect(cells('Flash · VA')[4]).toBe('900,00')
-    // The day by day "Todo o disponível" ignores the benefit; picking the account shows it.
-    expect(screen.queryByText('Mercado VA')).not.toBeInTheDocument()
-    await userEvent.click(screen.getByLabelText('Conta'))
-    await userEvent.click(await screen.findByRole('option', { name: 'Flash · VA' }))
+    // dez/26: the benefit adds 300 + 800 − 200 = 900 to the total and 800 to the income.
+    expect(cells('Saldo total')[4]).toBe('-2.660,00')
+    expect(cells('Entradas')[4]).toBe('5.800,00')
+    expect(screen.getByRole('button', { name: 'Mostrar contas de Flash' })).toBeInTheDocument()
+    expect(screen.queryByRole('rowgroup', { name: 'Benefícios' })).not.toBeInTheDocument()
     expect(screen.getByText('Mercado VA')).toBeInTheDocument()
-    expect(screen.getByText(/começa com R\$ 300,00/)).toBeInTheDocument()
   })
 
   it('filters the day by day by account', async () => {

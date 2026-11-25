@@ -20,6 +20,9 @@ import {
 } from './search'
 
 const ctx: SearchContext = {
+  pots: [
+    { key: 'comfort', name: 'Conforto', color: 'orange', goal: 'limit', sort: 1, archived: false },
+  ],
   banks: [
     { id: 'btg', name: 'BTG' },
     { id: 'nu', name: 'Nubank' },
@@ -88,8 +91,8 @@ const months = projectMonths({
   parts: salarySplit('salary'),
   overrides: [],
   accounts: [
-    { id: 'cc', type: 'checking', openingBalanceCents: 0 },
-    { id: 'nucc', type: 'checking', openingBalanceCents: 0 },
+    { id: 'cc', openingBalanceCents: 0 },
+    { id: 'nucc', openingBalanceCents: 0 },
   ],
   months: monthRange('2026-12', '2027-02'),
   countFrom: '2026-12',
@@ -123,7 +126,7 @@ describe('remembered search query (cookie)', () => {
     })
     expect(parseSearchQuery(serializeSearchQuery(query))).toEqual(query)
     expect(
-      parseSearchQuery(JSON.stringify({ pot: 'nope', from: '2027-13-01', kind: 'expense' })),
+      parseSearchQuery(JSON.stringify({ pot: 'No pe!', from: '2027-13-01', kind: 'expense' })),
     ).toEqual({ ...EMPTY_SEARCH_QUERY, kind: 'expense' })
     expect(parseSearchQuery(JSON.stringify({ from: '2027-05-10', to: '2027-01-01' })).to).toBe(
       '2027-05-10',
@@ -284,8 +287,8 @@ describe('searchOccurrences by money bucket', () => {
     parts: [],
     overrides: [],
     accounts: [
-      { id: 'cc', type: 'checking', openingBalanceCents: 0 },
-      { id: 'va', type: 'benefit', openingBalanceCents: 0 },
+      { id: 'cc', openingBalanceCents: 0 },
+      { id: 'va', openingBalanceCents: 0 },
     ],
     months: ['2026-12'],
     countFrom: '2026-12',

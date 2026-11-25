@@ -131,7 +131,10 @@ export const accounts = pgTable(
   ],
 ).enableRLS()
 
-/** Budget target per pot, in basis points of income. Seeded per user. */
+/**
+ * Legacy targets (one fixed set per pot key). Replaced by `pots` +
+ * `budget_plans`; kept until the contract migration drops it.
+ */
 export const budgetPots = pgTable(
   'budget_pots',
   {
@@ -148,6 +151,79 @@ export const budgetPots = pgTable(
   ],
 ).enableRLS()
 
+/**
+ * Spending/saving pot of the budget, created and renamed by the user. `key` is
+ * the stable id entries and categories point at (the 6 seeded pots keep their
+ * historic keys). `goal`: `limit` = spend up to the target, `minimum` = put
+ * aside at least the target (investment). Archived pots leave the pickers but
+ * keep their history.
+ */
+export const pots = pgTable(
+  'pots',
+  {
+    userId: ownerId(),
+    key: text('key').notNull(),
+    name: text('name').notNull(),
+    color: text('color').notNull(),
+    goal: text('goal').notNull().default('limit'),
+    sort: integer('sort').notNull().default(0),
+    archivedAt: archivedAt(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    primaryKey({ name: 'pots_pk', columns: [t.userId, t.key] }),
+    check('pots_key_format', sql`${t.key} ~ '^[a-z0-9_]{1,40}$'`),
+    check('pots_name_length', sql`char_length(${t.name}) between 1 and 40`),
+    check('pots_goal_valid', sql`${t.goal} in ('limit', 'minimum')`),
+  ],
+).enableRLS()
+
+/**
+ * A version of the budget: the pot targets in force from `starts_month` until
+ * the next plan starts. Months before the first plan have no target.
+ */
+export const budgetPlans = pgTable(
+  'budget_plans',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: ownerId(),
+    startsMonth: month('starts_month').notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    unique('budget_plans_id_user_id_unique').on(t.id, t.userId),
+    unique('budget_plans_user_starts_unique').on(t.userId, t.startsMonth),
+    check('budget_plans_starts_first_day', isFirstOfMonth(t.startsMonth)),
+  ],
+).enableRLS()
+
+/** Target of one pot in one plan, in basis points of the month's income (a plan sums to at most 100%). */
+export const budgetPlanTargets = pgTable(
+  'budget_plan_targets',
+  {
+    planId: uuid('plan_id').notNull(),
+    userId: ownerId(),
+    potKey: text('pot_key').notNull(),
+    targetBps: integer('target_bps').notNull(),
+  },
+  (t) => [
+    primaryKey({ name: 'budget_plan_targets_pk', columns: [t.planId, t.potKey] }),
+    foreignKey({
+      name: 'budget_plan_targets_plan_fk',
+      columns: [t.planId, t.userId],
+      foreignColumns: [budgetPlans.id, budgetPlans.userId],
+    }).onDelete('cascade'),
+    foreignKey({
+      name: 'budget_plan_targets_pot_fk',
+      columns: [t.potKey, t.userId],
+      foreignColumns: [pots.key, pots.userId],
+    }).onDelete('cascade'),
+    check('budget_plan_targets_bps_range', sql`${t.targetBps} between 0 and 10000`),
+  ],
+).enableRLS()
+
 /** Two-level category (group › name) with the pot it suggests for expenses. Seeded per user. */
 export const categories = pgTable(
   'categories',
@@ -156,7 +232,7 @@ export const categories = pgTable(
     userId: ownerId(),
     groupName: text('group_name').notNull(),
     name: text('name').notNull(),
-    defaultPot: potKey('default_pot'),
+    defaultPot: text('default_pot'),
     sort: integer('sort').notNull().default(0),
     archivedAt: archivedAt(),
     createdAt: createdAt(),
@@ -165,6 +241,11 @@ export const categories = pgTable(
   (t) => [
     unique('categories_id_user_id_unique').on(t.id, t.userId),
     unique('categories_user_group_name_unique').on(t.userId, t.groupName, t.name),
+    foreignKey({
+      name: 'categories_default_pot_fk',
+      columns: [t.defaultPot, t.userId],
+      foreignColumns: [pots.key, pots.userId],
+    }),
   ],
 ).enableRLS()
 
@@ -185,7 +266,7 @@ export const entries = pgTable(
     accountId: uuid('account_id').notNull(),
     toAccountId: uuid('to_account_id'),
     categoryId: uuid('category_id'),
-    pot: potKey('pot'),
+    pot: text('pot'),
     tags: text('tags')
       .array()
       .notNull()
@@ -218,6 +299,12 @@ export const entries = pgTable(
       columns: [t.categoryId, t.userId],
       foreignColumns: [categories.id, categories.userId],
     }),
+    foreignKey({
+      name: 'entries_pot_fk',
+      columns: [t.pot, t.userId],
+      foreignColumns: [pots.key, pots.userId],
+    }),
+    index('entries_pot_idx').on(t.userId, t.pot),
     index('entries_user_id_start_month_idx').on(t.userId, t.startMonth),
     index('entries_account_id_idx').on(t.accountId),
     index('entries_to_account_id_idx').on(t.toAccountId),

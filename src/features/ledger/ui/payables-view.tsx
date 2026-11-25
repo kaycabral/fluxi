@@ -1,11 +1,10 @@
 'use client'
 
 import { accountLabel } from '@/features/ledger/core/account-filter'
-import { accountIdsInBucket } from '@/features/ledger/core/bucket'
 import { formatMoney, shortDate } from '@/features/ledger/core/format'
 import { potTint } from '@/features/ledger/core/labels'
 import type { Month } from '@/features/ledger/core/month'
-import { groupPayables, payableLandings, type PayableGroup } from '@/features/ledger/core/payments'
+import { groupPayables, type PayableGroup } from '@/features/ledger/core/payments'
 import {
   installmentLabel,
   projectWindow,
@@ -86,7 +85,7 @@ function GroupCard({ group, data }: { group: PayableGroup; data: LedgerData }) {
                 <TableRow
                   key={`${entry.id}-${landing.competence}-${landing.part?.id ?? 'whole'}-${index}`}
                   data-pot={entry.pot ?? undefined}
-                  className={potTint(entry.pot)}
+                  className={potTint(entry.pot, data.pots)}
                 >
                   <TableCell
                     className={cn('font-mono', status === 'overdue' && 'text-destructive')}
@@ -143,17 +142,10 @@ function GroupCard({ group, data }: { group: PayableGroup; data: LedgerData }) {
 /** "A pagar": unpaid occurrences by urgency, one click to mark them paid/received. */
 export function PayablesView({ data, window, today }: Props) {
   const [includePaid, setIncludePaid] = useState(false)
-  const [includeBenefits, setIncludeBenefits] = useState(false)
   const landings = useMemo(
-    () =>
-      payableLandings(
-        projectWindow(data, window.from, window.to).flatMap((m) => m.landings),
-        data.accounts,
-        { includeBenefits },
-      ),
-    [data, window.from, window.to, includeBenefits],
+    () => projectWindow(data, window.from, window.to).flatMap((m) => m.landings),
+    [data, window.from, window.to],
   )
-  const hasBenefits = accountIdsInBucket(data.accounts, 'benefit').length > 0
   const groups = groupPayables(landings, data.payments, today, { includePaid })
 
   return (
@@ -163,16 +155,6 @@ export function PayablesView({ data, window, today }: Props) {
           <Switch id="show-paid" checked={includePaid} onCheckedChange={setIncludePaid} />
           <Label htmlFor="show-paid">Mostrar também os pagos deste mês</Label>
         </div>
-        {hasBenefits && (
-          <div className="flex items-center gap-2">
-            <Switch
-              id="show-benefits"
-              checked={includeBenefits}
-              onCheckedChange={setIncludeBenefits}
-            />
-            <Label htmlFor="show-benefits">Incluir contas de benefício</Label>
-          </div>
-        )}
       </div>
       {groups.length === 0 ? (
         <EmptyState

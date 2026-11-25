@@ -1,16 +1,16 @@
 import 'server-only'
 
-import { budgetMonthOf, type BudgetMonth } from '@/features/ledger/core/budget'
-import { addMonths, type Month } from '@/features/ledger/core/month'
-import type { BudgetPot } from '@/features/ledger/core/types'
+import type { Month } from '@/features/ledger/core/month'
+import type { BudgetPlan } from '@/features/ledger/core/types'
 import type { LedgerData, LedgerRefs } from '@/features/ledger/core/view'
 import { readBackend, type BackendRead } from '@/lib/backend-read'
 import {
   getCountFrom,
   listAccounts,
   listBanks,
-  listBudgetPots,
+  listBudgetPlans,
   listCategories,
+  listPots,
   listTags,
   loadLedger,
   type MonthWindow,
@@ -25,13 +25,14 @@ import { projectLedger } from './projection'
 
 export function loadRefs(userId: string, today: string): Promise<BackendRead<LedgerRefs>> {
   return readBackend('ledger refs', async () => {
-    const [banks, accounts, categories, tags] = await Promise.all([
+    const [banks, accounts, categories, pots, tags] = await Promise.all([
       listBanks(userId),
       listAccounts(userId),
       listCategories(userId),
+      listPots(userId),
       listTags(userId),
     ])
-    return { banks, accounts, categories, tags, today }
+    return { banks, accounts, categories, pots, tags, today }
   })
 }
 
@@ -50,28 +51,13 @@ export function loadLedgerData(
 ): Promise<BackendRead<LedgerData>> {
   return readBackend('ledger', async () => {
     const from = countFrom !== null && countFrom < window.from ? countFrom : window.from
-    const { pots: _pots, ...data } = await loadLedger(userId, { from, to: window.to })
-    return data
+    return loadLedger(userId, { from, to: window.to })
   })
 }
 
-export type BudgetData = {
-  pots: BudgetPot[]
-  months: BudgetMonth[]
-}
-
-/** Targets and the 12 counted months from `start` (available income and planned expense per pot). */
-export function loadBudgetData(userId: string, start: Month): Promise<BackendRead<BudgetData>> {
-  return readBackend('budget', async () => {
-    const [pots, projection] = await Promise.all([
-      listBudgetPots(userId),
-      projectLedger(userId, { from: start, to: addMonths(start, 11) }),
-    ])
-    return {
-      pots,
-      months: projection.months.map(budgetMonthOf),
-    }
-  })
+/** Budget versions of the user, oldest first. */
+export function loadBudgetPlans(userId: string): Promise<BackendRead<BudgetPlan[]>> {
+  return readBackend('budget plans', () => listBudgetPlans(userId))
 }
 
 export type AccountsData = {

@@ -27,7 +27,7 @@ export default async function PainelLayout({ children }: { children: React.React
   const loaded = await loadRefs(user.id, today)
   const refs: LedgerRefs = loaded.ok
     ? loaded.data
-    : { banks: [], accounts: [], categories: [], tags: [], today }
+    : { banks: [], accounts: [], categories: [], pots: [], tags: [], today }
 
   return <LedgerShell refs={refs}>{children}</LedgerShell>
 }

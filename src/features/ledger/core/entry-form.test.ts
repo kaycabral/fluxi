@@ -4,6 +4,7 @@ import {
   addTag,
   amountLabel,
   DEFAULT_PARTS,
+  defaultPotOf,
   deleteMonthOf,
   describeOccurrenceChange,
   editEntryValues,
@@ -38,10 +39,23 @@ function values(overrides: Partial<EntryFormValues> = {}): EntryFormValues {
 }
 
 describe('newEntryValues', () => {
-  it('starts as an expense in the variable pot', () => {
-    const v = newEntryValues({ date: '2026-12-10', accountId: ACC })
+  it('starts as an expense in the default pot', () => {
+    const v = newEntryValues({ date: '2026-12-10', accountId: ACC, defaultPot: 'variable' })
     expect(v).toMatchObject({ kind: 'expense', pot: 'variable', recurrence: 'none', parts: [] })
-    expect(newEntryValues({ date: '2026-12-10', accountId: ACC, kind: 'income' }).pot).toBe('')
+    expect(newEntryValues({ date: '2026-12-10', accountId: ACC }).pot).toBe('')
+    expect(
+      newEntryValues({ date: '2026-12-10', accountId: ACC, kind: 'income', defaultPot: 'variable' })
+        .pot,
+    ).toBe('')
+  })
+})
+
+describe('defaultPotOf', () => {
+  const pot = (key: string, sort: number, archived = false) => ({ key, sort, archived })
+  it('prefers "Variável" while active, else the first active pot, else none', () => {
+    expect(defaultPotOf([pot('essential', 0), pot('variable', 4)])).toBe('variable')
+    expect(defaultPotOf([pot('b', 2), pot('a', 1), pot('variable', 0, true)])).toBe('a')
+    expect(defaultPotOf([pot('variable', 0, true)])).toBe('')
   })
 })
 

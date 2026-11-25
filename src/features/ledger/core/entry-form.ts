@@ -9,6 +9,7 @@ import type {
   EntryOverride,
   EntryPart,
   MonthBy,
+  Pot,
   PotKey,
   Recurrence,
 } from './types'
@@ -29,7 +30,8 @@ export type EntryFormValues = {
   accountId: string
   toAccountId: string
   categoryId: string
-  pot: PotKey | ''
+  /** Pot key; `''` = no pot. */
+  pot: PotKey
   recurrence: Recurrence
   /** Every N months/years (custom repetition). */
   repeatEvery: number
@@ -55,10 +57,21 @@ export const DEFAULT_PARTS: readonly PartDraft[] = [
   { label: 'Saldo', percent: '60', day: '5', nextMonth: true },
 ]
 
+/**
+ * Pot a new expense starts in: "Variável" while it is active (the catch-all
+ * pot), else the first active pot, else none.
+ */
+export function defaultPotOf(pots: readonly Pick<Pot, 'key' | 'archived' | 'sort'>[]): PotKey {
+  const active = pots.filter((p) => !p.archived).sort((a, b) => a.sort - b.sort)
+  return (active.find((p) => p.key === 'variable') ?? active[0])?.key ?? ''
+}
+
 export function newEntryValues(input: {
   date: string
   accountId: string
   kind?: EntryKind
+  /** See {@link defaultPotOf}. */
+  defaultPot?: PotKey
 }): EntryFormValues {
   return {
     kind: input.kind ?? 'expense',
@@ -68,7 +81,7 @@ export function newEntryValues(input: {
     accountId: input.accountId,
     toAccountId: '',
     categoryId: '',
-    pot: input.kind === undefined || input.kind === 'expense' ? 'variable' : '',
+    pot: input.kind === undefined || input.kind === 'expense' ? (input.defaultPot ?? '') : '',
     recurrence: 'none',
     repeatEvery: 1,
     monthBy: 'day',

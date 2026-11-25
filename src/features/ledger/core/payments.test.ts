@@ -6,7 +6,6 @@ import {
   groupPayables,
   keepPartIds,
   landingDate,
-  payableLandings,
   payablesWindow,
   paymentFor,
   paymentStatus,
@@ -128,33 +127,6 @@ describe('groupPayables', () => {
 
   it('ignores occurrences beyond next month', () => {
     expect(groupPayables(january, [], today)).toEqual([])
-  })
-})
-
-describe('payableLandings', () => {
-  const accounts = [
-    { id: 'checking', type: 'checking' },
-    { id: 'va', type: 'benefit' },
-    { id: 'vr', type: 'benefit' },
-  ] as const
-  const entries = [
-    makeEntry({ id: 'bill', day: 5 }),
-    makeEntry({ id: 'voucher', kind: 'income', pot: null, accountId: 'va', day: 1 }),
-    makeEntry({ id: 'lunch', accountId: 'vr', day: 2 }),
-    makeEntry({ id: 'swap', kind: 'transfer', pot: null, accountId: 'va', toAccountId: 'vr' }),
-    makeEntry({ id: 'top-up', kind: 'transfer', pot: null, toAccountId: 'va', day: 9 }),
-  ]
-  const landings = entries.flatMap((e) => landingsIn(e, [], [], '2026-12'))
-
-  it('drops occurrences that only move benefit money, keeping cross-bucket transfers', () => {
-    const ids = payableLandings(landings, accounts).map((l) => l.entry.id)
-    expect(ids).toEqual(['bill', 'top-up'])
-    const groups = groupPayables(payableLandings(landings, accounts), [], '2026-12-01')
-    expect(groups.flatMap((g) => g.items.map((i) => i.landing.entry.id))).not.toContain('lunch')
-  })
-
-  it('keeps everything when benefits are included', () => {
-    expect(payableLandings(landings, accounts, { includeBenefits: true })).toHaveLength(5)
   })
 })
 

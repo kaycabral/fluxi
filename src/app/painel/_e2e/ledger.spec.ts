@@ -86,25 +86,17 @@ test.describe('ledger critical flow', () => {
       .where(eq(userSettings.userId, user.id))
   })
 
-  test('benefits stay out of the available balance and show in their own block', async ({
-    page,
-    user,
-  }) => {
+  test('benefit accounts count like any other account', async ({ page, user }) => {
     await seedBenefit(user.id)
 
     await page.goto('/painel/linha-do-tempo')
     await expect(page.getByRole('heading', { level: 1, name: 'Linha do tempo' })).toBeVisible()
-    // Saldo total and Entradas are the available money only (the checking account's R$ 5.000).
-    await expect(timelineCell(page, /^Saldo total$/, THIS_MONTH)).toHaveText('5.000,00')
-    await expect(timelineCell(page, /^Entradas$/, THIS_MONTH)).toHaveText('0,00')
-    // R$ 300 + R$ 800 in the benefit block.
-    await expect(timelineCell(page, /^Benefícios/, THIS_MONTH)).toHaveText('1.100,00')
-    await expect(timelineCell(page, /^Vale E2E · VA E2E$/, NEXT_MONTH)).toHaveText('1.900,00')
-    await expect(page.getByRole('row', { name: /Crédito VA E2E/ })).toHaveCount(0)
+    // R$ 5.000 checking + R$ 300 benefit opening + the R$ 800 credit.
+    await expect(timelineCell(page, /^Saldo total$/, THIS_MONTH)).toHaveText('6.100,00')
+    await expect(timelineCell(page, /^Entradas$/, THIS_MONTH)).toHaveText('800,00')
 
     await page.goto('/painel/contas')
-    await expect(page.getByRole('row', { name: /^Total disponível/ })).toContainText('R$ 5.000')
-    await expect(page.getByRole('row', { name: /^Total com benefícios/ })).toContainText('R$ 6.100')
+    await expect(page.getByRole('row', { name: /^Saldo total/ })).toContainText('R$ 6.100')
   })
 
   test('create a monthly expense, then split it from next month on', async ({ page }) => {
@@ -162,7 +154,7 @@ test.describe('ledger critical flow', () => {
   test('quick add on a calendar day, then pay it from its popup and see it in the week', async ({
     page,
   }) => {
-    await page.goto('/painel?modo=mes')
+    await page.goto('/painel/calendario?modo=mes')
     const create = page.locator('button[aria-current="date"]')
     const day = page.getByRole('group').filter({ has: create })
     // The end-of-day balance: the first money-only text of the day (before the chips' amounts).
@@ -269,7 +261,7 @@ test.describe('ledger critical flow', () => {
     const quickAdd = page.getByRole('form', { name: 'Criar lançamento' })
 
     // Day view: one column, the whole width.
-    await page.goto('/painel?modo=dia')
+    await page.goto('/painel/calendario?modo=dia')
     await page.getByRole('button', { name: /Popup E2E/ }).click()
     await expect.poll(() => isOnScreen(page, details)).toBe(true)
     await page.keyboard.press('Escape')
@@ -280,15 +272,16 @@ test.describe('ledger critical flow', () => {
     await page.keyboard.press('Escape')
 
     // Schedule: one row per entry, the whole width.
-    await page.goto('/painel?modo=programacao')
+    await page.goto('/painel/calendario?modo=programacao')
     await page.getByRole('button', { name: /Popup E2E/ }).click()
     await expect.poll(() => isOnScreen(page, details)).toBe(true)
     await page.keyboard.press('Escape')
 
     // Month on a phone: the popup is wider than the room beside any day.
     await page.setViewportSize({ width: 390, height: 844 })
-    await page.goto('/painel?modo=mes')
-    await page.locator('button[aria-current="date"]').click()
+    await page.goto('/painel/calendario?modo=mes')
+    // The day's chips may cover its middle: click the day itself, wherever it is free.
+    await page.locator('button[aria-current="date"]').dispatchEvent('click')
     await expect.poll(() => isOnScreen(page, quickAdd)).toBe(true)
   })
 
@@ -307,7 +300,7 @@ test.describe('ledger critical flow', () => {
         day: TODAY_DAY,
         recurrence: 'none',
       })
-    await page.goto('/painel?modo=dia')
+    await page.goto('/painel/calendario?modo=dia')
     const chip = page.getByRole('button', { name: /Desfazer E2E/ })
     const details = page.getByLabel('Detalhes de Desfazer E2E')
 

@@ -1,12 +1,12 @@
 import { z } from 'zod'
 import { accountIdsOf, accountLabel, bankIdOf, entryMatchesAccounts } from './account-filter'
 import { accountIdsInBucket, type MoneyBucket } from './bucket'
-import { POT_LABELS } from './labels'
+import { potName } from './labels'
 import { addMonths, type Month } from './month'
 import { installmentCount, type Landing } from './occurrence'
 import { paymentFor, type OccurrencePayment } from './payments'
 import { effectOn, type MonthResult } from './projection'
-import { POT_KEYS, type Account, type Bank, type Category, type Entry, type PotKey } from './types'
+import type { Account, Bank, Category, Entry, Pot, PotKey } from './types'
 
 /**
  * "Lançamentos": search over OCCURRENCES (landings), newest first, with a
@@ -55,7 +55,8 @@ export type SearchQuery = {
   account: string
   /** Empty, `g:<group name>` or a category id. */
   category: string
-  pot: PotKey | ''
+  /** Pot key; `''` = any pot. */
+  pot: PotKey
   tag: string
   status: StatusFilter
   money: MoneyFilter
@@ -93,7 +94,7 @@ const searchQuerySchema = z.object({
   kind: z.enum(['', 'income', 'expense', 'transfer']).catch(''),
   account: z.string().max(80).catch(''),
   category: z.string().max(120).catch(''),
-  pot: z.enum(['', ...POT_KEYS]).catch(''),
+  pot: z.union([z.literal(''), z.string().regex(/^[a-z0-9_]{1,40}$/)]).catch(''),
   tag: z.string().max(40).catch(''),
   status: z.enum(['', 'paid', 'unpaid']).catch(''),
   money: z.enum(['', 'available', 'benefit']).catch(''),
@@ -177,6 +178,8 @@ export type SearchContext = {
   accounts: readonly Pick<Account, 'id' | 'bankId' | 'name' | 'type'>[]
   banks: readonly Pick<Bank, 'id' | 'name'>[]
   categories: readonly Pick<Category, 'id' | 'groupName' | 'name'>[]
+  /** Names the pot chip (unknown keys show `–`). */
+  pots?: readonly Pot[]
   /** Needed by the status filter (none = nothing paid). */
   payments?: readonly OccurrencePayment[]
 }
@@ -360,7 +363,7 @@ export function activeFilters(query: SearchQuery, ctx: SearchContext): ActiveFil
         : (categoryOf(query.category, ctx)?.name ?? '–'),
     })
   }
-  if (query.pot !== '') out.push({ key: 'pot', label: POT_LABELS[query.pot] })
+  if (query.pot !== '') out.push({ key: 'pot', label: potName(query.pot, ctx.pots ?? []) })
   if (query.tag !== '') out.push({ key: 'tag', label: `#${query.tag}` })
   if (query.status !== '') out.push({ key: 'status', label: STATUS_LABELS[query.status] })
   if (query.money !== '') out.push({ key: 'money', label: MONEY_LABELS[query.money] })

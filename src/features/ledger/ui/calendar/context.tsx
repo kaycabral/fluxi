@@ -41,12 +41,12 @@ export function useCalendar(): CalendarContextValue {
 /** Fired when "Hoje" is pressed, so views can re-reveal today even if the URL didn't change. */
 export const CALENDAR_TODAY_EVENT = 'fluxi:calendar-today'
 
-/** `/painel?modo=…&data=…&conta=…`; no `data` means today. */
+/** `/painel/calendario?modo=…&data=…&conta=…`; no `data` means today. */
 export function calendarHref(view: CalendarViewMode, date: string | null, account: string) {
   const params = new URLSearchParams({ modo: VIEW_SLUGS[view] })
   if (date !== null) params.set('data', date)
   if (account !== '') params.set('conta', account)
-  return `/painel?${params.toString()}` as const
+  return `/painel/calendario?${params.toString()}` as const
 }
 
 /** The landings a day shows under the prefs: paid ones only when "Mostrar pagos" is on. */

@@ -104,8 +104,8 @@ describe('dayCells', () => {
     parts: [],
     overrides,
     accounts: [
-      { id: 'cc', type: 'checking', openingBalanceCents: 100000 },
-      { id: 'nu', type: 'checking', openingBalanceCents: 20000 },
+      { id: 'cc', openingBalanceCents: 100000 },
+      { id: 'nu', openingBalanceCents: 20000 },
     ],
     months: ['2026-12'],
     countFrom: '2026-12',
@@ -142,7 +142,7 @@ describe('withDateMoves', () => {
     entries: [rent],
     parts: [],
     overrides: [],
-    accounts: [{ id: 'cc', type: 'checking', openingBalanceCents: 0 }],
+    accounts: [{ id: 'cc', openingBalanceCents: 0 }],
     months: ['2026-12'],
     countFrom: '2026-12',
   })

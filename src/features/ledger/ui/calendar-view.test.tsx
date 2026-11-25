@@ -133,15 +133,15 @@ describe('CalendarView · month', () => {
     renderCalendar({ account: IDS.nucc })
     expect(screen.getByRole('link', { name: 'Hoje' })).toHaveAttribute(
       'href',
-      `/painel?modo=mes&conta=${IDS.nucc}`,
+      `/painel/calendario?modo=mes&conta=${IDS.nucc}`,
     )
     expect(screen.getByRole('link', { name: 'Próximo' })).toHaveAttribute(
       'href',
-      `/painel?modo=mes&data=2027-01-01&conta=${IDS.nucc}`,
+      `/painel/calendario?modo=mes&data=2027-01-01&conta=${IDS.nucc}`,
     )
     expect(screen.getByRole('link', { name: 'Anterior' })).toHaveAttribute(
       'href',
-      `/painel?modo=mes&data=2026-11-01&conta=${IDS.nucc}`,
+      `/painel/calendario?modo=mes&data=2026-11-01&conta=${IDS.nucc}`,
     )
   })
 
@@ -152,7 +152,9 @@ describe('CalendarView · month', () => {
     fireEvent.wheel(body, { deltaY: 10 })
     expect(push).not.toHaveBeenCalled()
     fireEvent.wheel(body, { deltaY: 60 })
-    expect(push).toHaveBeenLastCalledWith('/painel?modo=mes&data=2027-01-01', { scroll: false })
+    expect(push).toHaveBeenLastCalledWith('/painel/calendario?modo=mes&data=2027-01-01', {
+      scroll: false,
+    })
     fireEvent.wheel(body, { deltaY: -200 })
     expect(push).toHaveBeenCalledOnce()
   })
@@ -438,7 +440,9 @@ describe('CalendarView · views and preferences', () => {
     renderCalendar()
     await userEvent.click(screen.getByRole('button', { name: 'Visualização: Mês' }))
     await userEvent.click(await screen.findByRole('menuitem', { name: /Semana/ }))
-    expect(push).toHaveBeenCalledWith('/painel?modo=semana&data=2026-12-15', { scroll: false })
+    expect(push).toHaveBeenCalledWith('/painel/calendario?modo=semana&data=2026-12-15', {
+      scroll: false,
+    })
     await waitFor(() =>
       expect(saveCalendarPrefsAction).toHaveBeenCalledWith({
         ...DEFAULT_CALENDAR_PREFS,
@@ -514,13 +518,19 @@ describe('CalendarView · views and preferences', () => {
   it("answers Google Calendar's shortcuts, not while typing", () => {
     renderCalendar()
     fireEvent.keyDown(window, { key: 'w' })
-    expect(push).toHaveBeenLastCalledWith('/painel?modo=semana&data=2026-12-15', { scroll: false })
+    expect(push).toHaveBeenLastCalledWith('/painel/calendario?modo=semana&data=2026-12-15', {
+      scroll: false,
+    })
     fireEvent.keyDown(window, { key: 't' })
-    expect(push).toHaveBeenLastCalledWith('/painel?modo=mes', { scroll: false })
+    expect(push).toHaveBeenLastCalledWith('/painel/calendario?modo=mes', { scroll: false })
     fireEvent.keyDown(window, { key: 'j' })
-    expect(push).toHaveBeenLastCalledWith('/painel?modo=mes&data=2027-01-01', { scroll: false })
+    expect(push).toHaveBeenLastCalledWith('/painel/calendario?modo=mes&data=2027-01-01', {
+      scroll: false,
+    })
     fireEvent.keyDown(window, { key: 'k' })
-    expect(push).toHaveBeenLastCalledWith('/painel?modo=mes&data=2026-11-01', { scroll: false })
+    expect(push).toHaveBeenLastCalledWith('/painel/calendario?modo=mes&data=2026-11-01', {
+      scroll: false,
+    })
     fireEvent.keyDown(window, { key: 'q' })
     fireEvent.keyDown(window, { key: 'm', ctrlKey: true })
     const input = document.createElement('input')
@@ -636,7 +646,7 @@ describe('CalendarView · views and preferences', () => {
     expect(screen.queryByText('Avulso')).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Ver mais' })).toHaveAttribute(
       'href',
-      '/painel?modo=programacao&data=2027-12-01',
+      '/painel/calendario?modo=programacao&data=2027-12-01',
     )
     await userEvent.click(within(rows[0] ?? document.body).getByRole('button', { name: /Luz/ }))
     expect(await screen.findByLabelText('Detalhes de Luz')).toBeInTheDocument()

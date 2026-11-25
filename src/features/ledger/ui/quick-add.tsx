@@ -1,7 +1,7 @@
 'use client'
 
 import { createEntryAction } from '@/features/ledger/adapters/actions/entries'
-import { newEntryValues, valuesToFields } from '@/features/ledger/core/entry-form'
+import { defaultPotOf, newEntryValues, valuesToFields } from '@/features/ledger/core/entry-form'
 import { dayLongLabel } from '@/features/ledger/core/format'
 import type { EntryKind } from '@/features/ledger/core/types'
 import { Button } from '@cbrl/design'
@@ -42,7 +42,10 @@ export function QuickAddForm({ date, onDone }: { date: string; onDone: () => voi
   const typed = { kind, amount, description, accountId, ...repeat }
 
   function save() {
-    const converted = valuesToFields({ ...newEntryValues({ date, accountId, kind }), ...typed })
+    const converted = valuesToFields({
+      ...newEntryValues({ date, accountId, kind, defaultPot: defaultPotOf(refs.pots) }),
+      ...typed,
+    })
     if (!converted.ok) {
       setError(converted.error)
       return

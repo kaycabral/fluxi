@@ -4,7 +4,7 @@ import type { SessionUser } from '@cbrl/supabase'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { saveAccountAction, saveBankAction } from './accounts'
 import { changeDayAction, createEntryAction, deleteEntryAction, updateEntryAction } from './entries'
-import { setCountFromAction, setPotTargetsAction } from './settings'
+import { setCountFromAction } from './settings'
 
 type Result = { ok: true } | { ok: false; reason: string }
 const write = {
@@ -16,7 +16,6 @@ const write = {
   updateBank: vi.fn<(...args: unknown[]) => Promise<Result>>(),
   createAccount: vi.fn<(...args: unknown[]) => Promise<Result>>(),
   updateAccount: vi.fn<(...args: unknown[]) => Promise<Result>>(),
-  setPotTargets: vi.fn<(...args: unknown[]) => Promise<Result>>(),
   setCountFrom: vi.fn<(...args: unknown[]) => Promise<Result>>(),
 }
 const getServerUser = vi.fn<() => Promise<SessionUser | null>>()
@@ -35,7 +34,6 @@ vi.mock('@/features/ledger/adapters/ledger.write', () => ({
   updateBank: (...a: unknown[]) => write.updateBank(...a),
   createAccount: (...a: unknown[]) => write.createAccount(...a),
   updateAccount: (...a: unknown[]) => write.updateAccount(...a),
-  setPotTargets: (...a: unknown[]) => write.setPotTargets(...a),
   setCountFrom: (...a: unknown[]) => write.setCountFrom(...a),
 }))
 
@@ -247,22 +245,10 @@ describe('bank and account actions', () => {
     await expect(setCountFromAction(INITIAL_FORM_STATE, form({}))).resolves.toMatchObject({
       ok: false,
     })
-    await expect(setPotTargetsAction(INITIAL_FORM_STATE, form({}))).resolves.toMatchObject({
-      ok: false,
-    })
   })
 })
 
 describe('settings actions', () => {
-  const pots = {
-    essential: '3300',
-    comfort: '700',
-    guilt_free: '700',
-    education: '300',
-    variable: '800',
-    investment: '3200',
-  }
-
   it('set count_from_month', async () => {
     await expect(
       setCountFromAction(INITIAL_FORM_STATE, form({ month: '2027-01' })),
@@ -272,32 +258,6 @@ describe('settings actions', () => {
       setCountFromAction(INITIAL_FORM_STATE, form({ month: 'jan' })),
     ).resolves.toMatchObject({
       error: 'Mês inválido.',
-    })
-  })
-
-  it('validate pot targets on the server', async () => {
-    await expect(setPotTargetsAction(INITIAL_FORM_STATE, form(pots))).resolves.toMatchObject({
-      ok: true,
-    })
-    expect(write.setPotTargets).toHaveBeenCalledWith('session-user', {
-      essential: 3300,
-      comfort: 700,
-      guilt_free: 700,
-      education: 300,
-      variable: 800,
-      investment: 3200,
-    })
-    await expect(
-      setPotTargetsAction(INITIAL_FORM_STATE, form({ ...pots, essential: '9000' })),
-    ).resolves.toMatchObject({ error: 'A soma dos potes não pode passar de 100%.' })
-    await expect(
-      setPotTargetsAction(INITIAL_FORM_STATE, form({ ...pots, comfort: '' })),
-    ).resolves.toMatchObject({
-      ok: false,
-    })
-    write.setPotTargets.mockResolvedValue({ ok: false, reason: 'over_budget' })
-    await expect(setPotTargetsAction(INITIAL_FORM_STATE, form(pots))).resolves.toMatchObject({
-      ok: false,
     })
   })
 })

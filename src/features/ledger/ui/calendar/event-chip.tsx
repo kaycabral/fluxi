@@ -14,8 +14,8 @@ import {
 } from '@/features/ledger/core/format'
 import {
   paidLabel,
-  POT_COLORS,
-  POT_LABELS,
+  potDot,
+  potName,
   potTint,
   RECURRENCE_LABELS,
 } from '@/features/ledger/core/labels'
@@ -26,6 +26,7 @@ import {
   paymentStatus,
   type PaymentStatus,
 } from '@/features/ledger/core/payments'
+import type { Pot } from '@/features/ledger/core/types'
 import { installmentLabel, targetFor, type LedgerData } from '@/features/ledger/core/view'
 import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@cbrl/design'
 import {
@@ -55,18 +56,18 @@ export function landingTitle(landing: Landing): string {
 }
 
 /** Color square/dot of an entry: its pot, green for income, blue for transfers. */
-export function entryColor(landing: Landing): string {
+export function entryColor(landing: Landing, pots: readonly Pot[]): string {
   const { entry } = landing
   if (entry.kind === 'income') return 'bg-emerald-500 dark:bg-emerald-400'
   if (entry.kind === 'transfer' || entry.pot === null) return 'bg-sky-500 dark:bg-sky-400'
-  return POT_COLORS[entry.pot]
+  return potDot(entry.pot, pots)
 }
 
-function chipColors(landing: Landing): string | undefined {
+function chipColors(landing: Landing, pots: readonly Pot[]): string | undefined {
   const { entry } = landing
   if (entry.kind === 'income') return 'bg-emerald-500/15 text-emerald-900 dark:text-emerald-200'
   if (entry.kind === 'transfer') return 'bg-sky-500/15 text-sky-900 dark:text-sky-200'
-  return potTint(entry.pot) ?? 'bg-muted'
+  return potTint(entry.pot, pots) ?? 'bg-muted'
 }
 
 const STATUS_TITLES: Record<PaymentStatus, (kind: Landing['entry']['kind']) => string> = {
@@ -116,7 +117,7 @@ export function EventChip({
           className={cn(
             'relative flex w-full min-w-0 items-center gap-1.5 text-left',
             variant === 'chip'
-              ? cn('h-5 rounded px-1.5 text-xs leading-5', chipColors(landing))
+              ? cn('h-5 rounded px-1.5 text-xs leading-5', chipColors(landing, data.pots))
               : 'hover:bg-muted rounded-md px-2 py-1.5 text-sm',
             movable && 'cursor-grab active:cursor-grabbing',
             status === 'paid' && 'opacity-50',
@@ -126,7 +127,9 @@ export function EventChip({
           )}
         >
           {variant === 'row' && (
-            <span className={cn('size-2.5 shrink-0 rounded-full', entryColor(landing))} />
+            <span
+              className={cn('size-2.5 shrink-0 rounded-full', entryColor(landing, data.pots))}
+            />
           )}
           {status === 'paid' && (
             <CircleCheck className="size-3 shrink-0" aria-label={statusTitle} />
@@ -249,7 +252,10 @@ export function EventDetails({
         </Button>
       </div>
       <div className="grid grid-cols-[1.25rem_1fr] items-start gap-x-4 gap-y-3 px-4">
-        <span className={cn('mt-2 size-3.5 rounded-sm', entryColor(landing))} aria-hidden />
+        <span
+          className={cn('mt-2 size-3.5 rounded-sm', entryColor(landing, data.pots))}
+          aria-hidden
+        />
         <div className="min-w-0">
           <h3 className={cn('text-xl leading-snug', skipped && 'line-through')}>
             {landingTitle(landing)}
@@ -315,13 +321,13 @@ function statusLine(input: {
 /** Amount, account(s), category/pot, status and tags of the popup. */
 function detailRows(
   landing: Landing,
-  data: Pick<LedgerData, 'accounts' | 'banks' | 'categories'>,
+  data: Pick<LedgerData, 'accounts' | 'banks' | 'categories' | 'pots'>,
   status: Row,
 ): Row[] {
   const { entry } = landing
   const account = (id: string | null) => accountLabel(id, data.accounts, data.banks)
   const category = data.categories.find((c) => c.id === entry.categoryId)?.name
-  const pot = entry.pot === null ? undefined : `pote ${POT_LABELS[entry.pot]}`
+  const pot = entry.pot === null ? undefined : `pote ${potName(entry.pot, data.pots)}`
   const classification = [category, pot].filter((part) => part !== undefined).join(' · ')
   return [
     { icon: Banknote, label: 'Valor', text: signedAmount(landing) },

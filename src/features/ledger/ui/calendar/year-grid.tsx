@@ -1,10 +1,10 @@
 'use client'
 
-import { cellOf, monthWeeks } from '@/features/ledger/core/calendar-views'
-import { dayLongLabel } from '@/features/ledger/core/format'
+import { cellOf, monthDays, monthWeeks } from '@/features/ledger/core/calendar-views'
+import { dayLongLabel, formatAmount } from '@/features/ledger/core/format'
 import { cn, Popover, PopoverContent, PopoverTrigger } from '@cbrl/design'
-import { useState } from 'react'
-import { POPUP_CLASS, POPUP_PLACEMENT, useCalendar } from './context'
+import { useEffect, useRef, useState } from 'react'
+import { CALENDAR_TODAY_EVENT, POPUP_CLASS, POPUP_PLACEMENT, useCalendar } from './context'
 import { DayPanel } from './day-panel'
 
 const MONTH_NAMES = [
@@ -26,13 +26,37 @@ const WEEKDAY_INITIALS = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S']
 /**
  * Year view: twelve mini months (6 rows each, neighbour days muted, like
  * Google Calendar). A dot marks days with entries, red numbers the days that
- * end negative; clicking a day opens its list.
+ * end negative; clicking a day opens its list. Each month's header shows the
+ * accumulated balance at the end of its last day.
  */
 export function YearGrid() {
-  const { date } = useCalendar()
+  const { date, today } = useCalendar()
   const year = date.slice(0, 4)
+  const scroller = useRef<HTMLDivElement>(null)
+
+  // Like Google Calendar: open with the chosen date's month in view and
+  // focused, and bring today's month back whenever "Hoje" is pressed.
+  useEffect(() => {
+    const reveal = (day: string, smooth: boolean) => {
+      const root = scroller.current
+      const section = root?.querySelector<HTMLElement>(`[data-month="${day.slice(0, 7)}"]`)
+      if (!root || !section) return
+      const top = section.offsetTop - (root.clientHeight - section.offsetHeight) / 2
+      root.style.scrollBehavior = smooth ? 'smooth' : 'auto'
+      root.scrollTop = Math.max(0, top)
+      section.querySelector<HTMLElement>(`[data-day="${day}"]`)?.focus({ preventScroll: true })
+    }
+    reveal(date, false)
+    const onToday = () => reveal(today, true)
+    window.addEventListener(CALENDAR_TODAY_EVENT, onToday)
+    return () => window.removeEventListener(CALENDAR_TODAY_EVENT, onToday)
+  }, [date, today])
+
   return (
-    <div className="grid content-start gap-x-8 gap-y-6 overflow-y-auto p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+    <div
+      ref={scroller}
+      className="relative grid content-start gap-x-8 gap-y-6 overflow-y-auto p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+    >
       {MONTH_NAMES.map((name, index) => (
         <MiniMonth key={name} name={name} month={`${year}-${String(index + 1).padStart(2, '0')}`} />
       ))}
@@ -41,6 +65,13 @@ export function YearGrid() {
 }
 
 function MiniMonth({ name, month }: { name: string; month: string }) {
+  const { cells } = useCalendar()
+  // Accumulated balance at the end of the month's last day.
+  const days = monthDays(month)
+  const endBalance = cellOf(
+    cells,
+    `${month}-${String(days.length).padStart(2, '0')}`,
+  ).endBalanceCents
   const weeks = monthWeeks(month)
   // Always 6 rows, like Google Calendar, so the months line up.
   while (weeks.length < 6) {
@@ -55,8 +86,21 @@ function MiniMonth({ name, month }: { name: string; month: string }) {
     )
   }
   return (
-    <section aria-label={name} className="grid gap-1">
-      <h2 className="px-1 text-sm font-medium">{name}</h2>
+    <section aria-label={name} data-month={month} className="grid gap-1">
+      <div className="flex items-baseline justify-between gap-2 px-1">
+        <h2 className="text-sm font-medium">{name}</h2>
+        {endBalance !== null && (
+          <span
+            aria-label={`Saldo no fim de ${name}`}
+            className={cn(
+              'text-muted-foreground text-xs tabular-nums',
+              endBalance < 0 && 'text-destructive font-semibold',
+            )}
+          >
+            {formatAmount(endBalance)}
+          </span>
+        )}
+      </div>
       <div className="grid grid-cols-7 text-center text-[0.7rem]">
         {WEEKDAY_INITIALS.map((initial, i) => (
           <span key={`${initial}-${i}`} className="text-muted-foreground py-1">
@@ -83,6 +127,7 @@ function MiniDay({ date, inMonth }: { date: string; inMonth: boolean }) {
         <button
           type="button"
           aria-label={dayLongLabel(date)}
+          data-day={inMonth ? date : undefined}
           aria-current={date === today ? 'date' : undefined}
           className={cn(
             'hover:bg-muted relative mx-auto grid size-7 place-items-center rounded-full',

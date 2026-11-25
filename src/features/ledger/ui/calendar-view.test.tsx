@@ -561,6 +561,45 @@ describe('CalendarView · views and preferences', () => {
     expect(within(sheet).getByLabelText('Data')).toHaveValue('03/12/2026')
   })
 
+  it("shows each month's end balance next to its name in the year", () => {
+    renderCalendar({ view: 'year' })
+    const december = screen.getByRole('region', { name: 'Dezembro' })
+    const balance = within(december).getByLabelText('Saldo no fim de Dezembro')
+    expect(balance).toHaveTextContent('-3.560,00')
+    expect(balance).toHaveClass('text-destructive')
+    // Months not loaded have no balance to show.
+    expect(
+      within(screen.getByRole('region', { name: 'Janeiro' })).queryByLabelText(
+        'Saldo no fim de Janeiro',
+      ),
+    ).not.toBeInTheDocument()
+  })
+
+  it('focuses the date in the year and brings today back with Hoje or T, like Google Calendar', async () => {
+    renderCalendar({ view: 'year', date: '2026-03-10' })
+    const march = screen.getByRole('region', { name: 'Março' })
+    expect(within(march).getByRole('button', { name: 'terça-feira, 10 de março' })).toHaveFocus()
+
+    const today = within(screen.getByRole('region', { name: 'Dezembro' })).getByRole('button', {
+      name: 'terça-feira, 15 de dezembro',
+    })
+    await userEvent.click(screen.getByRole('link', { name: 'Hoje' }))
+    expect(today).toHaveFocus()
+
+    await userEvent.click(screen.getByRole('heading', { level: 1 }))
+    expect(today).not.toHaveFocus()
+    await userEvent.keyboard('t')
+    expect(today).toHaveFocus()
+  })
+
+  it('leaves the focus alone when Hoje is pressed on another year', async () => {
+    renderCalendar({ view: 'year', date: '2025-03-10' })
+    const hoje = screen.getByRole('link', { name: 'Hoje' })
+    await userEvent.click(hoje)
+    // Today isn't on this page, so nothing takes the focus from the link.
+    expect(hoje).toHaveFocus()
+  })
+
   it('says when a day of the year has nothing', async () => {
     renderCalendar({ view: 'year' })
     const july = screen.getByRole('region', { name: 'Julho' })

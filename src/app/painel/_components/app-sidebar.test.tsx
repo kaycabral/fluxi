@@ -23,10 +23,10 @@ vi.mock('@/features/ledger/adapters/actions/entries', () => ({
   changeDayAction: vi.fn(),
 }))
 
-function renderSidebar(legacyScreens = true) {
+function renderSidebar(legacyScreens = true, defaultOpen = true) {
   return render(
     <LedgerShell refs={sampleRefs()}>
-      <AppSidebar legacyScreens={legacyScreens}>
+      <AppSidebar legacyScreens={legacyScreens} defaultOpen={defaultOpen}>
         <p>conteúdo</p>
       </AppSidebar>
     </LedgerShell>,
@@ -63,6 +63,22 @@ describe('AppSidebar', () => {
     renderSidebar()
     await userEvent.click(screen.getByRole('button', { name: 'Criar' }))
     expect(await screen.findByRole('dialog', { name: 'Novo lançamento' })).toBeInTheDocument()
+  })
+
+  it('remembers each toggle of the sidebar in this browser', async () => {
+    window.history.replaceState(null, '', '/painel')
+    const { unmount } = renderSidebar(true, false)
+    // Started collapsed (as the cookie said), so the toggle expands it.
+    await userEvent.click(
+      screen.getAllByRole('button', { name: 'Toggle Sidebar' })[0] ?? document.body,
+    )
+    expect(document.cookie).toContain('fluxi_sidebar=open')
+    unmount()
+    renderSidebar()
+    await userEvent.click(
+      screen.getAllByRole('button', { name: 'Toggle Sidebar' })[0] ?? document.body,
+    )
+    expect(document.cookie).toContain('fluxi_sidebar=collapsed')
   })
 
   it('leaves "Criar" to pages that put it beside their title', () => {

@@ -34,6 +34,7 @@ import {
   targetFor,
   type LedgerData,
 } from '@/features/ledger/core/view'
+import { writeBrowserCookie } from '@/lib/browser-cookie'
 import {
   Badge,
   Button,
@@ -110,8 +111,9 @@ type Props = {
 
 /** Remember the query in this browser (read back by the server on the next visit). */
 function rememberQuery(query: SearchQuery) {
-  const secure = window.location.protocol === 'https:' ? '; Secure' : ''
-  document.cookie = `${SEARCH_QUERY_COOKIE}=${encodeURIComponent(serializeSearchQuery(query))}; Path=/painel/lancamentos; Max-Age=${60 * 60 * 24 * 365}; SameSite=Lax${secure}`
+  writeBrowserCookie(SEARCH_QUERY_COOKIE, serializeSearchQuery(query), {
+    path: '/painel/lancamentos',
+  })
 }
 
 /**
@@ -218,9 +220,6 @@ export function SearchView({ data, initialQuery, today }: Props) {
         </div>
       )}
       <List<Occurrence>
-        // TODO(@cbrl/design > 0.3.0, toolkit#51): drop once the List's clickable rows span the
-        // row and align left (button rows are content-sized and centered in 0.3.0).
-        className="[&_button[data-slot=list-item]]:w-full [&_button[data-slot=list-item]]:text-left"
         items={visible}
         getKey={({ landing }, index) =>
           `${landing.entry.id}-${landing.month}-${landing.part?.id ?? 'whole'}-${index}`

@@ -46,6 +46,7 @@ vi.mock('next/navigation', () => ({
 }))
 let prefsCookie: string | undefined
 let searchCookie: string | undefined
+let sidebarCookie: string | undefined
 vi.mock('next/headers', () => ({
   headers: () => Promise.resolve(new Headers({ 'x-pathname': '/painel/contas' })),
   cookies: () =>
@@ -54,6 +55,7 @@ vi.mock('next/headers', () => ({
         const jar: Record<string, string | undefined> = {
           fluxi_calendar: prefsCookie,
           fluxi_lancamentos: searchCookie,
+          fluxi_sidebar: sidebarCookie,
         }
         const value = jar[name]
         return value === undefined ? undefined : { value }
@@ -102,8 +104,8 @@ vi.mock('@/features/ledger/ui/ledger-shell', () => ({
 }))
 vi.mock('./_components/topbar', () => ({ Topbar: () => <header>topbar</header> }))
 vi.mock('./_components/app-sidebar', () => ({
-  AppSidebar: ({ children }: { children: React.ReactNode }) => (
-    <div aria-label="menu lateral" role="region">
+  AppSidebar: ({ children, defaultOpen }: { children: React.ReactNode; defaultOpen: boolean }) => (
+    <div aria-label="menu lateral" role="region" data-open={String(defaultOpen)}>
       {children}
     </div>
   ),
@@ -238,9 +240,19 @@ describe('painel layouts', () => {
     vi.unstubAllEnvs()
   })
 
-  it('the new layout puts the pages in the sidebar shell', () => {
-    render(AppLayout({ children: <p>calendário</p> }))
-    expect(screen.getByRole('region', { name: 'menu lateral' })).toHaveTextContent('calendário')
+  it('the new layout puts the pages in the sidebar shell, as this browser left it', async () => {
+    const { unmount } = render(await AppLayout({ children: <p>calendário</p> }))
+    const shell = screen.getByRole('region', { name: 'menu lateral' })
+    expect(shell).toHaveTextContent('calendário')
+    expect(shell).toHaveAttribute('data-open', 'true')
+    unmount()
+    sidebarCookie = 'collapsed'
+    render(await AppLayout({ children: <p>calendário</p> }))
+    expect(screen.getByRole('region', { name: 'menu lateral' })).toHaveAttribute(
+      'data-open',
+      'false',
+    )
+    sidebarCookie = undefined
   })
 
   it('the legacy layout keeps the top navigation and the footer', () => {

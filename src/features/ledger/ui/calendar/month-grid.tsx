@@ -81,6 +81,10 @@ export function MonthGrid() {
   // Wheel: one month per gesture (a trackpad fires many small events).
   const wheel = useRef({ delta: 0, lockedUntil: 0 })
   function onWheel(event: React.WheelEvent) {
+    // React bubbles synthetic events through portals, so a wheel inside a
+    // popup or its select list would otherwise change the month (and close the
+    // popup). Only the grid's own DOM turns the page.
+    if (!(event.target instanceof Node) || !event.currentTarget.contains(event.target)) return
     const state = wheel.current
     const now = event.timeStamp
     if (now < state.lockedUntil) return

@@ -31,7 +31,7 @@ import { revalidatePath } from 'next/cache'
 function done(result: WriteResult): ActionResult {
   if (!result.ok) return failureResult(result.reason)
   revalidatePath('/painel', 'layout')
-  return { ok: true }
+  return result.undo === undefined ? { ok: true } : { ok: true, undo: result.undo }
 }
 
 export async function createEntryAction(input: unknown): Promise<ActionResult> {

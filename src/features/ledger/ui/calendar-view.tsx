@@ -75,7 +75,7 @@ export function CalendarView({
   prefs: CalendarPrefs
 }) {
   const router = useRouter()
-  const { openNew, requestScope } = useLedgerUi()
+  const { openNew, requestScope, offerUndo } = useLedgerUi()
   const [prefs, setPrefs] = useState(initialPrefs)
   const [quickDate, setQuickDate] = useState<string | null>(null)
   const [dragged, setDragged] = useState<Landing | null>(null)
@@ -127,6 +127,7 @@ export function CalendarView({
         scope,
       })
       if (!result.ok) toast.error(result.error)
+      else offerUndo(result, 'Lançamento movido.')
     })
   }
 

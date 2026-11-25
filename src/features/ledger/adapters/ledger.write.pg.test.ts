@@ -115,8 +115,8 @@ describe('createEntry', () => {
         { label: 'Saldo', bps: 6000, day: 5, nextMonth: true },
       ],
     })
-    await expect(createEntry(ANA, id, fields)).resolves.toEqual({ ok: true })
-    await expect(createEntry(ANA, id, fields)).resolves.toEqual({ ok: true })
+    await expect(createEntry(ANA, id, fields)).resolves.toMatchObject({ ok: true })
+    await expect(createEntry(ANA, id, fields)).resolves.toMatchObject({ ok: true })
     expect(await entryRows(ANA)).toHaveLength(1)
     const parts = await db().select().from(entryParts).where(eq(entryParts.entryId, id))
     expect(parts.map((p) => [p.label, p.bps, p.sort])).toEqual([
@@ -158,7 +158,7 @@ describe('updateEntry', () => {
       }),
       null,
     )
-    expect(result).toEqual({ ok: true })
+    expect(result).toMatchObject({ ok: true })
     const [row] = await entryRows(ANA)
     expect(row).toMatchObject({
       description: 'Aluguel novo',
@@ -198,7 +198,7 @@ describe('updateEntry', () => {
     it('"future" splits only the new series; earlier months stay whole', async () => {
       await expect(
         updateEntry(ANA, id, withSplit(), { month: '2027-02', scope: 'future' }),
-      ).resolves.toEqual({ ok: true })
+      ).resolves.toMatchObject({ ok: true })
       const [before, after] = await entryRows(ANA)
       if (before === undefined || after === undefined) throw new Error('expected a split')
       expect([before.id, before.endMonth, before.day]).toEqual([id, '2027-01-01', 10])
@@ -213,7 +213,7 @@ describe('updateEntry', () => {
     it('"all" splits the whole series', async () => {
       await expect(
         updateEntry(ANA, id, withSplit(), { month: '2027-02', scope: 'all' }),
-      ).resolves.toEqual({ ok: true })
+      ).resolves.toMatchObject({ ok: true })
       const rows = await entryRows(ANA)
       expect(rows.map((r) => [r.id, r.startMonth, r.day])).toEqual([[id, '2026-12-01', 15]])
       expect(await partsOf(id)).toHaveLength(2)
@@ -231,7 +231,7 @@ describe('updateEntry', () => {
           scope: null,
         },
       ),
-    ).resolves.toEqual({ ok: true })
+    ).resolves.toMatchObject({ ok: true })
     const [row] = await entryRows(ANA)
     expect(row).toMatchObject({ description: 'Moradia', tags: [], startMonth: '2026-12-01' })
   })
@@ -243,7 +243,7 @@ describe('updateEntry', () => {
         month: '2026-12',
         scope: null,
       }),
-    ).resolves.toEqual({ ok: true })
+    ).resolves.toMatchObject({ ok: true })
     const [row] = await entryRows(ANA)
     expect(row).toMatchObject({ startMonth: '2026-11-01', endMonth: null, day: 10 })
     // A later occurrence moved forward shifts the start by as many months.
@@ -373,7 +373,7 @@ describe('repetition rule', () => {
     const id = randomUUID()
     await expect(
       createEntry(ANA, id, expense(ana.accountId, { repeatEvery: 2, monthBy: 'weekday' })),
-    ).resolves.toEqual({ ok: true })
+    ).resolves.toMatchObject({ ok: true })
     const [row] = await entryRows(ANA)
     expect(row).toMatchObject({ repeatEvery: 2, monthBy: 'weekday' })
     await expect(
@@ -390,16 +390,16 @@ describe('changeOccurrenceDay', () => {
     await createEntry(ANA, monthly, expense(ana.accountId))
     await expect(
       changeOccurrenceDay(ANA, { entryId: once, month: '2026-12', day: 3, scope: null }),
-    ).resolves.toEqual({ ok: true })
+    ).resolves.toMatchObject({ ok: true })
     await expect(
       changeOccurrenceDay(ANA, { entryId: monthly, month: '2027-01', day: 3, scope: null }),
     ).resolves.toEqual({ ok: false, reason: 'scope_required' })
     await expect(
       changeOccurrenceDay(ANA, { entryId: monthly, month: '2027-01', day: 3, scope: 'one' }),
-    ).resolves.toEqual({ ok: true })
+    ).resolves.toMatchObject({ ok: true })
     await expect(
       changeOccurrenceDay(ANA, { entryId: monthly, month: '2027-01', day: 3, scope: null }),
-    ).resolves.toEqual({ ok: true })
+    ).resolves.toMatchObject({ ok: true })
     const [override] = await overrideRows(monthly)
     expect(override).toMatchObject({ month: '2027-01-01', day: 3 })
     await expect(
@@ -485,7 +485,7 @@ describe('banks and accounts', () => {
       ok: false,
       reason: 'not_found',
     })
-    await expect(updateBank(ANA, { id: bankId, name: 'Nu' })).resolves.toEqual({ ok: true })
+    await expect(updateBank(ANA, { id: bankId, name: 'Nu' })).resolves.toMatchObject({ ok: true })
 
     await expect(
       createAccount(BIA, {
@@ -535,7 +535,7 @@ describe('settings', () => {
         variable: 800,
         investment: 3200,
       }),
-    ).resolves.toEqual({ ok: true })
+    ).resolves.toMatchObject({ ok: true })
     await expect(
       setPotTargets(ANA, {
         essential: 9000,

@@ -376,6 +376,29 @@ export const userSettings = pgTable(
 ).enableRLS()
 
 /**
+ * The last undoable ledger action of each user ("Desfazer", like Google
+ * Calendar): the rows of the entries it touched as they were before it, one
+ * `to_jsonb` per row, restored as they were. One row per user, replaced by
+ * each new action and honored for a few minutes only; expired rows are swept
+ * on every new action and the client drops its own when the toast closes, so
+ * a deleted entry does not live on here.
+ */
+export const undoSnapshots = pgTable('undo_snapshots', {
+  userId: uuid('user_id')
+    .primaryKey()
+    .references(() => profiles.id, { onDelete: 'cascade' }),
+  /** Changes on every action: an undo only applies to the action it was offered for. */
+  token: uuid('token').notNull(),
+  /** Every entry the action touched, including the ones it created. */
+  entryIds: uuid('entry_ids').array().notNull(),
+  entries: jsonb('entries').notNull(),
+  entryParts: jsonb('entry_parts').notNull(),
+  entryOverrides: jsonb('entry_overrides').notNull(),
+  occurrencePayments: jsonb('occurrence_payments').notNull(),
+  createdAt: createdAt(),
+}).enableRLS()
+
+/**
  * Internal: maps an external record (e.g. a Notion page) to the entry it
  * produced, so importers can re-run idempotently.
  */

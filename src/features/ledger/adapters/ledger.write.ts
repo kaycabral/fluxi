@@ -33,6 +33,7 @@ import {
 import { and, eq, gte, notInArray, sql } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
 import { movePaymentsToSplit, syncPayments } from './payments.write'
+import { captureUndo, widenUndo } from './undo.write'
 import {
   db,
   fail,
@@ -40,6 +41,7 @@ import {
   loadSeries,
   ok,
   ScopeError,
+  undoable,
   type Tx,
   type WriteResult,
 } from './write-base'
@@ -147,7 +149,8 @@ export async function createEntry(
       }
       const parts = partsFromFields(id, fields)
       if (parts.length > 0) await tx.insert(entryParts).values(parts.map((p) => partRow(userId, p)))
-      return ok
+      // Its undo removes it: nothing of it existed before.
+      return undoable(await captureUndo(tx, userId, [id], { created: true }))
     }),
   )
 }
@@ -230,6 +233,10 @@ async function persistScopedEdit(
   }
 }
 
+/** The entries a scoped edit created (a series split): all but the edited one. */
+const createdBy = (result: ScopedEditResult, entryId: string) =>
+  result.entries.map((e) => e.id).filter((id) => id !== entryId)
+
 function patchOf(
   state: SeriesState,
   month: Month,
@@ -271,10 +278,11 @@ export async function updateEntry(
       const parts = keepPartIds(partsFromFields(entryId, fields), state.parts)
 
       if (occurrence === null || state.entry.recurrence === 'none') {
+        const undo = await captureUndo(tx, userId, [entryId])
         await writeEntryRow(tx, userId, entryFromFields(entryId, fields))
         await replaceParts(tx, userId, entryId, parts)
         await syncPayments(tx, userId, entryId)
-        return ok
+        return undoable(undo)
       }
 
       if (!occursIn(state.entry, occurrence.month)) return fail('no_occurrence')
@@ -297,10 +305,11 @@ export async function updateEntry(
         moved,
       )
       if (!occursIn(series, moved)) throw new ScopeError('no_occurrence')
+      const undo = await captureUndo(tx, userId, [entryId])
       await writeEntryRow(tx, userId, series)
       if (isEmpty(patch) || occurrence.scope === null) {
         await syncPayments(tx, userId, entryId)
-        return ok
+        return undoable(undo)
       }
 
       const next: SeriesState = { entry: series, parts: state.parts, overrides: state.overrides }
@@ -311,7 +320,8 @@ export async function updateEntry(
       )
       await persistScopedEdit(tx, userId, next, result)
       for (const entry of result.entries) await syncPayments(tx, userId, entry.id)
-      return ok
+      await widenUndo(tx, userId, createdBy(result, entryId))
+      return undoable(undo)
     }),
   )
 }
@@ -328,15 +338,18 @@ export async function changeOccurrenceDay(
       if (state === null) return fail('not_found')
       if (!occursIn(state.entry, month) || state.parts.length > 0) return fail('no_occurrence')
       if (state.entry.recurrence === 'none') {
+        const undo = await captureUndo(tx, userId, [entryId])
         await writeEntryRow(tx, userId, { ...state.entry, day })
-        return ok
+        return undoable(undo)
       }
       if (dayFor(state.entry, state.overrides, month) === day) return ok
       if (scope === null) return fail('scope_required')
+      const undo = await captureUndo(tx, userId, [entryId])
       const result = applyScopedEdit(state, { month, patch: { day }, scope }, randomUUID)
       await persistScopedEdit(tx, userId, state, result)
       for (const entry of result.entries) await syncPayments(tx, userId, entry.id)
-      return ok
+      await widenUndo(tx, userId, createdBy(result, entryId))
+      return undoable(undo)
     }),
   )
 }
@@ -357,8 +370,9 @@ export async function deleteEntry(
       if (state === null) return fail('not_found')
       const { entry } = state
       const removeAll = async () => {
+        const undo = await captureUndo(tx, userId, [entryId])
         await tx.delete(entries).where(and(eq(entries.id, entryId), eq(entries.userId, userId)))
-        return ok
+        return undoable(undo)
       }
       if (occurrence === null || entry.recurrence === 'none' || occurrence.scope === 'all')
         return removeAll()
@@ -366,6 +380,7 @@ export async function deleteEntry(
       if (!occursIn(entry, month)) return fail('no_occurrence')
 
       if (scope === 'one') {
+        const undo = await captureUndo(tx, userId, [entryId])
         await tx
           .insert(entryOverrides)
           .values({ entryId, userId, month: monthToDate(month), skipped: true })
@@ -375,10 +390,11 @@ export async function deleteEntry(
             setWhere: eq(entryOverrides.userId, userId),
           })
         await syncPayments(tx, userId, entryId)
-        return ok
+        return undoable(undo)
       }
 
       if (month === entry.startMonth) return removeAll()
+      const undo = await captureUndo(tx, userId, [entryId])
       await writeEntryRow(tx, userId, endSeriesBefore(entry, month))
       await tx
         .delete(entryOverrides)
@@ -390,7 +406,7 @@ export async function deleteEntry(
           ),
         )
       await syncPayments(tx, userId, entryId)
-      return ok
+      return undoable(undo)
     }),
   )
 }

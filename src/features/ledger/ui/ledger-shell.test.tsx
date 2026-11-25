@@ -12,6 +12,10 @@ const actions = {
   deleteEntryAction: vi.fn<(input: unknown) => Promise<Result>>(),
   changeDayAction: vi.fn<(input: unknown) => Promise<Result>>(),
 }
+vi.mock('@/features/ledger/adapters/actions/undo', () => ({
+  undoAction: vi.fn(),
+  forgetUndoAction: vi.fn(),
+}))
 vi.mock('@/features/ledger/adapters/actions/entries', () => ({
   createEntryAction: (i: unknown) => actions.createEntryAction(i),
   updateEntryAction: (i: unknown) => actions.updateEntryAction(i),

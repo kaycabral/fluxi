@@ -9,6 +9,10 @@ import { TimelineView } from './timeline-view'
 type Result = { ok: true } | { ok: false; error: string }
 const changeDayAction = vi.fn<(input: unknown) => Promise<Result>>()
 const setCountFromAction = vi.fn<(prev: FormState, data: FormData) => Promise<FormState>>()
+vi.mock('@/features/ledger/adapters/actions/undo', () => ({
+  undoAction: vi.fn(),
+  forgetUndoAction: vi.fn(),
+}))
 vi.mock('@/features/ledger/adapters/actions/entries', () => ({
   createEntryAction: vi.fn(),
   updateEntryAction: vi.fn(),

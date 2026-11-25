@@ -6,6 +6,10 @@ import { describe, expect, it, vi } from 'vitest'
 import { AppSidebar } from './app-sidebar'
 
 const signOut = vi.fn()
+vi.mock('@/features/ledger/adapters/actions/undo', () => ({
+  undoAction: vi.fn(),
+  forgetUndoAction: vi.fn(),
+}))
 vi.mock('@/hooks/use-sign-out', () => ({ useSignOut: () => signOut }))
 vi.mock('next/navigation', () => ({
   usePathname: () => '/painel',

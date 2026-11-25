@@ -8,6 +8,10 @@ import { IDS, sampleData, sampleDataWithBenefit, sampleRefs } from './test-fixtu
 type Result = { ok: true } | { ok: false; error: string }
 const markPaidAction = vi.fn<(input: unknown) => Promise<Result>>()
 const unmarkPaidAction = vi.fn<(input: unknown) => Promise<Result>>()
+vi.mock('@/features/ledger/adapters/actions/undo', () => ({
+  undoAction: vi.fn(),
+  forgetUndoAction: vi.fn(),
+}))
 vi.mock('@/features/ledger/adapters/actions/payments', () => ({
   markPaidAction: (i: unknown) => markPaidAction(i),
   unmarkPaidAction: (i: unknown) => unmarkPaidAction(i),

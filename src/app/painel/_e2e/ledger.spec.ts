@@ -291,6 +291,43 @@ test.describe('ledger critical flow', () => {
     await page.locator('button[aria-current="date"]').click()
     await expect.poll(() => isOnScreen(page, quickAdd)).toBe(true)
   })
+
+  test('undo a delete from its toast, and a payment with Z', async ({ page, user }) => {
+    await fluxiDb
+      .db()
+      .insert(entries)
+      .values({
+        userId: user.id,
+        kind: 'expense',
+        description: 'Desfazer E2E',
+        amountCents: 4500,
+        accountId,
+        pot: 'essential',
+        startMonth: monthToDate(THIS_MONTH),
+        day: TODAY_DAY,
+        recurrence: 'none',
+      })
+    await page.goto('/painel?modo=dia')
+    const chip = page.getByRole('button', { name: /Desfazer E2E/ })
+    const details = page.getByLabel('Detalhes de Desfazer E2E')
+
+    // Deleted from its popup: gone, with "Desfazer" in the toast bringing it back.
+    await chip.click()
+    await details.getByRole('button', { name: 'Excluir lançamento' }).click()
+    await expect(chip).toHaveCount(0)
+    await page.getByRole('button', { name: 'Desfazer', exact: true }).click()
+    await expect(page.getByText('Ação desfeita.')).toBeVisible()
+    await expect(chip).toBeVisible()
+
+    // Marked paid, then Z (Google Calendar's undo) unmarks it.
+    await chip.click()
+    await details.getByRole('button', { name: 'Marcar como pago' }).click()
+    await expect(details).toContainText('Pago em')
+    await details.getByRole('button', { name: 'Fechar' }).click()
+    await expect(chip).toHaveClass(/opacity-50/)
+    await page.keyboard.press('z')
+    await expect(chip).not.toHaveClass(/opacity-50/)
+  })
 })
 
 /** The whole of `popup` is inside the viewport (none of it cut by a screen edge). */

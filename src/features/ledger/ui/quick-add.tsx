@@ -7,7 +7,6 @@ import type { EntryKind } from '@/features/ledger/core/types'
 import { Button } from '@cbrl/design'
 import { Banknote, Clock, Loader2, Repeat, Wallet, X } from 'lucide-react'
 import { useState, useTransition } from 'react'
-import { toast } from 'sonner'
 import { KindToggle, TitleInput } from './entry-fields'
 import { defaultAccountOf, useLedgerUi } from './ledger-shell'
 import { MoneyInput } from './money-input'
@@ -23,7 +22,7 @@ const QUICK_KINDS: readonly EntryKind[] = ['income', 'expense']
  * the full sheet (installments, category, pot, tags, parts, transfer).
  */
 export function QuickAddForm({ date, onDone }: { date: string; onDone: () => void }) {
-  const { refs, openNew } = useLedgerUi()
+  const { refs, openNew, offerUndo } = useLedgerUi()
   const [kind, setKind] = useState<EntryKind>('expense')
   const [amount, setAmount] = useState('')
   const [description, setDescription] = useState('')
@@ -55,7 +54,7 @@ export function QuickAddForm({ date, onDone }: { date: string; onDone: () => voi
         setError(result.error)
         return
       }
-      toast.success('Lançamento salvo.')
+      offerUndo(result, 'Lançamento salvo.')
       onDone()
     })
   }

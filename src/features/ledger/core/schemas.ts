@@ -208,3 +208,6 @@ export const countFromSchema = z.object({ month: monthSchema })
 export function firstIssue(error: z.ZodError): string {
   return error.issues[0]?.message ?? 'Dados inválidos.'
 }
+
+/** "Desfazer": the token the undoable action returned. */
+export const undoSchema = z.object({ token: idSchema })

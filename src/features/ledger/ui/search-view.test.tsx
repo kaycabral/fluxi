@@ -7,6 +7,10 @@ import { SearchView } from './search-view'
 import { IDS, sampleData, sampleDataWithBenefit, sampleRefs } from './test-fixtures'
 
 const replace = vi.fn<(href: string, options?: unknown) => void>()
+vi.mock('@/features/ledger/adapters/actions/undo', () => ({
+  undoAction: vi.fn(),
+  forgetUndoAction: vi.fn(),
+}))
 vi.mock('next/navigation', () => ({ useRouter: () => ({ replace, refresh: vi.fn() }) }))
 vi.mock('@/features/ledger/adapters/actions/entries', () => ({
   createEntryAction: vi.fn(),

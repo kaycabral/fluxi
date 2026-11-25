@@ -19,6 +19,10 @@ import { IDS, sampleData, sampleRefs } from './test-fixtures'
 
 const replace = vi.fn<(href: string, options?: unknown) => void>()
 const push = vi.fn<(href: string, options?: unknown) => void>()
+vi.mock('@/features/ledger/adapters/actions/undo', () => ({
+  undoAction: vi.fn(),
+  forgetUndoAction: vi.fn(),
+}))
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace, push, refresh: vi.fn() }),
 }))

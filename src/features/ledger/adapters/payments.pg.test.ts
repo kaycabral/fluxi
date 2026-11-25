@@ -127,10 +127,10 @@ afterAll(async () => {
 describe('markOccurrencePaid / unmarkOccurrencePaid', () => {
   it('marks idempotently (a replay only moves the date) and unmarks', async () => {
     const key = { entryId, month: '2027-01', partId: null }
-    await expect(markOccurrencePaid(ANA, { ...key, paidOn: '2027-01-09' })).resolves.toEqual({
+    await expect(markOccurrencePaid(ANA, { ...key, paidOn: '2027-01-09' })).resolves.toMatchObject({
       ok: true,
     })
-    await expect(markOccurrencePaid(ANA, { ...key, paidOn: '2027-01-11' })).resolves.toEqual({
+    await expect(markOccurrencePaid(ANA, { ...key, paidOn: '2027-01-11' })).resolves.toMatchObject({
       ok: true,
     })
     expect(await paymentRows()).toEqual([
@@ -139,8 +139,8 @@ describe('markOccurrencePaid / unmarkOccurrencePaid', () => {
     const ledger = await loadLedger(ANA, WINDOW)
     expect(ledger.payments).toEqual([{ ...key, paidOn: '2027-01-11' }])
 
-    await expect(unmarkOccurrencePaid(ANA, key)).resolves.toEqual({ ok: true })
-    await expect(unmarkOccurrencePaid(ANA, key)).resolves.toEqual({ ok: true })
+    await expect(unmarkOccurrencePaid(ANA, key)).resolves.toMatchObject({ ok: true })
+    await expect(unmarkOccurrencePaid(ANA, key)).resolves.toMatchObject({ ok: true })
     expect(await paymentRows()).toEqual([])
   })
 

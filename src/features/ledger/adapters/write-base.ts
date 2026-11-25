@@ -11,12 +11,14 @@ import { and, asc, eq } from 'drizzle-orm'
 /** Shared plumbing of the ledger write adapters (results, transactions, the locked series). */
 
 export type WriteFailure = WriteFailureReason
-export type WriteResult = { ok: true } | { ok: false; reason: WriteFailure }
+/** `undo`: the token of the action's "Desfazer" (see `undo.write.ts`), when it is undoable. */
+export type WriteResult = { ok: true; undo?: string } | { ok: false; reason: WriteFailure }
 
 export type Tx = Parameters<Parameters<FluxiDb['transaction']>[0]>[0]
 
 export const db = () => fluxiDb.db()
 export const ok: WriteResult = { ok: true }
+export const undoable = (undo: string): WriteResult => ({ ok: true, undo })
 export const fail = (reason: WriteFailure): WriteResult => ({ ok: false, reason })
 
 /** Runs `write`, mapping a composite-FK refusal to `invalid_reference`. */

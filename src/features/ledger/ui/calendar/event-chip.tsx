@@ -44,6 +44,7 @@ import {
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { useLedgerUi } from '../ledger-shell'
+import { paidMessage } from '../paid-controls'
 import { POPUP_CLASS, POPUP_PLACEMENT, useCalendar } from './context'
 
 /** "Aluguel" or "Salário · Adiantamento". */
@@ -163,7 +164,7 @@ export function EventDetails({
   onClose: () => void
 }) {
   const { data, today } = useCalendar()
-  const { openEdit, requestScope } = useLedgerUi()
+  const { openEdit, requestScope, offerUndo } = useLedgerUi()
   const [pending, startTransition] = useTransition()
   const { entry } = landing
   const target = targetFor(data, landing)
@@ -193,7 +194,7 @@ export function EventDetails({
         toast.error(result.error)
         return
       }
-      toast.success('Lançamento excluído.')
+      offerUndo(result, 'Lançamento excluído.')
       onClose()
     })
   }
@@ -201,8 +202,10 @@ export function EventDetails({
   function togglePaid() {
     startTransition(async () => {
       const key = paymentKeyOf(landing)
-      const result = payment === undefined ? await markPaidAction(key) : await unmarkPaidAction(key)
+      const marking = payment === undefined
+      const result = marking ? await markPaidAction(key) : await unmarkPaidAction(key)
       if (!result.ok) toast.error(result.error)
+      else offerUndo(result, paidMessage(landing.entry.kind, marking))
     })
   }
 

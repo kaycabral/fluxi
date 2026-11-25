@@ -38,7 +38,6 @@ import {
   X,
 } from 'lucide-react'
 import { useState, useTransition } from 'react'
-import { toast } from 'sonner'
 import { KindToggle, PartsEditor, TagsField, TitleInput } from './entry-fields'
 import { MoneyInput } from './money-input'
 import { RepeatField } from './repeat-field'
@@ -50,6 +49,7 @@ export type EntryFormProps = {
   target: EditTarget | null
   initial: EntryFormValues
   requestScope: (request: ScopeRequest) => Promise<EditScope | null>
+  offerUndo: (result: ActionResult, message: string) => void
   onDone: () => void
 }
 
@@ -64,6 +64,7 @@ export function EntryForm({
   target: initialTarget,
   initial,
   requestScope,
+  offerUndo,
   onDone,
 }: EntryFormProps) {
   const [target, setTarget] = useState(initialTarget)
@@ -135,7 +136,7 @@ export function EntryForm({
         setError(result.error)
         return
       }
-      toast.success('Lançamento salvo.')
+      offerUndo(result, 'Lançamento salvo.')
       if (!again) return onDone()
       setValues(
         newEntryValues({ date: values.date, accountId: values.accountId, kind: values.kind }),
@@ -162,7 +163,7 @@ export function EntryForm({
         setError(result.error)
         return
       }
-      toast.success('Lançamento excluído.')
+      offerUndo(result, 'Lançamento excluído.')
       onDone()
     })
   }

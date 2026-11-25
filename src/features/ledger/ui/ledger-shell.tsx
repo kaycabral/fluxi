@@ -1,5 +1,6 @@
 'use client'
 
+import type { ActionResult } from '@/features/ledger/core/action-result'
 import {
   editEntryValues,
   newEntryValues,
@@ -14,6 +15,7 @@ import { Dialog, DialogContent } from '@cbrl/design'
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { EntryForm } from './entry-sheet'
 import { ScopeDialog, type ScopeRequest } from './scope-dialog'
+import { useUndo } from './undo'
 
 type LedgerUi = {
   refs: LedgerRefs
@@ -26,6 +28,8 @@ type LedgerUi = {
   openEdit: (target: EditTarget) => void
   /** Ask where an occurrence change applies; null when cancelled. */
   requestScope: (request: ScopeRequest) => Promise<EditScope | null>
+  /** After a successful write: say `message`, with "Desfazer" when the write is undoable. */
+  offerUndo: (result: ActionResult, message: string) => void
 }
 
 export type NewEntryOptions = {
@@ -59,7 +63,7 @@ function isTyping(target: EventTarget | null): boolean {
 
 /**
  * Signed-in shell of the ledger: owns the full-page entry editor (Google
- * Calendar's event page), the scope dialog and the N shortcut, and exposes them to the views through {@link useLedgerUi}.
+ * Calendar's event page), the scope dialog, the N shortcut and "Desfazer" (Z), and exposes them to the views through {@link useLedgerUi}.
  */
 export function LedgerShell({ refs, children }: { refs: LedgerRefs; children: React.ReactNode }) {
   const [session, setSession] = useState<SheetSession | null>(null)
@@ -69,6 +73,7 @@ export function LedgerShell({ refs, children }: { refs: LedgerRefs; children: Re
   const counter = useRef(0)
 
   const defaultAccountId = defaultAccountOf(refs)
+  const offerUndo = useUndo(isTyping)
 
   const openNew = useCallback(
     (options?: NewEntryOptions) => {
@@ -121,8 +126,8 @@ export function LedgerShell({ refs, children }: { refs: LedgerRefs; children: Re
   }, [open, openNew])
 
   const value = useMemo(
-    () => ({ refs, openNew, openEdit, requestScope }),
-    [refs, openNew, openEdit, requestScope],
+    () => ({ refs, openNew, openEdit, requestScope, offerUndo }),
+    [refs, openNew, openEdit, requestScope, offerUndo],
   )
 
   return (
@@ -155,6 +160,7 @@ export function LedgerShell({ refs, children }: { refs: LedgerRefs; children: Re
               target={session.target}
               initial={session.initial}
               requestScope={requestScope}
+              offerUndo={offerUndo}
               onDone={() => setOpen(false)}
             />
           )}

@@ -12,7 +12,17 @@ import {
 import type { SeriesState } from '@/features/ledger/core/scoped-edit'
 import type { Entry, EntryPart } from '@/features/ledger/core/types'
 import { and, eq, inArray, isNull, type SQL } from 'drizzle-orm'
-import { db, fail, guarded, loadSeries, ok, type Tx, type WriteResult } from './write-base'
+import { captureUndo } from './undo.write'
+import {
+  db,
+  fail,
+  guarded,
+  loadSeries,
+  ok,
+  undoable,
+  type Tx,
+  type WriteResult,
+} from './write-base'
 
 /**
  * "Pago/recebido" writes, and how the ledger writes keep payments consistent:
@@ -112,6 +122,7 @@ export async function markOccurrencePaid(
       const validPart =
         partId === null ? state.parts.length === 0 : state.parts.some((p) => p.id === partId)
       if (!validPart) return fail('no_occurrence')
+      const undo = await captureUndo(tx, userId, [entryId])
       await tx
         .insert(occurrencePayments)
         .values({ userId, entryId, month: monthToDate(month), partId, paidOn })
@@ -120,7 +131,7 @@ export async function markOccurrencePaid(
           set: { paidOn },
           setWhere: eq(occurrencePayments.userId, userId),
         })
-      return ok
+      return undoable(undo)
     }),
   )
 }
@@ -130,15 +141,22 @@ export async function unmarkOccurrencePaid(
   userId: string,
   input: PaymentKey,
 ): Promise<WriteResult> {
-  await db()
-    .delete(occurrencePayments)
-    .where(
-      and(
-        eq(occurrencePayments.userId, userId),
-        eq(occurrencePayments.entryId, input.entryId),
-        eq(occurrencePayments.month, monthToDate(input.month)),
-        samePart(input.partId),
-      ),
-    )
-  return ok
+  const payment = and(
+    eq(occurrencePayments.userId, userId),
+    eq(occurrencePayments.entryId, input.entryId),
+    eq(occurrencePayments.month, monthToDate(input.month)),
+    samePart(input.partId),
+  )
+  return db().transaction(async (tx) => {
+    const [paid] = await tx
+      .select({ id: occurrencePayments.id })
+      .from(occurrencePayments)
+      .where(payment)
+      .for('update')
+    // Not paid (or not this user's): nothing to unmark, nothing to undo.
+    if (paid === undefined) return ok
+    const undo = await captureUndo(tx, userId, [input.entryId])
+    await tx.delete(occurrencePayments).where(payment)
+    return undoable(undo)
+  })
 }

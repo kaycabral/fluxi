@@ -35,7 +35,7 @@ import { AccountSelect } from './selects'
 
 /** Inline day input of a whole (non-split) occurrence; commits on blur or Enter. */
 function DayInput({ row, data }: { row: DailyRow; data: LedgerData }) {
-  const { requestScope } = useLedgerUi()
+  const { requestScope, offerUndo } = useLedgerUi()
   const [pending, startTransition] = useTransition()
   const { landing } = row
   const [value, setValue] = useState(String(landing.day))
@@ -68,7 +68,7 @@ function DayInput({ row, data }: { row: DailyRow; data: LedgerData }) {
       if (!result.ok) {
         toast.error(result.error)
         setValue(String(landing.day))
-      }
+      } else offerUndo(result, 'Lançamento movido.')
     })
   }
 

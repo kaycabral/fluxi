@@ -67,8 +67,11 @@ export function YearGrid() {
 function MiniMonth({ name, month }: { name: string; month: string }) {
   const { cells } = useCalendar()
   // Accumulated balance at the end of the month's last day.
-  const lastDay = monthDays(month).at(-1) ?? `${month}-01`
-  const endBalance = cellOf(cells, lastDay).endBalanceCents
+  const days = monthDays(month)
+  const endBalance = cellOf(
+    cells,
+    `${month}-${String(days.length).padStart(2, '0')}`,
+  ).endBalanceCents
   const weeks = monthWeeks(month)
   // Always 6 rows, like Google Calendar, so the months line up.
   while (weeks.length < 6) {

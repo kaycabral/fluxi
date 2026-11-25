@@ -78,6 +78,13 @@
       "when": 1795634003625,
       "tag": "0010_budget_pots_plans",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1795644287220,
+      "tag": "0011_drop_budget_pots",
+      "breakpoints": true
     }
   ]
 }

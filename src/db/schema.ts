@@ -71,15 +71,6 @@ export const accountType = pgEnum('account_type', [
   'loan',
 ])
 
-export const potKey = pgEnum('pot_key', [
-  'essential',
-  'comfort',
-  'guilt_free',
-  'education',
-  'variable',
-  'investment',
-])
-
 export const entryKind = pgEnum('entry_kind', ['income', 'expense', 'transfer'])
 
 export const recurrence = pgEnum('recurrence', ['none', 'monthly', 'yearly', 'installments'])
@@ -128,26 +119,6 @@ export const accounts = pgTable(
     }),
     index('accounts_user_id_idx').on(t.userId),
     index('accounts_bank_id_idx').on(t.bankId),
-  ],
-).enableRLS()
-
-/**
- * Legacy targets (one fixed set per pot key). Replaced by `pots` +
- * `budget_plans`; kept until the contract migration drops it.
- */
-export const budgetPots = pgTable(
-  'budget_pots',
-  {
-    userId: ownerId(),
-    key: potKey('key').notNull(),
-    targetBps: integer('target_bps').notNull(),
-    sort: integer('sort').notNull().default(0),
-    createdAt: createdAt(),
-    updatedAt: updatedAt(),
-  },
-  (t) => [
-    primaryKey({ name: 'budget_pots_pk', columns: [t.userId, t.key] }),
-    check('budget_pots_target_bps_range', sql`${t.targetBps} between 0 and 10000`),
   ],
 ).enableRLS()
 

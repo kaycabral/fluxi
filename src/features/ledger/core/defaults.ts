@@ -3,7 +3,7 @@ import type { PotColor, PotGoal, PotKey } from './types'
 /**
  * Defaults every new user starts with. The database seeds them from the
  * `on_auth_user_created` trigger (migrations `0003_ledger_defaults` and
- * `0010_budget_pots_plans`); the Postgres suite asserts the seeded rows equal
+ * `0010_budget_pots_plans`, both replaced in `0011_drop_budget_pots`); the Postgres suite asserts the seeded rows equal
  * these constants, so a change here needs a new migration that replaces
  * `public.seed_ledger_defaults` / `public.seed_budget_defaults`.
  */

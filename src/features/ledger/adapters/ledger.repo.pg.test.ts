@@ -480,9 +480,9 @@ describe('check constraints', () => {
     )
     expect(override.constraint).toBe('entry_overrides_amount_positive')
     const pot = await rejection(
-      db().execute(sql`update budget_pots set target_bps = 10001 where user_id = ${ANA}`),
+      db().execute(sql`update budget_plan_targets set target_bps = 10001 where user_id = ${ANA}`),
     )
-    expect(pot.constraint).toBe('budget_pots_target_bps_range')
+    expect(pot.constraint).toBe('budget_plan_targets_bps_range')
     const link = await rejection(
       db().insert(importLinks).values({
         userId: ANA,

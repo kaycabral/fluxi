@@ -247,4 +247,56 @@ test.describe('ledger critical flow', () => {
     ).toBeVisible()
     await expect(page.getByRole('checkbox', { name: 'Pago: Conta de luz E2E' })).toBeChecked()
   })
+
+  test('calendar popups stay on screen when their anchor is as wide as the screen', async ({
+    page,
+    user,
+  }) => {
+    await fluxiDb
+      .db()
+      .insert(entries)
+      .values({
+        userId: user.id,
+        kind: 'expense',
+        description: 'Popup E2E',
+        amountCents: 1990,
+        accountId,
+        startMonth: monthToDate(THIS_MONTH),
+        day: TODAY_DAY,
+        recurrence: 'none',
+      })
+    const details = page.getByLabel('Detalhes de Popup E2E')
+    const quickAdd = page.getByRole('form', { name: 'Criar lançamento' })
+
+    // Day view: one column, the whole width.
+    await page.goto('/painel?modo=dia')
+    await page.getByRole('button', { name: /Popup E2E/ }).click()
+    await expect.poll(() => isOnScreen(page, details)).toBe(true)
+    await page.keyboard.press('Escape')
+    await page
+      .getByRole('button', { name: /^Criar lançamento em/ })
+      .click({ position: { x: 40, y: 120 } })
+    await expect.poll(() => isOnScreen(page, quickAdd)).toBe(true)
+    await page.keyboard.press('Escape')
+
+    // Schedule: one row per entry, the whole width.
+    await page.goto('/painel?modo=programacao')
+    await page.getByRole('button', { name: /Popup E2E/ }).click()
+    await expect.poll(() => isOnScreen(page, details)).toBe(true)
+    await page.keyboard.press('Escape')
+
+    // Month on a phone: the popup is wider than the room beside any day.
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto('/painel?modo=mes')
+    await page.locator('button[aria-current="date"]').click()
+    await expect.poll(() => isOnScreen(page, quickAdd)).toBe(true)
+  })
 })
+
+/** The whole of `popup` is inside the viewport (none of it cut by a screen edge). */
+async function isOnScreen(page: Page, popup: ReturnType<Page['locator']>) {
+  const box = await popup.boundingBox()
+  const viewport = page.viewportSize()
+  if (box === null || viewport === null) return false
+  return box.x >= 0 && box.x + box.width <= viewport.width
+}

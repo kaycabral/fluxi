@@ -4,9 +4,10 @@ import { cellOf, columnDays, isWeekend, weekdayOf } from '@/features/ledger/core
 import { dayLongLabel, formatAmount } from '@/features/ledger/core/format'
 import { paymentFor } from '@/features/ledger/core/payments'
 import { cn, Popover, PopoverContent, PopoverTrigger } from '@cbrl/design'
-import { useState } from 'react'
+import { Popover as PopoverPrimitive } from 'radix-ui'
+import { useRef, useState, type PointerEvent } from 'react'
 import { QuickAddForm } from '../quick-add'
-import { POPUP_CLASS, POPUP_PLACEMENT, useCalendar, visibleLandings } from './context'
+import { POPUP_CLASS, POPUP_PLACEMENT, useCalendar, usePopupSide, visibleLandings } from './context'
 import { WEEKDAY_SHORT } from './day-panel'
 import { EventChip } from './event-chip'
 
@@ -80,6 +81,8 @@ function Column({ date }: { date: string }) {
   const items = visibleLandings(cell, prefs, (l) => paymentFor(l, data.payments) !== undefined)
   const quick = quickDate === date
   const canDrop = dragged !== null && dragged.month === date.slice(0, 7)
+  const anchor = useClickAnchor()
+  const [side, measureSide] = usePopupSide()
   return (
     <div
       role="group"
@@ -100,15 +103,20 @@ function Column({ date }: { date: string }) {
       className={cn('relative min-h-full border-r p-1', over && 'bg-primary/10')}
     >
       <Popover open={quick} onOpenChange={(open) => openQuick(open ? date : null)}>
+        <PopoverPrimitive.Anchor virtualRef={anchor.virtual} />
         <PopoverTrigger asChild>
           <button
+            ref={anchor.button}
             type="button"
+            onPointerDown={anchor.onPointerDown}
+            onKeyDown={anchor.onKeyDown}
+            onClick={() => measureSide(anchor.virtual.current)}
             aria-label={`Criar lançamento em ${dayLongLabel(date)}`}
             className="focus-visible:ring-ring absolute inset-0 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-inset"
           />
         </PopoverTrigger>
         <PopoverContent
-          side="right"
+          side={side}
           align="start"
           {...POPUP_PLACEMENT}
           className={cn('w-[min(26rem,calc(100vw-2rem))]', POPUP_CLASS)}
@@ -136,4 +144,33 @@ function Column({ date }: { date: string }) {
       </div>
     </div>
   )
+}
+
+/**
+ * Where the quick add of a column opens: at the spot clicked, like Google
+ * Calendar (the column runs the whole height, and in the day view the whole
+ * width, so its own box leaves no room around it). Opened from the keyboard,
+ * beside the column's top. Kept relative to the column so it follows a scroll.
+ */
+function useClickAnchor() {
+  const button = useRef<HTMLButtonElement>(null)
+  const point = useRef<{ x: number; y: number } | null>(null)
+  const virtual = useRef({
+    getBoundingClientRect: () => {
+      const box = button.current?.getBoundingClientRect() ?? new DOMRect()
+      const at = point.current ?? { x: box.width, y: 0 }
+      return new DOMRect(box.left + at.x, box.top + at.y, 0, 0)
+    },
+  })
+  return {
+    button,
+    virtual,
+    onPointerDown: (event: PointerEvent<HTMLButtonElement>) => {
+      const box = event.currentTarget.getBoundingClientRect()
+      point.current = { x: event.clientX - box.left, y: event.clientY - box.top }
+    },
+    onKeyDown: () => {
+      point.current = null
+    },
+  }
 }

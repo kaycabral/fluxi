@@ -28,15 +28,15 @@ describe('account filter', () => {
     expect(bankIdOf('nucc')).toBeNull()
   })
 
-  it('covers available money only in decision views, unless a benefit is picked', () => {
+  it('sums every account in balance views, benefit ones included', () => {
     const typed = [
-      { id: 'cc', bankId: 'btg', type: 'checking' },
-      { id: 'va', bankId: 'btg', type: 'benefit' },
-      { id: 'card', bankId: 'nu', type: 'credit' },
-      { id: 'vr', bankId: 'flash', type: 'benefit' },
-    ] as const
-    expect(decisionAccountIds('', typed)).toEqual(['cc', 'card'])
-    expect(decisionAccountIds(bankFilter('btg'), typed)).toEqual(['cc'])
+      { id: 'cc', bankId: 'btg' },
+      { id: 'va', bankId: 'btg' },
+      { id: 'card', bankId: 'nu' },
+      { id: 'vr', bankId: 'flash' },
+    ]
+    expect(decisionAccountIds('', typed)).toEqual(['cc', 'va', 'card', 'vr'])
+    expect(decisionAccountIds(bankFilter('btg'), typed)).toEqual(['cc', 'va'])
     expect(decisionAccountIds(bankFilter('flash'), typed)).toEqual(['vr'])
     expect(decisionAccountIds('va', typed)).toEqual(['va'])
   })

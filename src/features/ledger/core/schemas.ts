@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { POT_KEYS } from './types'
+import { POT_COLORS } from './types'
 
 /**
  * Write-side validation shared by the forms (client) and the server actions
@@ -12,7 +12,7 @@ const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/
 
 export const monthSchema = z.string().regex(MONTH, 'Mês inválido.')
 export const idSchema = z.uuid('Identificador inválido.')
-export const potKeySchema = z.enum(POT_KEYS)
+export const potKeySchema = z.string().regex(/^[a-z0-9_]{1,40}$/, 'Pote inválido.')
 export const daySchema = z
   .number('Informe o dia.')
   .int('Dia inválido.')
@@ -201,6 +201,35 @@ export const potTargetsSchema = z
     message: 'A soma dos potes não pode passar de 100%.',
   })
 export type PotTargets = z.infer<typeof potTargetsSchema>
+
+const potNameSchema = z
+  .string()
+  .trim()
+  .min(1, 'Dê um nome ao pote.')
+  .max(40, 'Nome do pote muito longo (até 40 letras).')
+export const potColorSchema = z.enum(POT_COLORS)
+export const potGoalSchema = z.enum(['limit', 'minimum'])
+
+export const createPotSchema = z.object({ name: potNameSchema, color: potColorSchema })
+export type CreatePotInput = z.infer<typeof createPotSchema>
+
+/** Only the fields given change; `archived: false` brings an archived pot back. */
+export const updatePotSchema = z.object({
+  key: potKeySchema,
+  name: potNameSchema.optional(),
+  color: potColorSchema.optional(),
+  goal: potGoalSchema.optional(),
+  archived: z.literal(false).optional(),
+})
+export type UpdatePotInput = z.infer<typeof updatePotSchema>
+
+/** A budget version: create (`id` null) or edit one, with its start month and targets. */
+export const budgetPlanSchema = z.object({
+  id: idSchema.nullable(),
+  startsMonth: monthSchema,
+  targets: potTargetsSchema,
+})
+export type BudgetPlanInput = z.infer<typeof budgetPlanSchema>
 
 export const countFromSchema = z.object({ month: monthSchema })
 

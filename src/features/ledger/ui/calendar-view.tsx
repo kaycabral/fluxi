@@ -60,7 +60,7 @@ const QUICK_ADD_VIEWS: readonly CalendarViewMode[] = ['month', 'week', 'day', 'f
  * ‹ ›, title, view menu) over the chosen view. Day, week, month, year,
  * schedule and 4 days; weekends, paid and ignored entries can be hidden or
  * shown. The balance shown is the end-of-day balance of the chosen accounts
- * (by default all the available money, without benefits).
+ * (by default every account).
  */
 export function CalendarView({
   data,

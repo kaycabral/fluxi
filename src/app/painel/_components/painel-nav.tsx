@@ -9,7 +9,6 @@ const LINKS: { href: Route; label: string }[] = [
   { href: '/painel/linha-do-tempo', label: 'Linha do tempo' },
   { href: '/painel/a-pagar', label: 'A pagar' },
   { href: '/painel/contas', label: 'Bancos e contas' },
-  { href: '/painel/orcamento', label: 'Orçamento' },
 ]
 
 /** Top navigation of the MVP screens still outside the new layout. Scrolls on narrow screens. */

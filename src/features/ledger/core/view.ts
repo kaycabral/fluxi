@@ -3,7 +3,7 @@ import { diffMonths, monthRange, type Month } from './month'
 import type { Landing } from './occurrence'
 import type { OccurrencePayment } from './payments'
 import { projectMonths, type MonthResult } from './projection'
-import type { Account, Bank, Category, Entry, EntryOverride, EntryPart } from './types'
+import type { Account, Bank, Category, Entry, EntryOverride, EntryPart, Pot } from './types'
 
 /**
  * What the server hands the client views: the user's ledger over a window.
@@ -14,6 +14,8 @@ export type LedgerData = {
   banks: Bank[]
   accounts: Account[]
   categories: Category[]
+  /** Every pot, archived ones included (old entries still point at them). */
+  pots: Pot[]
   countFrom: Month | null
   entries: Entry[]
   parts: EntryPart[]
@@ -26,6 +28,8 @@ export type LedgerRefs = {
   banks: Bank[]
   accounts: Account[]
   categories: Category[]
+  /** Every pot, archived ones included; pickers show the active ones. */
+  pots: Pot[]
   /** Every tag in use, sorted, for the tags autocomplete. */
   tags: string[]
   /** `YYYY-MM-DD` in São Paulo. */

@@ -1,15 +1,15 @@
 import { sampleData, sampleRefs } from '@/features/ledger/ui/test-fixtures'
 import { render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import CalendarPage from './(app)/calendario/page'
 import SearchPage from './(app)/lancamentos/page'
 import AppLayout from './(app)/layout'
-import CalendarPage from './(app)/page'
+import BudgetPage from './(app)/orcamento/page'
+import DashboardPage from './(app)/page'
 import PayablesPage from './(legacy)/a-pagar/page'
 import AccountsPage from './(legacy)/contas/page'
 import LegacyLayout from './(legacy)/layout'
 import TimelinePage from './(legacy)/linha-do-tempo/page'
-import BudgetPage from './(legacy)/orcamento/page'
-import OldCalendarPage from './calendario/page'
 import PainelLayout from './layout'
 
 type Read<T> = { ok: true; data: T } | { ok: false }
@@ -19,7 +19,7 @@ const views = {
   loadCountFrom: vi.fn<() => Promise<Read<string | null>>>(),
   loadLedgerData:
     vi.fn<(userId: string, window: unknown, countFrom: unknown) => Promise<Read<unknown>>>(),
-  loadBudgetData: vi.fn<(userId: string, start: string) => Promise<Read<unknown>>>(),
+  loadBudgetPlans: vi.fn<(userId: string) => Promise<Read<unknown>>>(),
   loadAccountBalances:
     vi.fn<(userId: string, first: string, later: string) => Promise<Read<unknown>>>(),
 }
@@ -27,7 +27,7 @@ vi.mock('@/features/ledger/adapters/views', () => ({
   loadRefs: () => views.loadRefs(),
   loadCountFrom: () => views.loadCountFrom(),
   loadLedgerData: (u: string, w: unknown, c: unknown) => views.loadLedgerData(u, w, c),
-  loadBudgetData: (u: string, s: string) => views.loadBudgetData(u, s),
+  loadBudgetPlans: (u: string) => views.loadBudgetPlans(u),
   loadAccountBalances: (u: string, f: string, l: string) => views.loadAccountBalances(u, f, l),
 }))
 vi.mock('@/app/painel/_lib/session', () => ({
@@ -81,7 +81,14 @@ vi.mock('@/features/ledger/ui/accounts-view', () => ({
   AccountsView: ({ firstMonth }: { firstMonth: string }) => <p>accounts {firstMonth}</p>,
 }))
 vi.mock('@/features/ledger/ui/budget-view', () => ({
-  BudgetView: ({ months }: { months: unknown[] }) => <p>budget {months.length}</p>,
+  BudgetView: ({ plans, today }: { plans: unknown[]; today: string }) => (
+    <p>budget {`${plans.length}@${today}`}</p>
+  ),
+}))
+vi.mock('@/features/ledger/ui/dashboard/dashboard-view', () => ({
+  DashboardView: ({ plans, today }: { plans: unknown[]; today: string }) => (
+    <p>dashboard {`${plans.length}@${today}`}</p>
+  ),
 }))
 vi.mock('@/features/ledger/ui/calendar-view', () => ({
   CalendarView: (props: {
@@ -117,7 +124,7 @@ beforeEach(() => {
   views.loadRefs.mockResolvedValue(ok(sampleRefs()))
   views.loadCountFrom.mockResolvedValue(ok('2026-11'))
   views.loadLedgerData.mockResolvedValue(ok(sampleData()))
-  views.loadBudgetData.mockResolvedValue(ok({ pots: [], months: [{}, {}] }))
+  views.loadBudgetPlans.mockResolvedValue(ok([{}, {}]))
   views.loadAccountBalances.mockResolvedValue(ok({ firstMonth: '2026-11' }))
   getServerUser.mockResolvedValue({ id: 'u1' })
 })
@@ -154,10 +161,20 @@ describe('painel pages', () => {
     expect(views.loadAccountBalances).toHaveBeenCalledWith('u1', '2026-11', '2027-11')
   })
 
-  it('budget loads 12 months from the count start', async () => {
+  it('budget loads the whole ledger and the budget versions', async () => {
     render(await BudgetPage())
-    expect(screen.getByText('budget 2')).toBeInTheDocument()
-    expect(views.loadBudgetData).toHaveBeenCalledWith('u1', '2026-11')
+    expect(screen.getByText('budget 2@2026-12')).toBeInTheDocument()
+    expect(views.loadLedgerData).toHaveBeenCalledWith(
+      'u1',
+      { from: '1900-01', to: '9999-12' },
+      '2026-11',
+    )
+  })
+
+  it('dashboard loads the whole ledger and the budget versions with today', async () => {
+    render(await DashboardPage({ searchParams: Promise.resolve({}) }))
+    expect(screen.getByText('dashboard 2@2026-12-15')).toBeInTheDocument()
+    expect(views.loadBudgetPlans).toHaveBeenCalledWith('u1')
   })
 
   it('calendar reads view, date and account from the URL and loads what the view needs', async () => {
@@ -191,18 +208,17 @@ describe('painel pages', () => {
     prefsCookie = undefined
   })
 
-  it('the old calendar route redirects to /painel keeping month and account', async () => {
+  it('old calendar links on /painel go on to /painel/calendario with their params', async () => {
     redirect.mockImplementation(() => {
       throw new Error('redirected')
     })
     await expect(
-      OldCalendarPage({
+      DashboardPage({
         searchParams: Promise.resolve({ mes: ['2027-02', '2027-03'], conta: 'abc', x: '1' }),
       }),
     ).rejects.toThrow('redirected')
-    expect(redirect).toHaveBeenLastCalledWith('/painel?mes=2027-02&conta=abc')
-    await expect(OldCalendarPage({ searchParams: Promise.resolve({}) })).rejects.toThrow()
-    expect(redirect).toHaveBeenLastCalledWith('/painel')
+    expect(redirect).toHaveBeenLastCalledWith('/painel/calendario?mes=2027-02&conta=abc')
+    expect(views.loadLedgerData).not.toHaveBeenCalled()
   })
 
   it('degrades every page when the backend is unavailable', async () => {
@@ -215,6 +231,7 @@ describe('painel pages', () => {
       await SearchPage(),
       await AccountsPage(),
       await BudgetPage(),
+      await DashboardPage({ searchParams: Promise.resolve({}) }),
       await CalendarPage({ searchParams: Promise.resolve({}) }),
     ]) {
       const { unmount } = render(page)

@@ -1,18 +1,25 @@
-import type { PotKey } from './types'
+import type { PotColor, PotGoal, PotKey } from './types'
 
 /**
  * Defaults every new user starts with. The database seeds them from the
- * `on_auth_user_created` trigger (migration `0003_ledger_defaults`); the
- * Postgres suite asserts the seeded rows equal these constants, so a change
- * here needs a new migration that replaces `public.seed_ledger_defaults`.
+ * `on_auth_user_created` trigger (migrations `0003_ledger_defaults` and
+ * `0010_budget_pots_plans`); the Postgres suite asserts the seeded rows equal
+ * these constants, so a change here needs a new migration that replaces
+ * `public.seed_ledger_defaults` / `public.seed_budget_defaults`.
  */
-export const DEFAULT_POTS: readonly { key: PotKey; targetBps: number }[] = [
-  { key: 'essential', targetBps: 3300 },
-  { key: 'comfort', targetBps: 700 },
-  { key: 'guilt_free', targetBps: 700 },
-  { key: 'education', targetBps: 300 },
-  { key: 'variable', targetBps: 800 },
-  { key: 'investment', targetBps: 3200 },
+export const DEFAULT_POTS: readonly {
+  key: PotKey
+  name: string
+  color: PotColor
+  goal: PotGoal
+  targetBps: number
+}[] = [
+  { key: 'essential', name: 'Essencial', color: 'violet', goal: 'limit', targetBps: 3300 },
+  { key: 'comfort', name: 'Conforto', color: 'orange', goal: 'limit', targetBps: 700 },
+  { key: 'guilt_free', name: 'Livre', color: 'pink', goal: 'limit', targetBps: 700 },
+  { key: 'education', name: 'Educação', color: 'emerald', goal: 'limit', targetBps: 300 },
+  { key: 'variable', name: 'Variável', color: 'yellow', goal: 'limit', targetBps: 800 },
+  { key: 'investment', name: 'Investimento', color: 'blue', goal: 'minimum', targetBps: 3200 },
 ]
 
 export type DefaultCategoryGroup = {

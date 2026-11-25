@@ -16,6 +16,8 @@ export type WriteFailureReason =
   | 'no_occurrence'
   | 'over_budget'
   | 'undo_expired'
+  | 'duplicate_plan'
+  | 'last_plan'
 
 const MESSAGES: Record<WriteFailureReason, string> = {
   not_found: 'Não encontrado. Atualize a página e tente de novo.',
@@ -25,6 +27,8 @@ const MESSAGES: Record<WriteFailureReason, string> = {
   no_occurrence: 'Esse lançamento não ocorre nesse mês.',
   over_budget: 'A soma dos potes não pode passar de 100%.',
   undo_expired: 'Não dá mais para desfazer essa ação.',
+  duplicate_plan: 'Já existe uma versão começando nesse mês.',
+  last_plan: 'O orçamento precisa de pelo menos uma versão.',
 }
 
 export const SESSION_EXPIRED = 'Sessão expirada. Entre novamente.'

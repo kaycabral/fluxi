@@ -124,16 +124,9 @@ describe('PayablesView', () => {
     )
   })
 
-  it('leaves benefit-account occurrences out unless asked', async () => {
+  it('lists benefit-account occurrences like any other', () => {
     renderPayables(sampleDataWithBenefit())
-    expect(screen.queryByText('Mercado VA')).not.toBeInTheDocument()
-    expect(screen.queryByText('Crédito VA')).not.toBeInTheDocument()
-    await userEvent.click(screen.getByLabelText('Incluir contas de benefício'))
     expect(screen.getAllByText('Mercado VA').length).toBeGreaterThan(0)
-  })
-
-  it('offers the benefit switch only when there is a benefit account', () => {
-    renderPayables()
     expect(screen.queryByLabelText('Incluir contas de benefício')).not.toBeInTheDocument()
   })
 

@@ -34,12 +34,18 @@ function renderSidebar(legacyScreens = true, defaultOpen = true) {
 }
 
 describe('AppSidebar', () => {
-  it('lists the calendar and the entries, marking the current page', () => {
+  it('lists the dashboard, calendar, entries and budget, marking the current page', () => {
     renderSidebar()
     const nav = screen.getByRole('navigation', { name: 'Seções' })
     const links = within(nav).getAllByRole('link')
-    expect(links.map((l) => l.textContent)).toEqual(['Calendário', 'Lançamentos'])
+    expect(links.map((l) => l.textContent)).toEqual([
+      'Painel',
+      'Calendário',
+      'Lançamentos',
+      'Orçamento',
+    ])
     expect(links[0]).toHaveAttribute('href', '/painel')
+    expect(links[1]).toHaveAttribute('href', '/painel/calendario')
     expect(links[0]).toHaveAttribute('data-active', 'true')
     expect(screen.getByText('conteúdo')).toBeInTheDocument()
   })

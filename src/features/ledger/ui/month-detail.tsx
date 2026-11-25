@@ -134,7 +134,7 @@ export function MonthDetail({ result, data }: { result: MonthResult; data: Ledge
             banks={data.banks}
             accounts={data.accounts}
             withBanks
-            allLabel="Todo o disponível"
+            allLabel="Todas as contas"
             value={filter}
             onValueChange={setFilter}
           />
@@ -196,7 +196,7 @@ export function MonthDetail({ result, data }: { result: MonthResult; data: Ledge
                   data-pot={entry.pot ?? undefined}
                   className={cn(
                     'cursor-pointer',
-                    potTint(entry.pot),
+                    potTint(entry.pot, data.pots),
                     row.balanceAfterCents === daily.minBalanceCents && 'bg-amber-500/10',
                   )}
                   onClick={() => openEdit(targetFor(data, landing))}
@@ -255,9 +255,8 @@ export function MonthDetail({ result, data }: { result: MonthResult; data: Ledge
           </TableBody>
         </Table>
         <p className="text-muted-foreground text-xs">
-          &quot;Todo o disponível&quot; soma as contas de dinheiro livre; benefícios só aparecem
-          escolhendo a conta deles. Escolha uma conta para ver se ela aguenta o mês sozinha. Mude o
-          dia direto na coluna &quot;Dia&quot;.
+          Escolha uma conta para ver se ela aguenta o mês sozinha. Mude o dia direto na coluna
+          &quot;Dia&quot;.
         </p>
       </CardContent>
     </Card>

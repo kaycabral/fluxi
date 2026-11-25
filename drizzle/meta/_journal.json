@@ -71,6 +71,13 @@
       "when": 1795625128760,
       "tag": "0009_deleted_occurrences",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1795634003625,
+      "tag": "0010_budget_pots_plans",
+      "breakpoints": true
     }
   ]
 }

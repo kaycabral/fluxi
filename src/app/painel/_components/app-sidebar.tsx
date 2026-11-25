@@ -12,7 +12,15 @@ import {
   SidebarMenuItem,
   type NavSection,
 } from '@cbrl/design'
-import { CalendarDays, History, ListIcon, LogOut, Plus } from 'lucide-react'
+import {
+  CalendarDays,
+  History,
+  LayoutDashboard,
+  ListIcon,
+  LogOut,
+  PiggyBank,
+  Plus,
+} from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
@@ -25,14 +33,17 @@ const SECTIONS: NavSection[] = [
   {
     label: '',
     items: [
-      { href: '/painel', label: 'Calendário', icon: CalendarDays, match: 'exact' },
+      { href: '/painel', label: 'Painel', icon: LayoutDashboard, match: 'exact' },
+      { href: '/painel/calendario', label: 'Calendário', icon: CalendarDays, match: 'prefix' },
       { href: '/painel/lancamentos', label: 'Lançamentos', icon: ListIcon, match: 'prefix' },
+      { href: '/painel/orcamento', label: 'Orçamento', icon: PiggyBank, match: 'prefix' },
     ],
   },
 ]
 
 /**
- * Chrome of the new layout: collapsible sidebar (calendar and entries),
+ * Chrome of the new layout: collapsible sidebar (dashboard, calendar,
+ * entries and budget),
  * the "Criar" button in the header and, at the bottom, sign-out and (outside
  * production) the way back to the MVP screens.
  */

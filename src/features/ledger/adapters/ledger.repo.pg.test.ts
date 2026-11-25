@@ -17,11 +17,12 @@ import {
   getCountFrom,
   listAccounts,
   listBanks,
-  listBudgetPots,
+  listBudgetPlans,
   listCategories,
   listEntries,
   listEntryOverrides,
   listEntryParts,
+  listPots,
   listTags,
   loadLedger,
 } from './ledger.repo'
@@ -119,8 +120,22 @@ afterAll(async () => {
 })
 
 describe('default seeding (auth trigger)', () => {
-  it('gives every new user the default pots, categories and settings', async () => {
-    await expect(listBudgetPots(BIA)).resolves.toEqual(DEFAULT_POTS)
+  it('gives every new user the default pots, a first budget version, categories and settings', async () => {
+    await expect(listPots(BIA)).resolves.toEqual(
+      DEFAULT_POTS.map(({ key, name, color, goal }, sort) => ({
+        key,
+        name,
+        color,
+        goal,
+        sort,
+        archived: false,
+      })),
+    )
+    const plans = await listBudgetPlans(BIA)
+    expect(plans).toHaveLength(1)
+    expect(plans[0]?.targets).toEqual(
+      Object.fromEntries(DEFAULT_POTS.map((p) => [p.key, p.targetBps])),
+    )
     const expected = DEFAULT_CATEGORY_GROUPS.flatMap((g) =>
       g.names.map((name) => ({
         groupName: g.group,
@@ -136,7 +151,9 @@ describe('default seeding (auth trigger)', () => {
 
   it('is idempotent and per user', async () => {
     await db().execute(sql`select public.seed_ledger_defaults(${BIA}::uuid)`)
-    await expect(listBudgetPots(BIA)).resolves.toHaveLength(DEFAULT_POTS.length)
+    await db().execute(sql`select public.seed_budget_defaults(${BIA}::uuid)`)
+    await expect(listPots(BIA)).resolves.toHaveLength(DEFAULT_POTS.length)
+    await expect(listBudgetPlans(BIA)).resolves.toHaveLength(1)
     const [ana, bia] = await Promise.all([listCategories(ANA), listCategories(BIA)])
     expect(bia).toHaveLength(ana.length)
     expect(new Set([...ana, ...bia].map((c) => c.id)).size).toBe(ana.length * 2)
@@ -150,6 +167,13 @@ describe('default seeding (auth trigger)', () => {
       }),
     )
     expect(error.code).toBe('42501')
+    const budget = await rejection(
+      db().transaction(async (tx) => {
+        await tx.execute(sql`set local role authenticated`)
+        await tx.execute(sql`select public.seed_budget_defaults(${BIA}::uuid)`)
+      }),
+    )
+    expect(budget.code).toBe('42501')
   })
 })
 
@@ -352,7 +376,7 @@ describe('loading a window', () => {
       [ana.checkingId]: 1080000,
       [ana.savingsId]: 20000,
     })
-    expect(months[1]?.byBucket.available.incomeCents).toBe(400000)
+    expect(months[1]?.totals.incomeCents).toBe(400000)
   })
 
   it('projects from the window start without count_from_month', async () => {

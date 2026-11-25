@@ -9,11 +9,12 @@ test.describe('signed in', () => {
   test('reaches /painel with the session from /api/e2e-signin', async ({ page }) => {
     await page.goto('/painel')
     await expect(page).toHaveURL(/\/painel$/)
-    // The calendar is the main view, in the new sidebar layout.
-    await expect(page.getByRole('heading', { level: 1, name: /^\p{L}+ de \d{4}$/u })).toBeVisible()
-    await expect(
-      page.getByRole('navigation', { name: 'Seções' }).getByRole('link', { name: 'Calendário' }),
-    ).toBeVisible()
+    // The dashboard is the main view, in the new sidebar layout.
+    await expect(page.getByRole('heading', { level: 1, name: 'Painel' })).toBeVisible()
+    const nav = page.getByRole('navigation', { name: 'Seções' })
+    for (const name of ['Painel', 'Calendário', 'Lançamentos', 'Orçamento']) {
+      await expect(nav.getByRole('link', { name })).toBeVisible()
+    }
   })
 
   test('/ sends a signed-in user to /painel', async ({ page }) => {

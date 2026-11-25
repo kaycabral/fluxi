@@ -15,8 +15,8 @@ function project(countFrom: string) {
     parts: [],
     overrides: [],
     accounts: [
-      { id: 'cc', type: 'checking', openingBalanceCents: 30000 },
-      { id: 'nu', type: 'checking', openingBalanceCents: 20000 },
+      { id: 'cc', openingBalanceCents: 30000 },
+      { id: 'nu', openingBalanceCents: 20000 },
     ],
     months: ['2026-11', '2026-12'],
     countFrom,
@@ -95,9 +95,9 @@ describe('calendarMonth', () => {
       parts: [],
       overrides: [],
       accounts: [
-        { id: 'cc', type: 'checking', openingBalanceCents: 30000 },
-        { id: 'nu', type: 'checking', openingBalanceCents: 20000 },
-        { id: 'va', type: 'benefit', openingBalanceCents: 9000 },
+        { id: 'cc', openingBalanceCents: 30000 },
+        { id: 'nu', openingBalanceCents: 20000 },
+        { id: 'va', openingBalanceCents: 9000 },
       ],
       months: ['2026-12'],
       countFrom: null,

@@ -1,8 +1,7 @@
-import { landingTouchesBucket } from './bucket'
 import { isoDate } from './format'
 import { addMonths, type Month } from './month'
 import { isSkipped, occursIn, type Landing } from './occurrence'
-import type { Account, Entry, EntryOverride, EntryPart } from './types'
+import type { Entry, EntryOverride, EntryPart } from './types'
 
 /**
  * "Pago/recebido" status of occurrences. A payment is keyed like an override:
@@ -157,21 +156,6 @@ export function groupPayables(
       },
     ]
   })
-}
-
-/**
- * Landings "A pagar" lists: by default only those that move available money
- * (an occurrence only in benefit accounts is not something the user pays from
- * their own money); a transfer between the buckets stays. `includeBenefits`
- * keeps everything.
- */
-export function payableLandings(
-  landings: readonly Landing[],
-  accounts: readonly Pick<Account, 'id' | 'type'>[],
-  options: { includeBenefits?: boolean } = {},
-): Landing[] {
-  if (options.includeBenefits === true) return [...landings]
-  return landings.filter((landing) => landingTouchesBucket(landing, 'available', accounts))
 }
 
 /**

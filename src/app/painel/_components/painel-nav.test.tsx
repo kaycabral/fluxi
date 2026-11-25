@@ -22,7 +22,6 @@ describe('PainelNav', () => {
       'Linha do tempo',
       'A pagar',
       'Bancos e contas',
-      'Orçamento',
     ])
   })
 

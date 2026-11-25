@@ -1,5 +1,19 @@
+import { DEFAULT_POTS } from '@/features/ledger/core/defaults'
 import { makeEntry, salarySplit } from '@/features/ledger/core/fixtures'
+import type { Pot } from '@/features/ledger/core/types'
 import type { LedgerData, LedgerRefs } from '@/features/ledger/core/view'
+
+/** The 6 default pots, as the database seeds them. */
+export function samplePots(): Pot[] {
+  return DEFAULT_POTS.map(({ key, name, color, goal }, sort) => ({
+    key,
+    name,
+    color,
+    goal,
+    sort,
+    archived: false,
+  }))
+}
 
 /** Sample ledger for the UI tests (ids are UUIDs so the form schemas accept them). */
 export const IDS = {
@@ -80,6 +94,7 @@ export function sampleData(overrides: Partial<LedgerData> = {}): LedgerData {
         archived: false,
       },
     ],
+    pots: samplePots(),
     countFrom: '2026-12',
     entries: [
       makeEntry({
@@ -192,6 +207,7 @@ export function sampleRefs(overrides: Partial<LedgerRefs> = {}): LedgerRefs {
     banks: data.banks,
     accounts: data.accounts,
     categories: data.categories,
+    pots: data.pots,
     tags: ['casa', 'viagem'],
     today: '2026-12-15',
     ...overrides,

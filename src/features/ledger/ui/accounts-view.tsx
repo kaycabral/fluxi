@@ -2,7 +2,6 @@
 
 import { saveAccountAction, saveBankAction } from '@/features/ledger/adapters/actions/accounts'
 import { INITIAL_FORM_STATE, type FormState } from '@/features/ledger/core/action-result'
-import { accountIdsInBucket } from '@/features/ledger/core/bucket'
 import { monthLabel, signedCentsToInput } from '@/features/ledger/core/format'
 import { ACCOUNT_TYPE_LABELS } from '@/features/ledger/core/labels'
 import type { Month } from '@/features/ledger/core/month'
@@ -305,12 +304,7 @@ export function AccountsView(props: AccountsViewProps) {
   const sum = (balances: Record<string, number> | null, ids: string[]) =>
     balances === null ? null : ids.reduce((total, id) => total + (balances[id] ?? 0), 0)
   const active = accounts.filter((a) => !a.archived)
-  const availableIds = accountIdsInBucket(active, 'available')
-  const allIds = active.map((a) => a.id)
-  const totals = [
-    { label: 'Total disponível', ids: availableIds },
-    { label: 'Total com benefícios', ids: allIds },
-  ]
+  const totals = [{ label: 'Saldo total', ids: active.map((a) => a.id) }]
 
   return (
     <div className="grid gap-4">
@@ -347,11 +341,6 @@ export function AccountsView(props: AccountsViewProps) {
                 })}
               </tbody>
             </table>
-            <p className="text-muted-foreground text-xs">
-              O disponível é o que você pode gastar ou sacar livremente; é ele que a linha do tempo,
-              o calendário e os potes usam. Benefícios (VA, VR e afins) só entram no total com
-              benefícios.
-            </p>
           </CardContent>
         </Card>
       )}

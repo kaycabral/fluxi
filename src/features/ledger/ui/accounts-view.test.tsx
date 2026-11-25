@@ -54,7 +54,7 @@ describe('AccountsView', () => {
     expect(screen.getByText(/no dia 1º de dez\/26/)).toBeInTheDocument()
   })
 
-  it('totals available money apart from the total with benefits', () => {
+  it('totals every active account, benefits included', () => {
     const data = sampleDataWithBenefit()
     render(
       <AccountsView
@@ -73,10 +73,10 @@ describe('AccountsView', () => {
     )
     const cells = (label: string) =>
       within(screen.getByRole('row', { name: new RegExp(`^${label}`) })).getAllByRole('cell')
-    // Archived accounts stay out; the benefit only enters the second total.
-    expect(cells('Total disponível')[0]).toHaveTextContent('R$ 690,00')
-    expect(cells('Total com benefícios')[0]).toHaveTextContent('R$ 990,00')
-    expect(cells('Total com benefícios')[1]).toHaveTextContent('–')
+    // Archived accounts stay out; benefit accounts count like any other.
+    expect(cells('Saldo total')[0]).toHaveTextContent('R$ 990,00')
+    expect(cells('Saldo total')[1]).toHaveTextContent('–')
+    expect(screen.queryByRole('row', { name: /^Total com benefícios/ })).not.toBeInTheDocument()
   })
 
   it('saves a renamed bank on blur', async () => {

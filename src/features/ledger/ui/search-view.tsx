@@ -2,7 +2,7 @@
 
 import { accountLabel } from '@/features/ledger/core/account-filter'
 import { shortDate } from '@/features/ledger/core/format'
-import { POT_COLORS, RECURRENCE_LABELS } from '@/features/ledger/core/labels'
+import { potDot, RECURRENCE_LABELS } from '@/features/ledger/core/labels'
 import { paymentFor } from '@/features/ledger/core/payments'
 import {
   activeFilters,
@@ -26,7 +26,6 @@ import {
   type SortOrder,
   type StatusFilter,
 } from '@/features/ledger/core/search'
-import { isPotKey } from '@/features/ledger/core/types'
 import {
   distinctTags,
   installmentLabel,
@@ -143,6 +142,7 @@ export function SearchView({ data, initialQuery, today }: Props) {
       accounts: data.accounts,
       banks: data.banks,
       categories: data.categories,
+      pots: data.pots,
       payments: data.payments,
     }),
     [data],
@@ -259,10 +259,7 @@ export function SearchView({ data, initialQuery, today }: Props) {
             leading: (
               <span
                 aria-hidden
-                className={cn(
-                  'size-2.5 shrink-0 rounded-xs',
-                  entry.pot === null ? 'bg-muted-foreground/40' : POT_COLORS[entry.pot],
-                )}
+                className={cn('size-2.5 shrink-0 rounded-xs', potDot(entry.pot, data.pots))}
               />
             ),
             title: entry.description,
@@ -475,7 +472,8 @@ function FiltersPopover({
                 id="q-pot"
                 allLabel="Todos"
                 value={query.pot}
-                onValueChange={(pot) => onChange({ pot: isPotKey(pot) ? pot : '' })}
+                pots={data.pots}
+                onValueChange={(pot) => onChange({ pot })}
               />
             </Field>
             <Field>

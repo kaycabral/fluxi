@@ -281,7 +281,14 @@ describe('loading a window', () => {
       ['Saldo', 6000, true],
     ])
     expect(ledger.overrides).toEqual([
-      { entryId: ana.entryId, month: '2027-01', amountCents: null, day: null, skipped: true },
+      {
+        entryId: ana.entryId,
+        month: '2027-01',
+        amountCents: null,
+        day: null,
+        skipped: true,
+        deleted: false,
+      },
     ])
   })
 

@@ -152,7 +152,8 @@ export function landingsIn(
 
 /**
  * The opposite of {@link landingsIn}: what WOULD land in `month` from the
- * skipped occurrences (to show them as ignored; they never count).
+ * skipped occurrences (to show them as ignored; they never count). Occurrences
+ * the user deleted are gone, not ignored: they never show.
  */
 export function skippedLandingsIn(
   entry: Entry,
@@ -160,7 +161,8 @@ export function skippedLandingsIn(
   overrides: readonly EntryOverride[],
   month: Month,
 ): Landing[] {
-  return landingsWhere({ entry, parts, overrides }, month, true)
+  const ignored = overrides.filter((o) => !o.deleted)
+  return landingsWhere({ entry, parts, overrides: ignored }, month, true)
 }
 
 type Series = {

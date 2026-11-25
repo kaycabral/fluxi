@@ -94,6 +94,7 @@ export async function loadSeries(
       amountCents: o.amountCents,
       day: o.day,
       skipped: o.skipped,
+      deleted: o.deleted,
     })),
   }
 }

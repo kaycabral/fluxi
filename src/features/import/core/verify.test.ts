@@ -13,7 +13,14 @@ const flow = (month: string, amountCents: number, patch: Partial<Flow> = {}): Fl
 describe('verifyLedger', () => {
   const entry = makeEntry({ startMonth: '2026-01', endMonth: '2026-03', amountCents: 1000 })
   const overrides = [
-    { entryId: 'e1', month: '2026-02', amountCents: null, day: null, skipped: true },
+    {
+      entryId: 'e1',
+      month: '2026-02',
+      amountCents: null,
+      day: null,
+      skipped: true,
+      deleted: false,
+    },
   ]
 
   it('accepts a ledger that reproduces the originals', () => {

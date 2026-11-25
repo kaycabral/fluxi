@@ -123,6 +123,7 @@ function overrideRow(userId: string, override: EntryOverride) {
     amountCents: override.amountCents,
     day: override.day,
     skipped: override.skipped,
+    deleted: override.deleted,
   }
 }
 
@@ -383,10 +384,10 @@ export async function deleteEntry(
         const undo = await captureUndo(tx, userId, [entryId])
         await tx
           .insert(entryOverrides)
-          .values({ entryId, userId, month: monthToDate(month), skipped: true })
+          .values({ entryId, userId, month: monthToDate(month), skipped: true, deleted: true })
           .onConflictDoUpdate({
             target: [entryOverrides.entryId, entryOverrides.month],
-            set: { skipped: true, updatedAt: sql`now()` },
+            set: { skipped: true, deleted: true, updatedAt: sql`now()` },
             setWhere: eq(entryOverrides.userId, userId),
           })
         await syncPayments(tx, userId, entryId)

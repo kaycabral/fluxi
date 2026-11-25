@@ -1,6 +1,7 @@
 import { fluxiDb, seedUser, truncateFluxiTables } from '@/db'
 import { accounts, banks, budgetPots, entries, entryOverrides, entryParts } from '@/db/schema'
 import type { EntryFields } from '@/features/ledger/core/schemas'
+import { pgErrorOf } from '@cbrl/pg'
 import { and, eq } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
@@ -418,10 +419,24 @@ describe('deleteEntry', () => {
     await createEntry(ANA, id, expense(ana.accountId))
   })
 
-  it('"one" skips that occurrence', async () => {
+  it('"one" deletes that occurrence (skipped and never shown)', async () => {
     await deleteEntry(ANA, id, { month: '2027-01', scope: 'one' })
     await deleteEntry(ANA, id, { month: '2027-01', scope: 'one' })
     expect(await expenseByMonth(ANA)).toMatchObject({ '2027-01': 0, '2027-02': 200000 })
+    expect(await overrideRows(id)).toEqual([
+      expect.objectContaining({ month: '2027-01-01', skipped: true, deleted: true }),
+    ])
+  })
+
+  it('refuses a deleted occurrence that is not skipped', async () => {
+    const insert = db()
+      .insert(entryOverrides)
+      .values({ entryId: id, userId: ANA, month: '2027-01-01', skipped: false, deleted: true })
+    const error = await insert.then(
+      () => null,
+      (err: unknown) => pgErrorOf(err),
+    )
+    expect(error?.constraint).toBe('entry_overrides_deleted_is_skipped')
   })
 
   it('"future" ends the series before the month', async () => {

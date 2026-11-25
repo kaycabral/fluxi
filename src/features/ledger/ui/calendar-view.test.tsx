@@ -304,6 +304,19 @@ describe('CalendarView · event popup', () => {
 })
 
 describe('CalendarView · quick add', () => {
+  it('opens in a column view from a click or from the keyboard', async () => {
+    renderCalendar({ view: 'day', date: '2026-12-10' })
+    await userEvent.click(emptyPartOf(10))
+    expect(await screen.findByRole('form', { name: 'Criar lançamento' })).toBeInTheDocument()
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() =>
+      expect(screen.queryByRole('form', { name: 'Criar lançamento' })).not.toBeInTheDocument(),
+    )
+    emptyPartOf(10).focus()
+    await userEvent.keyboard('{Enter}')
+    expect(await screen.findByRole('form', { name: 'Criar lançamento' })).toBeInTheDocument()
+  })
+
   it('opens on a click in an empty part of a day and creates an entry there', async () => {
     renderCalendar()
     await userEvent.click(emptyPartOf(10))

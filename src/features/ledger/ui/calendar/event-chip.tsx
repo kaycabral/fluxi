@@ -45,7 +45,7 @@ import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { useLedgerUi } from '../ledger-shell'
 import { paidMessage } from '../paid-controls'
-import { POPUP_CLASS, POPUP_PLACEMENT, useCalendar } from './context'
+import { POPUP_CLASS, POPUP_PLACEMENT, useCalendar, usePopupSide } from './context'
 
 /** "Aluguel" or "Salário · Adiantamento". */
 export function landingTitle(landing: Landing): string {
@@ -91,6 +91,7 @@ export function EventChip({
 }) {
   const { data, today, dragged, setDragged } = useCalendar()
   const [open, setOpen] = useState(false)
+  const [side, measureSide] = usePopupSide()
   const status = skipped ? 'upcoming' : paymentStatus(landing, data.payments, today)
   const statusTitle = skipped ? 'ignorado' : STATUS_TITLES[status](landing.entry.kind)
   const title = landingTitle(landing)
@@ -102,6 +103,7 @@ export function EventChip({
       <PopoverTrigger asChild>
         <button
           type="button"
+          onClick={(e) => measureSide(e.currentTarget)}
           title={`${title} ${formatMoney(landing.amountCents)}${statusTitle === '' ? '' : ` (${statusTitle})`}`}
           draggable={movable}
           onDragStart={(e) => {
@@ -142,7 +144,7 @@ export function EventChip({
         </button>
       </PopoverTrigger>
       <PopoverContent
-        side="right"
+        side={side}
         align="start"
         {...POPUP_PLACEMENT}
         className={cn('w-[min(26rem,calc(100vw-2rem))] p-0', POPUP_CLASS)}

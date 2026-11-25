@@ -84,9 +84,9 @@ function BalanceChart({ balances, today }: { balances: MonthBalance[]; today: Mo
   const hasPositive = values.some((v) => v > 0)
   return (
     <TooltipProvider delayDuration={150}>
-      <div className="grid gap-2">
+      <div className="flex h-full min-h-0 flex-col gap-2">
         <div
-          className={cn('flex h-40 items-stretch gap-1', hasNegative && hasPositive && 'h-48')}
+          className="flex min-h-0 flex-1 items-stretch gap-1"
           role="img"
           aria-label={balances
             .map(
@@ -338,7 +338,7 @@ export function DashboardView({
               </Button>
             </CardAction>
           </CardHeader>
-          <CardContent>
+          <CardContent className="min-h-0 flex-1">
             <BalanceChart balances={monthEndBalances(results)} today={month} />
           </CardContent>
         </Card>

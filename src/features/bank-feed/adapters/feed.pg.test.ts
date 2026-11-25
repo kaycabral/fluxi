@@ -9,7 +9,12 @@ const ANA = '11111111-1111-4111-8111-111111111111'
 const BIA = '22222222-2222-4222-8222-222222222222'
 const db = () => fluxiDb.db()
 const sync = (userId: string, acc: FeedAccountRow, transactions: FeedTransactionRow[]) =>
-  syncFeedAccount(db(), userId, { source: 'pluggy', account: acc, transactions })
+  syncFeedAccount(db(), userId, {
+    source: 'pluggy',
+    account: acc,
+    transactions,
+    coveredFrom: '2026-01-01',
+  })
 
 const account: FeedAccountRow = {
   externalId: 'ext-acc',
@@ -73,6 +78,13 @@ describe('bank feed sync (Postgres)', () => {
       upserted: 0,
       removed: 1,
     })
+  })
+
+  it('never removes history older than the covered window', async () => {
+    await sync(ANA, account, [tx('old', { date: '2025-06-01' }), tx('new')])
+    expect(await sync(ANA, account, [])).toEqual({ upserted: 0, removed: 1 })
+    const rows = await db().select().from(bankTransactions).where(eq(bankTransactions.userId, ANA))
+    expect(rows.map((r) => r.externalId)).toEqual(['old'])
   })
 
   it('keeps the mapping across syncs and only unmaps when the fluxi account goes', async () => {

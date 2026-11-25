@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  coveredFrom,
   itemReadiness,
   parsePluggyConfig,
   pluggyTransactionSchema,
@@ -128,5 +129,12 @@ describe('parsePluggyConfig', () => {
     expect(() => parsePluggyConfig('PLUGGY_CLIENT_SECRET=s', {})).toThrow(
       'missing PLUGGY_CLIENT_ID, PLUGGY_ITEM_IDS',
     )
+  })
+})
+
+describe('coveredFrom', () => {
+  it('starts 360 days before today, across years', () => {
+    expect(coveredFrom('2026-11-25')).toBe('2025-11-30')
+    expect(coveredFrom('2026-01-10')).toBe('2025-01-15')
   })
 })

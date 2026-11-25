@@ -13,12 +13,14 @@ import { fluxiDb } from '@/db'
 import { syncFeedAccount } from '@/features/bank-feed/adapters/feed.write'
 import { createPluggyClient, readPluggyConfig } from '@/features/bank-feed/adapters/pluggy.client'
 import {
+  coveredFrom,
   itemReadiness,
   PLUGGY_SOURCE,
   toFeedAccount,
   toFeedTransaction,
 } from '@/features/bank-feed/core/pluggy'
 import { findUserIdByEmail } from '@/features/import/adapters/import.write'
+import { isoDayOf } from '@/features/ledger/core/format'
 import { readLocalSupabase } from '@cbrl/supabase/local'
 import { parseArgs } from 'node:util'
 
@@ -72,6 +74,7 @@ async function main(): Promise<number> {
         source: PLUGGY_SOURCE,
         account: feed,
         transactions: rows,
+        coveredFrom: coveredFrom(isoDayOf(new Date())),
       })
       console.log(`${head}; removidas ${counts.removed}`)
     }

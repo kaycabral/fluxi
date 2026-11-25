@@ -1,15 +1,17 @@
 import type { FluxiDb } from '@/db'
 import { bankFeedAccounts, bankTransactions } from '@/db/schema'
 import type { FeedAccountRow, FeedTransactionRow } from '@/features/bank-feed/core/pluggy'
-import { and, eq, notInArray, sql } from 'drizzle-orm'
+import { and, eq, gte, notInArray, sql } from 'drizzle-orm'
 
 /**
  * Write side of the bank feed. {@link syncFeedAccount} replaces, in one
  * transaction, the stored copy of ONE external account with what the source
  * returned now: upsert of the account and of every transaction by external id,
  * then removal of the transactions the source no longer returns (pending ones
- * that settled under a new id, reversals). The user's mapping onto a fluxi
- * account is never touched. Every statement is scoped by `userId`.
+ * that settled under a new id, reversals) — but only from `coveredFrom` on:
+ * Open Finance exposes a rolling 12-month window, so older rows are history
+ * the source simply stopped serving and are kept forever. The user's mapping
+ * onto a fluxi account is never touched. Every statement is scoped by `userId`.
  */
 
 const CHUNK = 250
@@ -20,12 +22,14 @@ export type FeedSnapshot = {
   source: string
   account: FeedAccountRow
   transactions: readonly FeedTransactionRow[]
+  /** First date (YYYY-MM-DD) the source still serves; older rows are never removed. */
+  coveredFrom: string
 }
 
 export async function syncFeedAccount(
   db: FluxiDb,
   userId: string,
-  { source, account, transactions }: FeedSnapshot,
+  { source, account, transactions, coveredFrom }: FeedSnapshot,
 ): Promise<SyncCounts> {
   const syncedAt = new Date()
   return db.transaction(async (tx) => {
@@ -78,6 +82,7 @@ export async function syncFeedAccount(
     const scope = and(
       eq(bankTransactions.userId, userId),
       eq(bankTransactions.feedAccountId, feedAccountId),
+      gte(bankTransactions.date, coveredFrom),
     )
     const keep = transactions.map((t) => t.externalId)
     const removed = await tx

@@ -68,6 +68,19 @@ export function itemReadiness(item: PluggyItem): ItemReadiness {
   return { ready: false, reason: `${item.status}${detail}` }
 }
 
+/**
+ * Open Finance serves a rolling 12-month window (Resolução Conjunta nº 1).
+ * The feed only trusts "missing = removed" a few days inside it, so a row at
+ * the window's edge is never deleted just because it rolled out.
+ */
+export const COVERED_DAYS = 360
+
+export function coveredFrom(today: string): string {
+  const d = new Date(`${today}T00:00:00Z`)
+  d.setUTCDate(d.getUTCDate() - COVERED_DAYS)
+  return d.toISOString().slice(0, 10)
+}
+
 export const toCents = (value: number): number => Math.round(Math.abs(value) * 100)
 
 export type FeedAccountRow = {

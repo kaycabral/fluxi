@@ -8,7 +8,7 @@ import {
 } from '@/features/ledger/core/calendar-views'
 import type { Landing } from '@/features/ledger/core/occurrence'
 import type { LedgerData } from '@/features/ledger/core/view'
-import { createContext, useContext } from 'react'
+import { createContext, useCallback, useContext, useState } from 'react'
 
 /** What every piece of the calendar reads: the data, the day cells and the shared actions. */
 export type CalendarContextValue = {
@@ -68,6 +68,35 @@ export const POPUP_PLACEMENT = {
   collisionPadding: 12,
   sticky: 'always',
 } as const
+
+/** Width of the wide calendar popups (`w-[min(26rem,calc(100vw-2rem))]`), in px. */
+function wideWidth(viewportWidth: number) {
+  return Math.min(416, viewportWidth - 32)
+}
+
+/** `PopoverContent`'s default gap to the anchor, in px. */
+const POPUP_SIDE_OFFSET = 4
+
+/**
+ * Side of a wide popup next to `anchor`: beside it when one side has room
+ * (Radix flips right → left by itself), else below. Radix only slides a popup
+ * along its side, so a side popup next to an anchor as wide as the screen (the
+ * day view's column, the schedule's rows, a phone's month cell) would leave
+ * the screen; below it slides sideways back in.
+ */
+export function popupSide(anchor: DOMRect, viewportWidth: number): 'right' | 'bottom' {
+  const room = wideWidth(viewportWidth) + POPUP_SIDE_OFFSET + POPUP_PLACEMENT.collisionPadding
+  return anchor.right + room <= viewportWidth || anchor.left - room >= 0 ? 'right' : 'bottom'
+}
+
+/** The side of a wide popup, measured from its anchor on each click of its trigger. */
+export function usePopupSide() {
+  const [side, setSide] = useState<'right' | 'bottom'>('right')
+  const measure = useCallback((anchor: { getBoundingClientRect: () => DOMRect }) => {
+    setSide(popupSide(anchor.getBoundingClientRect(), window.innerWidth))
+  }, [])
+  return [side, measure] as const
+}
 
 /**
  * Look of every calendar popup: never taller than the room left (scrolling

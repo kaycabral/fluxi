@@ -13,7 +13,14 @@ import { cn, Popover, PopoverContent, PopoverTrigger } from '@cbrl/design'
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { QuickAddForm } from '../quick-add'
-import { calendarHref, POPUP_CLASS, POPUP_PLACEMENT, useCalendar, visibleLandings } from './context'
+import {
+  calendarHref,
+  POPUP_CLASS,
+  POPUP_PLACEMENT,
+  useCalendar,
+  usePopupSide,
+  visibleLandings,
+} from './context'
 import { DayPanel, WEEKDAY_SHORT } from './day-panel'
 import { EventChip } from './event-chip'
 
@@ -152,6 +159,7 @@ function MonthDay({
   const cell = cellOf(cells, date)
   const items = visibleLandings(cell, prefs, (l) => paymentFor(l, data.payments) !== undefined)
   const quick = quickDate === date
+  const [side, measureSide] = usePopupSide()
   // The placeholder chip of the quick add takes a line too.
   const lines = items.length + (quick ? 1 : 0)
   const shown = lines > capacity ? Math.max(0, capacity - 1 - (quick ? 1 : 0)) : items.length
@@ -192,6 +200,7 @@ function MonthDay({
           {/* Covers the whole day: a click on any empty spot creates there. */}
           <button
             type="button"
+            onClick={(e) => measureSide(e.currentTarget)}
             aria-label={`Criar lançamento em ${dayLongLabel(date)}`}
             aria-current={isToday ? 'date' : undefined}
             className="group/day focus-visible:ring-ring absolute inset-0 flex cursor-pointer items-start justify-start p-1 outline-none focus-visible:ring-2 focus-visible:ring-inset"
@@ -209,7 +218,7 @@ function MonthDay({
           </button>
         </PopoverTrigger>
         <PopoverContent
-          side="right"
+          side={side}
           align="start"
           {...POPUP_PLACEMENT}
           className={cn('w-[min(26rem,calc(100vw-2rem))]', POPUP_CLASS)}

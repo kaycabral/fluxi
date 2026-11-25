@@ -11,19 +11,25 @@ import {
   SidebarMenuItem,
   type NavSection,
 } from '@cbrl/design'
-import { CalendarDays, History, LogOut, Plus } from 'lucide-react'
+import { CalendarDays, History, ListIcon, LogOut, Plus } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+
+/** Pages that put "Criar" beside their title instead of the header. */
+const OWN_CREATE_BUTTON = new Set(['/painel/lancamentos'])
 
 const SECTIONS: NavSection[] = [
   {
     label: '',
-    items: [{ href: '/painel', label: 'Calendário', icon: CalendarDays, match: 'exact' }],
+    items: [
+      { href: '/painel', label: 'Calendário', icon: CalendarDays, match: 'exact' },
+      { href: '/painel/lancamentos', label: 'Lançamentos', icon: ListIcon, match: 'prefix' },
+    ],
   },
 ]
 
 /**
- * Chrome of the new layout: collapsible sidebar (only the calendar so far),
+ * Chrome of the new layout: collapsible sidebar (calendar and entries),
  * the "Criar" button in the header and, at the bottom, sign-out and (outside
  * production) the way back to the MVP screens.
  */
@@ -55,9 +61,12 @@ export function AppSidebar({
         </Link>
       )}
       headerEnd={
-        <Button size="sm" onClick={() => openNew()} aria-keyshortcuts="N">
-          <Plus /> Criar
-        </Button>
+        // Pages with their own "Criar" beside the title leave the header empty.
+        OWN_CREATE_BUTTON.has(pathname) ? undefined : (
+          <Button size="sm" onClick={() => openNew()} aria-keyshortcuts="N">
+            <Plus /> Criar
+          </Button>
+        )
       }
       footer={
         <SidebarMenu>

@@ -6,13 +6,14 @@ import { describe, expect, it, vi } from 'vitest'
 import { AppSidebar } from './app-sidebar'
 
 const signOut = vi.fn()
+let pathname = '/painel'
 vi.mock('@/features/ledger/adapters/actions/undo', () => ({
   undoAction: vi.fn(),
   forgetUndoAction: vi.fn(),
 }))
 vi.mock('@/hooks/use-sign-out', () => ({ useSignOut: () => signOut }))
 vi.mock('next/navigation', () => ({
-  usePathname: () => '/painel',
+  usePathname: () => pathname,
   useRouter: () => ({ refresh: vi.fn(), replace: vi.fn(), push: vi.fn() }),
 }))
 vi.mock('@/features/ledger/adapters/actions/entries', () => ({
@@ -33,11 +34,11 @@ function renderSidebar(legacyScreens = true) {
 }
 
 describe('AppSidebar', () => {
-  it('lists only the calendar, marked as the current page', () => {
+  it('lists the calendar and the entries, marking the current page', () => {
     renderSidebar()
     const nav = screen.getByRole('navigation', { name: 'Seções' })
     const links = within(nav).getAllByRole('link')
-    expect(links.map((l) => l.textContent)).toEqual(['Calendário'])
+    expect(links.map((l) => l.textContent)).toEqual(['Calendário', 'Lançamentos'])
     expect(links[0]).toHaveAttribute('href', '/painel')
     expect(links[0]).toHaveAttribute('data-active', 'true')
     expect(screen.getByText('conteúdo')).toBeInTheDocument()
@@ -62,5 +63,12 @@ describe('AppSidebar', () => {
     renderSidebar()
     await userEvent.click(screen.getByRole('button', { name: 'Criar' }))
     expect(await screen.findByRole('dialog', { name: 'Novo lançamento' })).toBeInTheDocument()
+  })
+
+  it('leaves "Criar" to pages that put it beside their title', () => {
+    pathname = '/painel/lancamentos'
+    renderSidebar()
+    expect(screen.queryByRole('button', { name: 'Criar' })).not.toBeInTheDocument()
+    pathname = '/painel'
   })
 })

@@ -4,15 +4,17 @@ import { monthRange } from './month'
 import { projectMonths } from './projection'
 import {
   activeFilters,
-  defaultSearchQuery,
-  drillDown,
-  groupOccurrences,
+  EMPTY_SEARCH_QUERY,
+  landingBounds,
+  landingDay,
+  ledgerSpan,
   parseSearchQuery,
+  pickerRange,
   searchAccountIds,
   searchOccurrences,
-  searchQueryToParams,
   searchTotals,
-  type GroupKey,
+  searchWindow,
+  serializeSearchQuery,
   type SearchContext,
   type SearchQuery,
 } from './search'
@@ -93,65 +95,94 @@ const months = projectMonths({
   countFrom: '2026-12',
 })
 
-const base = { ...defaultSearchQuery('2026-12'), to: '2027-02', group: 'none' as const }
+const base = EMPTY_SEARCH_QUERY
 
-describe('search query in the URL', () => {
-  it('parses params with defaults and fallbacks', () => {
-    expect(parseSearchQuery({}, '2026-12')).toEqual(defaultSearchQuery('2026-12'))
-    const q = parseSearchQuery(
-      {
-        q: 'luz',
-        de: '2027-01',
-        tipo: 'expense',
-        pote: 'nope',
-        agrupar: ['category'],
-        tag: 'x',
-        status: 'unpaid',
-        dinheiro: 'benefit',
-      },
-      '2026-12',
-    )
-    expect(q).toMatchObject({
-      text: 'luz',
-      from: '2027-01',
-      to: '2027-12',
-      kind: 'expense',
-      pot: '',
-      group: 'category',
-      tag: 'x',
-      status: 'unpaid',
-      money: 'benefit',
-    })
-    expect(parseSearchQuery({ dinheiro: 'livre' }, '2026-12').money).toBe('')
-    expect(parseSearchQuery({ status: 'pago' }, '2026-12').status).toBe('')
-    expect(parseSearchQuery({ de: '2027-05', ate: '2027-01' }, '2026-12').to).toBe('2027-05')
-    expect(parseSearchQuery({ de: 'bad' }, '2026-12').from).toBe('2026-12')
+describe('remembered search query (cookie)', () => {
+  it('starts with no filter at all', () => {
+    expect(parseSearchQuery(undefined)).toEqual(EMPTY_SEARCH_QUERY)
+    expect(parseSearchQuery('')).toEqual(EMPTY_SEARCH_QUERY)
+    expect(parseSearchQuery('not json')).toEqual(EMPTY_SEARCH_QUERY)
+    expect(parseSearchQuery('42')).toEqual(EMPTY_SEARCH_QUERY)
   })
 
-  it('serializes only what differs from the defaults', () => {
-    expect(searchQueryToParams(defaultSearchQuery('2026-12'), '2026-12')).toBe('')
-    const params = new URLSearchParams(
-      searchQueryToParams(
-        {
-          ...defaultSearchQuery('2026-12'),
-          text: 'luz',
-          to: '2027-03',
-          status: 'paid',
-          money: 'available',
-        },
-        '2026-12',
-      ),
-    )
-    expect(params.get('q')).toBe('luz')
-    expect(params.get('de')).toBe('2026-12')
-    expect(params.get('ate')).toBe('2027-03')
-    expect(params.get('status')).toBe('paid')
-    expect(params.get('dinheiro')).toBe('available')
-    expect(parseSearchQuery(Object.fromEntries(params), '2026-12')).toMatchObject({
+  it('round-trips a query and drops bad fields', () => {
+    const query = {
+      ...EMPTY_SEARCH_QUERY,
       text: 'luz',
-      to: '2027-03',
+      from: '2027-01-05',
+      to: '2027-03-31',
+      status: 'paid' as const,
+      money: 'available' as const,
+    }
+    expect(JSON.parse(serializeSearchQuery(query))).toEqual({
+      text: 'luz',
+      from: '2027-01-05',
+      to: '2027-03-31',
       status: 'paid',
+      money: 'available',
     })
+    expect(parseSearchQuery(serializeSearchQuery(query))).toEqual(query)
+    expect(
+      parseSearchQuery(JSON.stringify({ pot: 'nope', from: '2027-13-01', kind: 'expense' })),
+    ).toEqual({ ...EMPTY_SEARCH_QUERY, kind: 'expense' })
+    expect(parseSearchQuery(JSON.stringify({ from: '2027-05-10', to: '2027-01-01' })).to).toBe(
+      '2027-05-10',
+    )
+  })
+})
+
+describe('ledgerSpan', () => {
+  it('covers the first entry to the last landing, open series up to a horizon', () => {
+    expect(ledgerSpan([], '2026-12')).toEqual({ from: '2026-12', to: '2026-12' })
+    const once = makeEntry({ id: 'a', startMonth: '2025-03', recurrence: 'none' })
+    const parcels = makeEntry({
+      id: 'b',
+      startMonth: '2026-10',
+      recurrence: 'installments',
+      installments: 24,
+    })
+    const ended = makeEntry({ id: 'c', recurrence: 'monthly', endMonth: '2030-01' })
+    const open = makeEntry({ id: 'd', recurrence: 'yearly', startMonth: '2026-01' })
+    expect(ledgerSpan([once], '2026-12')).toEqual({ from: '2025-03', to: '2026-12' })
+    expect(ledgerSpan([once, parcels], '2026-12')).toEqual({ from: '2025-03', to: '2028-10' })
+    expect(ledgerSpan([ended], '2026-12').to).toBe('2030-02')
+    expect(ledgerSpan([open], '2026-12')).toEqual({ from: '2026-01', to: '2027-12' })
+    const farOpen = makeEntry({ id: 'e', recurrence: 'monthly', startMonth: '2030-06' })
+    expect(ledgerSpan([farOpen], '2026-12').to).toBe('2030-06')
+  })
+
+  it('stretches to any chosen day, past or future', () => {
+    const span = { from: '2025-03', to: '2027-12' }
+    expect(searchWindow(span, { from: '', to: '' })).toEqual(span)
+    expect(searchWindow(span, { from: '2026-01-10', to: '2026-02-01' })).toEqual(span)
+    expect(searchWindow(span, { from: '2020-01-01', to: '' }).from).toBe('2020-01')
+    expect(searchWindow(span, { from: '', to: '2030-06-30' }).to).toBe('2030-06')
+    expect(searchWindow(span, { from: '2030-01-01', to: '' }).to).toBe('2031-01')
+  })
+
+  it('finds the first and last day with an occurrence', () => {
+    expect(landingBounds(months, { from: '2026-12', to: '2027-02' })).toEqual({
+      first: '2026-12-15',
+      last: '2027-02-20',
+    })
+    expect(landingBounds(months, { from: '2030-01', to: '2030-12' })).toBeNull()
+  })
+
+  it('offers only the years with occurrences in the pickers', () => {
+    expect(pickerRange({ first: '2025-03-05', last: '2030-06-01' }, '2026-12-15')).toEqual({
+      min: '2025-01-01',
+      max: '2030-12-31',
+    })
+    expect(pickerRange(null, '2026-12-15')).toEqual({ min: '2026-01-01', max: '2026-12-31' })
+  })
+
+  it('labels the period chip', () => {
+    const period = (from: string, to: string) =>
+      activeFilters({ ...EMPTY_SEARCH_QUERY, from, to }, ctx)[0]?.label
+    expect(period('2027-01-05', '')).toBe('Desde 05/01/27')
+    expect(period('', '2027-01-05')).toBe('Até 05/01/27')
+    expect(period('2027-01-05', '2027-01-05')).toBe('05/01/27')
+    expect(period('2027-01-05', '2027-02-01')).toBe('05/01/27 a 01/02/27')
   })
 })
 
@@ -160,12 +191,9 @@ describe('searchOccurrences', () => {
     const all = searchOccurrences(months, base, ctx)
     // Dec: 1 salary part (advance), power, net, transfer; Jan: 2 salary parts + 3 + loose; Feb: 2 + 3.
     expect(all).toHaveLength(4 + 6 + 5)
-    const totals = searchTotals(all, base)
-    expect(totals.count).toBe(15)
-    expect(totals.incomeCents).toBe(400000 + 1000000 + 1000000)
-    expect(totals.expenseCents).toBe(-(38000 * 3 + 5000))
-    expect(totals.totalCents).toBe(totals.incomeCents + totals.expenseCents)
-    expect(totals.monthlyAverageCents).toBe(Math.round(totals.totalCents / 3))
+    const values = all.map((o) => o.valueCents)
+    expect(values.filter((v) => v > 0).reduce((a, b) => a + b, 0)).toBe(400000 + 1000000 + 1000000)
+    expect(values.filter((v) => v < 0).reduce((a, b) => a + b, 0)).toBe(-(38000 * 3 + 5000))
   })
 
   it('filters by text, kind, account, category, pot and tag', () => {
@@ -179,7 +207,32 @@ describe('searchOccurrences', () => {
     expect(count({ category: 'cat-net' })).toBe(3)
     expect(count({ pot: 'comfort' })).toBe(3)
     expect(count({ tag: 'trabalho' })).toBe(5)
-    expect(count({ from: '2027-02', to: '2027-02' })).toBe(5)
+    expect(count({ from: '2027-02-01', to: '2027-02-28' })).toBe(5)
+    expect(count({ from: '2027-02-01' })).toBe(5)
+    expect(count({ to: '2026-12-31' })).toBe(4)
+  })
+
+  it('sorts oldest first on request, and sums what it lists', () => {
+    const asc = searchOccurrences(months, { ...base, sort: 'asc' }, ctx)
+    const days = asc.map((o) => landingDay(o.landing))
+    expect(days).toEqual([...days].sort())
+    expect(activeFilters({ ...base, sort: 'asc' }, ctx)).toEqual([
+      { key: 'sort', label: 'Mais antigos primeiro' },
+    ])
+    expect(searchTotals(asc)).toEqual({
+      incomeCents: 2400000,
+      expenseCents: -119000,
+      netCents: 2400000 - 119000,
+    })
+  })
+
+  it('filters by day and lists newest first', () => {
+    const all = searchOccurrences(months, base, ctx)
+    const days = all.map((o) => landingDay(o.landing))
+    expect(days).toEqual([...days].sort().reverse())
+    const one = searchOccurrences(months, { ...base, from: days[0] ?? '', to: days[0] ?? '' }, ctx)
+    expect(one.length).toBeGreaterThan(0)
+    expect(one.every((o) => landingDay(o.landing) === days[0])).toBe(true)
   })
 
   it('filters by paid status (parts are paid separately)', () => {
@@ -189,8 +242,8 @@ describe('searchOccurrences', () => {
     ]
     const paid = searchOccurrences(months, { ...base, status: 'paid' }, { ...ctx, payments })
     expect(paid.map((o) => [o.landing.entry.id, o.landing.part?.id ?? null])).toEqual([
-      ['power', null],
       ['salary', 'salary-a'],
+      ['power', null],
     ])
     expect(
       searchOccurrences(months, { ...base, status: 'unpaid' }, { ...ctx, payments }),
@@ -237,7 +290,7 @@ describe('searchOccurrences by money bucket', () => {
     months: ['2026-12'],
     countFrom: '2026-12',
   })
-  const query = { ...defaultSearchQuery('2026-12'), to: '2026-12', group: 'none' as const }
+  const query = EMPTY_SEARCH_QUERY
   const run = (money: SearchQuery['money'], account = '') =>
     searchOccurrences(bucketMonths, { ...query, money, account }, bucketCtx).map((o) => [
       o.landing.entry.id,
@@ -277,44 +330,6 @@ describe('searchOccurrences by money bucket', () => {
     expect(activeFilters({ ...query, money: 'benefit' }, bucketCtx)).toEqual([
       { key: 'money', label: 'Benefícios' },
     ])
-  })
-})
-
-describe('grouping', () => {
-  const all = searchOccurrences(months, base, ctx)
-  const labels = (group: GroupKey) => groupOccurrences(all, group, ctx).map((g) => g.label)
-
-  it('groups by every key', () => {
-    expect(labels('month')).toEqual(['2026-12', '2027-01', '2027-02'])
-    expect(labels('year')).toEqual(['2026', '2027'])
-    expect(labels('group')).toEqual(['Renda', 'Contas', 'Sem categoria', 'Transferências'])
-    expect(labels('category')[0]).toBe('Salário')
-    expect(labels('category')).toContain('Transferência')
-    expect(labels('account')).toEqual(['BTG · Conta', 'Nubank · Conta'])
-    expect(labels('bank')).toEqual(['BTG', 'Nubank'])
-    expect(labels('pot')).toEqual(['Sem pote', 'Essencial', 'Conforto'])
-    expect(labels('description')[0]).toBe('Salário')
-    const months2 = groupOccurrences(all, 'month', ctx)
-    expect(months2.reduce((s, g) => s + g.count, 0)).toBe(all.length)
-  })
-
-  it('drills down into a group', () => {
-    expect(drillDown(base, 'month', '2027-01')).toMatchObject({
-      from: '2027-01',
-      to: '2027-01',
-      group: 'none',
-    })
-    expect(drillDown(base, 'year', '2027')).toMatchObject({ from: '2027-01', to: '2027-02' })
-    expect(drillDown(base, 'year', '2026')).toMatchObject({ from: '2026-12', to: '2026-12' })
-    expect(drillDown(base, 'group', 'Contas').category).toBe('g:Contas')
-    expect(drillDown(base, 'group', '').category).toBe('')
-    expect(drillDown(base, 'category', 'cat-net').category).toBe('cat-net')
-    expect(drillDown(base, 'account', 'nucc').account).toBe('nucc')
-    expect(drillDown(base, 'bank', 'nu').account).toBe('b:nu')
-    expect(drillDown(base, 'bank', '').account).toBe('')
-    expect(drillDown(base, 'pot', 'comfort').pot).toBe('comfort')
-    expect(drillDown(base, 'pot', '').pot).toBe('')
-    expect(drillDown(base, 'description', 'Luz').text).toBe('Luz')
   })
 })
 

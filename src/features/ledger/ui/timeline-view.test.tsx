@@ -218,6 +218,10 @@ describe('TimelineView', () => {
       }),
     )
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    // Keys on the checkbox stay there too: Enter never opens the row's editor.
+    screen.getByRole('checkbox', { name: 'Pago: Avulso' }).focus()
+    await userEvent.keyboard('{Enter}')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('checkbox', { name: 'Recebido: Salário (Saldo)' }))
     await waitFor(() => expect(markPaidAction).toHaveBeenCalledTimes(2))

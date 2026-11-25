@@ -1,17 +1,21 @@
-import { defaultSearchQuery, type SearchQuery } from '@/features/ledger/core/search'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import {
+  EMPTY_SEARCH_QUERY,
+  parseSearchQuery,
+  SEARCH_QUERY_COOKIE,
+  type SearchQuery,
+} from '@/features/ledger/core/search'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { LedgerShell } from './ledger-shell'
 import { SearchView } from './search-view'
 import { IDS, sampleData, sampleDataWithBenefit, sampleRefs } from './test-fixtures'
 
-const replace = vi.fn<(href: string, options?: unknown) => void>()
 vi.mock('@/features/ledger/adapters/actions/undo', () => ({
   undoAction: vi.fn(),
   forgetUndoAction: vi.fn(),
 }))
-vi.mock('next/navigation', () => ({ useRouter: () => ({ replace, refresh: vi.fn() }) }))
+vi.mock('next/navigation', () => ({ useRouter: () => ({ replace: vi.fn(), refresh: vi.fn() }) }))
 vi.mock('@/features/ledger/adapters/actions/entries', () => ({
   createEntryAction: vi.fn(),
   updateEntryAction: vi.fn(),
@@ -19,152 +23,239 @@ vi.mock('@/features/ledger/adapters/actions/entries', () => ({
   changeDayAction: vi.fn(),
 }))
 
-const START = '2026-12'
-const MONTHS = ['2026-11', '2026-12', '2027-01', '2027-02']
-const base: SearchQuery = { ...defaultSearchQuery(START), to: '2027-01' }
+const TODAY = '2026-12-15'
 
 function renderSearch(query: Partial<SearchQuery> = {}, data = sampleData()) {
   return render(
     <LedgerShell refs={sampleRefs()}>
-      <SearchView data={data} query={{ ...base, ...query }} start={START} months={MONTHS} />
+      <SearchView data={data} initialQuery={{ ...EMPTY_SEARCH_QUERY, ...query }} today={TODAY} />
     </LedgerShell>,
   )
 }
 
-function lastHref(): string {
-  return replace.mock.calls.at(-1)?.[0] ?? ''
+function list() {
+  return screen.getByRole('list')
 }
 
-afterEach(() => vi.clearAllMocks())
+function rows() {
+  return within(list()).getAllByRole('listitem')
+}
+
+/** The query remembered in the cookie. */
+function remembered(): SearchQuery {
+  const raw = document.cookie
+    .split('; ')
+    .find((c) => c.startsWith(`${SEARCH_QUERY_COOKIE}=`))
+    ?.slice(SEARCH_QUERY_COOKIE.length + 1)
+  return parseSearchQuery(raw === undefined ? undefined : decodeURIComponent(raw))
+}
+
+async function openFilters() {
+  await userEvent.click(screen.getByRole('button', { name: /Filtros/ }))
+}
+
+// The cookie is scoped to the page's path.
+beforeEach(() => window.history.replaceState(null, '', '/painel/lancamentos'))
+
+afterEach(() => {
+  vi.clearAllMocks()
+  document.cookie = `${SEARCH_QUERY_COOKIE}=; Path=/painel/lancamentos; Max-Age=0`
+})
 
 describe('SearchView', () => {
-  it('shows totals and the month groups', () => {
+  it('lists the whole ledger, newest first, paged', async () => {
     renderSearch()
-    expect(screen.getAllByRole('definition')[0]).toHaveTextContent('11')
-    const table = screen.getByRole('table')
-    expect(within(table).getByText('dez/26')).toBeInTheDocument()
-    expect(within(table).getByText('jan/27')).toBeInTheDocument()
-    expect(screen.getByText('dez/26 a jan/27')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Lançamentos' })).toBeInTheDocument()
+    expect(rows()).toHaveLength(50)
+    const iso = rows().map((r) => {
+      const d = r.textContent?.match(/\d{2}\/\d{2}\/\d{2}/)?.[0] ?? ''
+      return `${d.slice(6, 8)}${d.slice(3, 5)}${d.slice(0, 2)}`
+    })
+    expect(iso).toEqual([...iso].sort().reverse())
+    await userEvent.click(screen.getByRole('button', { name: 'Próxima página' }))
+    expect(rows().length).toBeGreaterThan(0)
   })
 
-  it('drills down from a group into its occurrences', async () => {
+  it('creates an entry from beside the title', async () => {
     renderSearch()
+    await userEvent.click(screen.getByRole('button', { name: 'Criar' }))
+    expect(await screen.findByRole('dialog', { name: 'Novo lançamento' })).toBeInTheDocument()
+  })
+
+  it('sums what the filters left under the title', () => {
+    renderSearch({ text: 'luz', from: '2026-12-01', to: '2026-12-31' })
+    const summary = screen.getByRole('status', { name: 'Resumo' })
+    expect(summary).toHaveTextContent('1 lançamento')
+    expect(summary).toHaveTextContent('Saídas-R$ 260,00')
+    expect(summary).toHaveTextContent('Saldo-R$ 260,00')
+  })
+
+  it('sorts oldest first when asked', async () => {
+    renderSearch()
+    await openFilters()
+    await userEvent.click(screen.getByLabelText('Ordenar'))
+    await userEvent.click(await screen.findByRole('option', { name: 'Mais antigos primeiro' }))
+    expect(remembered().sort).toBe('asc')
+    const iso = rows().map((r) => {
+      const d = r.textContent?.match(/\d{2}\/\d{2}\/\d{2}/)?.[0] ?? ''
+      return `${d.slice(6, 8)}${d.slice(3, 5)}${d.slice(0, 2)}`
+    })
+    expect(iso).toEqual([...iso].sort())
     await userEvent.click(
-      screen.getAllByRole('button', { name: 'ver lançamentos' })[1] ?? document.body,
+      screen.getByRole('button', { name: 'Remover filtro Mais antigos primeiro' }),
     )
-    expect(lastHref()).toBe('/painel/lancamentos?de=2027-01&ate=2027-01&agrupar=none')
+    expect(remembered().sort).toBe('desc')
   })
 
-  it('lists occurrences when not grouped and opens one in the sheet', async () => {
-    renderSearch({ group: 'none', kind: 'transfer' })
-    expect(screen.getAllByText('interna')).toHaveLength(2)
-    await userEvent.click(screen.getAllByText('Para o Nubank')[0] ?? document.body)
+  it('reaches far-future days', () => {
+    renderSearch({ from: '2030-01-01', to: '2030-12-31', text: 'luz' })
+    expect(rows()).toHaveLength(12)
+    expect(rows().every((r) => r.textContent?.includes('/30'))).toBe(true)
+  })
+
+  it('opens an occurrence in the sheet', async () => {
+    renderSearch({ kind: 'transfer' })
+    expect(within(list()).getAllByText('interna').length).toBeGreaterThan(0)
+    await userEvent.click(within(list()).getAllByText('Para o Nubank')[0] ?? document.body)
     expect(await screen.findByRole('dialog', { name: 'Editar lançamento' })).toBeInTheDocument()
   })
 
   it('values transfers inside the filtered account', () => {
-    renderSearch({ group: 'none', account: IDS.nucc })
+    renderSearch({ account: IDS.nucc, kind: 'transfer' })
     expect(screen.queryByText('interna')).not.toBeInTheDocument()
     expect(screen.getAllByText('R$ 400,00').length).toBeGreaterThan(0)
   })
 
-  it('shows installments, parts and pots in the list', () => {
-    renderSearch({ group: 'none' })
+  it('shows installments and parts on each row', () => {
+    renderSearch({ to: '2026-12-31' })
     expect(screen.getByText('1/12')).toBeInTheDocument()
     expect(screen.getAllByText('Adiantamento').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Essencial').length).toBeGreaterThan(0)
   })
 
-  it('tints each row with the color of its pot', () => {
-    renderSearch({ group: 'none' })
-    const rows = screen.getAllByRole('row')
-    const essential = rows.find((r) => r.textContent?.includes('Essencial'))
-    expect(essential).toHaveAttribute('data-pot', 'essential')
-    expect(essential).toHaveClass('bg-violet-500/10')
-    const income = rows.find((r) => r.textContent?.includes('Salário'))
-    expect(income).toBeDefined()
-    expect(income).not.toHaveAttribute('data-pot')
+  it('filters while typing and remembers the search', async () => {
+    renderSearch()
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Buscar lançamentos' }), 'luz')
+    expect(rows().every((r) => r.textContent?.includes('Luz'))).toBe(true)
+    expect(remembered().text).toBe('luz')
   })
 
-  it('filters by money bucket through the URL', async () => {
-    renderSearch({ group: 'none' }, sampleDataWithBenefit())
-    expect(screen.getAllByText('Mercado VA').length).toBeGreaterThan(0)
-    await userEvent.click(screen.getByLabelText('Dinheiro'))
-    await userEvent.click(await screen.findByRole('option', { name: 'Disponível' }))
-    expect(lastHref()).toContain('dinheiro=available')
+  it('starts from the query this browser left', () => {
+    renderSearch({ text: 'luz' })
+    expect(screen.getByRole('searchbox', { name: 'Buscar lançamentos' })).toHaveValue('luz')
+    expect(rows().every((r) => r.textContent?.includes('Luz'))).toBe(true)
+  })
+
+  it('filters by day range', async () => {
+    renderSearch()
+    await openFilters()
+    await userEvent.type(screen.getByLabelText('De'), '01/01/2027')
+    await userEvent.type(screen.getByLabelText('Até'), '31/01/2027')
+    expect(remembered()).toMatchObject({ from: '2027-01-01', to: '2027-01-31' })
+    expect(rows().every((r) => r.textContent?.includes('/01/27'))).toBe(true)
+    expect(
+      screen.getByRole('button', { name: 'Remover filtro 01/01/27 a 31/01/27' }),
+    ).toBeInTheDocument()
+  })
+
+  it('keeps Até on or after De', async () => {
+    renderSearch({ from: '2026-12-01', to: '2027-01-31' })
+    await openFilters()
+    expect(screen.getByLabelText('De')).toHaveValue('01/12/2026')
+    expect(screen.getByLabelText('Até')).toHaveValue('31/01/2027')
+    await userEvent.clear(screen.getByLabelText('Até'))
+    await userEvent.type(screen.getByLabelText('Até'), '01/11/2026')
+    expect(remembered()).toMatchObject({ from: '2026-12-01', to: '2026-12-01' })
+  })
+
+  it('remembers the filters behind the Filtros button', async () => {
+    renderSearch()
+    expect(screen.queryByLabelText('Tipo')).not.toBeInTheDocument()
+    await openFilters()
+    const pick = async (field: string, option: string) => {
+      await userEvent.click(screen.getByLabelText(field))
+      await userEvent.click(await screen.findByRole('option', { name: option }))
+    }
+    await pick('Tipo', 'Saídas')
+    await pick('Pote', 'Conforto')
+    await pick('Tag', '#casa')
+    await pick('Categoria', 'Contas (todas)')
+    await pick('Banco ou conta', 'Nubank (todas)')
+    await pick('Status', 'Não pagos')
+    await pick('Dinheiro', 'Disponível')
+    expect(remembered()).toMatchObject({
+      kind: 'expense',
+      pot: 'comfort',
+      tag: 'casa',
+      category: 'g:Contas',
+      account: `b:${IDS.nu}`,
+      status: 'unpaid',
+      money: 'available',
+    })
+  })
+
+  it('goes back to every pot with Todos', async () => {
+    renderSearch({ pot: 'comfort' })
+    await openFilters()
+    await userEvent.click(screen.getByLabelText('Pote'))
+    await userEvent.click(await screen.findByRole('option', { name: 'Todos' }))
+    expect(remembered().pot).toBe('')
+  })
+
+  it('counts the filters in use on the button', () => {
+    renderSearch({ text: 'luz', kind: 'expense', status: 'paid', from: '2027-01-01' })
+    expect(screen.getByRole('button', { name: /Filtros/ })).toHaveTextContent('Filtros3')
   })
 
   it('lists only benefit occurrences with Benefícios', () => {
-    renderSearch({ group: 'none', money: 'benefit' }, sampleDataWithBenefit())
+    renderSearch({ money: 'benefit' }, sampleDataWithBenefit())
     expect(screen.getAllByText('Mercado VA').length).toBeGreaterThan(0)
     expect(screen.queryByText('Luz')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Remover filtro Benefícios' })).toBeInTheDocument()
   })
 
-  it('updates the URL from the filters', async () => {
-    renderSearch()
-    await userEvent.click(screen.getByLabelText('Tipo'))
-    await userEvent.click(await screen.findByRole('option', { name: 'Saídas' }))
-    expect(lastHref()).toContain('tipo=expense')
-
-    await userEvent.click(screen.getByLabelText('Agrupar por'))
-    await userEvent.click(await screen.findByRole('option', { name: 'Categoria' }))
-    expect(lastHref()).toContain('agrupar=category')
-
-    await userEvent.click(screen.getByLabelText('De'))
-    await userEvent.click(await screen.findByRole('option', { name: 'fev/27' }))
-    expect(lastHref()).toContain('de=2027-02&ate=2027-02')
-
-    await userEvent.click(screen.getByLabelText('Pote'))
-    await userEvent.click(await screen.findByRole('option', { name: 'Conforto' }))
-    expect(lastHref()).toContain('pote=comfort')
-
-    await userEvent.click(screen.getByLabelText('Tag'))
-    await userEvent.click(await screen.findByRole('option', { name: '#casa' }))
-    expect(lastHref()).toContain('tag=casa')
-
-    await userEvent.click(screen.getByLabelText('Categoria'))
-    await userEvent.click(await screen.findByRole('option', { name: 'Contas (todas)' }))
-    expect(lastHref()).toContain('categoria=g%3AContas')
-
-    await userEvent.click(screen.getByLabelText('Banco ou conta'))
-    await userEvent.click(await screen.findByRole('option', { name: 'Nubank (todas)' }))
-    expect(lastHref()).toContain(`conta=b%3A${IDS.nu}`)
-
-    await userEvent.click(screen.getByLabelText('Status'))
-    await userEvent.click(await screen.findByRole('option', { name: 'Não pagos' }))
-    expect(lastHref()).toContain('status=unpaid')
-
-    await userEvent.click(screen.getByLabelText('Até'))
-    await userEvent.click(await screen.findByRole('option', { name: 'fev/27' }))
-    expect(lastHref()).toContain('ate=2027-02')
+  it('marks paid and received occurrences', () => {
+    const data = sampleData()
+    renderSearch(
+      { to: '2026-12-31' },
+      {
+        ...data,
+        payments: [
+          { entryId: IDS.power, month: '2026-12', partId: null, paidOn: '2026-12-15' },
+          {
+            entryId: IDS.salary,
+            month: '2026-12',
+            partId: data.parts[0]?.id ?? null,
+            paidOn: '2026-12-20',
+          },
+        ],
+      },
+    )
+    expect(within(list()).getByText('Pago')).toBeInTheDocument()
+    expect(within(list()).getByText('Recebido')).toBeInTheDocument()
   })
 
-  it('debounces the text filter and submits it on Enter', async () => {
-    renderSearch()
-    await userEvent.type(screen.getByLabelText('Descrição contém'), 'luz')
-    await waitFor(() => expect(lastHref()).toContain('q=luz'))
-    replace.mockClear()
-    await userEvent.type(screen.getByLabelText('Descrição contém'), '{Enter}')
-    expect(lastHref()).toContain('q=luz')
+  it('clears one or every filter, keeping the search', async () => {
+    renderSearch({ text: 'luz', kind: 'expense', status: 'paid', from: '2026-12-01' })
+    await userEvent.click(screen.getByRole('button', { name: 'Remover filtro Pagos' }))
+    expect(remembered().status).toBe('')
+    await userEvent.click(screen.getByRole('button', { name: 'Remover filtro Desde 01/12/26' }))
+    expect(remembered().from).toBe('')
+    await userEvent.click(screen.getByRole('button', { name: 'Limpar filtros' }))
+    expect(remembered()).toEqual({ ...EMPTY_SEARCH_QUERY, text: 'luz' })
   })
 
-  it('clears one or every filter', async () => {
-    renderSearch({ text: 'luz', kind: 'expense', tag: 'casa', status: 'paid' })
-    expect(screen.getByRole('button', { name: 'Remover filtro Pagos' })).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Remover filtro "luz"' }))
-    expect(lastHref()).not.toContain('q=')
-    await userEvent.click(screen.getByRole('button', { name: 'limpar filtros' }))
-    expect(lastHref()).toBe('/painel/lancamentos?de=2026-12&ate=2027-01')
+  it('resets the filters from the popover', async () => {
+    renderSearch({ pot: 'comfort' })
+    await openFilters()
+    const clear = screen.getAllByRole('button', { name: 'Limpar filtros' }).at(-1)
+    await userEvent.click(clear ?? document.body)
+    expect(remembered()).toEqual(EMPTY_SEARCH_QUERY)
   })
 
-  it('says when nothing matches', () => {
-    renderSearch({ text: 'inexistente' })
-    expect(screen.getByText('Nenhum lançamento encontrado.')).toBeInTheDocument()
-  })
-
-  it('says when nothing matches in the list', () => {
-    renderSearch({ text: 'inexistente', group: 'none' })
-    expect(screen.getByText('Nenhum lançamento encontrado.')).toBeInTheDocument()
+  it('tells nothing matched apart from an empty ledger', () => {
+    const { unmount } = renderSearch({ text: 'inexistente' })
+    expect(screen.getByText('Nenhum lançamento encontrado')).toBeInTheDocument()
+    unmount()
+    renderSearch({}, { ...sampleData(), entries: [] })
+    expect(screen.getByText('Nenhum lançamento ainda')).toBeInTheDocument()
   })
 })

@@ -17,6 +17,24 @@ test.describe('signed in', () => {
     }
   })
 
+  test('the space menu holds the account, the settings and sign-out', async ({ page, user }) => {
+    await page.goto('/painel')
+    await page
+      .getByRole('button', { name: 'Espaço: Pessoal. Trocar de espaço e abrir a conta' })
+      .click()
+    const menu = page.getByRole('menu')
+    await expect(menu).toContainText(user.email)
+    await expect(menu.getByRole('menuitem', { name: 'Sair' })).toBeVisible()
+    await menu.getByRole('menuitem', { name: 'Configurações' }).click()
+    await expect(page).toHaveURL(/\/painel\/configuracoes$/)
+    await expect(page.getByRole('heading', { level: 1, name: 'Configurações' })).toBeVisible()
+    await expect(page.getByRole('region', { name: 'Conexões' })).toBeVisible()
+
+    // The old address still lands on the settings.
+    await page.goto('/painel/conexoes')
+    await expect(page).toHaveURL(/\/painel\/configuracoes/)
+  })
+
   test('/ sends a signed-in user to /painel', async ({ page }) => {
     await page.goto('/')
     await expect(page).toHaveURL(/\/painel$/)

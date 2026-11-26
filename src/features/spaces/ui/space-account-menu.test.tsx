@@ -1,9 +1,10 @@
 import type { ActionResult } from '@/features/ledger/core/action-result'
 import type { Space } from '@/features/spaces/core/space'
+import { DropdownMenuItem, SidebarProvider } from '@cbrl/design'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { SpaceBadge, SpaceSwitcher } from './space-switcher'
+import { SpaceAccountMenu, SpaceBadge } from './space-account-menu'
 
 const actions = {
   switchSpaceAction: vi.fn<(input: unknown) => Promise<ActionResult>>(),
@@ -42,9 +43,20 @@ const OLD: Space = {
 afterEach(() => vi.resetAllMocks())
 
 async function openMenu(current: Space) {
-  render(<SpaceSwitcher current={current} spaces={[SHOP, PERSONAL, OLD]} />)
+  render(
+    <SidebarProvider>
+      <SpaceAccountMenu
+        account={{ name: null, email: 'ana@example.test', avatarUrl: null }}
+        spaces={{ current, all: [SHOP, PERSONAL, OLD] }}
+      >
+        <DropdownMenuItem>Sair</DropdownMenuItem>
+      </SpaceAccountMenu>
+    </SidebarProvider>,
+  )
   await userEvent.click(
-    screen.getByRole('button', { name: `Espaço: ${current.name}. Trocar de espaço` }),
+    screen.getByRole('button', {
+      name: `Espaço: ${current.name}. Trocar de espaço e abrir a conta`,
+    }),
   )
 }
 
@@ -57,12 +69,12 @@ describe('SpaceBadge', () => {
   })
 })
 
-describe('SpaceSwitcher', () => {
+describe('SpaceAccountMenu', () => {
   it('lists the active spaces, personal first, and switches to another one', async () => {
     actions.switchSpaceAction.mockResolvedValue({ ok: true })
     await openMenu(PERSONAL)
     const items = screen.getAllByRole('menuitem').map((i) => i.textContent?.trim())
-    expect(items).toEqual(['Pessoal', 'LojaEmpresa', 'Novo espaço…'])
+    expect(items).toEqual(['Pessoal', 'LojaEmpresa', 'Novo espaço…', 'Sair'])
     expect(screen.getByLabelText('atual')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('menuitem', { name: /Loja/ }))
     await waitFor(() => expect(actions.switchSpaceAction).toHaveBeenCalledWith(SHOP.id))
@@ -98,6 +110,25 @@ describe('SpaceSwitcher', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Arquivar' }))
     await waitFor(() => expect(actions.archiveSpaceAction).toHaveBeenCalledWith(SHOP.id))
     expect(toast.error).toHaveBeenCalledWith('Espaço não encontrado.')
+  })
+
+  it('shows the account (avatar, name, e-mail) without spaces when they are unknown', async () => {
+    render(
+      <SidebarProvider>
+        <SpaceAccountMenu
+          account={{ name: 'Ana Souza', email: 'ana@example.test', avatarUrl: 'https://a/p.png' }}
+          spaces={null}
+        >
+          <DropdownMenuItem>Sair</DropdownMenuItem>
+        </SpaceAccountMenu>
+      </SidebarProvider>,
+    )
+    const trigger = screen.getByRole('button', { name: 'Conta' })
+    expect(trigger).toHaveTextContent('FluxiAna Souza')
+    await userEvent.click(trigger)
+    const menu = await screen.findByRole('menu')
+    expect(menu).toHaveTextContent('Ana Souzaana@example.test')
+    expect(screen.getAllByRole('menuitem').map((i) => i.textContent)).toEqual(['Sair'])
   })
 
   it('offers no archive for the personal space', async () => {

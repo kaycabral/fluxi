@@ -28,7 +28,9 @@ test.describe('spaces (Pessoal × Empresa)', () => {
     await expect(page.getByLabel('Espaço atual: Pessoal')).toBeVisible()
 
     // "Novo espaço…" creates the space and switches to it.
-    await page.getByRole('button', { name: 'Espaço: Pessoal. Trocar de espaço' }).click()
+    await page
+      .getByRole('button', { name: 'Espaço: Pessoal. Trocar de espaço e abrir a conta' })
+      .click()
     await page.getByRole('menuitem', { name: 'Novo espaço…' }).click()
     const dialog = page.getByRole('dialog', { name: 'Novo espaço' })
     await dialog.getByLabel('Nome').fill(SPACE)
@@ -73,7 +75,9 @@ test.describe('spaces (Pessoal × Empresa)', () => {
     await expect(page.getByText('Nota fiscal E2E')).toBeVisible()
 
     // Back in Pessoal: nothing of the business space is there.
-    await page.getByRole('button', { name: `Espaço: ${SPACE}. Trocar de espaço` }).click()
+    await page
+      .getByRole('button', { name: `Espaço: ${SPACE}. Trocar de espaço e abrir a conta` })
+      .click()
     await page.getByRole('menuitem', { name: /Pessoal/ }).click()
     await expect(page.getByLabel('Espaço atual: Pessoal')).toBeVisible()
     await expect(page.getByText('Nota fiscal E2E')).toHaveCount(0)

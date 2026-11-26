@@ -2,7 +2,8 @@ import { sampleData, sampleRefs } from '@/features/ledger/ui/test-fixtures'
 import { render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import CalendarPage from './(app)/calendario/page'
-import ConnectionsPage from './(app)/conexoes/page'
+import ConnectionsRedirect from './(app)/conexoes/page'
+import SettingsPage from './(app)/configuracoes/page'
 import SearchPage from './(app)/lancamentos/page'
 import AppLayout from './(app)/layout'
 import BudgetPage from './(app)/orcamento/page'
@@ -49,6 +50,9 @@ vi.mock('@/features/spaces/adapters/actions/spaces', () => ({
 }))
 const getServerUser = vi.fn<() => Promise<{ id: string } | null>>()
 vi.mock('@/lib/auth/server', () => ({ getServerUser: () => getServerUser() }))
+type TestProfile = { id: string; displayName: string | null; avatarUrl: string | null }
+const getProfile = vi.fn<() => Promise<TestProfile | null>>()
+vi.mock('@/lib/db', () => ({ getProfile: () => getProfile() }))
 const redirect = vi.fn<(url: string) => never>()
 const notFound = vi.fn<() => never>()
 vi.mock('next/navigation', () => ({
@@ -124,8 +128,21 @@ vi.mock('@/features/ledger/ui/ledger-shell', () => ({
 }))
 vi.mock('./_components/topbar', () => ({ Topbar: () => <header>topbar</header> }))
 vi.mock('./_components/app-sidebar', () => ({
-  AppSidebar: ({ children, defaultOpen }: { children: React.ReactNode; defaultOpen: boolean }) => (
-    <div aria-label="menu lateral" role="region" data-open={String(defaultOpen)}>
+  AppSidebar: ({
+    children,
+    defaultOpen,
+    account,
+  }: {
+    children: React.ReactNode
+    defaultOpen: boolean
+    account: { name: string | null; email: string | null; avatarUrl: string | null }
+  }) => (
+    <div
+      aria-label="menu lateral"
+      role="region"
+      data-open={String(defaultOpen)}
+      data-account={JSON.stringify(account)}
+    >
       {children}
     </div>
   ),
@@ -140,6 +157,7 @@ beforeEach(() => {
   views.loadBudgetPlans.mockResolvedValue(ok([{}, {}]))
   views.loadAccountBalances.mockResolvedValue(ok({ firstMonth: '2026-11' }))
   getServerUser.mockResolvedValue({ id: 'u1' })
+  getProfile.mockResolvedValue({ id: 'u1', displayName: 'Ana', avatarUrl: null })
   getServerScope.mockResolvedValue(SCOPE)
   listFeedItems.mockResolvedValue([])
 })
@@ -176,19 +194,28 @@ describe('painel pages', () => {
     expect(views.loadAccountBalances).toHaveBeenCalledWith(SCOPE, '2026-11', '2027-11')
   })
 
-  it('connections list the user’s bank connections with the spaces to route them to', async () => {
+  it('settings list the user’s connections with the spaces to route them to', async () => {
     listFeedItems.mockResolvedValueOnce([
-      { itemId: 'i1', label: 'Nubank', spaceId: 's1', accounts: ['Conta'] },
+      { itemId: 'i1', label: 'Nubank', spaceId: 's1', accounts: ['Conta'], transactionCount: 2 },
     ])
-    render(await ConnectionsPage())
-    expect(screen.getByRole('heading', { name: 'Conexões bancárias' })).toBeInTheDocument()
+    render(await SettingsPage())
+    expect(screen.getByRole('heading', { level: 1, name: 'Configurações' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Conexões' })).toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: 'Espaço de Nubank' })).toHaveTextContent('Pessoal')
   })
 
-  it('connections degrade when the backend is unavailable', async () => {
+  it('settings degrade when the backend is unavailable', async () => {
     listFeedItems.mockRejectedValueOnce(new Error('db down'))
-    render(await ConnectionsPage())
+    render(await SettingsPage())
     expect(screen.getByRole('button', { name: 'Tentar de novo' })).toBeInTheDocument()
+  })
+
+  it('the old connections page leads to the settings', () => {
+    redirect.mockImplementation(() => {
+      throw new Error('redirected')
+    })
+    expect(() => ConnectionsRedirect()).toThrow('redirected')
+    expect(redirect).toHaveBeenLastCalledWith('/painel/configuracoes#conexoes')
   })
 
   it('budget loads the whole ledger and the budget versions', async () => {
@@ -300,6 +327,34 @@ describe('painel layouts', () => {
       'false',
     )
     sidebarCookie = undefined
+  })
+
+  it('the menu shows the profile, falling back to the session claims', async () => {
+    const session = { id: 'u1', email: 'ana@x.test', name: 'Ana G', avatarUrl: 'https://a/p.png' }
+    getServerUser.mockResolvedValue(session)
+    const { unmount } = render(await AppLayout({ children: null }))
+    expect(
+      JSON.parse(
+        screen.getByRole('region', { name: 'menu lateral' }).getAttribute('data-account') ?? '',
+      ),
+    ).toEqual({ name: 'Ana', email: 'ana@x.test', avatarUrl: 'https://a/p.png' })
+    unmount()
+    getProfile.mockRejectedValue(new Error('db down'))
+    render(await AppLayout({ children: null }))
+    expect(
+      JSON.parse(
+        screen.getByRole('region', { name: 'menu lateral' }).getAttribute('data-account') ?? '',
+      ),
+    ).toEqual({ name: 'Ana G', email: 'ana@x.test', avatarUrl: 'https://a/p.png' })
+  })
+
+  it('the menu is empty without a session', async () => {
+    getServerUser.mockResolvedValue(null)
+    render(await AppLayout({ children: null }))
+    expect(screen.getByRole('region', { name: 'menu lateral' })).toHaveAttribute(
+      'data-account',
+      JSON.stringify({ name: null, email: null, avatarUrl: null }),
+    )
   })
 
   it('the legacy layout keeps the top navigation and the footer', () => {

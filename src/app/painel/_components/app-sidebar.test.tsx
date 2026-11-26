@@ -1,7 +1,7 @@
 import { LedgerShell } from '@/features/ledger/ui/ledger-shell'
 import { sampleRefs } from '@/features/ledger/ui/test-fixtures'
 import type { Space } from '@/features/spaces/core/space'
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { AppSidebar } from './app-sidebar'
@@ -39,6 +39,7 @@ function renderSidebar(legacyScreens = true, defaultOpen = true, current: Space 
       <AppSidebar
         legacyScreens={legacyScreens}
         defaultOpen={defaultOpen}
+        account={{ name: 'Ana Souza', email: 'ana@example.test', avatarUrl: null }}
         spaces={current === null ? null : { current, all: [PERSONAL, WORK] }}
       >
         <p>conteúdo</p>
@@ -62,44 +63,62 @@ describe('AppSidebar', () => {
     expect(links[1]).toHaveAttribute('href', '/painel/calendario')
     expect(links[0]).toHaveAttribute('data-active', 'true')
     expect(screen.getByText('conteúdo')).toBeInTheDocument()
+    // Following a link closes the mobile sheet (a no-op on desktop).
+    fireEvent.click(within(nav).getByRole('link', { name: 'Calendário' }))
   })
 
-  it('leads back to the old screens and signs out', async () => {
+  it('opens one menu with the account, the spaces and the account actions', async () => {
     renderSidebar()
-    expect(screen.getByRole('link', { name: 'Telas antigas' })).toHaveAttribute(
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Espaço: Pessoal. Trocar de espaço e abrir a conta' }),
+    )
+    const menu = await screen.findByRole('menu')
+    expect(menu).toHaveTextContent('Ana Souza')
+    expect(menu).toHaveTextContent('ana@example.test')
+    expect(within(menu).getByText('AS')).toBeInTheDocument()
+    expect(
+      within(menu)
+        .getAllByRole('menuitem')
+        .map((i) => i.textContent?.trim()),
+    ).toEqual(['Pessoal', 'LojaEmpresa', 'Novo espaço…', 'Configurações', 'Telas antigas', 'Sair'])
+    expect(within(menu).getByRole('menuitem', { name: 'Configurações' })).toHaveAttribute(
+      'href',
+      '/painel/configuracoes',
+    )
+    expect(within(menu).getByRole('menuitem', { name: 'Telas antigas' })).toHaveAttribute(
       'href',
       '/painel/linha-do-tempo',
     )
-    await userEvent.click(screen.getByRole('button', { name: 'Sair' }))
+    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Sair' }))
     expect(signOut).toHaveBeenCalledOnce()
   })
 
-  it('shows the current space in the header and the switcher on top of the sidebar', () => {
+  it('shows the current space in the header and as the menu trigger', () => {
     renderSidebar(true, true, WORK)
     const badge = screen.getByLabelText('Espaço atual: Loja')
     expect(within(badge).getByText('Empresa')).toBeInTheDocument()
     expect(
-      screen.getByRole('button', { name: 'Espaço: Loja. Trocar de espaço' }),
-    ).toBeInTheDocument()
+      screen.getByRole('button', { name: 'Espaço: Loja. Trocar de espaço e abrir a conta' }),
+    ).toHaveTextContent('LojaEmpresa')
   })
 
-  it('leaves the space out when the spaces could not be read', () => {
+  it('keeps the account menu when the spaces could not be read', async () => {
     renderSidebar(true, true, null)
     expect(screen.queryByLabelText(/Espaço atual/)).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Trocar de espaço/ })).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Conta' }))
+    const menu = await screen.findByRole('menu')
+    expect(
+      within(menu)
+        .getAllByRole('menuitem')
+        .map((i) => i.textContent?.trim()),
+    ).toEqual(['Configurações', 'Telas antigas', 'Sair'])
   })
 
-  it('links to the bank connections', () => {
-    renderSidebar()
-    expect(screen.getByRole('link', { name: 'Conexões bancárias' })).toHaveAttribute(
-      'href',
-      '/painel/conexoes',
-    )
-  })
-
-  it('hides the old screens when they are off (production)', () => {
+  it('hides the old screens when they are off (production)', async () => {
     renderSidebar(false)
-    expect(screen.queryByRole('link', { name: 'Telas antigas' })).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /Trocar de espaço/ }))
+    await screen.findByRole('menu')
+    expect(screen.queryByRole('menuitem', { name: 'Telas antigas' })).not.toBeInTheDocument()
   })
 
   it('creates an entry from the header', async () => {
@@ -108,19 +127,23 @@ describe('AppSidebar', () => {
     expect(await screen.findByRole('dialog', { name: 'Novo lançamento' })).toBeInTheDocument()
   })
 
-  it('remembers each toggle of the sidebar in this browser', async () => {
+  it('has no collapse button in the header besides the mobile-only trigger', () => {
+    renderSidebar()
+    const header = screen.getByRole('banner')
+    const toggle = within(header).getByRole('button', { name: 'Abrir menu' })
+    expect(toggle).toHaveClass('md:hidden')
+    expect(within(header).getAllByRole('button')).toHaveLength(2)
+  })
+
+  it('remembers each toggle of the sidebar (rail) in this browser', async () => {
     window.history.replaceState(null, '', '/painel')
     const { unmount } = renderSidebar(true, false)
-    // Started collapsed (as the cookie said), so the toggle expands it.
-    await userEvent.click(
-      screen.getAllByRole('button', { name: 'Toggle Sidebar' })[0] ?? document.body,
-    )
+    // Started collapsed (as the cookie said), so the rail expands it.
+    await userEvent.click(screen.getByRole('button', { name: 'Toggle Sidebar' }))
     expect(document.cookie).toContain('fluxi_sidebar=open')
     unmount()
     renderSidebar()
-    await userEvent.click(
-      screen.getAllByRole('button', { name: 'Toggle Sidebar' })[0] ?? document.body,
-    )
+    await userEvent.click(screen.getByRole('button', { name: 'Toggle Sidebar' }))
     expect(document.cookie).toContain('fluxi_sidebar=collapsed')
   })
 

@@ -16,6 +16,9 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
   Badge,
   Button,
   cn,
@@ -27,14 +30,17 @@ import {
   DialogTitle,
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  initials,
   Input,
   Label,
+  SidebarMenuButton,
 } from '@cbrl/design'
-import { Archive, Briefcase, Check, ChevronDown, Plus, User } from 'lucide-react'
+import { Archive, Briefcase, Check, ChevronsUpDown, Plus, User } from 'lucide-react'
 import { useState } from 'react'
 
 /** Icon of a space kind: a person for "Pessoal", a briefcase for "Empresa". */
@@ -72,84 +78,158 @@ export function SpaceBadge({ space }: { space: Space }) {
   )
 }
 
+/** Who is signed in, as the account menu shows it. */
+export type MenuAccount = { name: string | null; email: string | null; avatarUrl: string | null }
+
 /**
- * "Pessoal ▾": switches between the user's spaces (each a separate ledger),
- * creates a new one and archives the current business space.
+ * The one menu at the top-left of the sidebar (Notion-like): the trigger is
+ * the current space; the menu shows the account (avatar, name, e-mail), the
+ * user's spaces (switch, "Novo espaço…", archive the current business one)
+ * and then the account actions passed as `children` (settings, sign-out).
+ * Without `spaces` (backend unavailable) only the account part is shown.
  */
-export function SpaceSwitcher({ current, spaces }: { current: Space; spaces: readonly Space[] }) {
+export function SpaceAccountMenu({
+  account,
+  spaces,
+  children,
+}: {
+  account: MenuAccount
+  spaces: { current: Space; all: readonly Space[] } | null
+  children: React.ReactNode
+}) {
   const [creating, setCreating] = useState(false)
   const [archiving, setArchiving] = useState(false)
   const [pending, run] = useAction()
+  const current = spaces?.current ?? null
   const select = (space: Space) => {
-    if (space.id !== current.id) run(() => switchSpaceAction(space.id))
+    if (space.id !== current?.id) run(() => switchSpaceAction(space.id))
   }
 
   return (
     <>
-      <DropdownMenu>
+      <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full justify-between gap-2"
+          <SidebarMenuButton
+            size="lg"
             disabled={pending}
-            aria-label={`Espaço: ${current.name}. Trocar de espaço`}
+            aria-label={
+              current === null
+                ? 'Conta'
+                : `Espaço: ${current.name}. Trocar de espaço e abrir a conta`
+            }
+            className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
           >
-            <span className="flex min-w-0 items-center gap-2">
-              <SpaceIcon space={current} />
-              <span className="truncate">{current.name}</span>
+            {current === null ? (
+              <AccountAvatar account={account} />
+            ) : (
+              <span className="bg-sidebar-accent flex size-8 shrink-0 items-center justify-center rounded-md">
+                <SpaceIcon space={current} />
+              </span>
+            )}
+            <span className="flex min-w-0 flex-1 flex-col text-left">
+              <span className="truncate text-sm font-semibold">{current?.name ?? 'Fluxi'}</span>
+              <span className="text-muted-foreground truncate text-xs">
+                {current === null ? (account.name ?? 'Conta') : SPACE_KIND_LABELS[current.kind]}
+              </span>
             </span>
-            <ChevronDown aria-hidden className="size-4 opacity-60" />
-          </Button>
+            <ChevronsUpDown aria-hidden className="text-muted-foreground ml-auto size-4" />
+          </SidebarMenuButton>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="min-w-56">
-          <DropdownMenuLabel>Espaços</DropdownMenuLabel>
-          {switcherSpaces(spaces).map((space) => (
-            <DropdownMenuItem key={space.id} onSelect={() => select(space)}>
-              <SpaceIcon space={space} />
-              <span className="flex-1 truncate">{space.name}</span>
-              {space.kind === 'business' && (
-                <Badge variant="outline" className="text-xs">
-                  {SPACE_KIND_LABELS.business}
-                </Badge>
+        <DropdownMenuContent align="start" className="w-64">
+          <DropdownMenuLabel className="flex items-center gap-2 font-normal">
+            <AccountAvatar account={account} />
+            <span className="flex min-w-0 flex-col gap-0.5">
+              {account.name && <span className="truncate text-sm font-medium">{account.name}</span>}
+              {account.email && (
+                <span className="text-muted-foreground truncate text-xs">{account.email}</span>
               )}
-              {space.id === current.id && <Check aria-label="atual" className="size-4" />}
-            </DropdownMenuItem>
-          ))}
+            </span>
+          </DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={() => setCreating(true)}>
-            <Plus aria-hidden className="size-4" /> Novo espaço…
-          </DropdownMenuItem>
-          {current.kind === 'business' && (
-            <DropdownMenuItem onSelect={() => setArchiving(true)}>
-              <Archive aria-hidden className="size-4" /> Arquivar “{current.name}”…
-            </DropdownMenuItem>
+          {spaces !== null && current !== null && (
+            <>
+              <SpaceItems current={current} spaces={spaces.all} onSelect={select} />
+              <DropdownMenuItem onSelect={() => setCreating(true)}>
+                <Plus aria-hidden className="size-4" /> Novo espaço…
+              </DropdownMenuItem>
+              {current.kind === 'business' && (
+                <DropdownMenuItem onSelect={() => setArchiving(true)}>
+                  <Archive aria-hidden className="size-4" /> Arquivar “{current.name}”…
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
+            </>
           )}
+          {children}
         </DropdownMenuContent>
       </DropdownMenu>
       <NewSpaceDialog open={creating} onOpenChange={setCreating} />
-      <AlertDialog open={archiving} onOpenChange={setArchiving}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Arquivar “{current.name}”?</AlertDialogTitle>
-            <AlertDialogDescription>
-              O espaço sai da lista e você volta para o Pessoal. Nada é apagado.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => run(() => archiveSpaceAction(current.id), 'Espaço arquivado.')}
-            >
-              Arquivar
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {current !== null && (
+        <AlertDialog open={archiving} onOpenChange={setArchiving}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Arquivar “{current.name}”?</AlertDialogTitle>
+              <AlertDialogDescription>
+                O espaço sai da lista e você volta para o Pessoal. Nada é apagado.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => run(() => archiveSpaceAction(current.id), 'Espaço arquivado.')}
+              >
+                Arquivar
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </>
   )
 }
 
+function AccountAvatar({ account }: { account: MenuAccount }) {
+  return (
+    <Avatar size="default" className="rounded-md">
+      {account.avatarUrl ? (
+        <AvatarImage src={account.avatarUrl} alt={account.name ?? account.email ?? ''} />
+      ) : null}
+      <AvatarFallback className="rounded-md">
+        {initials(account.name, account.email)}
+      </AvatarFallback>
+    </Avatar>
+  )
+}
+
+function SpaceItems({
+  current,
+  spaces,
+  onSelect,
+}: {
+  current: Space
+  spaces: readonly Space[]
+  onSelect: (space: Space) => void
+}) {
+  return (
+    <DropdownMenuGroup aria-label="Espaços">
+      <DropdownMenuLabel className="text-muted-foreground text-xs font-normal">
+        Espaços
+      </DropdownMenuLabel>
+      {switcherSpaces(spaces).map((space) => (
+        <DropdownMenuItem key={space.id} onSelect={() => onSelect(space)}>
+          <SpaceIcon space={space} />
+          <span className="flex-1 truncate">{space.name}</span>
+          {space.kind === 'business' && (
+            <Badge variant="outline" className="text-xs">
+              {SPACE_KIND_LABELS.business}
+            </Badge>
+          )}
+          {space.id === current.id && <Check aria-label="atual" className="size-4" />}
+        </DropdownMenuItem>
+      ))}
+    </DropdownMenuGroup>
+  )
+}
 /** "Novo espaço…": a separate ledger (its own accounts, entries and budget) for a company. */
 function NewSpaceDialog({
   open,

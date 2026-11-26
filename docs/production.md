@@ -11,6 +11,8 @@ Runbook do ambiente de produção do fluxi: o que roda onde, como mudança chega
 | Funções (SSR, actions) | Vercel `gru1` (São Paulo), fixado em `vercel.json`                      |
 | Login                  | Só Google (provider Google do Supabase Auth)                            |
 | Migrations             | GitHub Actions, job `migrate-production` do `main.yml`                  |
+| Sync bancário (Pluggy) | Supabase Edge Function `pluggy-sync`, diária via `pg_cron` + `pg_net`   |
+| Deploy da função       | GitHub Actions, job `deploy-edge-functions` do `main.yml`               |
 
 **Ninguém acessa o banco de produção da própria máquina.** Dev local roda inteiro no stack Supabase em Docker (`pnpm db:start`); a URL do banco de prod existe só no secret do GitHub e nas envs da Vercel.
 
@@ -58,3 +60,53 @@ Runbook do ambiente de produção do fluxi: o que roda onde, como mudança chega
 - Providers: Google ligado; Email desligado.
 - Google Cloud: projeto próprio `fluxi`, OAuth client _Web_ `fluxi-supabase-production` (origin `https://fluxi-cbrl.vercel.app`; redirect URI `https://<ref>.supabase.co/auth/v1/callback`).
 - O app OAuth está **em produção** (publicado sem verificação: só escopos básicos, sem logotipo, menos de 10 domínios). Branding com página inicial `https://fluxi-cbrl.vercel.app`, política `/privacidade` e termos `/termos`. Adicionar logotipo ou escopos sensíveis passa a exigir a verificação do Google.
+
+## Sync bancário (Pluggy → `bank_feed_*`)
+
+A sincronização roda **dentro do Supabase**, na Edge Function `pluggy-sync` (`supabase/functions/pluggy-sync`, lógica em `src/features/bank-feed/adapters/sync.ts`). Decisão de segurança: os dados ficam no processador que já os guarda (LGPD), o segredo da Pluggy vive num componente com superfície mínima, o banco é acessado pelo papel `fluxi_sync` (só `SELECT/INSERT/UPDATE/DELETE` em `bank_feed_accounts` e `bank_transactions`, via policies próprias; sem `auth`, sem outras tabelas) e não há superfície pública nova: a função tem `verify_jwt = false` mas responde 401 a qualquer chamada sem o header `x-fluxi-sync-token` (comparação em tempo constante).
+
+- **Agenda**: job `pluggy-sync-daily` do `pg_cron` (migration `0015_sync_schedule`), `0 9 * * *` UTC = 06:00 em São Paulo. Lê a URL e o token do Vault (`pluggy_sync_url`, `pluggy_sync_token`) e chama a função com `net.http_post` (timeout 150 s, o limite de inatividade da função).
+- **Saída**: JSON só com agregados (por conta: transações, pendentes, removidas, intervalo de datas; itens pulados com o status). Logs idem: nunca credenciais, descrições ou valores.
+- **Deploy**: job `deploy-edge-functions`, depois do `migrate-production`, com o CLI fixado do `package.json` (`supabase functions deploy pluggy-sync --use-api`).
+
+### Configuração (uma vez, nesta ordem)
+
+Tudo pelo Dashboard ou pelo CLI com o login do operador; nada de conexão ao banco de prod da máquina. Nenhum valor abaixo entra no git, em issue ou em chat.
+
+1. **Pluggy**: no dashboard da Pluggy, **regenere o client secret** da aplicação de produção (o antigo deixa de valer; não guarde cópia). Anote client id, secret novo e os item ids (separados por vírgula). A aplicação DEMO (`~/.config/fluxi/pluggy.env`) é só do ambiente local.
+2. **PAT do CI**: em Account → Access Tokens, crie um token **com escopo** (scoped) restrito ao projeto fluxi, com `edge_functions_write`, `edge_functions_read` e `projects_read` (os escopos que `supabase functions deploy --help` lista; nada além) e validade curta. GitHub → environment `production`: secret `SUPABASE_ACCESS_TOKEN` = o token; variable `SUPABASE_PROJECT_REF` = o ref do projeto.
+3. **Secrets da função** (shell do operador, `pnpm exec supabase login` antes):
+
+   ```bash
+   umask 077; f=$(mktemp)
+   PW=$(openssl rand -hex 32); TOKEN=$(openssl rand -hex 32)
+   cat > "$f" <<EOF
+   PLUGGY_CLIENT_ID=<client id>
+   PLUGGY_CLIENT_SECRET=<secret regenerado no passo 1>
+   PLUGGY_ITEM_IDS=<item id>,<item id>
+   FLUXI_SYNC_USER_ID=<UID do usuário em Authentication → Users>
+   FLUXI_SYNC_DB_URL=postgresql://fluxi_sync.<ref>:$PW@aws-<n>-sa-east-1.pooler.supabase.com:6543/postgres
+   FLUXI_SYNC_TOKEN=$TOKEN
+   EOF
+   pnpm exec supabase secrets set --remote=<ref> --env-file "$f"
+   printf %s "$PW" | pnpm -s scram:verifier   # copie a linha SCRAM-SHA-256$... (passo 4)
+   printf %s "$TOKEN"                         # copie pro Vault (passo 5)
+   shred -u "$f"; unset PW TOKEN
+   ```
+
+   O pooler de transação (6543) com usuário `<papel>.<ref>` é o formato do Supavisor pra papéis próprios; a função conecta com `prepare: false`.
+
+4. **Login do `fluxi_sync`** (SQL Editor): `alter role fluxi_sync login password 'SCRAM-SHA-256$...';` com o verificador do passo 3. Só o verificador passa pelo servidor e pelo histórico do editor, nunca a senha.
+5. **Vault** (Integrations → Vault → Add secret, pela UI, não por SQL): `pluggy_sync_url` = `https://<ref>.supabase.co/functions/v1/pluggy-sync`; `pluggy_sync_token` = o token do passo 3.
+6. **Primeira execução manual** (SQL Editor), depois do deploy da função pelo CI:
+
+   ```sql
+   do $$ begin execute (select command from cron.job where jobname = 'pluggy-sync-daily'); end $$;
+   -- alguns segundos depois:
+   select status_code, timed_out, error_msg, left(content, 500)
+   from net._http_response order by id desc limit 1;
+   ```
+
+   `200` com `"ok": true` = sincronizou; `401` = token do Vault ≠ `FLUXI_SYNC_TOKEN`; `500` = veja os logs em Edge Functions → `pluggy-sync` → Logs (só agregados e o motivo). Execuções agendadas: `select * from cron.job_run_details order by start_time desc limit 5;`.
+
+**Rotação**: token → gere outro, `supabase secrets set FLUXI_SYNC_TOKEN=...` (vale sem redeploy) e atualize o Vault; senha do `fluxi_sync` → passos 3 (só `FLUXI_SYNC_DB_URL`) e 4; Pluggy → regenere e `supabase secrets set PLUGGY_CLIENT_SECRET=...`. **Ressalva conhecida**: enquanto a requisição do `pg_net` está na fila, o token aparece decifrado em `net.http_request_queue`; por isso ele só serve pra disparar o sync (não é uma chave do Supabase).

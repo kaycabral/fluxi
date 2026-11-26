@@ -15,6 +15,7 @@ import {
 } from 'drizzle-orm/pg-core'
 import {
   accounts,
+  budgetGroups,
   categories,
   cents,
   createdAt,
@@ -23,7 +24,6 @@ import {
   isFirstOfMonth,
   month,
   ownerId,
-  pots,
   spaceIdColumn,
   spaces,
   updatedAt,
@@ -173,7 +173,7 @@ export const bankTransactions = pgTable(
  * the sync), one link per transaction; a detected transfer pair is ONE entry
  * linked from both transactions. The bank owns the entry (amount, date,
  * account, kind, "Pago"; the user can neither change nor delete it), the user
- * its description, category, pot and tags.
+ * its description, category, budget group and tags.
  *
  * Both foreign keys null only their own column on delete, so the link
  * outlives either side: the bank dropping the transaction leaves
@@ -214,9 +214,9 @@ export const bankEntryLinks = pgTable(
 /**
  * "Fazer isso sozinho daqui para frente": a bank entry whose normalized
  * description is `pattern` (`descriptionKey`) and whose absolute amount lies
- * in `[min_cents, max_cents]` gets this category / pot. Applied by the
+ * in `[min_cents, max_cents]` gets this category / budget group. Applied by the
  * materialization (`private.apply_categorization_rules`) only to bank entries
- * still without category AND pot: it never overwrites the user. Newest wins.
+ * still without category AND budget group: it never overwrites the user. Newest wins.
  */
 export const categorizationRules = pgTable(
   'categorization_rules',
@@ -228,7 +228,7 @@ export const categorizationRules = pgTable(
     minCents: cents('min_cents').notNull(),
     maxCents: cents('max_cents').notNull(),
     categoryId: uuid('category_id'),
-    pot: text('pot'),
+    budgetGroup: text('budget_group'),
     createdAt: createdAt(),
   },
   (t) => [
@@ -239,13 +239,16 @@ export const categorizationRules = pgTable(
       foreignColumns: [categories.id, categories.spaceId],
     }).onDelete('cascade'),
     foreignKey({
-      name: 'categorization_rules_pot_fk',
-      columns: [t.pot, t.spaceId],
-      foreignColumns: [pots.key, pots.spaceId],
+      name: 'categorization_rules_budget_group_fk',
+      columns: [t.budgetGroup, t.spaceId],
+      foreignColumns: [budgetGroups.key, budgetGroups.spaceId],
     }).onDelete('cascade'),
     index('categorization_rules_space_pattern_idx').on(t.spaceId, t.pattern),
     check('categorization_rules_pattern', sql`char_length(${t.pattern}) between 1 and 200`),
     check('categorization_rules_range', sql`${t.minCents} >= 0 and ${t.maxCents} >= ${t.minCents}`),
-    check('categorization_rules_target', sql`${t.categoryId} is not null or ${t.pot} is not null`),
+    check(
+      'categorization_rules_target',
+      sql`${t.categoryId} is not null or ${t.budgetGroup} is not null`,
+    ),
   ],
 ).enableRLS()

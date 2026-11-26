@@ -67,7 +67,9 @@ export function accountBalancesOn(result: MonthResult, day: number): Balances {
   for (const landing of result.landings) {
     if (landing.day > day) continue
     for (const id of [landing.entry.accountId, landing.entry.toAccountId]) {
-      if (id !== null) balances[id] = (balances[id] ?? 0) + effectOn(landing, id)
+      // Archived accounts are not in the balances and stay out.
+      const current = id === null ? undefined : balances[id]
+      if (id !== null && current !== undefined) balances[id] = current + effectOn(landing, id)
     }
   }
   return balances

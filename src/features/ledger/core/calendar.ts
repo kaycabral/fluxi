@@ -26,7 +26,8 @@ export function firstWeekday(month: Month): number {
 /** Month grid for the accounts `ids` (null = every account). */
 export function calendarMonth(result: MonthResult, ids: readonly string[] | null): CalendarMonth {
   const opening = result.openingBalances
-  const accountIds = ids ?? Object.keys(opening)
+  // Accounts missing from the balances (archived) never count.
+  const accountIds = (ids ?? Object.keys(opening)).filter((id) => id in opening)
   let running = accountIds.reduce((sum, id) => sum + (opening[id] ?? 0), 0)
 
   const days: CalendarDay[] = []

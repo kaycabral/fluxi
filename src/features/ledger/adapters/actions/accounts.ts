@@ -107,7 +107,7 @@ export type ManagedAccount = {
   name: string
   type: AccountType
   archived: boolean
-  /** Balance at the end of today. */
+  /** Balance at the end of today; 0 when archived (it counts nowhere, the list does not show it). */
   balanceCents: number
   /** A bank feed is mapped to it (archiving is refused until unmapped). */
   connected: boolean
@@ -141,7 +141,7 @@ export async function loadAccountsAction(): Promise<
         name: a.name,
         type: a.type,
         archived: a.archived,
-        balanceCents: balances[a.id] ?? a.openingBalanceCents,
+        balanceCents: a.archived ? 0 : (balances[a.id] ?? a.openingBalanceCents),
         connected: connected.includes(a.id),
       })),
     },

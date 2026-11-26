@@ -176,7 +176,7 @@ describe('SettingsModal', () => {
 
     await userEvent.click(within(btg).getByRole('button', { name: 'Arquivar Conta' }))
     const confirm = await screen.findByRole('alertdialog', { name: 'Arquivar “Conta”?' })
-    expect(within(confirm).getByText(/continuam no histórico/)).toBeInTheDocument()
+    expect(within(confirm).getByText(/deixam de contar em qualquer lugar/)).toBeInTheDocument()
     await userEvent.click(within(confirm).getByRole('button', { name: 'Arquivar' }))
     await waitFor(() =>
       expect(setAccountArchivedAction).toHaveBeenCalledWith({ id: 'a1', archived: true }),

@@ -30,7 +30,12 @@ export type ProjectionInput = {
   entries: readonly Entry[]
   parts: readonly EntryPart[]
   overrides: readonly EntryOverride[]
-  accounts: readonly Pick<Account, 'id' | 'openingBalanceCents'>[]
+  /**
+   * Archived accounts have no influence at all (see {@link archivedFilter}).
+   * `archived` omitted = active.
+   */
+  accounts: readonly (Pick<Account, 'id' | 'openingBalanceCents'> &
+    Partial<Pick<Account, 'archived'>>)[]
   /**
    * Months to project. Balances accumulate from each account's opening balance
    * in ascending order, so for correct balances the range must be contiguous
@@ -68,6 +73,23 @@ export function feedFilter(rule: FeedRule | undefined): (landing: Landing) => bo
       (entry.toAccountId !== null && connected.has(entry.toAccountId))
     ) ||
     isoDate(month, day) > rule.today
+}
+
+/**
+ * Archived accounts are out of every view, for all time, until unarchived (a
+ * view rule; nothing is deleted): their opening balance and balance are not
+ * projected and an entry counts only while it touches an active account. A
+ * transfer between an active and an archived account keeps only the active
+ * side (its balance moves; transfers are never income or expense anyway).
+ * Returns whether an entry touches an active account.
+ */
+export function archivedFilter(
+  accounts: readonly Partial<Pick<Account, 'id' | 'archived'>>[],
+): (entry: Pick<Entry, 'accountId' | 'toAccountId'>) => boolean {
+  const archived = new Set(accounts.filter((a) => a.archived === true).map((a) => a.id))
+  if (archived.size === 0) return () => true
+  return ({ accountId, toAccountId }) =>
+    !archived.has(accountId) || (toAccountId !== null && !archived.has(toAccountId))
 }
 
 /** Inflows (positive amounts) before outflows on the same day. */
@@ -127,9 +149,15 @@ function totalsOf(landings: readonly Landing[]): MonthTotals {
   return totals
 }
 
-function applyToBalances(balances: Map<string, number>, landings: readonly Landing[]): void {
-  const move = (accountId: string, cents: number) =>
-    balances.set(accountId, (balances.get(accountId) ?? 0) + cents)
+/** Moves every account but the `archived` ones (unknown accounts start at zero). */
+function applyToBalances(
+  balances: Map<string, number>,
+  landings: readonly Landing[],
+  archived: ReadonlySet<string>,
+): void {
+  const move = (accountId: string, cents: number) => {
+    if (!archived.has(accountId)) balances.set(accountId, (balances.get(accountId) ?? 0) + cents)
+  }
   for (const landing of landings) {
     const { entry } = landing
     move(entry.accountId, effectOn(landing, entry.accountId))
@@ -150,18 +178,23 @@ export function firstLandingMonth(entries: readonly Pick<Entry, 'startMonth'>[])
 
 /** Month-by-month totals and per-account balances. */
 export function projectMonths(input: ProjectionInput): MonthResult[] {
-  const balances = new Map(input.accounts.map((a) => [a.id, a.openingBalanceCents]))
+  const archived = new Set(input.accounts.filter((a) => a.archived === true).map((a) => a.id))
+  const balances = new Map(
+    input.accounts.filter((a) => !archived.has(a.id)).map((a) => [a.id, a.openingBalanceCents]),
+  )
   const snapshot = (): Balances => Object.fromEntries(balances)
   const counts = feedFilter(input.feed)
+  const active = archivedFilter(input.accounts)
 
   return [...input.months].sort().map((month) => {
     const landings = orderLandings(
       input.entries
+        .filter(active)
         .flatMap((entry) => landingsIn(entry, input.parts, input.overrides, month))
         .filter(counts),
     )
     const openingBalances = snapshot()
-    applyToBalances(balances, landings)
+    applyToBalances(balances, landings, archived)
     return {
       month,
       landings,
@@ -196,7 +229,8 @@ export function dailyBalance(
   accountIds: readonly string[] | null,
 ): DailyBalance {
   const opening = result.openingBalances
-  const ids = accountIds ?? Object.keys(opening)
+  // Accounts missing from the balances (archived) never count.
+  const ids = (accountIds ?? Object.keys(opening)).filter((id) => id in opening)
   const touches = (landing: Landing) =>
     ids.includes(landing.entry.accountId) ||
     (landing.entry.toAccountId !== null && ids.includes(landing.entry.toAccountId))

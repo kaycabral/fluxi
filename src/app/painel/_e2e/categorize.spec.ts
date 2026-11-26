@@ -89,9 +89,13 @@ test.describe('categorize once, replicate', () => {
         .returning(),
       'account',
     )
-    await db
-      .insert(bankFeedItems)
-      .values({ userId: user.id, itemId: ITEM, spaceId: user.scope.spaceId, label: BANK })
+    await db.insert(bankFeedItems).values({
+      userId: user.id,
+      itemId: ITEM,
+      spaceId: user.scope.spaceId,
+      spaceSource: 'manual',
+      label: BANK,
+    })
     const feed = created(
       await db
         .insert(bankFeedAccounts)

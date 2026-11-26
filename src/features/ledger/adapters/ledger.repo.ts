@@ -84,8 +84,14 @@ const monthOrNull = (value: string | null) => (value === null ? null : monthFrom
  * Configurações → Conexões (`connectionInstitution`), never "MeuPluggy".
  */
 export async function listUnlinkedConnectedInstitutions(scope: Scope): Promise<string[]> {
-  const { rows } = await db().execute<{ names: string[]; label: string | null }>(sql`
-    select coalesce(array_agg(fa.name) filter (where fa.id is not null), '{}') as names, i.label
+  const { rows } = await db().execute<{
+    names: string[]
+    holders: (string | null)[]
+    label: string | null
+  }>(sql`
+    select coalesce(array_agg(fa.name) filter (where fa.id is not null), '{}') as names,
+      coalesce(array_agg(fa.holder_type) filter (where fa.id is not null), '{}') as holders,
+      i.label
     from bank_feed_items i
     left join bank_feed_accounts fa
       on fa.user_id = i.user_id and fa.item_id = i.item_id and fa.space_id = i.space_id
@@ -93,7 +99,7 @@ export async function listUnlinkedConnectedInstitutions(scope: Scope): Promise<s
     group by i.item_id, i.label
     having count(fa.account_id) = 0`)
   const names = rows
-    .map((r) => connectionInstitution(r.names, r.label))
+    .map((r) => connectionInstitution(r.names, r.label, r.holders))
     .filter((name): name is string => name !== null)
   return [...new Set(names)].sort((a, b) => a.localeCompare(b, 'pt-BR'))
 }

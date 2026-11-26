@@ -42,6 +42,8 @@ const checkingFeed: FeedAccountRow = {
   balanceCents: 100000,
   numberHint: null,
   cardStatus: null,
+  holderType: null,
+  holderKey: null,
 }
 const cardFeed: FeedAccountRow = {
   ...checkingFeed,

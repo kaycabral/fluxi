@@ -37,6 +37,8 @@ const feedAcc = (over: Partial<FeedAccountRow>): FeedAccountRow => ({
   balanceCents: 0,
   numberHint: null,
   cardStatus: null,
+  holderType: null,
+  holderKey: null,
   ...over,
 })
 
@@ -120,10 +122,12 @@ afterAll(async () => {
 describe('institution rules (SQL = TS)', () => {
   it('derives the same institution and account names in both', async () => {
     for (const sample of INSTITUTION_SAMPLES) {
-      const institution = institutionOf(sample.names)
+      const holders = sample.holders ?? []
+      const institution = institutionOf(sample.names, holders)
       const names = `{${sample.names.map((n) => JSON.stringify(n)).join(',')}}`
+      const types = `{${holders.map((h) => (h === null ? 'NULL' : h)).join(',')}}`
       const { rows } = await db().execute<{ institution: string; label: string }>(sql`
-        select private.feed_institution(${names}::text[]) as institution,
+        select private.feed_holder_institution(${names}::text[], ${types}::text[]) as institution,
           private.feed_account_short_label(${institution}, ${sample.feed.name},
             ${sample.feed.type}, ${sample.feed.subtype}) as label`)
       expect(rows[0]).toEqual({

@@ -3,7 +3,8 @@ import { z } from 'zod'
 /**
  * Pure mapping of Pluggy API payloads (accounts-list, transactions-list-by-
  * cursor, items-retrieve) onto bank-feed rows. Only the fields the feed keeps
- * are parsed: counterparty documents (`paymentData`), owner tax ids and the
+ * are parsed: counterparty documents (`paymentData`), holder tax ids (only
+ * the holder kind and a company's keyed hash leave) and the
  * merchant's CNPJ/CNAE never leave this module (only its name and category); of the account number only the last 4 digits do
  * ({@link numberHintOf}).
  */
@@ -34,6 +35,13 @@ export const pluggyAccountSchema = z.object({
   currencyCode: z.string(),
   /** Cards only: `ACTIVE`, `BLOCKED` or `CANCELLED` (bank accounts have no such flag). */
   creditData: z.object({ status: z.string().nullish() }).nullish(),
+  /**
+   * The holder's document (CPF or CNPJ, possibly punctuated or masked). Read
+   * only to derive {@link holderTypeOf} / the company's holder key; never stored.
+   */
+  taxNumber: z.string().nullish(),
+  /** The holder's name. Only a company's is kept, as a space-name suggestion. */
+  owner: z.string().nullish(),
 })
 export type PluggyAccount = z.infer<typeof pluggyAccountSchema>
 
@@ -66,6 +74,61 @@ export const pluggyTransactionSchema = z.object({
     .nullish(),
 })
 export type PluggyTransaction = z.infer<typeof pluggyTransactionSchema>
+
+/**
+ * `GET /identity?itemId=…`: of the whole identity only these two fields are
+ * parsed (zod drops the rest: documents, addresses, phones, partners…).
+ */
+export const pluggyIdentitySchema = z.object({
+  companyName: z.string().nullish(),
+  documentType: z.string().nullish(),
+})
+export type PluggyIdentity = z.infer<typeof pluggyIdentitySchema>
+
+export const HOLDER_TYPES = ['person', 'company'] as const
+export type HolderType = (typeof HOLDER_TYPES)[number]
+
+/**
+ * Who holds an account, from its document's digit count: 11 = CPF (person),
+ * 14 = CNPJ (company). Punctuation is ignored; a masked document (`***.123.***-**`)
+ * or anything else → null (unknown).
+ */
+export function holderTypeOf(taxNumber: string | null | undefined): HolderType | null {
+  if (!taxNumber || /[*xX•]/.test(taxNumber)) return null
+  const digits = taxNumber.replace(/\D/g, '')
+  if (digits.length === 11) return 'person'
+  if (digits.length === 14) return 'company'
+  return null
+}
+
+/** The CNPJ digits of a company holder, else null (a person's CPF is never used). */
+export function companyDocumentOf(taxNumber: string | null | undefined): string | null {
+  return holderTypeOf(taxNumber) === 'company' ? (taxNumber ?? '').replace(/\D/g, '') : null
+}
+
+/**
+ * `holder_key`: HMAC-SHA256 (hex) of a company's CNPJ digits under the
+ * `FLUXI_HOLDER_KEY_SECRET`. Tells "same company" apart without storing the
+ * CNPJ. Web Crypto only (Deno and Node).
+ */
+export async function holderKeyOf(cnpjDigits: string, secret: string): Promise<string> {
+  const encoder = new TextEncoder()
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  )
+  const mac = new Uint8Array(await crypto.subtle.sign('HMAC', key, encoder.encode(cnpjDigits)))
+  return [...mac].map((b) => b.toString(16).padStart(2, '0')).join('')
+}
+
+/** A trimmed, length-capped space name, or null when blank. */
+export function spaceNameOf(value: string | null | undefined): string | null {
+  const name = value?.replace(/\s+/g, ' ').trim() ?? ''
+  return name === '' ? null : name.slice(0, 40).trim()
+}
 
 export const transactionsPageSchema = z.object({
   results: z.array(z.unknown()),
@@ -110,6 +173,10 @@ export type FeedAccountRow = {
   numberHint: string | null
   /** A card's status as Pluggy reports it; null for bank accounts or when unknown. */
   cardStatus: CardStatus | null
+  /** Holder kind from the account's document; the document itself is dropped. */
+  holderType: HolderType | null
+  /** HMAC of a company holder's CNPJ ({@link holderKeyOf}); null for persons or without the secret. */
+  holderKey: string | null
 }
 
 export const CARD_STATUSES = ['active', 'blocked', 'cancelled'] as const
@@ -134,7 +201,12 @@ export function numberHintOf(number: string | null | undefined): string | null {
   return digits.length >= 4 ? digits.slice(-4) : null
 }
 
-export function toFeedAccount(account: PluggyAccount, institution: string): FeedAccountRow {
+export function toFeedAccount(
+  account: PluggyAccount,
+  institution: string,
+  holderKey: string | null = null,
+): FeedAccountRow {
+  const holderType = holderTypeOf(account.taxNumber)
   // Pluggy reports both a checking balance and a card's open bill as positive.
   const sign = account.balance < 0 ? -1 : 1
   return {
@@ -147,6 +219,8 @@ export function toFeedAccount(account: PluggyAccount, institution: string): Feed
     balanceCents: sign * toCents(account.balance),
     numberHint: numberHintOf(account.number),
     cardStatus: account.type === 'CREDIT' ? cardStatusOf(account.creditData?.status) : null,
+    holderType,
+    holderKey: holderType === 'company' ? holderKey : null,
   }
 }
 

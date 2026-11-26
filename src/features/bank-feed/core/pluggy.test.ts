@@ -1,11 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import {
   cardStatusOf,
+  companyDocumentOf,
   coveredFrom,
+  holderKeyOf,
+  holderTypeOf,
   itemReadiness,
   numberHintOf,
   parsePluggyConfig,
+  pluggyIdentitySchema,
   pluggyTransactionSchema,
+  spaceNameOf,
   toFeedAccount,
   toFeedTransaction,
 } from './pluggy'
@@ -226,5 +231,65 @@ describe('cardStatusOf', () => {
       'Banco X',
     )
     expect(bank.cardStatus).toBeNull()
+  })
+})
+
+describe('holder', () => {
+  it('derives the holder kind from the document digit count', () => {
+    expect(holderTypeOf('123.456.789-09')).toBe('person')
+    expect(holderTypeOf('12345678909')).toBe('person')
+    expect(holderTypeOf('12.345.678/0001-90')).toBe('company')
+    expect(holderTypeOf(' 12345678000190 ')).toBe('company')
+    expect(holderTypeOf('***.456.789-**')).toBeNull()
+    expect(holderTypeOf('XX.345.678/0001-XX')).toBeNull()
+    expect(holderTypeOf('1234')).toBeNull()
+    expect(holderTypeOf(null)).toBeNull()
+    expect(holderTypeOf(undefined)).toBeNull()
+  })
+
+  it('keeps only a company document, as digits', () => {
+    expect(companyDocumentOf('12.345.678/0001-90')).toBe('12345678000190')
+    expect(companyDocumentOf('123.456.789-09')).toBeNull()
+  })
+
+  it('keys a company by an HMAC that is stable, secret-bound and never the CNPJ', async () => {
+    const a = await holderKeyOf('12345678000190', 's'.repeat(32))
+    expect(a).toMatch(/^[0-9a-f]{64}$/)
+    expect(await holderKeyOf('12345678000190', 's'.repeat(32))).toBe(a)
+    expect(await holderKeyOf('12345678000190', 't'.repeat(32))).not.toBe(a)
+    expect(a).not.toContain('12345678')
+  })
+
+  it('maps the holder onto the feed account without the document', () => {
+    const base = {
+      id: 'a',
+      itemId: 'i',
+      type: 'BANK' as const,
+      subtype: 'CHECKING_ACCOUNT',
+      name: 'Nubank',
+      balance: 1,
+      currencyCode: 'BRL',
+    }
+    const company = toFeedAccount({ ...base, taxNumber: '12.345.678/0001-90' }, 'X', 'f'.repeat(64))
+    expect(company).toMatchObject({ holderType: 'company', holderKey: 'f'.repeat(64) })
+    expect(JSON.stringify(company)).not.toContain('345')
+    const person = toFeedAccount({ ...base, taxNumber: '123.456.789-09' }, 'X', 'f'.repeat(64))
+    expect(person).toMatchObject({ holderType: 'person', holderKey: null })
+  })
+
+  it('parses only companyName and documentType of an identity', () => {
+    const parsed = pluggyIdentitySchema.parse({
+      companyName: 'ACME',
+      documentType: 'CNPJ',
+      taxNumber: '12.345.678/0001-90',
+      fullName: 'Fulano',
+    })
+    expect(parsed).toEqual({ companyName: 'ACME', documentType: 'CNPJ' })
+  })
+
+  it('normalizes a suggested space name to the space limits', () => {
+    expect(spaceNameOf('  ACME   Comércio  ')).toBe('ACME Comércio')
+    expect(spaceNameOf('   ')).toBeNull()
+    expect(spaceNameOf('x'.repeat(50))).toHaveLength(40)
   })
 })

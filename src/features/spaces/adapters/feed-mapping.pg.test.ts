@@ -44,9 +44,13 @@ beforeEach(async () => {
   await seedUser(db(), { id: ANA, email: 'ana@example.test' })
   await seedUser(db(), { id: BIA, email: 'bia@example.test' })
   ana = await personalScope(db(), ANA)
-  await db()
-    .insert(bankFeedItems)
-    .values({ userId: ANA, itemId: 'item-1', spaceId: ana.spaceId, label: 'BTG' })
+  await db().insert(bankFeedItems).values({
+    userId: ANA,
+    itemId: 'item-1',
+    spaceId: ana.spaceId,
+    spaceSource: 'manual',
+    label: 'BTG',
+  })
   await syncFeedAccount(raw, ana, {
     source: 'pluggy',
     account: {
@@ -59,6 +63,8 @@ beforeEach(async () => {
       balanceCents: 30000,
       numberHint: null,
       cardStatus: null,
+      holderType: null,
+      holderKey: null,
     },
     transactions: [tx('a', -10000, '2026-11-10'), tx('b', -2000, '2026-11-12')],
     coveredFrom: '2026-01-01',

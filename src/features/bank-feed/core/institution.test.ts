@@ -7,6 +7,7 @@ import {
   institutionColor,
   institutionOf,
   normalizeName,
+  withHolderSuffix,
 } from './institution'
 
 const bank = (name: string, subtype = 'CHECKING_ACCOUNT') => ({ name, type: 'BANK', subtype })
@@ -98,5 +99,34 @@ describe('connectionInstitution', () => {
     expect(connectionInstitution([], 'MeuPluggy')).toBeNull()
     expect(connectionInstitution([], '  ')).toBeNull()
     expect(connectionInstitution([], null)).toBeNull()
+  })
+})
+
+describe('holder suffix', () => {
+  it('appends "Empresas" when a company holds the accounts', () => {
+    expect(institutionOf(['Nubank'], ['company'])).toBe('Nubank Empresas')
+    expect(institutionOf(['Nubank', 'Nubank Cartão'], ['person', 'company'])).toBe(
+      'Nubank Empresas',
+    )
+    expect(institutionOf(['Nubank'], ['person'])).toBe('Nubank')
+    expect(institutionOf(['Nubank'], [null])).toBe('Nubank')
+    expect(institutionOf(['BTG Empresas'], ['company'])).toBe('BTG Empresas')
+    expect(withHolderSuffix('Conta Empresas PJ', ['company'])).toBe('Conta Empresas PJ')
+    expect(connectionInstitution(['itau'], 'MeuPluggy', ['company'])).toBe('Itaú Empresas')
+    expect(connectionInstitution([], 'Inter Empresas', ['company'])).toBe('Inter Empresas')
+  })
+
+  it('lets "<base> Empresas" go by its base aliases', () => {
+    expect(aliasesOf('Nubank Empresas')).toEqual(
+      expect.arrayContaining(['nubank empresas', 'nubank', 'nu pagamentos']),
+    )
+    expect(aliasesOf('BTG Empresas')).not.toContain('btg')
+    expect(
+      feedAccountLabel('Nubank Empresas', {
+        name: 'Nu Pagamentos S.A.',
+        type: 'BANK',
+        subtype: 'CHECKING_ACCOUNT',
+      }),
+    ).toBe('Nubank Empresas · Conta')
   })
 })

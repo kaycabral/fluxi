@@ -61,9 +61,29 @@ describe('DashboardView', () => {
     expect(within(summary).queryByText('–')).not.toBeInTheDocument()
   })
 
-  it('shows six months of the traffic light and the pots of this month', () => {
+  it('shows five months of the budget, from the previous month, and the pots of this month', async () => {
     renderDashboard()
-    expect(screen.getByText('set/26 – fev/27')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 2, name: 'Orçamento' })).toBeInTheDocument()
+    expect(screen.queryByText('Semáforo do orçamento')).not.toBeInTheDocument()
+    const months = () =>
+      screen
+        .getAllByRole('columnheader')
+        .slice(1)
+        .map((h) => h.textContent)
+    expect(months()).toEqual(['nov/26', 'dez/26', 'jan/27', 'fev/27', 'mar/27'])
+    // No range label and no legend: each cell says its state on hover.
+    expect(screen.queryByText(/^\w{3}\/\d{2} – \w{3}\/\d{2}$/)).not.toBeInTheDocument()
+    expect(screen.queryByText('Dentro da meta')).not.toBeInTheDocument()
+    expect(screen.queryByText('Sem meta no mês')).not.toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: /^Essencial em dez\/26: .*meta/ })).toHaveLength(1)
+
+    const today = screen.getByRole('button', { name: 'Hoje' })
+    expect(today).toBeDisabled()
+    await userEvent.click(screen.getByRole('button', { name: 'Próximo mês' }))
+    expect(months()).toEqual(['dez/26', 'jan/27', 'fev/27', 'mar/27', 'abr/27'])
+    await userEvent.click(today)
+    expect(months()).toEqual(['nov/26', 'dez/26', 'jan/27', 'fev/27', 'mar/27'])
+
     expect(screen.getByRole('link', { name: /Orçamento/ })).toHaveAttribute(
       'href',
       '/painel/orcamento',
@@ -71,6 +91,65 @@ describe('DashboardView', () => {
     const pots = screen.getByRole('list', { name: 'Potes em dez/26' })
     expect(within(pots).getByText('Essencial')).toBeInTheDocument()
     expect(screen.getByText(/: \d+ dentro, \d+ perto e \d+ fora da meta\.$/)).toBeInTheDocument()
+  })
+
+  it("shows the banks behind today's balance, with their balances on hover", async () => {
+    const data = sampleData()
+    const bankOf = data.accounts[0]?.bankId ?? ''
+    const extra = ['Banco A', 'Banco B', 'Banco C', 'Banco D'].map((name, i) => ({
+      id: `00000000-0000-4000-8000-0000000bb0${i}0`,
+      name,
+      sort: 10 + i,
+      archived: false,
+    }))
+    renderDashboard({
+      ...data,
+      banks: [...data.banks, ...extra],
+      accounts: [
+        ...data.accounts,
+        ...extra.map((bank, i) => ({
+          id: `00000000-0000-4000-8000-0000000cc0${i}0`,
+          bankId: bank.id,
+          name: 'Conta',
+          type: 'checking' as const,
+          openingBalanceCents: (i + 1) * 100,
+          archived: false,
+        })),
+        {
+          id: '00000000-0000-4000-8000-0000000cc090',
+          bankId: bankOf,
+          name: 'Antiga',
+          type: 'checking' as const,
+          openingBalanceCents: 999_999_00,
+          archived: true,
+        },
+      ],
+    })
+    const summary = screen.getByRole('region', { name: 'Resumo' })
+    const avatars = within(summary).getByRole('button', { name: /^Saldo por banco: / })
+    const banks = data.banks.length + extra.length
+    expect(within(avatars).getByText(`+${banks - 4}`)).toBeInTheDocument()
+    await userEvent.hover(avatars)
+    const list = (await screen.findAllByRole('list', { name: 'Saldo por banco' }))[0]
+    if (list === undefined) throw new Error('no breakdown')
+    const rows = within(list).getAllByRole('listitem')
+    expect(rows).toHaveLength(banks)
+    // Highest first: D before A, the overdrawn BTG last.
+    expect(rows.map((r) => r.textContent)).toContain('Banco DR$ 4,00')
+    const text = rows.map((r) => r.textContent ?? '')
+    expect(text.findIndex((t) => t === 'Banco DR$ 4,00')).toBeLessThan(
+      text.findIndex((t) => t === 'Banco AR$ 1,00'),
+    )
+    expect(text.at(-1)).toMatch(/^BTG-R\$/)
+    // The archived account stays out of every bank.
+    expect(list).not.toHaveTextContent('999.999')
+  })
+
+  it('shows no bank avatars when no account counts in the balance', () => {
+    const data = sampleData()
+    renderDashboard({ ...data, accounts: data.accounts.map((a) => ({ ...a, archived: true })) })
+    expect(screen.getByText('Todas as contas')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Saldo por banco/ })).not.toBeInTheDocument()
   })
 
   it('says when no budget version covers this month', () => {
@@ -109,6 +188,12 @@ describe('DashboardView', () => {
 
   it('opens the bills on the most urgent tab and pays in one click', async () => {
     renderDashboard()
+    expect(screen.getByRole('heading', { level: 2, name: 'Contas' })).toBeInTheDocument()
+    expect(screen.queryByText('Próximas contas')).not.toBeInTheDocument()
+    expect(
+      screen.queryByText('O que falta pagar ou receber, por urgência.'),
+    ).not.toBeInTheDocument()
+    expect(screen.queryByText(/^A pagar R\$/)).not.toBeInTheDocument()
     const overdue = screen.getByRole('tab', { name: /Atrasadas/ })
     expect(overdue).toHaveAttribute('aria-selected', 'true')
     // 12 months back: the unpaid Sep–Nov occurrences are overdue too.

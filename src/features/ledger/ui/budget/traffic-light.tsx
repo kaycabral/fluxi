@@ -51,9 +51,9 @@ const LEGEND: Record<Light, string> = {
   bad: 'Mais de 20% fora',
 }
 
-/** First month shown by default: `span` months ending two months after today. */
-export function defaultFirstMonth(today: Month, span: number): Month {
-  return addMonths(today, -(span - 3))
+/** First month shown by default: `before` months before today (default: the window ends two months after today). */
+export function defaultFirstMonth(today: Month, span: number, before = span - 3): Month {
+  return addMonths(today, -before)
 }
 
 /** Budget months (income, spending per pot, version in force) over `[from, to]`. */
@@ -96,6 +96,8 @@ export function TrafficLight({
   plans,
   today,
   span,
+  before,
+  compact = false,
   className,
 }: {
   data: LedgerData
@@ -104,9 +106,13 @@ export function TrafficLight({
   today: Month
   /** How many months the window shows. */
   span: number
+  /** Months before today in the default window (and on "Hoje"). */
+  before?: number
+  /** No range label and no legend: each cell explains itself on hover. */
+  compact?: boolean
   className?: string
 }) {
-  const initial = defaultFirstMonth(today, span)
+  const initial = defaultFirstMonth(today, span, before)
   const [first, setFirst] = useState(initial)
   const last = addMonths(first, span - 1)
   const months = useBudgetMonths(data, plans, first, last)
@@ -117,10 +123,12 @@ export function TrafficLight({
   return (
     <TooltipProvider delayDuration={150}>
       <div className={cn('grid gap-3', className)}>
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-muted-foreground text-sm tabular-nums" aria-live="polite">
-            {monthLabel(first)} – {monthLabel(last)}
-          </p>
+        <div className={cn('flex items-center justify-between gap-2', compact && 'justify-end')}>
+          {!compact && (
+            <p className="text-muted-foreground text-sm tabular-nums" aria-live="polite">
+              {monthLabel(first)} – {monthLabel(last)}
+            </p>
+          )}
           <div className="flex items-center gap-1">
             <Button
               variant="outline"
@@ -244,18 +252,20 @@ export function TrafficLight({
           </TableBody>
         </Table>
 
-        <ul className="text-muted-foreground flex flex-wrap gap-x-4 gap-y-1 text-xs">
-          {(['good', 'warn', 'bad'] as const).map((light) => (
-            <li key={light} className="flex items-center gap-1.5">
-              <span className={cn('size-2.5 rounded-full', LIGHT_CLASSES[light])} aria-hidden />
-              {LEGEND[light]}
+        {!compact && (
+          <ul className="text-muted-foreground flex flex-wrap gap-x-4 gap-y-1 text-xs">
+            {(['good', 'warn', 'bad'] as const).map((light) => (
+              <li key={light} className="flex items-center gap-1.5">
+                <span className={cn('size-2.5 rounded-full', LIGHT_CLASSES[light])} aria-hidden />
+                {LEGEND[light]}
+              </li>
+            ))}
+            <li className="flex items-center gap-1.5">
+              <span className={cn('size-2.5 rounded-full', NO_PLAN_CLASS)} aria-hidden />
+              Sem meta no mês
             </li>
-          ))}
-          <li className="flex items-center gap-1.5">
-            <span className={cn('size-2.5 rounded-full', NO_PLAN_CLASS)} aria-hidden />
-            Sem meta no mês
-          </li>
-        </ul>
+          </ul>
+        )}
       </div>
     </TooltipProvider>
   )

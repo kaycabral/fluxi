@@ -17,6 +17,31 @@ test.describe('signed in', () => {
     }
   })
 
+  test('the space menu holds the account, the settings and sign-out', async ({ page, user }) => {
+    await page.goto('/painel')
+    await page
+      .getByRole('button', { name: 'Espaço: Pessoal. Trocar de espaço e abrir a conta' })
+      .click()
+    const menu = page.getByRole('menu')
+    await expect(menu).toContainText(user.email)
+    await expect(menu.getByRole('menuitem', { name: 'Sair' })).toBeVisible()
+    await menu.getByRole('menuitem', { name: 'Configurações' }).click()
+    await expect(page).toHaveURL(/\/painel#configuracoes\/conexoes$/)
+    const settings = page.getByRole('dialog', { name: 'Conexões' })
+    await expect(settings).toBeVisible()
+    await expect(settings).toContainText('Nenhuma conexão ainda.')
+    await page.keyboard.press('Escape')
+    await expect(settings).toBeHidden()
+    await expect(page).toHaveURL(/\/painel$/)
+
+    // The settings and the old connections addresses open the painel with the modal.
+    for (const address of ['/painel/configuracoes', '/painel/conexoes']) {
+      await page.goto(address)
+      await expect(page).toHaveURL(/\/painel#configuracoes\/conexoes$/)
+      await expect(page.getByRole('dialog', { name: 'Conexões' })).toBeVisible()
+    }
+  })
+
   test('/ sends a signed-in user to /painel', async ({ page }) => {
     await page.goto('/')
     await expect(page).toHaveURL(/\/painel$/)

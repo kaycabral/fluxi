@@ -12,6 +12,7 @@ import {
 } from '@/db/schema'
 import { NOTION_KINDS, type NotionSource } from '@/features/import/core/notion'
 import { COUNT_FROM_MONTH, type ImportPlan } from '@/features/import/core/plan'
+import { inScope, owned, type Scope } from '@/features/ledger/adapters/scope-filter'
 import { monthToDate } from '@/features/ledger/core/month'
 import { and, eq, inArray, sql } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
@@ -21,7 +22,7 @@ import { randomUUID } from 'node:crypto'
  * transaction: it first removes everything a previous run of the same source
  * created for the user (linked entries with their overrides/payments, and the
  * banks/accounts/categories it created that nothing else uses), then inserts
- * the plan and the raw archive. Every statement is scoped by `userId`.
+ * the plan and the raw archive. Every statement is scoped by `scope`.
  */
 
 export const NOTION_SOURCE = 'notion'
@@ -60,16 +61,16 @@ export async function findUserIdByEmail(db: FluxiDb, email: string): Promise<str
 }
 
 /** Existing categories of the user, by `group\u0000name`. */
-export async function categoryIdsByKey(db: Executor, userId: string): Promise<Map<string, string>> {
+export async function categoryIdsByKey(db: Executor, scope: Scope): Promise<Map<string, string>> {
   const rows = await db
     .select({ id: categories.id, groupName: categories.groupName, name: categories.name })
     .from(categories)
-    .where(eq(categories.userId, userId))
+    .where(inScope(categories, scope))
   return new Map(rows.map((r) => [`${r.groupName}\u0000${r.name}`, r.id]))
 }
 
 /** fluxi ids created by previous runs, by kind (`banks`, `accounts`, `category`) → external id. */
-async function priorTargets(tx: Tx, userId: string): Promise<Map<string, Map<string, string>>> {
+async function priorTargets(tx: Tx, scope: Scope): Promise<Map<string, Map<string, string>>> {
   const rows = await tx
     .select({
       kind: importRaw.kind,
@@ -77,7 +78,7 @@ async function priorTargets(tx: Tx, userId: string): Promise<Map<string, Map<str
       targetId: importRaw.targetId,
     })
     .from(importRaw)
-    .where(and(eq(importRaw.userId, userId), eq(importRaw.source, NOTION_SOURCE)))
+    .where(and(inScope(importRaw, scope), eq(importRaw.source, NOTION_SOURCE)))
   const out = new Map<string, Map<string, string>>()
   for (const r of rows) {
     if (r.targetId === null) continue
@@ -94,16 +95,16 @@ const idsOf = (prior: Map<string, Map<string, string>>, kind: string) => [
 
 async function removePrevious(
   tx: Tx,
-  userId: string,
+  scope: Scope,
   prior: Map<string, Map<string, string>>,
 ): Promise<RemovedCounts> {
   const linked = tx
     .select({ id: importLinks.entryId })
     .from(importLinks)
-    .where(and(eq(importLinks.userId, userId), eq(importLinks.source, NOTION_SOURCE)))
+    .where(and(inScope(importLinks, scope), eq(importLinks.source, NOTION_SOURCE)))
   const removedEntries = await tx
     .delete(entries)
-    .where(and(eq(entries.userId, userId), inArray(entries.id, linked)))
+    .where(and(inScope(entries, scope), inArray(entries.id, linked)))
     .returning({ id: entries.id })
   const unused = async (
     table: 'categories' | 'accounts' | 'banks',
@@ -113,7 +114,7 @@ async function removePrevious(
     if (ids.length === 0) return 0
     const result = await tx.execute(sql`
       delete from ${sql.identifier(table)} t
-      where t.user_id = ${userId} and t.id in ${sql`(${sql.join(
+      where t.user_id = ${scope.userId} and t.space_id = ${scope.spaceId} and t.id in ${sql`(${sql.join(
         ids.map((id) => sql`${id}::uuid`),
         sql`, `,
       )})`}
@@ -140,24 +141,24 @@ async function removePrevious(
   }
   await tx
     .delete(importLinks)
-    .where(and(eq(importLinks.userId, userId), eq(importLinks.source, NOTION_SOURCE)))
+    .where(and(inScope(importLinks, scope), eq(importLinks.source, NOTION_SOURCE)))
   await tx
     .delete(importRaw)
-    .where(and(eq(importRaw.userId, userId), eq(importRaw.source, NOTION_SOURCE)))
+    .where(and(inScope(importRaw, scope), eq(importRaw.source, NOTION_SOURCE)))
   return removed
 }
 
 async function existingIds(
   tx: Tx,
   table: typeof banks | typeof accounts,
-  userId: string,
+  scope: Scope,
   ids: string[],
 ) {
   if (ids.length === 0) return new Set<string>()
   const rows = await tx
     .select({ id: table.id })
     .from(table)
-    .where(and(eq(table.userId, userId), inArray(table.id, ids)))
+    .where(and(inScope(table, scope), inArray(table.id, ids)))
   return new Set(rows.map((r) => r.id))
 }
 
@@ -167,8 +168,8 @@ type IdMaps = {
   category: Map<string, string>
 }
 
-async function writeBanks(tx: Tx, userId: string, plan: ImportPlan, prior: Map<string, string>) {
-  const kept = await existingIds(tx, banks, userId, [...prior.values()])
+async function writeBanks(tx: Tx, scope: Scope, plan: ImportPlan, prior: Map<string, string>) {
+  const kept = await existingIds(tx, banks, scope, [...prior.values()])
   const ids = new Map<string, string>()
   const inserts = []
   for (const bank of plan.banks) {
@@ -179,12 +180,12 @@ async function writeBanks(tx: Tx, userId: string, plan: ImportPlan, prior: Map<s
       await tx
         .update(banks)
         .set({ name: bank.name, sort: bank.sort, archivedAt, updatedAt: new Date() })
-        .where(and(eq(banks.id, previous), eq(banks.userId, userId)))
+        .where(and(eq(banks.id, previous), inScope(banks, scope)))
       continue
     }
     const id = randomUUID()
     ids.set(bank.externalId, id)
-    inserts.push({ id, userId, name: bank.name, sort: bank.sort, archivedAt })
+    inserts.push({ id, ...owned(scope), name: bank.name, sort: bank.sort, archivedAt })
   }
   await inChunks(inserts, (chunk) => tx.insert(banks).values(chunk))
   return { ids, created: inserts.length, kept: plan.banks.length - inserts.length }
@@ -192,11 +193,11 @@ async function writeBanks(tx: Tx, userId: string, plan: ImportPlan, prior: Map<s
 
 async function writeAccounts(
   tx: Tx,
-  userId: string,
+  scope: Scope,
   plan: ImportPlan,
   ctx: { prior: Map<string, string>; bankIds: Map<string, string> },
 ) {
-  const kept = await existingIds(tx, accounts, userId, [...ctx.prior.values()])
+  const kept = await existingIds(tx, accounts, scope, [...ctx.prior.values()])
   const ids = new Map<string, string>()
   const inserts = []
   for (const account of plan.accounts) {
@@ -212,25 +213,20 @@ async function writeAccounts(
       await tx
         .update(accounts)
         .set({ ...fields, updatedAt: new Date() })
-        .where(and(eq(accounts.id, previous), eq(accounts.userId, userId)))
+        .where(and(eq(accounts.id, previous), inScope(accounts, scope)))
       continue
     }
     const id = randomUUID()
     ids.set(account.externalId, id)
-    inserts.push({ id, userId, openingBalanceCents: 0, ...fields })
+    inserts.push({ id, ...owned(scope), openingBalanceCents: 0, ...fields })
   }
   await inChunks(inserts, (chunk) => tx.insert(accounts).values(chunk))
   return { ids, created: inserts.length, kept: plan.accounts.length - inserts.length }
 }
 
 /** Reuses categories by (group, name); creates the missing ones. */
-async function writeCategories(
-  tx: Tx,
-  userId: string,
-  plan: ImportPlan,
-  prior: Map<string, string>,
-) {
-  const existing = await categoryIdsByKey(tx, userId)
+async function writeCategories(tx: Tx, scope: Scope, plan: ImportPlan, prior: Map<string, string>) {
+  const existing = await categoryIdsByKey(tx, scope)
   const priorIds = new Set(prior.values())
   const ids = new Map<string, string>()
   const created: { externalId: string; id: string; groupName: string; name: string }[] = []
@@ -242,7 +238,7 @@ async function writeCategories(
     if (found === undefined) {
       inserts.push({
         id,
-        userId,
+        ...owned(scope),
         groupName: category.groupName,
         name: category.name,
         defaultPot: category.defaultPot,
@@ -262,12 +258,12 @@ async function writeCategories(
   return { ids, created, reused: plan.categories.length - created.length }
 }
 
-async function writeLedger(tx: Tx, userId: string, plan: ImportPlan, maps: IdMaps) {
+async function writeLedger(tx: Tx, scope: Scope, plan: ImportPlan, maps: IdMaps) {
   const entryIds = new Map(plan.entries.map((e) => [e.key, randomUUID()]))
   const idOf = (key: string) => entryIds.get(key) ?? ''
   const entryRows = plan.entries.map((e) => ({
     id: idOf(e.key),
-    userId,
+    ...owned(scope),
     kind: e.kind,
     description: e.description,
     amountCents: e.amountCents,
@@ -282,16 +278,21 @@ async function writeLedger(tx: Tx, userId: string, plan: ImportPlan, maps: IdMap
     endMonth: e.endMonth === null ? null : monthToDate(e.endMonth),
   }))
   const overrideRows = plan.entries.flatMap((e) =>
-    e.overrides.map((o) => ({ entryId: idOf(e.key), userId, ...o, month: monthToDate(o.month) })),
+    e.overrides.map((o) => ({
+      entryId: idOf(e.key),
+      ...owned(scope),
+      ...o,
+      month: monthToDate(o.month),
+    })),
   )
   const paymentRows = plan.payments.map((p) => ({
-    userId,
+    ...owned(scope),
     entryId: idOf(p.entryKey),
     month: monthToDate(p.month),
     paidOn: p.paidOn,
   }))
   const linkRows = plan.links.map((l) => ({
-    userId,
+    ...owned(scope),
     source: NOTION_SOURCE,
     externalId: l.externalId,
     entryId: idOf(l.entryKey),
@@ -313,7 +314,7 @@ type CreatedCategory = { externalId: string; id: string; groupName: string; name
 
 async function writeRaw(
   tx: Tx,
-  userId: string,
+  scope: Scope,
   source: NotionSource,
   ctx: { maps: IdMaps; createdCategories: CreatedCategory[] },
 ) {
@@ -324,7 +325,7 @@ async function writeRaw(
   const targetOf = (kind: string, id: string) => targets[kind]?.get(id)
   const rows = NOTION_KINDS.flatMap((kind) =>
     source[kind].map((page) => ({
-      userId,
+      ...owned(scope),
       source: NOTION_SOURCE,
       kind,
       externalId: page.id,
@@ -333,7 +334,7 @@ async function writeRaw(
     })),
   )
   const categoryRows = ctx.createdCategories.map((c) => ({
-    userId,
+    ...owned(scope),
     source: NOTION_SOURCE,
     kind: CATEGORY_KIND,
     externalId: c.externalId,
@@ -347,26 +348,26 @@ async function writeRaw(
 /** Replaces the user's previous Notion import with `plan` (one transaction). */
 export async function writeImport(
   db: FluxiDb,
-  userId: string,
+  scope: Scope,
   input: { plan: ImportPlan; source: NotionSource },
 ): Promise<WriteSummary> {
   const { plan, source } = input
   return db.transaction(async (tx) => {
-    const prior = await priorTargets(tx, userId)
-    const removed = await removePrevious(tx, userId, prior)
+    const prior = await priorTargets(tx, scope)
+    const removed = await removePrevious(tx, scope, prior)
     const bankResult = await writeBanks(
       tx,
-      userId,
+      scope,
       plan,
       prior.get('banks') ?? new Map<string, string>(),
     )
-    const accountResult = await writeAccounts(tx, userId, plan, {
+    const accountResult = await writeAccounts(tx, scope, plan, {
       prior: prior.get('accounts') ?? new Map<string, string>(),
       bankIds: bankResult.ids,
     })
     const categoryResult = await writeCategories(
       tx,
-      userId,
+      scope,
       plan,
       prior.get(CATEGORY_KIND) ?? new Map<string, string>(),
     )
@@ -375,17 +376,17 @@ export async function writeImport(
       account: accountResult.ids,
       category: categoryResult.ids,
     }
-    const ledger = await writeLedger(tx, userId, plan, maps)
-    const raw = await writeRaw(tx, userId, source, {
+    const ledger = await writeLedger(tx, scope, plan, maps)
+    const raw = await writeRaw(tx, scope, source, {
       maps,
       createdCategories: categoryResult.created,
     })
     const countFrom = monthToDate(COUNT_FROM_MONTH)
     await tx
       .insert(userSettings)
-      .values({ userId, countFromMonth: countFrom })
+      .values({ ...owned(scope), countFromMonth: countFrom })
       .onConflictDoUpdate({
-        target: userSettings.userId,
+        target: userSettings.spaceId,
         set: { countFromMonth: countFrom, updatedAt: new Date() },
       })
     return {

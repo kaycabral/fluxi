@@ -3,7 +3,7 @@
 import { setCountFrom } from '@/features/ledger/adapters/ledger.write'
 import { formText, SESSION_EXPIRED, type FormState } from '@/features/ledger/core/action-result'
 import { countFromSchema, firstIssue } from '@/features/ledger/core/schemas'
-import { getServerUser } from '@/lib/auth/server'
+import { getServerScope } from '@/features/spaces/adapters/scope'
 import { revalidatePath } from 'next/cache'
 
 /** Per-user settings as `<form action>` handlers (`useActionState`). */
@@ -18,10 +18,10 @@ function saved(): FormState {
 }
 
 export async function setCountFromAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const user = await getServerUser()
-  if (!user) return failed(SESSION_EXPIRED)
+  const scope = await getServerScope()
+  if (!scope) return failed(SESSION_EXPIRED)
   const parsed = countFromSchema.safeParse({ month: formText(formData, 'month') })
   if (!parsed.success) return failed(firstIssue(parsed.error))
-  await setCountFrom(user.id, parsed.data.month)
+  await setCountFrom(scope, parsed.data.month)
   return saved()
 }

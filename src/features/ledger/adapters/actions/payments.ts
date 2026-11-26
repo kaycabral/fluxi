@@ -9,7 +9,7 @@ import {
 } from '@/features/ledger/core/action-result'
 import { isoDayOf } from '@/features/ledger/core/format'
 import { firstIssue, markPaidSchema, paymentKeySchema } from '@/features/ledger/core/schemas'
-import { getServerUser } from '@/lib/auth/server'
+import { getServerScope } from '@/features/spaces/adapters/scope'
 import { revalidatePath } from 'next/cache'
 
 /**
@@ -25,18 +25,18 @@ function done(result: WriteResult): ActionResult {
 }
 
 export async function markPaidAction(input: unknown): Promise<ActionResult> {
-  const user = await getServerUser()
-  if (!user) return { ok: false, error: SESSION_EXPIRED }
+  const scope = await getServerScope()
+  if (!scope) return { ok: false, error: SESSION_EXPIRED }
   const parsed = markPaidSchema.safeParse(input)
   if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) }
   const { paidOn, ...key } = parsed.data
-  return done(await markOccurrencePaid(user.id, { ...key, paidOn: paidOn ?? isoDayOf(new Date()) }))
+  return done(await markOccurrencePaid(scope, { ...key, paidOn: paidOn ?? isoDayOf(new Date()) }))
 }
 
 export async function unmarkPaidAction(input: unknown): Promise<ActionResult> {
-  const user = await getServerUser()
-  if (!user) return { ok: false, error: SESSION_EXPIRED }
+  const scope = await getServerScope()
+  if (!scope) return { ok: false, error: SESSION_EXPIRED }
   const parsed = paymentKeySchema.safeParse(input)
   if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) }
-  return done(await unmarkOccurrencePaid(user.id, parsed.data))
+  return done(await unmarkOccurrencePaid(scope, parsed.data))
 }

@@ -9,12 +9,13 @@ import type { FeedAccountRow, FeedTransactionRow } from '../core/pluggy.ts'
  * that settled under a new id, reversals) — but only from `coveredFrom` on:
  * Open Finance exposes a rolling 12-month window, so older rows are history
  * the source simply stopped serving and are kept forever. The user's mapping
- * onto a fluxi account is never touched. Every statement is scoped by `userId`.
+ * onto a fluxi account is never touched. Every statement is scoped by the
+ * user and the space the connection is routed to (`bank_feed_items`).
  *
  * Runtime-agnostic (postgres.js + relative imports with extensions): the
  * `pluggy-sync` Edge Function (Deno) imports this exact module, and the Node
  * Postgres suite proves it. It runs as the least-privileged `fluxi_sync` role,
- * which can only touch the two feed tables.
+ * which can only touch the feed tables.
  */
 
 const CHUNK = 250
@@ -29,21 +30,24 @@ export type FeedSnapshot = {
   coveredFrom: string
 }
 
+/** Who owns the feed and the space its connection is routed to. */
+export type FeedScope = { userId: string; spaceId: string }
+
 export function syncFeedAccount(
   sql: Sql,
-  userId: string,
+  { userId, spaceId }: FeedScope,
   { source, account, transactions, coveredFrom }: FeedSnapshot,
 ): Promise<SyncCounts> {
   const syncedAt = new Date()
   return sql.begin(async (tx) => {
     const [row] = await tx<{ id: string }[]>`
       insert into bank_feed_accounts
-        (user_id, source, external_id, item_id, institution, name, type, subtype,
+        (user_id, space_id, source, external_id, item_id, institution, name, type, subtype,
          balance_cents, synced_at)
       values
-        (${userId}, ${source}, ${account.externalId}, ${account.itemId}, ${account.institution},
+        (${userId}, ${spaceId}, ${source}, ${account.externalId}, ${account.itemId}, ${account.institution},
          ${account.name}, ${account.type}, ${account.subtype}, ${account.balanceCents}, ${syncedAt})
-      on conflict (user_id, source, external_id) do update set
+      on conflict (space_id, source, external_id) do update set
         item_id = excluded.item_id,
         institution = excluded.institution,
         name = excluded.name,
@@ -52,6 +56,7 @@ export function syncFeedAccount(
         balance_cents = excluded.balance_cents,
         synced_at = excluded.synced_at,
         updated_at = excluded.synced_at
+      where bank_feed_accounts.user_id = excluded.user_id
       returning id`
     if (!row) throw new Error('bank feed account upsert returned nothing')
     const feedAccountId = row.id
@@ -59,6 +64,7 @@ export function syncFeedAccount(
     for (let i = 0; i < transactions.length; i += CHUNK) {
       const rows = transactions.slice(i, i + CHUNK).map((t) => ({
         user_id: userId,
+        space_id: spaceId,
         feed_account_id: feedAccountId,
         external_id: t.externalId,
         date: t.date,
@@ -90,6 +96,7 @@ export function syncFeedAccount(
     const removed = await tx`
       delete from bank_transactions
       where user_id = ${userId}
+        and space_id = ${spaceId}
         and feed_account_id = ${feedAccountId}
         and date >= ${coveredFrom}
         and external_id <> all(${keep}::text[])

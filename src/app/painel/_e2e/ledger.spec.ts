@@ -8,6 +8,7 @@ import {
   parseMoneyInput,
 } from '@/features/ledger/core/format'
 import { addMonths, diffMonths, monthToDate } from '@/features/ledger/core/month'
+import type { Scope } from '@/features/spaces/core/space'
 import { expect, test } from '@e2e/fixtures'
 import type { Page } from '@playwright/test'
 import { eq } from 'drizzle-orm'
@@ -32,14 +33,17 @@ function expensesCell(page: Page, month: string) {
 }
 
 /** A benefit account (R$ 300 opening) at its own bank with a monthly R$ 800 credit. */
-async function seedBenefit(userId: string) {
+async function seedBenefit(scope: Scope) {
   const db = fluxiDb.db()
-  const [bank] = await db.insert(banks).values({ userId, name: 'Vale E2E' }).returning()
+  const [bank] = await db
+    .insert(banks)
+    .values({ ...scope, name: 'Vale E2E' })
+    .returning()
   if (bank === undefined) throw new Error('bank not created')
   const [benefit] = await db
     .insert(accounts)
     .values({
-      userId,
+      ...scope,
       bankId: bank.id,
       name: 'VA E2E',
       type: 'benefit',
@@ -48,7 +52,7 @@ async function seedBenefit(userId: string) {
     .returning()
   if (benefit === undefined) throw new Error('account not created')
   await db.insert(entries).values({
-    userId,
+    ...scope,
     kind: 'income',
     description: 'Crédito VA E2E',
     amountCents: 80000,
@@ -66,12 +70,15 @@ test.describe('ledger critical flow', () => {
 
   test.beforeEach(async ({ user }) => {
     const db = fluxiDb.db()
-    const [bank] = await db.insert(banks).values({ userId: user.id, name: 'Banco E2E' }).returning()
+    const [bank] = await db
+      .insert(banks)
+      .values({ ...user.scope, name: 'Banco E2E' })
+      .returning()
     if (bank === undefined) throw new Error('bank not created')
     const [account] = await db
       .insert(accounts)
       .values({
-        userId: user.id,
+        ...user.scope,
         bankId: bank.id,
         name: 'Conta E2E',
         type: 'checking',
@@ -83,11 +90,11 @@ test.describe('ledger critical flow', () => {
     await db
       .update(userSettings)
       .set({ countFromMonth: monthToDate(THIS_MONTH) })
-      .where(eq(userSettings.userId, user.id))
+      .where(eq(userSettings.spaceId, user.scope.spaceId))
   })
 
   test('benefit accounts count like any other account', async ({ page, user }) => {
-    await seedBenefit(user.id)
+    await seedBenefit(user.scope)
 
     await page.goto('/painel/linha-do-tempo')
     await expect(page.getByRole('heading', { level: 1, name: 'Linha do tempo' })).toBeVisible()
@@ -200,7 +207,7 @@ test.describe('ledger critical flow', () => {
       .db()
       .insert(entries)
       .values({
-        userId: user.id,
+        ...user.scope,
         kind: 'expense',
         description: 'Conta de luz E2E',
         amountCents: -23000,
@@ -248,7 +255,7 @@ test.describe('ledger critical flow', () => {
       .db()
       .insert(entries)
       .values({
-        userId: user.id,
+        ...user.scope,
         kind: 'expense',
         description: 'Popup E2E',
         amountCents: -1990,
@@ -290,7 +297,7 @@ test.describe('ledger critical flow', () => {
       .db()
       .insert(entries)
       .values({
-        userId: user.id,
+        ...user.scope,
         kind: 'expense',
         description: 'Desfazer E2E',
         amountCents: -4500,

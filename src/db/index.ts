@@ -1,5 +1,6 @@
 export { fluxiDb, type FluxiDb } from './db'
 export { getProfile, type Profile } from './queries/profiles'
+export { personalScope } from './queries/spaces'
 export * as fluxiSchema from './schema'
 export { seedUser, truncateFluxiTables, type SeedUserInput } from './seed'
 export { TEST_DATABASE, assertTestDatabase } from './test-database'

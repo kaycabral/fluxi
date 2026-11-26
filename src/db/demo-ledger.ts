@@ -1,4 +1,5 @@
 import { addMonths, monthToDate, type Month } from '@/features/ledger/core/month'
+import type { Scope } from '@/features/spaces/core/space'
 import { and, eq } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
 import type { FluxiDb } from './db'
@@ -10,7 +11,8 @@ import { accounts, banks, categories, entries, entryParts, userSettings } from '
  * IPVA, a 12-installment buffet). Months are relative to `start` (the count
  * start), so the app always looks alive around "today". Local dev only.
  */
-export async function seedDemoLedger(db: FluxiDb, userId: string, start: Month): Promise<void> {
+export async function seedDemoLedger(db: FluxiDb, scope: Scope, start: Month): Promise<void> {
+  const owner = { userId: scope.userId, spaceId: scope.spaceId }
   const at = (offset: number) => monthToDate(addMonths(start, offset))
   const id = () => randomUUID()
 
@@ -18,9 +20,9 @@ export async function seedDemoLedger(db: FluxiDb, userId: string, start: Month):
   const nu = id()
   const flash = id()
   await db.insert(banks).values([
-    { id: btg, userId, name: 'BTG Pactual', sort: 0 },
-    { id: nu, userId, name: 'Nubank', sort: 1 },
-    { id: flash, userId, name: 'Flash', sort: 2 },
+    { id: btg, ...owner, name: 'BTG Pactual', sort: 0 },
+    { id: nu, ...owner, name: 'Nubank', sort: 1 },
+    { id: flash, ...owner, name: 'Flash', sort: 2 },
   ])
   const btgcc = id()
   const btgcard = id()
@@ -29,7 +31,7 @@ export async function seedDemoLedger(db: FluxiDb, userId: string, start: Month):
   await db.insert(accounts).values([
     {
       id: btgcc,
-      userId,
+      ...owner,
       bankId: btg,
       name: 'Conta corrente',
       type: 'checking',
@@ -37,16 +39,23 @@ export async function seedDemoLedger(db: FluxiDb, userId: string, start: Month):
     },
     {
       id: btgcard,
-      userId,
+      ...owner,
       bankId: btg,
       name: 'Cartão Black',
       type: 'credit',
       openingBalanceCents: 0,
     },
-    { id: nucc, userId, bankId: nu, name: 'Conta', type: 'checking', openingBalanceCents: 120000 },
+    {
+      id: nucc,
+      ...owner,
+      bankId: nu,
+      name: 'Conta',
+      type: 'checking',
+      openingBalanceCents: 120000,
+    },
     {
       id: flashva,
-      userId,
+      ...owner,
       bankId: flash,
       name: 'Vale-alimentação',
       type: 'benefit',
@@ -55,13 +64,13 @@ export async function seedDemoLedger(db: FluxiDb, userId: string, start: Month):
   ])
   await db
     .insert(userSettings)
-    .values({ userId, countFromMonth: at(0) })
-    .onConflictDoUpdate({ target: userSettings.userId, set: { countFromMonth: at(0) } })
+    .values({ ...owner, countFromMonth: at(0) })
+    .onConflictDoUpdate({ target: userSettings.spaceId, set: { countFromMonth: at(0) } })
 
   const cats = await db
     .select({ id: categories.id, name: categories.name })
     .from(categories)
-    .where(and(eq(categories.userId, userId)))
+    .where(and(eq(categories.userId, scope.userId), eq(categories.spaceId, scope.spaceId)))
   const cat = (name: string) => {
     const found = cats.find((c) => c.name === name)
     if (found === undefined) throw new Error(`category not seeded: ${name}`)
@@ -69,9 +78,9 @@ export async function seedDemoLedger(db: FluxiDb, userId: string, start: Month):
   }
 
   type Row = typeof entries.$inferInsert
-  const base = (row: Omit<Row, 'userId' | 'id'> & { id?: string }): Row => ({
+  const base = (row: Omit<Row, 'userId' | 'spaceId' | 'id'> & { id?: string }): Row => ({
     id: row.id ?? id(),
-    userId,
+    ...owner,
     ...row,
   })
   const salaryNow = id()
@@ -341,8 +350,8 @@ export async function seedDemoLedger(db: FluxiDb, userId: string, start: Month):
   ]
   await db.insert(entries).values(rows)
   const split = (entryId: string) => [
-    { userId, entryId, label: 'Adiantamento', bps: 4000, day: 20, nextMonth: false, sort: 0 },
-    { userId, entryId, label: 'Saldo', bps: 6000, day: 5, nextMonth: true, sort: 1 },
+    { ...owner, entryId, label: 'Adiantamento', bps: 4000, day: 20, nextMonth: false, sort: 0 },
+    { ...owner, entryId, label: 'Saldo', bps: 6000, day: 5, nextMonth: true, sort: 1 },
   ]
   await db.insert(entryParts).values([...split(salaryNow), ...split(salaryNext)])
 }

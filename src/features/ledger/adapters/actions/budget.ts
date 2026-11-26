@@ -21,13 +21,14 @@ import {
   potKeySchema,
   updatePotSchema,
 } from '@/features/ledger/core/schemas'
-import { getServerUser } from '@/lib/auth/server'
+import { getServerScope } from '@/features/spaces/adapters/scope'
+import type { Scope } from '@/features/spaces/core/space'
 import { revalidatePath } from 'next/cache'
 import type { z } from 'zod'
 
 /**
  * Budget actions called from the "Potes da renda" card: inline pot CRUD and
- * the budget versions. Inputs are re-validated here; `userId` always comes
+ * the budget versions. Inputs are re-validated here; `scope` always comes
  * from the session.
  */
 
@@ -40,43 +41,43 @@ function done(result: WriteResult): ActionResult {
 async function run<T extends z.ZodType>(
   schema: T,
   input: unknown,
-  write: (userId: string, data: z.infer<T>) => Promise<ActionResult>,
+  write: (scope: Scope, data: z.infer<T>) => Promise<ActionResult>,
 ): Promise<ActionResult> {
-  const user = await getServerUser()
-  if (!user) return { ok: false, error: SESSION_EXPIRED }
+  const scope = await getServerScope()
+  if (!scope) return { ok: false, error: SESSION_EXPIRED }
   const parsed = schema.safeParse(input)
   if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) }
-  return write(user.id, parsed.data)
+  return write(scope, parsed.data)
 }
 
 export async function createPotAction(input: unknown): Promise<ActionResult> {
-  return run(createPotSchema, input, async (userId, data) => done(await createPot(userId, data)))
+  return run(createPotSchema, input, async (scope, data) => done(await createPot(scope, data)))
 }
 
 export async function updatePotAction(input: unknown): Promise<ActionResult> {
-  return run(updatePotSchema, input, async (userId, data) => done(await updatePot(userId, data)))
+  return run(updatePotSchema, input, async (scope, data) => done(await updatePot(scope, data)))
 }
 
 /** `archived: true` when the pot had history and was archived instead of deleted. */
 export async function removePotAction(
   input: unknown,
 ): Promise<ActionResult & { archived?: boolean }> {
-  const user = await getServerUser()
-  if (!user) return { ok: false, error: SESSION_EXPIRED }
+  const scope = await getServerScope()
+  if (!scope) return { ok: false, error: SESSION_EXPIRED }
   const parsed = potKeySchema.safeParse(input)
   if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) }
-  const result = await removePot(user.id, parsed.data)
+  const result = await removePot(scope, parsed.data)
   if (!result.ok) return failureResult(result.reason)
   revalidatePath('/painel', 'layout')
   return { ok: true, archived: result.outcome === 'archived' }
 }
 
 export async function saveBudgetPlanAction(input: unknown): Promise<ActionResult> {
-  return run(budgetPlanSchema, input, async (userId, data) =>
-    done(await saveBudgetPlan(userId, data)),
+  return run(budgetPlanSchema, input, async (scope, data) =>
+    done(await saveBudgetPlan(scope, data)),
   )
 }
 
 export async function deleteBudgetPlanAction(input: unknown): Promise<ActionResult> {
-  return run(idSchema, input, async (userId, id) => done(await deleteBudgetPlan(userId, id)))
+  return run(idSchema, input, async (scope, id) => done(await deleteBudgetPlan(scope, id)))
 }

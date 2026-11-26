@@ -7,6 +7,7 @@ import type { SeriesState } from '@/features/ledger/core/scoped-edit'
 import { fluxiDb, type FluxiDb } from '@/lib/db'
 import { isForeignKeyViolation } from '@cbrl/pg'
 import { and, asc, eq } from 'drizzle-orm'
+import { inScope, type Scope } from './scope-filter'
 
 /** Shared plumbing of the ledger write adapters (results, transactions, the locked series). */
 
@@ -42,24 +43,24 @@ export class ScopeError extends Error {
 /** The entry (locked for the transaction), its parts and every override. */
 export async function loadSeries(
   tx: Tx,
-  userId: string,
+  scope: Scope,
   entryId: string,
 ): Promise<SeriesState | null> {
   const [row] = await tx
     .select()
     .from(entries)
-    .where(and(eq(entries.id, entryId), eq(entries.userId, userId)))
+    .where(and(eq(entries.id, entryId), inScope(entries, scope)))
     .for('update')
   if (row === undefined) return null
   const partRows = await tx
     .select()
     .from(entryParts)
-    .where(and(eq(entryParts.entryId, entryId), eq(entryParts.userId, userId)))
+    .where(and(eq(entryParts.entryId, entryId), inScope(entryParts, scope)))
     .orderBy(asc(entryParts.sort))
   const overrideRows = await tx
     .select()
     .from(entryOverrides)
-    .where(and(eq(entryOverrides.entryId, entryId), eq(entryOverrides.userId, userId)))
+    .where(and(eq(entryOverrides.entryId, entryId), inScope(entryOverrides, scope)))
   return {
     entry: {
       id: row.id,

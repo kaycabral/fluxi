@@ -3,6 +3,7 @@ import 'server-only'
 import { entries, undoSnapshots } from '@/db/schema'
 import { and, eq, inArray, sql } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
+import { inScope, type Scope } from './scope-filter'
 import { db, fail, guarded, ok, type Tx, type WriteResult } from './write-base'
 
 /**
@@ -12,7 +13,7 @@ import { db, fail, guarded, ok, type Tx, type WriteResult } from './write-base'
  * was); undoing deletes those entries (their parts, overrides and payments go
  * with them by cascade) and puts the recorded rows back.
  *
- * Only the last action of a user can be undone (one row per user), and only
+ * Only the last action in a space can be undone (one row per space), and only
  * for {@link UNDO_WINDOW}: the toast offering it lasts seconds, the rest is
  * slack for a slow network.
  */
@@ -25,9 +26,9 @@ const uuidArray = (ids: readonly string[]) => `{${ids.join(',')}}`
 const RESTORE_ORDER = ['entries', 'entry_parts', 'entry_overrides', 'occurrence_payments'] as const
 
 /** The rows of `table` belonging to the entries `ids`, as a jsonb array. */
-const rowsOf = (table: (typeof RESTORE_ORDER)[number], userId: string, ids: string) =>
+const rowsOf = (table: (typeof RESTORE_ORDER)[number], scope: Scope, ids: string) =>
   sql`coalesce((select jsonb_agg(to_jsonb(t)) from ${sql.identifier(table)} t
-    where t.user_id = ${userId}
+    where t.user_id = ${scope.userId} and t.space_id = ${scope.spaceId}
       and t.${sql.identifier(table === 'entries' ? 'id' : 'entry_id')} = any(${ids}::uuid[])), '[]'::jsonb)`
 
 /**
@@ -39,26 +40,26 @@ const rowsOf = (table: (typeof RESTORE_ORDER)[number], userId: string, ids: stri
  */
 export async function captureUndo(
   tx: Tx,
-  userId: string,
+  scope: Scope,
   entryIds: readonly string[],
   { created = false }: { created?: boolean } = {},
 ): Promise<string> {
   const token = randomUUID()
   const ids = uuidArray(entryIds)
   const rows = (table: (typeof RESTORE_ORDER)[number]) =>
-    created ? sql`'[]'::jsonb` : rowsOf(table, userId, ids)
+    created ? sql`'[]'::jsonb` : rowsOf(table, scope, ids)
   await tx.execute(sql`delete from undo_snapshots where created_at < now() - ${UNDO_WINDOW}`)
   await tx.execute(sql`
     insert into undo_snapshots
-      (user_id, token, entry_ids, entries, entry_parts, entry_overrides, occurrence_payments)
+      (user_id, space_id, token, entry_ids, entries, entry_parts, entry_overrides, occurrence_payments)
     values (
-      ${userId}, ${token}, ${ids}::uuid[],
+      ${scope.userId}, ${scope.spaceId}, ${token}, ${ids}::uuid[],
       ${rows('entries')},
       ${rows('entry_parts')},
       ${rows('entry_overrides')},
       ${rows('occurrence_payments')}
     )
-    on conflict (user_id) do update set
+    on conflict (space_id) do update set
       token = excluded.token,
       entry_ids = excluded.entry_ids,
       entries = excluded.entries,
@@ -70,21 +71,21 @@ export async function captureUndo(
 }
 
 /** Add the entries an action created (a series split) to what its undo removes. */
-export async function widenUndo(tx: Tx, userId: string, createdIds: readonly string[]) {
+export async function widenUndo(tx: Tx, scope: Scope, createdIds: readonly string[]) {
   if (createdIds.length === 0) return
   await tx
     .update(undoSnapshots)
     .set({
       entryIds: sql`(select array(select distinct unnest(${undoSnapshots.entryIds} || ${uuidArray(createdIds)}::uuid[])))`,
     })
-    .where(eq(undoSnapshots.userId, userId))
+    .where(inScope(undoSnapshots, scope))
 }
 
 /**
  * Undo the user's last action, if `token` is still it and still in the window
  * (`undo_expired` otherwise). The record is consumed: a second undo is refused.
  */
-export async function undoLastAction(userId: string, token: string): Promise<WriteResult> {
+export async function undoLastAction(scope: Scope, token: string): Promise<WriteResult> {
   return guarded(() =>
     db().transaction(async (tx) => {
       const [record] = await tx
@@ -92,7 +93,7 @@ export async function undoLastAction(userId: string, token: string): Promise<Wri
         .from(undoSnapshots)
         .where(
           and(
-            eq(undoSnapshots.userId, userId),
+            inScope(undoSnapshots, scope),
             eq(undoSnapshots.token, token),
             sql`${undoSnapshots.createdAt} >= now() - ${UNDO_WINDOW}`,
           ),
@@ -101,7 +102,7 @@ export async function undoLastAction(userId: string, token: string): Promise<Wri
       if (record === undefined) return fail('undo_expired')
       await tx
         .delete(entries)
-        .where(and(eq(entries.userId, userId), inArray(entries.id, record.entryIds)))
+        .where(and(inScope(entries, scope), inArray(entries.id, record.entryIds)))
       // Parents first: parts before the payments that point at them. Each
       // snapshot column is named after its table.
       for (const table of RESTORE_ORDER) {
@@ -109,18 +110,19 @@ export async function undoLastAction(userId: string, token: string): Promise<Wri
           insert into ${sql.identifier(table)}
           select * from jsonb_populate_recordset(
             null::${sql.identifier(table)},
-            (select ${sql.identifier(table)} from undo_snapshots where user_id = ${userId})
-          ) where user_id = ${userId}`)
+            (select ${sql.identifier(table)} from undo_snapshots
+              where user_id = ${scope.userId} and space_id = ${scope.spaceId})
+          ) where user_id = ${scope.userId} and space_id = ${scope.spaceId}`)
       }
-      await tx.delete(undoSnapshots).where(eq(undoSnapshots.userId, userId))
+      await tx.delete(undoSnapshots).where(inScope(undoSnapshots, scope))
       return ok
     }),
   )
 }
 
 /** Drop the user's undo record once its toast closed unused (`token` guards a newer one). */
-export async function forgetUndo(userId: string, token: string): Promise<void> {
+export async function forgetUndo(scope: Scope, token: string): Promise<void> {
   await db()
     .delete(undoSnapshots)
-    .where(and(eq(undoSnapshots.userId, userId), eq(undoSnapshots.token, token)))
+    .where(and(inScope(undoSnapshots, scope), eq(undoSnapshots.token, token)))
 }

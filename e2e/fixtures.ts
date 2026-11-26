@@ -1,5 +1,7 @@
 import path from 'node:path'
 
+import { fluxiDb, personalScope } from '@/db'
+import type { Scope } from '@/features/spaces/core/space'
 import { test as base, expect } from '@playwright/test'
 
 import { BASE_URL, USER_DISPLAY_NAME } from './constants'
@@ -22,7 +24,8 @@ type WorkerFixtures = {
 type TestFixtures = {
   // Opt-in (per `test.use`): run the test authenticated as the worker's user.
   authAsUser: boolean
-  user: { id: string; email: string }
+  /** The worker's user and its personal space (where the app starts). */
+  user: { id: string; email: string; scope: Scope }
 }
 
 export const test = base.extend<TestFixtures, WorkerFixtures>({
@@ -64,7 +67,8 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   },
 
   user: async ({ userId }, use, testInfo) => {
-    await use({ id: userId, email: userEmail(testInfo.workerIndex) })
+    const scope = await personalScope(fluxiDb.db(), userId)
+    await use({ id: userId, email: userEmail(testInfo.workerIndex), scope })
   },
 })
 

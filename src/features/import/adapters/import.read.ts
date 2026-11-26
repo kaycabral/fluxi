@@ -1,6 +1,7 @@
 import type { FluxiDb } from '@/db'
 import { entries, entryOverrides, importLinks, importRaw } from '@/db/schema'
 import type { LedgerToVerify } from '@/features/import/core/verify'
+import { inScope, type Scope } from '@/features/ledger/adapters/scope-filter'
 import { monthFromDate } from '@/features/ledger/core/month'
 import { and, eq, inArray } from 'drizzle-orm'
 import { NOTION_SOURCE } from './import.write'
@@ -13,25 +14,25 @@ import { NOTION_SOURCE } from './import.write'
 
 export type ImportedLedger = LedgerToVerify & { accountIds: Map<string, string> }
 
-export async function readImportedLedger(db: FluxiDb, userId: string): Promise<ImportedLedger> {
+export async function readImportedLedger(db: FluxiDb, scope: Scope): Promise<ImportedLedger> {
   const linked = db
     .selectDistinct({ id: importLinks.entryId })
     .from(importLinks)
-    .where(and(eq(importLinks.userId, userId), eq(importLinks.source, NOTION_SOURCE)))
+    .where(and(inScope(importLinks, scope), eq(importLinks.source, NOTION_SOURCE)))
   const entryRows = await db
     .select()
     .from(entries)
-    .where(and(eq(entries.userId, userId), inArray(entries.id, linked)))
+    .where(and(inScope(entries, scope), inArray(entries.id, linked)))
   const overrideRows = await db
     .select()
     .from(entryOverrides)
-    .where(and(eq(entryOverrides.userId, userId), inArray(entryOverrides.entryId, linked)))
+    .where(and(inScope(entryOverrides, scope), inArray(entryOverrides.entryId, linked)))
   const accountRows = await db
     .select({ externalId: importRaw.externalId, targetId: importRaw.targetId })
     .from(importRaw)
     .where(
       and(
-        eq(importRaw.userId, userId),
+        inScope(importRaw, scope),
         eq(importRaw.source, NOTION_SOURCE),
         eq(importRaw.kind, 'accounts'),
       ),

@@ -2,7 +2,10 @@ import { supabaseSsl } from '@cbrl/pg'
 import { createDrizzleDatabase } from '@cbrl/pg/drizzle'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import * as schema from './schema'
+import * as ledgerSchema from './schema'
+import * as bankFeedSchema from './schema-bank-feed'
+
+const schema = { ...ledgerSchema, ...bankFeedSchema }
 
 /**
  * Postgres for fluxi (Supabase in production, the local Supabase stack in

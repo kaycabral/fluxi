@@ -17,8 +17,10 @@ import { createPluggyClient, type PluggyClient } from './pluggy.client.ts'
  *
  * Security posture (decided after a review): the Pluggy secret and the bank
  * data never leave Supabase; the database is reached as `fluxi_sync`, a role
- * that can only touch the two feed tables; the target user is a configured
- * id, never looked up; the caller (pg_cron via pg_net) must present a
+ * that can only touch the feed tables; the target user is a configured id,
+ * never looked up; each connection (item) is recorded in `bank_feed_items`
+ * and synced only once the user routed it to one of their spaces (unassigned
+ * items are reported and nothing of them is stored); the caller (pg_cron via pg_net) must present a
  * dedicated token. Output and logs carry aggregates only — never credentials,
  * descriptions or single amounts.
  */
@@ -105,7 +107,14 @@ export type AccountSummary = {
 
 export type SkippedItem = { item: number; institution: string; status: string }
 
-export type SyncSummary = { accounts: AccountSummary[]; skipped: SkippedItem[] }
+/** A configured item no space was chosen for yet ("Conexões" in the settings): not synced. */
+export type UnassignedItem = { item: number; institution: string }
+
+export type SyncSummary = {
+  accounts: AccountSummary[]
+  skipped: SkippedItem[]
+  unassigned: UnassignedItem[]
+}
 
 export type SyncRun = {
   sql: Sql
@@ -117,8 +126,29 @@ export type SyncRun = {
 }
 
 /**
+ * Record `itemId` (label = institution) and return the space it is routed to,
+ * or null while the user has not assigned it.
+ */
+async function routeItem(
+  sql: Sql,
+  userId: string,
+  itemId: string,
+  label: string,
+): Promise<string | null> {
+  const [row] = await sql<{ space_id: string | null }[]>`
+    insert into bank_feed_items (user_id, item_id, label)
+    values (${userId}, ${itemId}, ${label})
+    on conflict (user_id, item_id) do update set
+      label = excluded.label,
+      updated_at = now()
+    returning space_id`
+  return row?.space_id ?? null
+}
+
+/**
  * Item by item, account by account: only one account's transactions are in
- * memory at a time. Items that are not UPDATED yet are reported and skipped.
+ * memory at a time. Items that are not UPDATED yet, or not routed to a space,
+ * are reported and skipped.
  */
 export async function runPluggySync({
   sql,
@@ -127,11 +157,16 @@ export async function runPluggySync({
   itemIds,
   today,
 }: SyncRun): Promise<SyncSummary> {
-  const summary: SyncSummary = { accounts: [], skipped: [] }
+  const summary: SyncSummary = { accounts: [], skipped: [], unassigned: [] }
   const from = coveredFrom(today)
   for (const [index, itemId] of itemIds.entries()) {
     const item = await pluggy.getItem(itemId)
     const institution = item.connector?.name ?? 'Pluggy'
+    const spaceId = await routeItem(sql, userId, itemId, institution)
+    if (spaceId === null) {
+      summary.unassigned.push({ item: index + 1, institution })
+      continue
+    }
     const readiness = itemReadiness(item)
     if (!readiness.ready) {
       summary.skipped.push({ item: index + 1, institution, status: readiness.reason })
@@ -141,12 +176,16 @@ export async function runPluggySync({
       const feed = toFeedAccount(account, institution)
       const rows = (await pluggy.listTransactions(account.id)).map(toFeedTransaction)
       const dates = rows.map((r) => r.date).sort()
-      const counts = await syncFeedAccount(sql, userId, {
-        source: PLUGGY_SOURCE,
-        account: feed,
-        transactions: rows,
-        coveredFrom: from,
-      })
+      const counts = await syncFeedAccount(
+        sql,
+        { userId, spaceId },
+        {
+          source: PLUGGY_SOURCE,
+          account: feed,
+          transactions: rows,
+          coveredFrom: from,
+        },
+      )
       summary.accounts.push({
         item: index + 1,
         institution,
@@ -238,6 +277,9 @@ export async function handleSyncRequest(
     }
     for (const s of summary.skipped) {
       log(`item #${s.item} (${s.institution}): skipped, status ${s.status}`)
+    }
+    for (const u of summary.unassigned) {
+      log(`item #${u.item} (${u.institution}): unassigned, choose its space in the app`)
     }
     return json(200, { ok: true, ...summary })
   } catch (error) {

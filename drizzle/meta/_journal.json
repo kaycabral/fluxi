@@ -113,6 +113,27 @@
       "when": 1795652920860,
       "tag": "0015_sync_schedule",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1795655708268,
+      "tag": "0016_spaces",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1795655777639,
+      "tag": "0017_spaces_seed",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1795655778208,
+      "tag": "0018_sync_feed_items",
+      "breakpoints": true
     }
   ]
 }

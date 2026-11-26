@@ -1,5 +1,5 @@
 import { Unavailable } from '@/app/painel/_components/unavailable'
-import { requirePainelUser, todayIso } from '@/app/painel/_lib/session'
+import { requirePainelScope, todayIso } from '@/app/painel/_lib/session'
 import { loadLedgerData } from '@/features/ledger/adapters/views'
 import { parseSearchQuery, SEARCH_QUERY_COOKIE } from '@/features/ledger/core/search'
 import { SearchView } from '@/features/ledger/ui/search-view'
@@ -18,9 +18,9 @@ const ALL_TIME = { from: '1900-01', to: '9999-12' }
  * from the query this browser left (cookie).
  */
 export default async function SearchPage() {
-  const user = await requirePainelUser()
+  const scope = await requirePainelScope()
   const query = parseSearchQuery((await cookies()).get(SEARCH_QUERY_COOKIE)?.value)
-  const data = await loadLedgerData(user.id, ALL_TIME, null)
+  const data = await loadLedgerData(scope, ALL_TIME, null)
 
   return (
     <Main>

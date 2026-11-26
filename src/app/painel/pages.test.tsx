@@ -2,6 +2,8 @@ import { sampleData, sampleRefs } from '@/features/ledger/ui/test-fixtures'
 import { render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import CalendarPage from './(app)/calendario/page'
+import ConnectionsRedirect from './(app)/conexoes/page'
+import SettingsRedirect from './(app)/configuracoes/page'
 import SearchPage from './(app)/lancamentos/page'
 import AppLayout from './(app)/layout'
 import BudgetPage from './(app)/orcamento/page'
@@ -18,24 +20,39 @@ const views = {
   loadRefs: vi.fn<() => Promise<Read<unknown>>>(),
   loadCountFrom: vi.fn<() => Promise<Read<string | null>>>(),
   loadLedgerData:
-    vi.fn<(userId: string, window: unknown, countFrom: unknown) => Promise<Read<unknown>>>(),
-  loadBudgetPlans: vi.fn<(userId: string) => Promise<Read<unknown>>>(),
+    vi.fn<(scope: unknown, window: unknown, countFrom: unknown) => Promise<Read<unknown>>>(),
+  loadBudgetPlans: vi.fn<(scope: unknown) => Promise<Read<unknown>>>(),
   loadAccountBalances:
-    vi.fn<(userId: string, first: string, later: string) => Promise<Read<unknown>>>(),
+    vi.fn<(scope: unknown, first: string, later: string) => Promise<Read<unknown>>>(),
 }
 vi.mock('@/features/ledger/adapters/views', () => ({
   loadRefs: () => views.loadRefs(),
   loadCountFrom: () => views.loadCountFrom(),
-  loadLedgerData: (u: string, w: unknown, c: unknown) => views.loadLedgerData(u, w, c),
-  loadBudgetPlans: (u: string) => views.loadBudgetPlans(u),
-  loadAccountBalances: (u: string, f: string, l: string) => views.loadAccountBalances(u, f, l),
+  loadLedgerData: (u: unknown, w: unknown, c: unknown) => views.loadLedgerData(u, w, c),
+  loadBudgetPlans: (u: unknown) => views.loadBudgetPlans(u),
+  loadAccountBalances: (u: unknown, f: string, l: string) => views.loadAccountBalances(u, f, l),
 }))
+const PERSONAL = { id: 's1', name: 'Pessoal', kind: 'personal', archived: false } as const
+const SCOPE = { userId: 'u1', spaceId: 's1', space: PERSONAL, spaces: [PERSONAL] }
 vi.mock('@/app/painel/_lib/session', () => ({
-  requirePainelUser: () => Promise.resolve({ id: 'u1' }),
+  requirePainelScope: () => Promise.resolve(SCOPE),
   todayIso: () => '2026-12-15',
+}))
+const getServerScope = vi.fn<() => Promise<typeof SCOPE | null>>()
+vi.mock('@/features/spaces/adapters/scope', () => ({ getServerScope: () => getServerScope() }))
+const listFeedItems = vi.fn<() => Promise<unknown[]>>()
+vi.mock('@/features/spaces/adapters/space.repo', () => ({ listFeedItems: () => listFeedItems() }))
+vi.mock('@/features/spaces/adapters/actions/spaces', () => ({
+  switchSpaceAction: vi.fn(),
+  createSpaceAction: vi.fn(),
+  archiveSpaceAction: vi.fn(),
+  assignFeedItemAction: vi.fn(),
 }))
 const getServerUser = vi.fn<() => Promise<{ id: string } | null>>()
 vi.mock('@/lib/auth/server', () => ({ getServerUser: () => getServerUser() }))
+type TestProfile = { id: string; displayName: string | null; avatarUrl: string | null }
+const getProfile = vi.fn<() => Promise<TestProfile | null>>()
+vi.mock('@/lib/db', () => ({ getProfile: () => getProfile() }))
 const redirect = vi.fn<(url: string) => never>()
 const notFound = vi.fn<() => never>()
 vi.mock('next/navigation', () => ({
@@ -111,8 +128,21 @@ vi.mock('@/features/ledger/ui/ledger-shell', () => ({
 }))
 vi.mock('./_components/topbar', () => ({ Topbar: () => <header>topbar</header> }))
 vi.mock('./_components/app-sidebar', () => ({
-  AppSidebar: ({ children, defaultOpen }: { children: React.ReactNode; defaultOpen: boolean }) => (
-    <div aria-label="menu lateral" role="region" data-open={String(defaultOpen)}>
+  AppSidebar: ({
+    children,
+    defaultOpen,
+    account,
+  }: {
+    children: React.ReactNode
+    defaultOpen: boolean
+    account: { name: string | null; email: string | null; avatarUrl: string | null }
+  }) => (
+    <div
+      aria-label="menu lateral"
+      role="region"
+      data-open={String(defaultOpen)}
+      data-account={JSON.stringify(account)}
+    >
       {children}
     </div>
   ),
@@ -127,6 +157,9 @@ beforeEach(() => {
   views.loadBudgetPlans.mockResolvedValue(ok([{}, {}]))
   views.loadAccountBalances.mockResolvedValue(ok({ firstMonth: '2026-11' }))
   getServerUser.mockResolvedValue({ id: 'u1' })
+  getProfile.mockResolvedValue({ id: 'u1', displayName: 'Ana', avatarUrl: null })
+  getServerScope.mockResolvedValue(SCOPE)
+  listFeedItems.mockResolvedValue([])
 })
 afterEach(() => vi.clearAllMocks())
 
@@ -148,7 +181,7 @@ describe('painel pages', () => {
     render(await SearchPage())
     expect(screen.getByText('search luz@2027-01-01')).toBeInTheDocument()
     expect(views.loadLedgerData).toHaveBeenCalledWith(
-      'u1',
+      SCOPE,
       { from: '1900-01', to: '9999-12' },
       null,
     )
@@ -158,14 +191,24 @@ describe('painel pages', () => {
   it('accounts load balances from the count start to a year later', async () => {
     render(await AccountsPage())
     expect(screen.getByText('accounts 2026-11')).toBeInTheDocument()
-    expect(views.loadAccountBalances).toHaveBeenCalledWith('u1', '2026-11', '2027-11')
+    expect(views.loadAccountBalances).toHaveBeenCalledWith(SCOPE, '2026-11', '2027-11')
+  })
+
+  it('the settings and the old connections addresses open the settings modal', () => {
+    redirect.mockImplementation(() => {
+      throw new Error('redirected')
+    })
+    expect(() => SettingsRedirect()).toThrow('redirected')
+    expect(redirect).toHaveBeenLastCalledWith('/painel#configuracoes/conexoes')
+    expect(() => ConnectionsRedirect()).toThrow('redirected')
+    expect(redirect).toHaveBeenLastCalledWith('/painel#configuracoes/conexoes')
   })
 
   it('budget loads the whole ledger and the budget versions', async () => {
     render(await BudgetPage())
     expect(screen.getByText('budget 2@2026-12')).toBeInTheDocument()
     expect(views.loadLedgerData).toHaveBeenCalledWith(
-      'u1',
+      SCOPE,
       { from: '1900-01', to: '9999-12' },
       '2026-11',
     )
@@ -174,7 +217,7 @@ describe('painel pages', () => {
   it('dashboard loads the whole ledger and the budget versions with today', async () => {
     render(await DashboardPage({ searchParams: Promise.resolve({}) }))
     expect(screen.getByText('dashboard 2@2026-12-15')).toBeInTheDocument()
-    expect(views.loadBudgetPlans).toHaveBeenCalledWith('u1')
+    expect(views.loadBudgetPlans).toHaveBeenCalledWith(SCOPE)
   })
 
   it('calendar reads view, date and account from the URL and loads what the view needs', async () => {
@@ -185,7 +228,7 @@ describe('painel pages', () => {
     )
     expect(screen.getByText('calendar week 2027-02-27/abc@2026-12-15')).toBeInTheDocument()
     expect(views.loadLedgerData).toHaveBeenLastCalledWith(
-      'u1',
+      SCOPE,
       { from: '2027-02', to: '2027-02' },
       '2026-11',
     )
@@ -201,7 +244,7 @@ describe('painel pages', () => {
     render(await CalendarPage({ searchParams: Promise.resolve({ data: 'ontem', modo: 'x' }) }))
     expect(screen.getByText('calendar month 2026-12-15/@2026-12-15')).toBeInTheDocument()
     expect(views.loadLedgerData).toHaveBeenLastCalledWith(
-      'u1',
+      SCOPE,
       { from: '2026-11', to: '2027-01' },
       '2026-11',
     )
@@ -272,12 +315,60 @@ describe('painel layouts', () => {
     sidebarCookie = undefined
   })
 
+  it('the menu shows the profile, falling back to the session claims', async () => {
+    const session = { id: 'u1', email: 'ana@x.test', name: 'Ana G', avatarUrl: 'https://a/p.png' }
+    getServerUser.mockResolvedValue(session)
+    const { unmount } = render(await AppLayout({ children: null }))
+    expect(
+      JSON.parse(
+        screen.getByRole('region', { name: 'menu lateral' }).getAttribute('data-account') ?? '',
+      ),
+    ).toEqual({ name: 'Ana', email: 'ana@x.test', avatarUrl: 'https://a/p.png' })
+    unmount()
+    getProfile.mockRejectedValue(new Error('db down'))
+    render(await AppLayout({ children: null }))
+    expect(
+      JSON.parse(
+        screen.getByRole('region', { name: 'menu lateral' }).getAttribute('data-account') ?? '',
+      ),
+    ).toEqual({ name: 'Ana G', email: 'ana@x.test', avatarUrl: 'https://a/p.png' })
+  })
+
+  it('the menu is empty without a session', async () => {
+    getServerUser.mockResolvedValue(null)
+    render(await AppLayout({ children: null }))
+    expect(screen.getByRole('region', { name: 'menu lateral' })).toHaveAttribute(
+      'data-account',
+      JSON.stringify({ name: null, email: null, avatarUrl: null }),
+    )
+  })
+
   it('the legacy layout keeps the top navigation and the footer', () => {
     render(LegacyLayout({ children: <p>antigo</p> }))
     expect(screen.getByRole('navigation', { name: 'Seções' })).toBeInTheDocument()
     expect(screen.getByText('antigo')).toBeInTheDocument()
     const footer = screen.getByRole('navigation', { name: 'Rodapé' })
     expect(footer).toContainElement(screen.getByRole('link', { name: 'Privacidade' }))
+  })
+
+  it('degrades the painel when the spaces cannot be resolved', async () => {
+    getServerScope.mockRejectedValueOnce(new Error('db down'))
+    render(await PainelLayout({ children: <p>conteúdo</p> }))
+    expect(screen.queryByText('conteúdo')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Tentar de novo' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'shell com 0 bancos' })).toBeInTheDocument()
+  })
+
+  it('degrades the painel when the session vanishes while resolving the space', async () => {
+    getServerScope.mockResolvedValueOnce(null)
+    render(await PainelLayout({ children: <p>conteúdo</p> }))
+    expect(screen.queryByText('conteúdo')).not.toBeInTheDocument()
+  })
+
+  it('keeps the sidebar without the switcher when the spaces cannot be read', async () => {
+    getServerScope.mockRejectedValueOnce(new Error('db down'))
+    render(await AppLayout({ children: <p>calendário</p> }))
+    expect(screen.getByRole('region', { name: 'menu lateral' })).toHaveTextContent('calendário')
   })
 
   it('falls back to empty refs when the backend is down', async () => {

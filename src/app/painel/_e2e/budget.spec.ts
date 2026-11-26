@@ -12,10 +12,13 @@ test.describe('dashboard and budget', () => {
 
   test.beforeEach(async ({ user }) => {
     const db = fluxiDb.db()
-    const [bank] = await db.insert(banks).values({ userId: user.id, name: 'Banco E2E' }).returning()
+    const [bank] = await db
+      .insert(banks)
+      .values({ ...user.scope, name: 'Banco E2E' })
+      .returning()
     if (bank === undefined) throw new Error('bank not created')
     await db.insert(accounts).values({
-      userId: user.id,
+      ...user.scope,
       bankId: bank.id,
       name: 'Conta E2E',
       type: 'checking',

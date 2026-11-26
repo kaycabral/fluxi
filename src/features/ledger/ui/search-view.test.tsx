@@ -233,6 +233,20 @@ describe('SearchView', () => {
     expect(within(list()).getByText('Recebido')).toBeInTheDocument()
   })
 
+  it('marks the entries that come from the bank', async () => {
+    const data = sampleData()
+    renderSearch(
+      { text: 'avulso' },
+      {
+        ...data,
+        entries: data.entries.map((e) => (e.id === IDS.once ? { ...e, fromBank: true } : e)),
+      },
+    )
+    const mark = within(list()).getByRole('img', { name: 'Vem do banco' })
+    await userEvent.hover(mark)
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Vem do banco')
+  })
+
   it('clears one or every filter, keeping the search', async () => {
     renderSearch({ text: 'luz', kind: 'expense', status: 'paid', from: '2026-12-01' })
     await userEvent.click(screen.getByRole('button', { name: 'Remover filtro Pagos' }))

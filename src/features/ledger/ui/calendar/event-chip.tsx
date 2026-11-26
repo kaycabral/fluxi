@@ -45,6 +45,7 @@ import {
 } from 'lucide-react'
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
+import { BANK_MARK_LABEL, BankMark } from '../bank-mark'
 import { useLedgerUi } from '../ledger-shell'
 import { toneOf } from '../money'
 import { paidMessage } from '../paid-controls'
@@ -107,7 +108,7 @@ export function EventChip({
         <button
           type="button"
           onClick={(e) => measureSide(e.currentTarget)}
-          title={`${title} ${signedAmount(landing)}${statusTitle === '' ? '' : ` (${statusTitle})`}`}
+          title={`${title} ${signedAmount(landing)}${statusTitle === '' ? '' : ` (${statusTitle})`}${landing.entry.fromBank ? ` · ${BANK_MARK_LABEL}` : ''}`}
           draggable={movable}
           onDragStart={(e) => {
             // Firefox only starts a drag with data set.
@@ -156,6 +157,7 @@ export function EventChip({
               <span className="truncate">{title}</span>
             </>
           )}
+          {landing.entry.fromBank && <BankMark tooltip={false} />}
         </button>
       </PopoverTrigger>
       <PopoverContent
@@ -273,6 +275,7 @@ export function EventDetails({
         <div className="min-w-0">
           <h3 className={cn('text-xl leading-snug', skipped && 'line-through')}>
             {landingTitle(landing)}
+            {entry.fromBank && <BankMark className="ml-2" />}
           </h3>
           <p className="text-muted-foreground text-sm first-letter:uppercase">
             {dayLongLabel(isoDate(landing.month, landing.day))} · {repeatLabel(landing)}

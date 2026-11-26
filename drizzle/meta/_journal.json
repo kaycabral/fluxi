@@ -155,6 +155,13 @@
       "when": 1795664392809,
       "tag": "0021_materialize_bank_feed",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1795698091925,
+      "tag": "0022_feed_auto_link",
+      "breakpoints": true
     }
   ]
 }

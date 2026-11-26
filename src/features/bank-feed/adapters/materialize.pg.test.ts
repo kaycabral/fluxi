@@ -14,7 +14,7 @@ import { undoLastAction } from '@/features/ledger/adapters/undo.write'
 import type { EntryFields } from '@/features/ledger/core/schemas'
 import type { Scope } from '@/features/spaces/core/space'
 import { requireEnv } from '@cbrl/env'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, isNull } from 'drizzle-orm'
 import postgres from 'postgres'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { syncFeedAccount } from './feed.write'
@@ -65,20 +65,31 @@ const tx = (externalId: string, over: Partial<FeedTransactionRow> = {}): FeedTra
   ...over,
 })
 
-const feed = (scope: Scope, acc: FeedAccountRow, rows: FeedTransactionRow[]) =>
-  syncFeedAccount(asSync, scope, {
+/**
+ * Sync one feed account. These tests drive the mapping by hand, so a feed
+ * account nobody decided is marked as the user's "Não vincular" (`manual`):
+ * the auto-link (`autolink.pg.test.ts`) stays out of the way.
+ */
+async function feed(scope: Scope, acc: FeedAccountRow, rows: FeedTransactionRow[]) {
+  const done = await syncFeedAccount(asSync, scope, {
     source: 'pluggy',
     account: acc,
     transactions: rows,
     coveredFrom: '2026-01-01',
   })
+  await db()
+    .update(bankFeedAccounts)
+    .set({ mappingSource: 'manual' })
+    .where(and(eq(bankFeedAccounts.spaceId, scope.spaceId), isNull(bankFeedAccounts.mappingSource)))
+  return done
+}
 
 const materialize = (scope: Scope = ana) => materializeSpace(asSync, scope, TODAY)
 
 async function map(scope: Scope, externalId: string, accountId: string) {
   await db()
     .update(bankFeedAccounts)
-    .set({ accountId })
+    .set({ accountId, mappingSource: 'manual' })
     .where(
       and(eq(bankFeedAccounts.spaceId, scope.spaceId), eq(bankFeedAccounts.externalId, externalId)),
     )
@@ -143,6 +154,7 @@ describe('materialize_bank_feed (Postgres)', () => {
       created: 2,
       updated: 0,
       anchored: 1,
+      linked: 0,
     })
     const rows = await entriesOf(ana)
     expect(
@@ -164,6 +176,7 @@ describe('materialize_bank_feed (Postgres)', () => {
       created: 0,
       updated: 0,
       anchored: 0,
+      linked: 0,
     })
     expect(await entriesOf(ana)).toHaveLength(2)
     expect(await linksOf(ana)).toHaveLength(2)

@@ -3,12 +3,18 @@ import 'server-only'
 import { accounts, banks } from '@/db/schema'
 import { bankFeedAccounts, bankFeedItems } from '@/db/schema-bank-feed'
 import {
+  aliasesOf,
+  feedAccountShortLabel,
+  institutionOf,
+  normalizeName,
+} from '@/features/bank-feed/core/institution'
+import {
   compatibleTypes,
   createdTypeFor,
   type MapFeedAccountInput,
 } from '@/features/bank-feed/core/mapping'
 import { fluxiDb } from '@/lib/db'
-import { and, eq, isNull, sql } from 'drizzle-orm'
+import { and, asc, eq, isNull, sql } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
 import { unmaterialize, type Tx } from './space.repo'
 
@@ -29,7 +35,13 @@ export type MapResult = { ok: true } | { ok: false; reason: MapFailure }
 async function resolveTarget(
   tx: Tx,
   userId: string,
-  feed: { spaceId: string; type: string; name: string; institution: string; label: string | null },
+  feed: {
+    spaceId: string
+    itemId: string
+    type: string
+    subtype: string
+    name: string
+  },
   target: MapFeedAccountInput['target'],
 ): Promise<{ accountId: string | null } | 'invalid'> {
   if (target.kind === 'none') return { accountId: null }
@@ -50,19 +62,28 @@ async function resolveTarget(
     }
     return { accountId: account.id }
   }
-  // "Criar conta": a bank named after the connection (reused when it exists).
-  const bankName = (feed.label ?? feed.institution).slice(0, 80)
-  const [existing] = await tx
-    .select({ id: banks.id })
-    .from(banks)
+  // "Criar conta": a bank named after the connection's institution (reused
+  // when one of the space is named like it), the account after the feed's.
+  const siblings = await tx
+    .select({ name: bankFeedAccounts.name })
+    .from(bankFeedAccounts)
     .where(
       and(
-        eq(banks.userId, userId),
-        eq(banks.spaceId, feed.spaceId),
-        eq(banks.name, bankName),
-        isNull(banks.archivedAt),
+        eq(bankFeedAccounts.userId, userId),
+        eq(bankFeedAccounts.spaceId, feed.spaceId),
+        eq(bankFeedAccounts.itemId, feed.itemId),
       ),
     )
+    .orderBy(asc(bankFeedAccounts.type), asc(bankFeedAccounts.name), asc(bankFeedAccounts.id))
+  const institution = institutionOf(siblings.map((s) => s.name))
+  const bankName = institution.slice(0, 80)
+  const aliases = aliasesOf(institution)
+  const spaceBanks = await tx
+    .select({ id: banks.id, name: banks.name })
+    .from(banks)
+    .where(and(eq(banks.userId, userId), eq(banks.spaceId, feed.spaceId), isNull(banks.archivedAt)))
+    .orderBy(asc(banks.sort), asc(banks.createdAt), asc(banks.id))
+  const existing = spaceBanks.find((b) => aliases.includes(normalizeName(b.name.trim())))
   const bankId = existing?.id ?? randomUUID()
   if (existing === undefined) {
     const [next] = await tx
@@ -79,7 +100,7 @@ async function resolveTarget(
     userId,
     spaceId: feed.spaceId,
     bankId,
-    name: feed.name.slice(0, 80),
+    name: feedAccountShortLabel(institution, feed).slice(0, 80),
     type: createdTypeFor(feed.type),
     openingBalanceCents: 0,
   })
@@ -96,11 +117,11 @@ export function mapFeedAccount(
       .select({
         id: bankFeedAccounts.id,
         spaceId: bankFeedAccounts.spaceId,
+        itemId: bankFeedAccounts.itemId,
         type: bankFeedAccounts.type,
+        subtype: bankFeedAccounts.subtype,
         name: bankFeedAccounts.name,
-        institution: bankFeedAccounts.institution,
         accountId: bankFeedAccounts.accountId,
-        label: bankFeedItems.label,
       })
       .from(bankFeedAccounts)
       .innerJoin(
@@ -117,13 +138,13 @@ export function mapFeedAccount(
     const resolved = await resolveTarget(tx, userId, feed, input.target)
     if (resolved === 'invalid') return { ok: false, reason: 'invalid_account' }
     const { accountId } = resolved
-    if (accountId !== feed.accountId) {
-      await unmaterialize(tx, userId, feed.id)
-      await tx
-        .update(bankFeedAccounts)
-        .set({ accountId, updatedAt: sql`now()` })
-        .where(and(eq(bankFeedAccounts.id, feed.id), eq(bankFeedAccounts.userId, userId)))
-    }
+    if (accountId !== feed.accountId) await unmaterialize(tx, userId, feed.id)
+    // Any choice here is the user's, kept forever: the auto-link never
+    // touches it again (not even "Não vincular").
+    await tx
+      .update(bankFeedAccounts)
+      .set({ accountId, mappingSource: 'manual', updatedAt: sql`now()` })
+      .where(and(eq(bankFeedAccounts.id, feed.id), eq(bankFeedAccounts.userId, userId)))
     await tx.execute(
       sql`select private.materialize_bank_feed(${userId}::uuid, ${feed.spaceId}::uuid, ${today}::date)`,
     )

@@ -107,8 +107,12 @@ export type FeedAccountView = {
   /** Last balance the bank reported (a card's open bill, positive = owed). */
   balanceCents: number
   accountId: string | null
+  /** Who decided the mapping (`auto` / `manual`; null = nobody yet). */
+  mappingSource: 'auto' | 'manual' | null
   /** Ledger entries materialized from it (what an unmap/remap deletes). */
   entryCount: number
+  /** Bank transactions stored for it (zero with a zero balance = "sem movimento"). */
+  transactionCount: number
 }
 
 /** An active fluxi account a feed account can be mapped to. */
@@ -173,6 +177,11 @@ export async function listFeedItems(userId: string): Promise<FeedItem[]> {
       subtype: bankFeedAccounts.subtype,
       balanceCents: bankFeedAccounts.balanceCents,
       accountId: bankFeedAccounts.accountId,
+      mappingSource: bankFeedAccounts.mappingSource,
+      transactionCount: sql<number>`(
+        select count(*)::int from bank_transactions t
+        where t.feed_account_id = "bank_feed_accounts"."id" and t.user_id = ${userId}
+      )`.mapWith(Number),
       entryCount: sql<number>`(
         select count(distinct l.entry_id)::int from bank_entry_links l
         join bank_transactions t on t.id = l.bank_transaction_id
@@ -190,8 +199,15 @@ export async function listFeedItems(userId: string): Promise<FeedItem[]> {
     transactionCount: counts.find((c) => c.itemId === item.itemId)?.count ?? 0,
     feedAccounts: feeds
       .filter((f) => f.itemId === item.itemId && f.spaceId === item.spaceId)
-      .map(({ itemId: _item, spaceId: _space, ...view }) => view),
+      .map(({ itemId: _item, spaceId: _space, mappingSource, ...view }) => ({
+        ...view,
+        mappingSource: mappingSourceOf(mappingSource),
+      })),
   }))
+}
+
+function mappingSourceOf(value: string | null): FeedAccountView['mappingSource'] {
+  return value === 'auto' || value === 'manual' ? value : null
 }
 
 export type Tx = Parameters<Parameters<ReturnType<typeof db>['transaction']>[0]>[0]
@@ -207,11 +223,15 @@ export type Tx = Parameters<Parameters<ReturnType<typeof db>['transaction']>[0]>
  * move. Unassigning keeps the stored data where it is. Ledger entries never move:
  * the ones materialized from the moved transactions are deleted (the next sync
  * materializes them in the new space once its feed accounts are mapped).
+ * With a space, the space is materialized right away
+ * (`private.materialize_bank_feed`): its feed accounts with movement are
+ * auto-linked and their transactions become entries.
  */
 export async function assignFeedItem(
   userId: string,
   itemId: string,
   spaceId: string | null,
+  today: string,
 ): Promise<boolean> {
   return db().transaction(async (tx) => {
     if (spaceId !== null) {
@@ -227,7 +247,12 @@ export async function assignFeedItem(
       .where(and(eq(bankFeedItems.userId, userId), eq(bankFeedItems.itemId, itemId)))
       .returning({ itemId: bankFeedItems.itemId })
     if (rows.length === 0) return false
-    if (spaceId !== null) await moveFeedAccounts(tx, userId, itemId, spaceId)
+    if (spaceId !== null) {
+      await moveFeedAccounts(tx, userId, itemId, spaceId)
+      await tx.execute(
+        sql`select private.materialize_bank_feed(${userId}::uuid, ${spaceId}::uuid, ${today}::date)`,
+      )
+    }
     return true
   })
 }
@@ -328,8 +353,10 @@ async function copyFeedAccount(
       type: source.type,
       subtype: source.subtype,
       balanceCents: source.balanceCents,
-      // A fluxi account of the old space cannot be referenced from the new one.
+      // A fluxi account of the old space cannot be referenced from the new one;
+      // the mapping is decided again there (auto-link included).
       accountId: null,
+      mappingSource: null,
       syncedAt: source.syncedAt,
     })
     .returning({ id: bankFeedAccounts.id })

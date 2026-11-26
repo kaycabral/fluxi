@@ -156,8 +156,9 @@ describe('pluggy-sync handler (Postgres)', () => {
       ],
       skipped: [{ item: 2, institution: 'Banco X', status: 'UPDATING' }],
       unassigned: [],
-      // No feed account is mapped to a fluxi account yet: nothing to materialize.
-      ledger: { removed: 0, transfers: 0, created: 0, updated: 0, anchored: 0 },
+      // The feed account with movement is auto-linked (a new "Banco X" account)
+      // and its transactions materialized, all as fluxi_sync.
+      ledger: { removed: 0, transfers: 0, created: 2, updated: 0, anchored: 1 },
     })
     const rows = await db().select().from(bankTransactions)
     expect(rows.every((r) => r.spaceId === spaceId)).toBe(true)

@@ -81,6 +81,12 @@ export const bankFeedAccounts = pgTable(
     subtype: text('subtype').notNull(),
     balanceCents: cents('balance_cents').notNull(),
     accountId: uuid('account_id'),
+    /**
+     * Who decided `account_id`: `auto` = the auto-link
+     * (`private.auto_link_bank_feed`), `manual` = the user (including "Não
+     * vincular"), null = nobody yet. The auto-link only touches null.
+     */
+    mappingSource: text('mapping_source'),
     syncedAt: timestamp('synced_at', { withTimezone: true }).notNull(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -95,6 +101,10 @@ export const bankFeedAccounts = pgTable(
       foreignColumns: [accounts.id, accounts.spaceId],
     }).onDelete('set null'),
     index('bank_feed_accounts_account_id_idx').on(t.accountId),
+    check(
+      'bank_feed_accounts_mapping_source',
+      sql`${t.mappingSource} is null or ${t.mappingSource} in ('auto', 'manual')`,
+    ),
   ],
 ).enableRLS()
 

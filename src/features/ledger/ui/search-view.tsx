@@ -276,7 +276,6 @@ export function SearchView({ data, initialQuery, today }: Props) {
               <Checkbox
                 checked={isSelected}
                 aria-label={`Selecionar ${entry.description}`}
-                onClick={(e) => e.stopPropagation()}
                 onCheckedChange={() => toggleSelected(entry.id)}
               />
             ) : (
@@ -312,9 +311,8 @@ export function SearchView({ data, initialQuery, today }: Props) {
                 <Money cents={valueCents} tone />
               ),
             trailingHint: paid ? paidLabel(landing.amountCents) : undefined,
-            onClick: selecting
-              ? () => toggleSelected(entry.id)
-              : () => openEdit(targetFor(data, landing)),
+            // While selecting, the row is not a button: the checkbox is the control.
+            onClick: selecting ? undefined : () => openEdit(targetFor(data, landing)),
           }
         }}
       />

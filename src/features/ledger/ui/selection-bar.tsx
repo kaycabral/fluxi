@@ -62,7 +62,7 @@ export function SelectionBar({
     <div
       role="toolbar"
       aria-label="Ações da seleção"
-      className="bg-background fixed inset-x-4 bottom-4 z-40 mx-auto flex max-w-2xl flex-wrap items-center gap-2 rounded-2xl border p-2 shadow-lg"
+      className="bg-background fixed inset-x-4 bottom-4 z-40 mx-auto flex max-w-3xl flex-wrap items-center gap-2 rounded-2xl border p-2 shadow-lg"
     >
       <span className="px-2 text-sm font-medium" aria-live="polite">
         {count} {count === 1 ? 'selecionado' : 'selecionados'}

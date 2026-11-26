@@ -96,11 +96,9 @@ describe('selection mode in Lançamentos', () => {
     await userEvent.click(screen.getByRole('button', { name: /Limpar seleção/ }))
     expect(screen.queryByRole('toolbar')).toBeNull()
 
-    // A row click also toggles while selecting; "Concluir" leaves the mode.
-    const rowButtons = within(screen.getByRole('list')).getAllByRole('button')
-    const row = rowButtons[0]
-    if (row === undefined) throw new Error('no row')
-    await userEvent.click(row)
+    // While selecting, rows do not open the editor; "Concluir" leaves the mode.
+    expect(within(screen.getByRole('list')).queryAllByRole('button')).toHaveLength(0)
+    await userEvent.click(first)
     expect(await screen.findByRole('toolbar')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: /Concluir/ }))
     expect(screen.queryByRole('toolbar')).toBeNull()

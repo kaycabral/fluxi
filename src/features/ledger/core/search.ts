@@ -9,7 +9,7 @@ import { effectOn, type MonthResult } from './projection'
 import type { Account, Bank, Category, Entry, Pot, PotKey } from './types'
 
 /**
- * "Lançamentos": search over OCCURRENCES (landings), newest first, with a
+ * "Transações": search over OCCURRENCES (landings), newest first, with a
  * day range and filters. The whole ledger is loaded once and filtered on the
  * client, so searching never hits the database.
  */

@@ -121,6 +121,8 @@ export type LedgerSummary = {
   split: number
   /** Bank entries a categorization rule classified. */
   categorized: number
+  /** Bank entries named after the merchant (their bank description was generic). */
+  named: number
 }
 
 export type SyncSummary = {
@@ -138,6 +140,7 @@ const LEDGER_KEYS = [
   'anchored',
   'split',
   'categorized',
+  'named',
 ] as const
 
 const EMPTY_LEDGER: LedgerSummary = {
@@ -148,6 +151,7 @@ const EMPTY_LEDGER: LedgerSummary = {
   anchored: 0,
   split: 0,
   categorized: 0,
+  named: 0,
 }
 
 /**
@@ -342,7 +346,7 @@ export async function handleSyncRequest(
     }
     const l = summary.ledger
     log(
-      `ledger: ${l.created} created, ${l.transfers} transfers, ${l.updated} updated, ${l.removed} removed, ${l.split} transfers split, ${l.categorized} categorized by rules, ${l.anchored} balances anchored`,
+      `ledger: ${l.created} created, ${l.transfers} transfers, ${l.updated} updated, ${l.removed} removed, ${l.split} transfers split, ${l.categorized} categorized by rules, ${l.named} named after the merchant, ${l.anchored} balances anchored`,
     )
     for (const u of summary.unassigned) {
       log(`item #${u.item} (${u.institution}): unassigned, choose its space in the app`)

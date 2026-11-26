@@ -37,7 +37,7 @@ export async function findSimilarAction(input: unknown): Promise<Read<SimilarRes
   if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) }
   const found = await findSimilarBankEntries(scope, parsed.data.entryId)
   return found === null
-    ? { ok: false, error: 'Lançamento não encontrado.' }
+    ? { ok: false, error: 'Transação não encontrada.' }
     : { ok: true, data: found }
 }
 

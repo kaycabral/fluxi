@@ -176,6 +176,13 @@
       "when": 1795703049240,
       "tag": "0024_feed_transfer_signal_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1795708446303,
+      "tag": "0025_feed_merchant",
+      "breakpoints": true
     }
   ]
 }

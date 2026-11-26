@@ -17,7 +17,7 @@ import { and, eq, inArray, sql } from 'drizzle-orm'
  * A brand-new user with a synced bank connection (synthetic feed written as
  * the sync would) gives it a space in Configurações → Conexões: its account
  * with movement is linked automatically (the empty one stays folded away),
- * the bank's transactions show in Lançamentos with the "Vem do banco" mark,
+ * the bank's transactions show in Transações with the "Vem do banco" mark,
  * read-only but categorizable; "Não vincular" is respected by the next sync.
  * Also archives an account in Configurações → Contas.
  * `E2E_SCREENSHOTS=<dir>` saves the screens for review.
@@ -144,12 +144,12 @@ test.describe('bank feed in the ledger', () => {
     await page.setViewportSize({ width: 1280, height: 800 })
     await page.keyboard.press('Escape')
 
-    await page.goto('/painel/lancamentos')
+    await page.goto('/painel/transacoes')
     const row = page.getByRole('listitem').filter({ hasText: 'Padaria Feed E2E' })
     await expect(row.getByRole('img', { name: 'Vem do banco' })).toBeVisible()
-    await snap(page, 'ui4-lancamentos')
+    await snap(page, 'ui4-transacoes')
     await page.getByText('Padaria Feed E2E').click()
-    const sheet = page.getByRole('dialog', { name: 'Editar lançamento' })
+    const sheet = page.getByRole('dialog', { name: 'Editar transação' })
     await expect(
       sheet.getByText('Vem do banco: valor, data e conta não podem ser alterados.'),
     ).toBeVisible()
@@ -189,7 +189,7 @@ test.describe('bank feed in the ledger', () => {
       .from(bankFeedAccounts)
       .where(eq(bankFeedAccounts.id, feed.id))
     expect(kept).toEqual({ accountId: null, source: 'manual' })
-    await page.goto('/painel/lancamentos')
+    await page.goto('/painel/transacoes')
     await expect(page.getByRole('main').first()).toBeVisible()
     await expect(page.getByText('Padaria Feed E2E')).toHaveCount(0)
   })
@@ -232,7 +232,7 @@ test.describe('bank feed in the ledger', () => {
     })
     const todayBalance = page.locator('[data-slot="card"]', { hasText: 'Saldo hoje' })
     const counted = async () => {
-      await page.goto('/painel/lancamentos')
+      await page.goto('/painel/transacoes')
       await expect(page.getByText('Gasto Arquivo E2E').first()).toBeVisible()
       await page.goto('/painel')
       // 500,00 opening − 123,45 on the 1st.
@@ -261,7 +261,7 @@ test.describe('bank feed in the ledger', () => {
       })
       .toBe(true)
 
-    await page.goto('/painel/lancamentos')
+    await page.goto('/painel/transacoes')
     await expect(page.getByRole('main').first()).toBeVisible()
     await expect(page.getByText('Gasto Arquivo E2E')).toHaveCount(0)
     await page.goto('/painel')

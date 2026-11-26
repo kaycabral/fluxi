@@ -31,7 +31,7 @@ export function RulesSettings({
   if (rules.length === 0) {
     return (
       <p className="text-muted-foreground text-sm">
-        Nenhuma regra ainda. Ao mudar a categoria de um lançamento do banco, marque “Fazer isso
+        Nenhuma regra ainda. Ao mudar a categoria de uma transação do banco, marque “Fazer isso
         sozinho daqui para frente”.
       </p>
     )

@@ -111,7 +111,7 @@ function Column({ date }: { date: string }) {
             onPointerDown={anchor.onPointerDown}
             onKeyDown={anchor.onKeyDown}
             onClick={() => measureSide(anchor.virtual.current)}
-            aria-label={`Criar lançamento em ${dayLongLabel(date)}`}
+            aria-label={`Criar transação em ${dayLongLabel(date)}`}
             className="focus-visible:ring-ring absolute inset-0 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-inset"
           />
         </PopoverTrigger>

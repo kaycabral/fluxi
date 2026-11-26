@@ -20,7 +20,7 @@ describe('landing page', () => {
     render(await LandingPage())
 
     expect(screen.getByRole('heading', { level: 1, name: 'Fluxi' })).toBeInTheDocument()
-    expect(screen.getByText(/lançamentos recorrentes/)).toBeInTheDocument()
+    expect(screen.getByText(/transações recorrentes/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Entrar com Google' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Privacidade' })).toHaveAttribute(
       'href',

@@ -339,9 +339,7 @@ describe('BankConnections', () => {
       await openPicker()
       await userEvent.click(screen.getByRole('option', { name: 'Não vincular' }))
       const dialog = await screen.findByRole('alertdialog', { name: `Desvincular “${LABEL}”?` })
-      expect(
-        within(dialog).getByText(/Os 4 lançamentos que vieram desta conta/),
-      ).toBeInTheDocument()
+      expect(within(dialog).getByText(/As 4 transações que vieram desta conta/)).toBeInTheDocument()
       expect(mapFeedAccountAction).not.toHaveBeenCalled()
       await userEvent.click(within(dialog).getByRole('button', { name: 'Desvincular' }))
       await waitFor(() =>
@@ -390,7 +388,7 @@ describe('BankConnections', () => {
       const dialog = await screen.findByRole('alertdialog', {
         name: `Vincular “${LABEL}” a Cartão 2?`,
       })
-      expect(within(dialog).getByText(/criados de novo na conta escolhida/)).toBeInTheDocument()
+      expect(within(dialog).getByText(/criadas de novo na conta escolhida/)).toBeInTheDocument()
       await userEvent.click(within(dialog).getByRole('button', { name: 'Cancelar' }))
       expect(mapFeedAccountAction).toHaveBeenCalledOnce()
     })

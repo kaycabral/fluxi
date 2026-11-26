@@ -252,7 +252,7 @@ export const undoSchema = z.object({ token: idSchema })
  */
 export const categorizeEntriesSchema = z
   .object({
-    entryIds: z.array(idSchema).min(1, 'Selecione ao menos um lançamento.').max(500),
+    entryIds: z.array(idSchema).min(1, 'Selecione ao menos uma transação.').max(500),
     categoryId: idSchema.nullable().optional(),
     pot: potKeySchema.nullable().optional(),
     /** "Fazer isso sozinho daqui para frente": a rule from this entry and the checked ones. */

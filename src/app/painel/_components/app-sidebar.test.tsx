@@ -71,7 +71,7 @@ describe('AppSidebar', () => {
     expect(links.map((l) => l.textContent)).toEqual([
       'Painel',
       'Calendário',
-      'Lançamentos',
+      'Transações',
       'Orçamento',
     ])
     expect(links[0]).toHaveAttribute('href', '/painel')
@@ -148,7 +148,7 @@ describe('AppSidebar', () => {
   it('creates an entry from the header', async () => {
     renderSidebar()
     await userEvent.click(screen.getByRole('button', { name: 'Criar' }))
-    expect(await screen.findByRole('dialog', { name: 'Novo lançamento' })).toBeInTheDocument()
+    expect(await screen.findByRole('dialog', { name: 'Nova transação' })).toBeInTheDocument()
   })
 
   it('has no collapse button in the header besides the mobile-only trigger', () => {
@@ -172,7 +172,7 @@ describe('AppSidebar', () => {
   })
 
   it('leaves "Criar" to pages that put it beside their title', () => {
-    pathname = '/painel/lancamentos'
+    pathname = '/painel/transacoes'
     renderSidebar()
     expect(screen.queryByRole('button', { name: 'Criar' })).not.toBeInTheDocument()
     pathname = '/painel'

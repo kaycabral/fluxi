@@ -201,7 +201,7 @@ function MonthDay({
           <button
             type="button"
             onClick={(e) => measureSide(e.currentTarget)}
-            aria-label={`Criar lançamento em ${dayLongLabel(date)}`}
+            aria-label={`Criar transação em ${dayLongLabel(date)}`}
             aria-current={isToday ? 'date' : undefined}
             className="group/day focus-visible:ring-ring absolute inset-0 flex cursor-pointer items-start justify-start p-1 outline-none focus-visible:ring-2 focus-visible:ring-inset"
           >

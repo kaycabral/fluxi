@@ -256,7 +256,7 @@ function CustomRepeatDialog({
         <DialogHeader>
           <DialogTitle className="text-xl font-normal">Recorrência personalizada</DialogTitle>
           <DialogDescription className="sr-only">
-            Escolha a cada quanto o lançamento se repete e quando termina.
+            Escolha a cada quanto a transação se repete e quando termina.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-5">

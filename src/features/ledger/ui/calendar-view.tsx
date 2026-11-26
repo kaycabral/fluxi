@@ -132,7 +132,7 @@ export function CalendarView({
         scope,
       })
       if (!result.ok) toast.error(result.error)
-      else offerUndo(result, 'Lançamento movido.')
+      else offerUndo(result, 'Transação movida.')
     })
   }
 

@@ -65,7 +65,7 @@ export function QuickAddForm({ date, onDone }: { date: string; onDone: () => voi
         setError(result.error)
         return
       }
-      offerUndo(result, 'Lançamento salvo.')
+      offerUndo(result, 'Transação salva.')
       onDone()
     })
   }
@@ -77,7 +77,7 @@ export function QuickAddForm({ date, onDone }: { date: string; onDone: () => voi
 
   return (
     <form
-      aria-label="Criar lançamento"
+      aria-label="Criar transação"
       className="grid grid-cols-[1.25rem_1fr] items-center gap-x-4 gap-y-3"
       onSubmit={(e) => {
         e.preventDefault()

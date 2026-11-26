@@ -78,6 +78,8 @@ export function syncFeedAccount(
         installment_number: t.installmentNumber,
         total_installments: t.totalInstallments,
         bill_month: t.billMonth,
+        merchant_name: t.merchantName,
+        merchant_category: t.merchantCategory,
         synced_at: syncedAt,
       }))
       await tx`
@@ -92,6 +94,8 @@ export function syncFeedAccount(
           installment_number = excluded.installment_number,
           total_installments = excluded.total_installments,
           bill_month = excluded.bill_month,
+          merchant_name = excluded.merchant_name,
+          merchant_category = excluded.merchant_category,
           synced_at = excluded.synced_at,
           updated_at = excluded.synced_at`
     }

@@ -1,6 +1,7 @@
 import { fluxiDb, personalScope, seedUser, truncateFluxiTables } from '@/db'
 import { accounts, banks, categories, entries } from '@/db/schema'
 import { bankEntryLinks, bankFeedAccounts, categorizationRules } from '@/db/schema-bank-feed'
+import { feedEntryDescription, GENERIC_DESCRIPTIONS } from '@/features/bank-feed/core/merchant'
 import type { FeedAccountRow, FeedTransactionRow } from '@/features/bank-feed/core/pluggy'
 import { TRANSFER_SIGNAL_EXAMPLES } from '@/features/bank-feed/core/transfer'
 import { descriptionKey } from '@/features/ledger/core/similar'
@@ -54,6 +55,8 @@ const tx = (externalId: string, over: Partial<FeedTransactionRow> = {}): FeedTra
   installmentNumber: null,
   totalInstallments: null,
   billMonth: null,
+  merchantName: null,
+  merchantCategory: null,
   ...over,
 })
 
@@ -141,6 +144,72 @@ describe('transfer signal (SQL = TS)', () => {
       )
       expect(rows[0]?.key).toBe(descriptionKey(raw))
     }
+  })
+})
+
+describe('merchant description (SQL = TS)', () => {
+  it('agrees with feedEntryDescription', async () => {
+    const samples = [
+      ...GENERIC_DESCRIPTIONS,
+      'Compra no débito autorizada',
+      'COMPRA NO CRÉDITO 12/03',
+      'Transferência',
+      'Padaria São João',
+      'Pix enviado Maria',
+      '',
+    ]
+    for (const description of samples) {
+      for (const merchant of ['Padaria Pão', ' ', null]) {
+        const { rows } = await db().execute<{ value: string }>(
+          sql`select private.feed_entry_description(${description}, ${merchant}) as value`,
+        )
+        expect(rows[0]?.value).toBe(feedEntryDescription(description, merchant))
+      }
+    }
+  })
+})
+
+describe('merchant names bank entries (Postgres)', () => {
+  const generic = 'Compra no débito autorizada'
+
+  it('creates a generic bank entry under the merchant name and categorizes by it', async () => {
+    const bakery = await categoryId(ana, 'Padaria')
+    await db()
+      .insert(categorizationRules)
+      .values({ ...ana, pattern: 'padaria pao', minCents: 0, maxCents: 10000, categoryId: bakery })
+    await feed(ana, checkingFeed, [
+      tx('a', { description: generic, merchantName: 'Padaria Pão' }),
+      tx('b', { description: generic }),
+      tx('c', { description: 'UBER *TRIP', merchantName: 'Uber' }),
+    ])
+    await map(ana, 'acc-checking', checkingId)
+    expect(await materialize()).toMatchObject({ created: 3, named: 0, categorized: 1 })
+    const rows = await entriesOf(ana)
+    expect(rows.map((e) => e.description).sort()).toEqual([generic, 'Padaria Pão', 'UBER *TRIP'])
+    expect(rows.find((e) => e.description === 'Padaria Pão')?.categoryId).toBe(bakery)
+  })
+
+  it('renames existing entries only while they keep the bank text', async () => {
+    await feed(ana, checkingFeed, [
+      tx('a', { description: generic }),
+      tx('b', { description: generic }),
+    ])
+    await map(ana, 'acc-checking', checkingId)
+    expect(await materialize()).toMatchObject({ created: 2 })
+    const [first] = await entriesOf(ana)
+    if (first === undefined) throw new Error('missing')
+    await db().update(entries).set({ description: 'Minha' }).where(eq(entries.id, first.id))
+
+    // The merchant arrives on a later sync.
+    await feed(ana, checkingFeed, [
+      tx('a', { description: generic, merchantName: 'Padaria Pão' }),
+      tx('b', { description: generic, merchantName: 'Padaria Pão' }),
+    ])
+    expect(await materialize()).toMatchObject({ created: 0, named: 1 })
+    const rows = await entriesOf(ana)
+    expect(rows.find((e) => e.id === first.id)?.description).toBe('Minha')
+    expect(rows.find((e) => e.id !== first.id)?.description).toBe('Padaria Pão')
+    expect(await materialize()).toMatchObject({ named: 0 })
   })
 })
 

@@ -50,6 +50,8 @@ const tx = (externalId: string, amountCents = -5000): FeedTransactionRow => ({
   installmentNumber: null,
   totalInstallments: null,
   billMonth: null,
+  merchantName: null,
+  merchantCategory: null,
 })
 
 const feed = (scope: Scope, acc: FeedAccountRow, rows: FeedTransactionRow[] = []) =>

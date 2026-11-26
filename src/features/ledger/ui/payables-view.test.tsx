@@ -165,7 +165,7 @@ describe('PayablesView', () => {
   it('opens an occurrence in the sheet', async () => {
     renderPayables()
     await userEvent.click(within(group(/Atrasadas/)).getByRole('button', { name: /^Avulso/ }))
-    expect(await screen.findByRole('dialog', { name: 'Editar lançamento' })).toBeInTheDocument()
+    expect(await screen.findByRole('dialog', { name: 'Editar transação' })).toBeInTheDocument()
   })
 
   it('says when there is nothing to pay', () => {

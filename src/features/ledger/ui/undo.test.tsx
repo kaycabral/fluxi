@@ -62,8 +62,8 @@ describe('isUndoKey', () => {
 describe('useUndo', () => {
   it('says what happened, with "Desfazer" for a while, and undoes from the toast', async () => {
     const offerUndo = setup()
-    act(() => offerUndo.current({ ok: true, undo: TOKEN }, 'Lançamento excluído.'))
-    expect(toast).toHaveBeenCalledWith('Lançamento excluído.', expect.anything())
+    act(() => offerUndo.current({ ok: true, undo: TOKEN }, 'Transação excluída.'))
+    expect(toast).toHaveBeenCalledWith('Transação excluída.', expect.anything())
     expect(offered().duration).toBe(UNDO_TOAST_MS)
     expect(offered().action.label).toBe('Desfazer')
     act(() => offered().action.onClick())
@@ -80,7 +80,7 @@ describe('useUndo', () => {
     fireEvent.keyDown(window, { key: 'z' })
     expect(undoAction).not.toHaveBeenCalled()
 
-    act(() => offerUndo.current({ ok: true, undo: TOKEN }, 'Lançamento movido.'))
+    act(() => offerUndo.current({ ok: true, undo: TOKEN }, 'Transação movida.'))
     const input = document.createElement('input')
     document.body.append(input)
     fireEvent.keyDown(input, { key: 'z', ctrlKey: true })
@@ -97,15 +97,15 @@ describe('useUndo', () => {
   it('reports an undo that came too late', async () => {
     vi.mocked(undoAction).mockResolvedValue({ ok: false, error: 'Tarde demais.' })
     const offerUndo = setup()
-    act(() => offerUndo.current({ ok: true, undo: TOKEN }, 'Lançamento salvo.'))
+    act(() => offerUndo.current({ ok: true, undo: TOKEN }, 'Transação salva.'))
     fireEvent.keyDown(window, { key: 'z' })
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Tarde demais.'))
   })
 
   it('drops the record of a toast that closed unused, and of the replaced one only on the server', () => {
     const offerUndo = setup()
-    act(() => offerUndo.current({ ok: true, undo: TOKEN }, 'Lançamento salvo.'))
-    act(() => offerUndo.current({ ok: true, undo: OTHER }, 'Lançamento movido.'))
+    act(() => offerUndo.current({ ok: true, undo: TOKEN }, 'Transação salva.'))
+    act(() => offerUndo.current({ ok: true, undo: OTHER }, 'Transação movida.'))
     expect(toast.dismiss).toHaveBeenCalledWith('toast-id')
     // The first toast closing (replaced) leaves the newer record alone.
     act(() => offered(0).onDismiss())
@@ -118,9 +118,9 @@ describe('useUndo', () => {
 
   it('only confirms a write with nothing to undo, and ignores a failure', () => {
     const offerUndo = setup()
-    act(() => offerUndo.current({ ok: true }, 'Lançamento salvo.'))
-    expect(toast.success).toHaveBeenCalledWith('Lançamento salvo.')
-    act(() => offerUndo.current({ ok: false, error: 'x' }, 'Lançamento salvo.'))
+    act(() => offerUndo.current({ ok: true }, 'Transação salva.'))
+    expect(toast.success).toHaveBeenCalledWith('Transação salva.')
+    act(() => offerUndo.current({ ok: false, error: 'x' }, 'Transação salva.'))
     expect(toast).not.toHaveBeenCalled()
     expect(toast.success).toHaveBeenCalledOnce()
   })

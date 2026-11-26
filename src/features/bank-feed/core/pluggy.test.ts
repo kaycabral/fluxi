@@ -23,6 +23,23 @@ const tx = (over: Record<string, unknown> = {}) =>
   })
 
 describe('toFeedTransaction', () => {
+  it('keeps the merchant name (trade name first) and category, never its CNPJ', () => {
+    const merchant = {
+      name: ' Padaria Pão ',
+      businessName: 'PADARIA PAO LTDA',
+      cnpj: '12.345.678/0001-90',
+      cnae: '1091102',
+      category: 'Bakery',
+    }
+    const row = toFeedTransaction(tx({ merchant }))
+    expect(row).toMatchObject({ merchantName: 'Padaria Pão', merchantCategory: 'Bakery' })
+    expect(JSON.stringify(row)).not.toContain('12.345.678')
+    expect(toFeedTransaction(tx({ merchant: { ...merchant, name: '  ' } })).merchantName).toBe(
+      'PADARIA PAO LTDA',
+    )
+    expect(toFeedTransaction(tx({ merchant: null })).merchantName).toBeNull()
+  })
+
   it('signs by type, rounds to cents and drops counterparty data', () => {
     const row = toFeedTransaction(tx())
     expect(row).toEqual({
@@ -36,6 +53,8 @@ describe('toFeedTransaction', () => {
       installmentNumber: null,
       totalInstallments: null,
       billMonth: null,
+      merchantName: null,
+      merchantCategory: null,
     })
     expect(JSON.stringify(row)).not.toContain('CPF')
   })

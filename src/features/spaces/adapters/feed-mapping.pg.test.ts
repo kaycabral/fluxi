@@ -32,6 +32,8 @@ const tx = (externalId: string, amountCents: number, date: string): FeedTransact
   installmentNumber: null,
   totalInstallments: null,
   billMonth: null,
+  merchantName: null,
+  merchantCategory: null,
 })
 
 const entriesOf = (scope: Scope) =>

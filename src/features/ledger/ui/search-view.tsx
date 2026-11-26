@@ -114,12 +114,12 @@ type Props = {
 /** Remember the query in this browser (read back by the server on the next visit). */
 function rememberQuery(query: SearchQuery) {
   writeBrowserCookie(SEARCH_QUERY_COOKIE, serializeSearchQuery(query), {
-    path: '/painel/lancamentos',
+    path: '/painel/transacoes',
   })
 }
 
 /**
- * "Lançamentos": every occurrence of the ledger as a flat list, newest first,
+ * "Transações": every occurrence of the ledger as a flat list, newest first,
  * with a live search box and the other filters behind a "Filtros" button.
  * Everything runs on the client over the loaded ledger, so typing never
  * reaches the server; the query is remembered per browser.
@@ -184,7 +184,7 @@ export function SearchView({ data, initialQuery, today }: Props) {
       <div className="flex items-start justify-between gap-3">
         <div className="grid gap-1">
           <Typography variant="pageTitle" as="h1">
-            Lançamentos
+            Transações
           </Typography>
           <Summary count={occurrences.length} totals={totals} />
         </div>
@@ -202,7 +202,7 @@ export function SearchView({ data, initialQuery, today }: Props) {
             value={query.text}
             onChange={(e) => update({ text: e.target.value })}
             placeholder="Buscar por descrição"
-            aria-label="Buscar lançamentos"
+            aria-label="Buscar transações"
           />
         </InputGroup>
         <div className="flex items-center gap-2 self-end sm:self-auto">
@@ -242,11 +242,11 @@ export function SearchView({ data, initialQuery, today }: Props) {
         empty={
           anyFilter
             ? {
-                title: 'Nenhum lançamento encontrado',
+                title: 'Nenhuma transação encontrada',
                 description: 'Tente outra busca ou limpe os filtros.',
               }
             : {
-                title: 'Nenhum lançamento ainda',
+                title: 'Nenhuma transação ainda',
                 description: 'Use "Criar" para lançar a primeira entrada ou saída.',
               }
         }
@@ -343,7 +343,7 @@ function Summary({ count, totals }: { count: number; totals: SearchTotals }) {
       <div className="flex gap-1">
         <dt className="sr-only">Quantidade</dt>
         <dd>
-          {count} {count === 1 ? 'lançamento' : 'lançamentos'}
+          {count} {count === 1 ? 'transação' : 'transações'}
         </dd>
       </div>
       <div className="flex gap-1.5">

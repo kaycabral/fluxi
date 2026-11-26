@@ -19,7 +19,7 @@ import { and, eq, inArray, like, sql } from 'drizzle-orm'
  * the big one not), "Fazer isso sozinho" records a rule that categorizes a
  * new similar bank transaction on the next materialization; the rule shows
  * in Configurações → Regras, the account's last digits in Conexões. Then the
- * multi-select of Lançamentos sets the pot of two entries.
+ * multi-select of Transações sets the pot of two entries.
  * `E2E_SCREENSHOTS=<dir>` saves the screens for review.
  */
 
@@ -153,14 +153,14 @@ test.describe('categorize once, replicate', () => {
 
     // Categorize the reference: the similar ones come up.
     await page.goto('about:blank')
-    await page.goto('/painel/lancamentos')
+    await page.goto('/painel/transacoes')
     await page.getByText('ATM VENEZA 0001').click()
-    const sheet = page.getByRole('dialog', { name: 'Editar lançamento' })
+    const sheet = page.getByRole('dialog', { name: 'Editar transação' })
     await sheet.getByLabel('Categoria').click()
     await page.getByRole('option', { name: 'Padaria', exact: true }).click()
     await sheet.getByRole('button', { name: 'Salvar', exact: true }).click()
 
-    const similar = page.getByRole('dialog', { name: 'Aplicar a outros 3 lançamentos parecidos?' })
+    const similar = page.getByRole('dialog', { name: 'Aplicar a outras 3 transações parecidas?' })
     await expect(similar).toBeVisible()
     const item = (amount: RegExp) =>
       similar.getByRole('listitem').filter({ hasText: amount }).getByRole('checkbox')
@@ -204,12 +204,12 @@ test.describe('categorize once, replicate', () => {
 
     // Multi-select: the pot of two entries at once.
     await page.goto('about:blank')
-    await page.goto('/painel/lancamentos')
+    await page.goto('/painel/transacoes')
     await page.getByRole('button', { name: 'Selecionar' }).click()
     await page.getByRole('checkbox', { name: 'Selecionar ATM VENEZA 0004' }).click()
     await page.getByRole('checkbox', { name: 'Selecionar ATM VENEZA 0005' }).click()
     const bar = page.getByRole('toolbar', { name: 'Ações da seleção' })
-    await expect(bar).toContainText('2 selecionados')
+    await expect(bar).toContainText('2 selecionadas')
     await bar.getByRole('combobox', { name: 'Pote da seleção' }).click()
     await page.getByRole('option', { name: 'Conforto' }).click()
     await expect(bar).toContainText('Pote aplicado a 2.')

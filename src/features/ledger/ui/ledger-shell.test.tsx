@@ -108,25 +108,25 @@ describe('useLedgerUi', () => {
 describe('new entry', () => {
   it('opens from the N shortcut (not while typing); there is no floating button', async () => {
     renderShell()
-    expect(screen.queryByRole('button', { name: 'Novo lançamento' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Nova transação' })).not.toBeInTheDocument()
     await userEvent.click(screen.getByLabelText('campo qualquer'))
     await userEvent.keyboard('n')
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 
     await userEvent.click(document.body)
     await userEvent.keyboard('n')
-    expect(await screen.findByRole('dialog', { name: 'Novo lançamento' })).toBeInTheDocument()
+    expect(await screen.findByRole('dialog', { name: 'Nova transação' })).toBeInTheDocument()
     await userEvent.keyboard('{Escape}')
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
 
     await userEvent.click(screen.getByRole('button', { name: 'novo' }))
-    expect(await screen.findByRole('dialog', { name: 'Novo lançamento' })).toBeInTheDocument()
+    expect(await screen.findByRole('dialog', { name: 'Nova transação' })).toBeInTheDocument()
   })
 
   it('closes the full-page editor with its X', async () => {
     renderShell()
     await userEvent.click(screen.getByRole('button', { name: 'novo' }))
-    const sheet = await screen.findByRole('dialog', { name: 'Novo lançamento' })
+    const sheet = await screen.findByRole('dialog', { name: 'Nova transação' })
     expect(within(sheet).getByLabelText('Descrição')).toHaveFocus()
     await userEvent.click(within(sheet).getByRole('button', { name: 'Fechar' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
@@ -135,7 +135,7 @@ describe('new entry', () => {
   it('saves an expense marked as refund with a positive amount', async () => {
     renderShell()
     await userEvent.click(screen.getByRole('button', { name: 'novo' }))
-    const sheet = await screen.findByRole('dialog', { name: 'Novo lançamento' })
+    const sheet = await screen.findByRole('dialog', { name: 'Nova transação' })
     await userEvent.type(within(sheet).getByLabelText('Descrição'), 'Estorno loja')
     await userEvent.type(within(sheet).getByLabelText('Valor'), '50,00')
     await userEvent.click(within(sheet).getByLabelText('Estorno/reembolso'))
@@ -149,7 +149,7 @@ describe('new entry', () => {
   it('opens on a given date with what the quick add typed', async () => {
     renderShell()
     await userEvent.click(screen.getByRole('button', { name: 'abrir rascunho' }))
-    const sheet = await screen.findByRole('dialog', { name: 'Novo lançamento' })
+    const sheet = await screen.findByRole('dialog', { name: 'Nova transação' })
     expect(within(sheet).getByLabelText('Data')).toHaveValue('09/03/2027')
     expect(within(sheet).getByLabelText('Valor')).toHaveValue('50,00')
     expect(within(sheet).getByLabelText('Descrição')).toHaveValue('Pix')
@@ -173,7 +173,7 @@ describe('new entry', () => {
   it('creates a monthly expense with tags and a category-suggested pot', async () => {
     renderShell()
     await userEvent.click(screen.getByRole('button', { name: 'abrir mês' }))
-    const sheet = await screen.findByRole('dialog', { name: 'Novo lançamento' })
+    const sheet = await screen.findByRole('dialog', { name: 'Nova transação' })
     expect(within(sheet).getByLabelText('Data')).toHaveValue('15/02/2027')
 
     await userEvent.type(within(sheet).getByLabelText('Valor'), '1.234,50')
@@ -249,7 +249,7 @@ describe('new entry', () => {
     actions.createEntryAction.mockResolvedValueOnce({ ok: false, error: 'Falhou no servidor.' })
     renderShell()
     await userEvent.click(screen.getByRole('button', { name: 'novo' }))
-    const sheet = await screen.findByRole('dialog', { name: 'Novo lançamento' })
+    const sheet = await screen.findByRole('dialog', { name: 'Nova transação' })
     await userEvent.click(within(sheet).getByRole('button', { name: 'Salvar' }))
     expect(within(sheet).getByRole('alert')).toHaveTextContent('Informe o valor.')
 
@@ -274,7 +274,7 @@ describe('new entry', () => {
   it('builds transfers and split entries', async () => {
     renderShell()
     await userEvent.click(screen.getByRole('button', { name: 'novo' }))
-    const sheet = await screen.findByRole('dialog', { name: 'Novo lançamento' })
+    const sheet = await screen.findByRole('dialog', { name: 'Nova transação' })
     await userEvent.click(within(sheet).getByRole('button', { name: 'Transferência' }))
     expect(within(sheet).getByLabelText('Para a conta')).toHaveTextContent('BTG · Cartão')
     await userEvent.click(within(sheet).getByRole('button', { name: 'Saída' }))
@@ -328,7 +328,7 @@ describe('editing', () => {
   it('asks the scope when an occurrence amount changes', async () => {
     renderShell()
     await userEvent.click(screen.getByRole('button', { name: 'editar luz' }))
-    const sheet = await screen.findByRole('dialog', { name: 'Editar lançamento' })
+    const sheet = await screen.findByRole('dialog', { name: 'Editar transação' })
     expect(within(sheet).getByText(/Editando jan\/27/)).toBeInTheDocument()
     const amount = within(sheet).getByLabelText('Valor')
     expect(amount).toHaveValue('260,00')
@@ -355,7 +355,7 @@ describe('editing', () => {
   it('saves series fields without asking when amount and day are unchanged', async () => {
     renderShell()
     await userEvent.click(screen.getByRole('button', { name: 'editar luz' }))
-    const sheet = await screen.findByRole('dialog', { name: 'Editar lançamento' })
+    const sheet = await screen.findByRole('dialog', { name: 'Editar transação' })
     await userEvent.type(within(sheet).getByLabelText('Descrição'), ' casa')
     await userEvent.click(within(sheet).getByRole('button', { name: 'Salvar' }))
     await waitFor(() => expect(actions.updateEntryAction).toHaveBeenCalledOnce())
@@ -368,7 +368,7 @@ describe('editing', () => {
   it('deletes an occurrence with a scope and a one-off entry directly', async () => {
     renderShell()
     await userEvent.click(screen.getByRole('button', { name: 'editar luz' }))
-    let sheet = await screen.findByRole('dialog', { name: 'Editar lançamento' })
+    let sheet = await screen.findByRole('dialog', { name: 'Editar transação' })
     await userEvent.click(within(sheet).getByRole('button', { name: 'Excluir' }))
     const scope = await screen.findByRole('dialog', { name: 'Excluir em…' })
     await userEvent.click(within(scope).getByRole('button', { name: 'Excluir' }))
@@ -382,7 +382,7 @@ describe('editing', () => {
 
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     await userEvent.click(screen.getByRole('button', { name: 'editar avulso' }))
-    sheet = await screen.findByRole('dialog', { name: 'Editar lançamento' })
+    sheet = await screen.findByRole('dialog', { name: 'Editar transação' })
     actions.deleteEntryAction.mockResolvedValueOnce({ ok: false, error: 'Não encontrado.' })
     await userEvent.click(within(sheet).getByRole('button', { name: 'Excluir' }))
     expect(await within(sheet).findByRole('alert')).toHaveTextContent('Não encontrado.')
@@ -396,16 +396,16 @@ describe('editing', () => {
   it('duplicates into a new entry', async () => {
     renderShell()
     await userEvent.click(screen.getByRole('button', { name: 'editar avulso' }))
-    const sheet = await screen.findByRole('dialog', { name: 'Editar lançamento' })
+    const sheet = await screen.findByRole('dialog', { name: 'Editar transação' })
     await userEvent.click(within(sheet).getByRole('button', { name: 'Duplicar' }))
-    expect(await screen.findByRole('dialog', { name: 'Novo lançamento' })).toBeInTheDocument()
+    expect(await screen.findByRole('dialog', { name: 'Nova transação' })).toBeInTheDocument()
     expect(screen.getByLabelText('Descrição')).toHaveValue('Avulso (cópia)')
   })
 
   it('locks what the bank owns and saves only the user fields of a bank entry', async () => {
     renderShell()
     await userEvent.click(screen.getByRole('button', { name: 'editar do banco' }))
-    const sheet = await screen.findByRole('dialog', { name: 'Editar lançamento' })
+    const sheet = await screen.findByRole('dialog', { name: 'Editar transação' })
     expect(
       within(sheet).getByText('Vem do banco: valor, data e conta não podem ser alterados.'),
     ).toBeInTheDocument()

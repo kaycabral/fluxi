@@ -201,8 +201,8 @@ export function TimelineView({ data, window, today }: Props) {
             </table>
           </div>
           <p className="text-muted-foreground text-xs">
-            Cada conta começa com o saldo inicial cadastrado em Bancos e contas e soma todos os
-            lançamentos desde o primeiro.
+            Cada conta começa com o saldo inicial cadastrado em Bancos e contas e soma todas as
+            transações desde a primeira.
           </p>
         </CardContent>
       </Card>

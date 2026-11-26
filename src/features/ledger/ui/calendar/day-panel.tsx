@@ -20,7 +20,7 @@ export function DayPanel({ date, onClose }: { date: string; onClose: () => void 
   const items = visibleLandings(cell, prefs, (l) => paymentFor(l, data.payments) !== undefined)
   const negative = cell.endBalanceCents !== null && cell.endBalanceCents < 0
   return (
-    <div className="grid gap-2" aria-label={`Lançamentos de ${date}`}>
+    <div className="grid gap-2" aria-label={`Transações de ${date}`}>
       <div className="flex items-start justify-between">
         <span className="w-8" />
         <div className="grid justify-items-center">

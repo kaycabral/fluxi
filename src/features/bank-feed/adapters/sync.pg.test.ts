@@ -125,6 +125,7 @@ describe('pluggy-sync handler (Postgres)', () => {
         anchored: 0,
         split: 0,
         categorized: 0,
+        named: 0,
       },
     })
     const items = await db().select().from(bankFeedItems)
@@ -174,6 +175,7 @@ describe('pluggy-sync handler (Postgres)', () => {
         anchored: 1,
         split: 0,
         categorized: 0,
+        named: 0,
       },
     })
     const rows = await db().select().from(bankTransactions)

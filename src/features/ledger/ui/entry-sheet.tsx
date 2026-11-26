@@ -152,7 +152,7 @@ export function EntryForm({
         setError(result.error)
         return
       }
-      offerUndo(result, 'Lançamento salvo.')
+      offerUndo(result, 'Transação salva.')
       if (target !== null) {
         const offer = await similarOffer(target.entry, converted.fields)
         if (offer !== null) return setSimilar(offer)
@@ -200,7 +200,7 @@ export function EntryForm({
         setError(result.error)
         return
       }
-      offerUndo(result, 'Lançamento excluído.')
+      offerUndo(result, 'Transação excluída.')
       onDone()
     })
   }
@@ -225,9 +225,9 @@ export function EntryForm({
       }}
     >
       <DialogTitle className="sr-only">
-        {target === null ? 'Novo lançamento' : 'Editar lançamento'}
+        {target === null ? 'Nova transação' : 'Editar transação'}
       </DialogTitle>
-      <DialogDescription className="sr-only">Preencha os dados do lançamento.</DialogDescription>
+      <DialogDescription className="sr-only">Preencha os dados da transação.</DialogDescription>
       {similar !== null && (
         <SimilarDialog
           offer={similar}
@@ -349,11 +349,11 @@ export function EntryForm({
 
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4 md:px-6">
         <section
-          aria-label="Detalhes do lançamento"
+          aria-label="Detalhes da transação"
           className="bg-card grid max-w-2xl gap-5 rounded-3xl border p-4 md:ml-14 md:p-6"
         >
           <h2 className="text-primary border-primary w-fit border-b-2 pb-1 text-sm font-medium">
-            Detalhes do lançamento
+            Detalhes da transação
           </h2>
           <fieldset disabled={locked} aria-label="Dados do banco" className="contents">
             <KindToggle value={values.kind} onChange={changeKind} />

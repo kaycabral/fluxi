@@ -62,7 +62,7 @@ describe('TimelineView', () => {
     const balances = within(rowOf('Saldo total')).getAllByRole('cell')
     // dez/26: 1200 on Dec 1st + 5000 salary (rest of nov + advance) − 260 − 7000 − 2500 = −3560
     expect(balances[4]).toHaveTextContent('-3.560,00')
-    expect(screen.getByText(/soma todos os lançamentos desde o primeiro/)).toBeInTheDocument()
+    expect(screen.getByText(/soma todas as transações desde a primeira/)).toBeInTheDocument()
   })
 
   it('expands a bank into its active accounts', async () => {
@@ -155,10 +155,10 @@ describe('TimelineView', () => {
   it('opens an occurrence in the sheet and a new entry for the month', async () => {
     renderTimeline()
     await userEvent.click(screen.getByText('Buffet'))
-    expect(await screen.findByRole('dialog', { name: 'Editar lançamento' })).toBeInTheDocument()
+    expect(await screen.findByRole('dialog', { name: 'Editar transação' })).toBeInTheDocument()
     await userEvent.keyboard('{Escape}')
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-    await userEvent.click(screen.getByRole('button', { name: 'Lançamento' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Transação' }))
     expect(await screen.findByLabelText('Data')).toHaveValue('15/12/2026')
   })
 
@@ -168,7 +168,7 @@ describe('TimelineView', () => {
     fireEvent.keyDown(row, { key: 'Tab' })
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     fireEvent.keyDown(row, { key: 'Enter' })
-    expect(await screen.findByRole('dialog', { name: 'Editar lançamento' })).toBeInTheDocument()
+    expect(await screen.findByRole('dialog', { name: 'Editar transação' })).toBeInTheDocument()
   })
 
   it('shows a bank entry as paid by the bank, with its day fixed', () => {
@@ -189,7 +189,7 @@ describe('TimelineView', () => {
 
   it('shows an empty month', () => {
     renderTimeline(sampleData({ entries: [], parts: [] }))
-    expect(screen.getByText('Nenhum lançamento neste mês.')).toBeInTheDocument()
+    expect(screen.getByText('Nenhuma transação neste mês.')).toBeInTheDocument()
   })
 
   it('marks occurrences paid/received in the day by day and flags the overdue ones', async () => {

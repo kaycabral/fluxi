@@ -58,7 +58,7 @@ describe('SelectionBar', () => {
         onClear={onClear}
       />,
     )
-    expect(screen.getByText('2 selecionados')).toBeInTheDocument()
+    expect(screen.getByText('2 selecionadas')).toBeInTheDocument()
     await choose('Categoria da seleção', 'Academia')
     expect(categorize).toHaveBeenCalledWith({
       entryIds: [IDS.once, IDS.power],
@@ -76,7 +76,7 @@ describe('SelectionBar', () => {
   })
 })
 
-describe('selection mode in Lançamentos', () => {
+describe('selection mode in Transações', () => {
   it('toggles rows instead of opening them and shows the bar', async () => {
     render(
       <LedgerShell refs={sampleRefs()}>
@@ -90,7 +90,7 @@ describe('selection mode in Lançamentos', () => {
     await userEvent.click(first)
     await userEvent.click(second)
     expect(screen.getByRole('toolbar', { name: 'Ações da seleção' })).toHaveTextContent(
-      /2 selecionados|1 selecionado/,
+      /2 selecionadas|1 selecionada/,
     )
     await userEvent.click(second)
     await userEvent.click(screen.getByRole('button', { name: /Limpar seleção/ }))

@@ -323,7 +323,7 @@ describe('BudgetView · semáforo', () => {
       .map((h) => h.textContent)
       .filter((t) => t !== 'Grupo')
 
-  it('opens on the dashboard window (previous, current, next 3) and walks it with the arrows', async () => {
+  it('opens on the default window before measuring (previous, current, next 3) and walks it with the arrows', async () => {
     renderBudget()
     expect(months()).toEqual(['nov/26', 'dez/26', 'jan/27', 'fev/27', 'mar/27'])
     // Same compact presentation as the dashboard widget: no range label, no legend.

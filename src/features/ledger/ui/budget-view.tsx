@@ -8,10 +8,10 @@ import { BudgetGroupsCard } from './budget/groups-card'
 import { BUDGET_WINDOW, TrafficLight, useBudgetMonth } from './budget/traffic-light'
 
 /**
- * "Orçamento": the monthly traffic light, full width and with the dashboard
- * widget's window and presentation (previous, current and the next 3 months,
- * walked with arrows; each cell explains itself on hover), above the budget
- * groups and their targets per budget version.
+ * "Orçamento": the monthly traffic light, full width with the dashboard
+ * widget's presentation and adaptive window (previous and current months, then
+ * as many future months as fit; walked with arrows; each cell explains itself
+ * on hover), below the budget groups and their targets per budget version.
  */
 export function BudgetView({
   data,
@@ -31,6 +31,12 @@ export function BudgetView({
         Orçamento
       </Typography>
       <div className="grid gap-4">
+        <BudgetGroupsCard
+          budgetGroups={data.budgetGroups}
+          versions={versions}
+          today={today}
+          current={current}
+        />
         <Card className="min-w-0">
           <CardHeader>
             <CardTitle asChild>
@@ -51,12 +57,6 @@ export function BudgetView({
             />
           </CardContent>
         </Card>
-        <BudgetGroupsCard
-          budgetGroups={data.budgetGroups}
-          versions={versions}
-          today={today}
-          current={current}
-        />
       </div>
     </div>
   )

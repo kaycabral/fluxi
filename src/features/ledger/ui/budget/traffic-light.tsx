@@ -29,7 +29,7 @@ import {
   TooltipTrigger,
 } from '@cbrl/design'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 
 export const LIGHT_CLASSES: Record<Light, string> = {
   good: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400',
@@ -45,8 +45,57 @@ export const LIGHT_LABELS: Record<Light, string> = {
 
 const NO_VERSION_CLASS = 'bg-muted text-muted-foreground'
 
-/** The window both the dashboard widget and the budget page open on: previous, current and the next 3 months. */
+/**
+ * The window both the dashboard widget and the budget page open on: the
+ * previous and current months, then as many future months as fit the card
+ * (`monthColumnsFor`; with only the minimum, the current month and the next
+ * ones: `monthsBeforeFor`). `span` is the count used before the card is
+ * measured (server render, tests).
+ */
 export const BUDGET_WINDOW = { span: 5, before: 1 } as const
+
+/** Adaptive month columns: fixed group column, ~100px per month (fits "R$ 10.947,61"), 2 to 12 months. */
+export const MONTH_COLUMNS = { groupWidth: 150, monthWidth: 100, min: 2, max: 12 } as const
+
+/**
+ * How many month columns fit `width` px of card: never fewer than `min`
+ * (current and next: only below that does the table scroll horizontally) and
+ * never more than `max` (a year ahead is the useful horizon; the arrows walk
+ * further). `null` while the width is unknown.
+ */
+export function monthColumnsFor(width: number): number | null {
+  if (!Number.isFinite(width) || width <= 0) return null
+  const fit = Math.floor((width - MONTH_COLUMNS.groupWidth) / MONTH_COLUMNS.monthWidth)
+  return Math.min(MONTH_COLUMNS.max, Math.max(MONTH_COLUMNS.min, fit))
+}
+
+/**
+ * Months before today the window opens on: on tight cards (up to
+ * `TIGHT_COLUMNS`) the previous month would take too much of the table, so
+ * they open on the current month and what comes next; roomier ones keep
+ * `before` for context.
+ */
+/** Up to this many columns the window opens on the current month. */
+export const TIGHT_COLUMNS = 3
+
+export function monthsBeforeFor(columns: number, before: number): number {
+  return columns <= TIGHT_COLUMNS ? 0 : before
+}
+
+/** Width of `ref`'s element, kept up to date on resize (0 until measured). */
+function useElementWidth(ref: RefObject<HTMLElement | null>): number {
+  const [width, setWidth] = useState(0)
+  useEffect(() => {
+    const element = ref.current
+    if (element === null || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) setWidth(entry.contentRect.width)
+    })
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [ref])
+  return width
+}
 
 /** First month shown by default: `before` months before today (default: the window ends two months after today). */
 export function defaultFirstMonth(today: Month, span: number, before = span - 3): Month {
@@ -103,15 +152,20 @@ export function TrafficLight({
   versions: readonly BudgetVersion[]
   /** Current month. */
   today: Month
-  /** How many months the window shows. */
+  /** How many months the window shows until the card is measured (then: as many as fit). */
   span: number
   /** Months before today in the default window (and on "Hoje"). */
   before?: number
   className?: string
 }) {
-  const initial = defaultFirstMonth(today, span, before)
-  const [first, setFirst] = useState(initial)
-  const last = addMonths(first, span - 1)
+  const container = useRef<HTMLDivElement>(null)
+  const columns = monthColumnsFor(useElementWidth(container)) ?? span
+  // The default window depends on the measured width, so the arrows move an
+  // offset from it (not a fixed first month): "Hoje" and resizes stay right.
+  const initial = defaultFirstMonth(today, columns, monthsBeforeFor(columns, before ?? columns - 3))
+  const [offset, setOffset] = useState(0)
+  const first = addMonths(initial, offset)
+  const last = addMonths(first, columns - 1)
   const months = useBudgetMonths(data, versions, first, last)
   const budgetGroups = visibleBudgetGroups(data.budgetGroups, months)
   const versionStarts = new Set(versions.map((p) => p.startsMonth))
@@ -119,22 +173,22 @@ export function TrafficLight({
 
   return (
     <TooltipProvider delayDuration={150}>
-      <div className={cn('grid gap-3', className)}>
+      <div ref={container} className={cn('grid gap-3', className)}>
         <div className="flex items-center justify-end gap-2">
           <div className="flex items-center gap-1">
             <Button
               variant="outline"
               size="icon-sm"
               aria-label="Mês anterior"
-              onClick={() => setFirst((m) => addMonths(m, -1))}
+              onClick={() => setOffset((o) => o - 1)}
             >
               <ChevronLeft />
             </Button>
             <Button
               variant="outline"
               size="sm"
-              disabled={first === initial}
-              onClick={() => setFirst(initial)}
+              disabled={offset === 0}
+              onClick={() => setOffset(0)}
             >
               Hoje
             </Button>
@@ -142,7 +196,7 @@ export function TrafficLight({
               variant="outline"
               size="icon-sm"
               aria-label="Próximo mês"
-              onClick={() => setFirst((m) => addMonths(m, 1))}
+              onClick={() => setOffset((o) => o + 1)}
             >
               <ChevronRight />
             </Button>
@@ -157,7 +211,7 @@ export function TrafficLight({
                 <TableHead
                   key={m}
                   className={cn(
-                    'text-right whitespace-nowrap',
+                    'px-1.5 text-right whitespace-nowrap',
                     m === today && 'bg-muted/60 text-foreground font-semibold',
                     versionStarts.has(m) && 'border-primary/60 border-l-2',
                   )}
@@ -186,7 +240,7 @@ export function TrafficLight({
                 <TableCell
                   key={m.month}
                   className={cn(
-                    'text-right font-mono text-xs whitespace-nowrap tabular-nums',
+                    'px-1.5 text-right font-mono text-xs whitespace-nowrap tabular-nums',
                     m.month === today && 'bg-muted/60',
                     versionStarts.has(m.month) && 'border-primary/60 border-l-2',
                   )}

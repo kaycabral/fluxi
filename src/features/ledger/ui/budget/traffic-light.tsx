@@ -29,7 +29,7 @@ import {
   TooltipTrigger,
 } from '@cbrl/design'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 
 export const LIGHT_CLASSES: Record<Light, string> = {
   good: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400',
@@ -82,19 +82,21 @@ export function monthsBeforeFor(columns: number, before: number): number {
   return columns <= TIGHT_COLUMNS ? 0 : before
 }
 
-/** Width of `ref`'s element, kept up to date on resize (0 until measured). */
-function useElementWidth(ref: RefObject<HTMLElement | null>): number {
+/**
+ * Width of the element the returned ref is attached to, kept up to date on
+ * resize (0 until measured). A React 19 cleanup ref: React hands it the
+ * element on mount and runs the cleanup on unmount, never `null`.
+ */
+function useElementWidth(): [(element: HTMLDivElement) => () => void, number] {
   const [width, setWidth] = useState(0)
-  useEffect(() => {
-    const element = ref.current
-    if (element === null || typeof ResizeObserver === 'undefined') return
+  const ref = useCallback((element: HTMLDivElement) => {
     const observer = new ResizeObserver(([entry]) => {
-      if (entry) setWidth(entry.contentRect.width)
+      setWidth(entry?.contentRect.width ?? 0)
     })
     observer.observe(element)
     return () => observer.disconnect()
-  }, [ref])
-  return width
+  }, [])
+  return [ref, width]
 }
 
 /** First month shown by default: `before` months before today (default: the window ends two months after today). */
@@ -154,15 +156,15 @@ export function TrafficLight({
   today: Month
   /** How many months the window shows until the card is measured (then: as many as fit). */
   span: number
-  /** Months before today in the default window (and on "Hoje"). */
-  before?: number
+  /** Months before today in the default window (and on "Hoje") when the card has room. */
+  before: number
   className?: string
 }) {
-  const container = useRef<HTMLDivElement>(null)
-  const columns = monthColumnsFor(useElementWidth(container)) ?? span
+  const [measure, width] = useElementWidth()
+  const columns = monthColumnsFor(width) ?? span
   // The default window depends on the measured width, so the arrows move an
   // offset from it (not a fixed first month): "Hoje" and resizes stay right.
-  const initial = defaultFirstMonth(today, columns, monthsBeforeFor(columns, before ?? columns - 3))
+  const initial = defaultFirstMonth(today, columns, monthsBeforeFor(columns, before))
   const [offset, setOffset] = useState(0)
   const first = addMonths(initial, offset)
   const last = addMonths(first, columns - 1)
@@ -173,7 +175,7 @@ export function TrafficLight({
 
   return (
     <TooltipProvider delayDuration={150}>
-      <div ref={container} className={cn('grid gap-3', className)}>
+      <div ref={measure} className={cn('grid gap-3', className)}>
         <div className="flex items-center justify-end gap-2">
           <div className="flex items-center gap-1">
             <Button

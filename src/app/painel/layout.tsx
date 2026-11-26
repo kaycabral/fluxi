@@ -5,7 +5,7 @@ import type { LedgerRefs } from '@/features/ledger/core/view'
 import { LedgerShell } from '@/features/ledger/ui/ledger-shell'
 import { getServerScope } from '@/features/spaces/adapters/scope'
 import { getServerUser } from '@/lib/auth/server'
-import { readBackend } from '@/lib/backend-read'
+import { readBackend } from '@cbrl/next/server'
 import type { Metadata } from 'next'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
@@ -28,11 +28,14 @@ export default async function PainelLayout({ children }: { children: React.React
 
   const today = todayIso()
   // The active space (cookie hint resolved against the user's own spaces).
-  const scope = await readBackend('space scope', async () => {
-    const resolved = await getServerScope()
-    if (!resolved) throw new Error('session vanished while resolving the space')
-    return resolved
-  })
+  const scope = await readBackend(
+    async () => {
+      const resolved = await getServerScope()
+      if (!resolved) throw new Error('session vanished while resolving the space')
+      return resolved
+    },
+    { label: 'space scope' },
+  )
   const loaded = scope.ok ? await loadRefs(scope.data, today) : { ok: false as const }
   const refs: LedgerRefs = loaded.ok
     ? loaded.data

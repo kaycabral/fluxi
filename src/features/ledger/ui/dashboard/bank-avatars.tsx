@@ -4,14 +4,7 @@ import type { ConnectionHealth } from '@/features/bank-feed/core/health'
 import { BankLogo } from '@/features/bank-feed/ui/bank-logo'
 import { HealthDot } from '@/features/bank-feed/ui/connection-health-dot'
 import type { BankBalance } from '@/features/ledger/core/dashboard'
-import {
-  AvatarGroup,
-  AvatarGroupCount,
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@cbrl/design'
+import { AvatarGroup, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@cbrl/design'
 import { Money } from '../money'
 
 /** Avatars shown before the "+N" overflow. */
@@ -31,8 +24,6 @@ export function BankAvatars({
   /** Connection health by bank id: connected banks show a dot, manual ones none. */
   health?: Readonly<Record<string, ConnectionHealth>>
 }) {
-  const shown = banks.slice(0, MAX_BANK_AVATARS)
-  const hidden = banks.length - shown.length
   return (
     <TooltipProvider delayDuration={150}>
       <Tooltip>
@@ -42,11 +33,13 @@ export function BankAvatars({
             aria-label={`Saldo por banco: ${banks.map((b) => b.name).join(', ')}`}
             className="focus-visible:ring-ring inline-flex w-fit cursor-default rounded-full outline-none focus-visible:ring-2"
           >
-            <AvatarGroup>
-              {shown.map((bank) => (
+            <AvatarGroup
+              max={MAX_BANK_AVATARS}
+              overflowLabel={(hidden) => `Mais ${hidden} ${hidden === 1 ? 'banco' : 'bancos'}`}
+            >
+              {banks.map((bank) => (
                 <BankLogo key={bank.bankId} name={bank.name} size="sm" />
               ))}
-              {hidden > 0 && <AvatarGroupCount>+{hidden}</AvatarGroupCount>}
             </AvatarGroup>
           </button>
         </TooltipTrigger>

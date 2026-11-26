@@ -3,16 +3,16 @@ import { SIDEBAR_COOKIE, sidebarOpenFrom } from '@/app/painel/_components/sideba
 import { getServerScope } from '@/features/spaces/adapters/scope'
 import type { MenuAccount } from '@/features/spaces/ui/space-account-menu'
 import { getServerUser } from '@/lib/auth/server'
-import { readBackend } from '@/lib/backend-read'
 import { getProfile } from '@/lib/db'
 import { legacyScreensEnabled } from '@/lib/legacy-screens'
+import { readBackend } from '@cbrl/next/server'
 import { cookies } from 'next/headers'
 
 /** Who is signed in: the profile (display name, avatar), falling back to the session claims. */
 async function loadAccount(): Promise<MenuAccount> {
   const user = await getServerUser()
   if (!user) return { name: null, email: null, avatarUrl: null }
-  const profile = await readBackend('profile', () => getProfile(user.id))
+  const profile = await readBackend(() => getProfile(user.id), { label: 'profile' })
   const stored = profile.ok ? profile.data : null
   return {
     name: stored?.displayName ?? user.name ?? null,
@@ -28,7 +28,7 @@ async function loadAccount(): Promise<MenuAccount> {
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const defaultOpen = sidebarOpenFrom((await cookies()).get(SIDEBAR_COOKIE)?.value)
   const [scope, account] = await Promise.all([
-    readBackend('space scope', () => getServerScope()),
+    readBackend(() => getServerScope(), { label: 'space scope' }),
     loadAccount(),
   ])
   const spaces =

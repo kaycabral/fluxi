@@ -7,7 +7,7 @@ import { addMonths } from '@/features/ledger/core/month'
 import { AccountsView } from '@/features/ledger/ui/accounts-view'
 import { listFeedItems } from '@/features/spaces/adapters/space.repo'
 import { BankConnections } from '@/features/spaces/ui/bank-connections'
-import { readBackend } from '@/lib/backend-read'
+import { readBackend } from '@cbrl/next/server'
 import type { Metadata } from 'next'
 import { randomUUID } from 'node:crypto'
 
@@ -19,7 +19,9 @@ export default async function AccountsPage() {
   const refs = await loadRefs(scope, today)
   const first = today.slice(0, 7)
   const balances = await loadAccountBalances(scope, first, addMonths(first, 12), today)
-  const connections = await readBackend('bank connections', () => listFeedItems(scope.userId))
+  const connections = await readBackend(() => listFeedItems(scope.userId), {
+    label: 'bank connections',
+  })
 
   return (
     <Container className="grid gap-4 px-4 py-5 md:px-6 md:py-8">

@@ -1,7 +1,5 @@
 'use client'
 
-import { fadeMask } from '@/components/scrollable-tabs/scroll-target'
-import { useScrollStrip } from '@/components/scrollable-tabs/use-scroll-strip'
 import { loadAccountsAction, type AccountsData } from '@/features/ledger/adapters/actions/accounts'
 import { loadRulesAction } from '@/features/ledger/adapters/actions/categorize'
 import type { CategorizationRule } from '@/features/ledger/core/similar'
@@ -12,26 +10,17 @@ import {
   type ConnectionsData,
 } from '@/features/spaces/adapters/actions/spaces'
 import { BankConnections } from '@/features/spaces/ui/bank-connections'
-import {
-  Button,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  ScrollArea,
-  Skeleton,
-} from '@cbrl/design'
+import { Button, SettingsDialog, Skeleton, useHashSection } from '@cbrl/design'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 /**
- * The settings live in a modal over the painel (Oilio's pattern), addressed by
- * the URL fragment `#configuracoes/<section>`: the user menu sets it, closing
- * clears it, and `/painel/configuracoes` (or the old `/painel/conexoes`)
+ * The settings live in a modal over the painel (`SettingsDialog`), addressed by
+ * the URL fragment `#configuracoes/<section>` (`useHashSection`): the user menu
+ * sets it, closing clears it, and `/painel/configuracoes` (or the old `/painel/conexoes`)
  * redirects to `/painel#configuracoes/conexoes`. The fragment never reaches
  * the server, so each section loads its data through a server action.
  */
-export const SETTINGS_HASH_PREFIX = '#configuracoes/'
+const SETTINGS_HASH = 'configuracoes'
 
 const SECTIONS = [
   {
@@ -56,13 +45,9 @@ const SECTIONS = [
 
 type SectionKey = (typeof SECTIONS)[number]['key']
 
-export const settingsHash = (section: SectionKey) => `${SETTINGS_HASH_PREFIX}${section}`
+const SECTION_KEYS: readonly SectionKey[] = SECTIONS.map((s) => s.key)
 
-function sectionFromHash(hash: string): (typeof SECTIONS)[number] | null {
-  if (!hash.startsWith(SETTINGS_HASH_PREFIX)) return null
-  const key = hash.slice(SETTINGS_HASH_PREFIX.length)
-  return SECTIONS.find((s) => s.key === key) ?? null
-}
+export const settingsHash = (section: SectionKey) => `#${SETTINGS_HASH}/${section}`
 
 type Read<T> = { ok: true; data: T } | { ok: false; error: string }
 type Loaded =
@@ -126,54 +111,29 @@ function ConnectionsSection({ data, reload }: { data: ConnectionsData; reload: (
 }
 
 /**
- * The section list: a column beside the content from `sm`, a row above it on
- * phones, scrolling sideways (never hiding the current section; edges fade
- * where sections are hidden).
+ * A fragment navigation the router did not make (address bar, `location.hash`,
+ * a same-page `goto`) leaves Next's committed URL without the hash, and its
+ * next history write strips it, closing the modal. Re-writing the URL through
+ * the (Next-patched) `replaceState` makes the router adopt the hash.
  */
-function SettingsNav({
-  current,
-  onSelect,
-}: {
-  current: SectionKey
-  onSelect: (key: SectionKey) => void
-}) {
-  const ref = useRef<HTMLElement>(null)
-  const edges = useScrollStrip(ref, '[aria-current="page"]')
-  return (
-    <nav
-      ref={ref}
-      aria-label="Seções de configuração"
-      style={{ maskImage: fadeMask(edges) }}
-      className="bg-muted/40 flex [scrollbar-width:none] gap-0.5 overflow-x-auto border-b p-2 sm:flex-col sm:overflow-x-visible sm:border-r sm:border-b-0 [&::-webkit-scrollbar]:hidden"
-    >
-      {SECTIONS.map((item) => (
-        <button
-          key={item.key}
-          type="button"
-          onClick={() => onSelect(item.key)}
-          aria-current={item.key === current ? 'page' : undefined}
-          className="text-muted-foreground hover:bg-background/60 aria-[current=page]:bg-background aria-[current=page]:text-foreground shrink-0 cursor-pointer rounded-md px-3 py-2 text-left text-sm font-normal whitespace-nowrap transition-colors aria-[current=page]:font-medium"
-        >
-          {item.label}
-        </button>
-      ))}
-    </nav>
-  )
+function useAdoptExternalHash() {
+  useEffect(() => {
+    const adopt = () => {
+      if (window.location.hash.startsWith(`#${SETTINGS_HASH}/`)) {
+        window.history.replaceState(window.history.state, '', window.location.href)
+      }
+    }
+    window.addEventListener('hashchange', adopt)
+    return () => window.removeEventListener('hashchange', adopt)
+  }, [])
 }
 
 export function SettingsModal() {
-  const [section, setSection] = useState<(typeof SECTIONS)[number] | null>(null)
+  useAdoptExternalHash()
+  const { section: key, open, close } = useHashSection(SETTINGS_HASH, SECTION_KEYS)
   const [loaded, setLoaded] = useState<Loaded | null>(null)
   const requestId = useRef(0)
 
-  useEffect(() => {
-    const sync = () => setSection(sectionFromHash(window.location.hash))
-    sync()
-    window.addEventListener('hashchange', sync)
-    return () => window.removeEventListener('hashchange', sync)
-  }, [])
-
-  const key = section?.key ?? null
   const load = useCallback(async () => {
     if (key === null) return
     const id = ++requestId.current
@@ -187,46 +147,26 @@ export function SettingsModal() {
     if (key !== null) void load()
   }, [key, load])
 
-  const select = (key: SectionKey) => {
-    window.history.replaceState(null, '', settingsHash(key))
-    setSection(sectionFromHash(settingsHash(key)))
-  }
-
-  // The dialog is only rendered open, so any change of it is a close.
-  const close = () => {
-    window.history.replaceState(null, '', window.location.pathname + window.location.search)
-    setSection(null)
-  }
-
-  if (section === null) return null
+  if (key === null) return null
 
   return (
-    <Dialog open onOpenChange={close}>
-      <DialogContent
-        className="grid h-[min(85vh,40rem)] max-w-3xl grid-rows-[auto_1fr] gap-0 overflow-hidden p-0 sm:max-w-3xl sm:grid-cols-[12rem_minmax(0,1fr)] sm:grid-rows-1"
-        onOpenAutoFocus={(event) => event.preventDefault()}
-      >
-        <SettingsNav current={section.key} onSelect={select} />
-
-        <div className="flex min-h-0 min-w-0 flex-col">
-          <DialogHeader className="gap-1 border-b p-6 pr-14">
-            <DialogTitle>{section.label}</DialogTitle>
-            <DialogDescription>{section.description}</DialogDescription>
-          </DialogHeader>
-          <ScrollArea className="min-h-0 flex-1 [&_[data-slot=scroll-area-viewport]>div]:!block">
-            <div className="p-6">
-              {loaded === null ? (
-                <div className="flex flex-col gap-4" aria-label="Carregando">
-                  <Skeleton className="h-4 w-full max-w-md" />
-                  <Skeleton className="h-40 w-full" />
-                </div>
-              ) : (
-                <SectionBody loaded={loaded} reload={() => void load()} />
-              )}
-            </div>
-          </ScrollArea>
+    <SettingsDialog
+      open
+      // The dialog is only rendered open, so any change of it is a close.
+      onOpenChange={close}
+      sections={SECTIONS}
+      value={key}
+      onValueChange={open}
+      navLabel="Seções de configuração"
+    >
+      {loaded === null ? (
+        <div className="flex flex-col gap-4" aria-label="Carregando">
+          <Skeleton className="h-4 w-full max-w-md" />
+          <Skeleton className="h-40 w-full" />
         </div>
-      </DialogContent>
-    </Dialog>
+      ) : (
+        <SectionBody loaded={loaded} reload={() => void load()} />
+      )}
+    </SettingsDialog>
   )
 }

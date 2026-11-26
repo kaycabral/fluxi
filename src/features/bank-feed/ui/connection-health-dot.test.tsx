@@ -31,7 +31,8 @@ describe('ConnectionHealthDot', () => {
     )
     const dot = screen.getByRole('img', { name: 'Conexão: Atualizando agora…' })
     expect(dot).toHaveAttribute('data-tone', 'warning')
-    expect(dot).toHaveAttribute('data-pulse', 'true')
+    // The DS dot only has content (its ping ring) while pulsing.
+    expect(dot).not.toBeEmptyDOMElement()
   })
 
   it.each([

@@ -119,6 +119,23 @@ describe('SettingsModal', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
+  it('re-writes an external settings fragment through history so the router adopts it', () => {
+    loadConnectionsAction.mockReturnValue(new Promise<Loaded>(() => undefined))
+    openAt('')
+    const replace = vi.spyOn(window.history, 'replaceState')
+    act(() => {
+      window.location.hash = '#outra-coisa'
+      window.dispatchEvent(new HashChangeEvent('hashchange'))
+    })
+    expect(replace).not.toHaveBeenCalled()
+    act(() => {
+      window.location.hash = settingsHash('conexoes')
+      window.dispatchEvent(new HashChangeEvent('hashchange'))
+    })
+    expect(replace.mock.lastCall?.[2]).toMatch(/\/painel#configuracoes\/conexoes$/)
+    replace.mockRestore()
+  })
+
   it('follows the fragment and retries when loading fails', async () => {
     loadConnectionsAction.mockRejectedValueOnce(new Error('db down'))
     openAt('')

@@ -50,6 +50,21 @@ test.describe('signed in', () => {
     }
   })
 
+  test('a same-page hash change opens the settings and keeps the hash', async ({ page }) => {
+    await page.goto('/painel')
+    await page.reload()
+    await expect(page.getByRole('heading', { level: 1, name: 'Painel' })).toBeVisible()
+    // Only the fragment changes: the browser navigates in the same document.
+    await page.goto('/painel#configuracoes/regras')
+    await expect(page.getByRole('dialog', { name: 'Regras' })).toBeVisible()
+    await expect(page).toHaveURL(/\/painel#configuracoes\/regras$/)
+    await page.getByRole('button', { name: 'Conexões' }).click()
+    await expect(page).toHaveURL(/\/painel#configuracoes\/conexoes$/)
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('dialog')).toBeHidden()
+    await expect(page).toHaveURL(/\/painel$/)
+  })
+
   test('/ sends a signed-in user to /painel', async ({ page }) => {
     await page.goto('/')
     await expect(page).toHaveURL(/\/painel$/)

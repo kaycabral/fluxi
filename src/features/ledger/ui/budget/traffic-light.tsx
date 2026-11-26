@@ -9,7 +9,7 @@ import {
   type BudgetMonth,
   type Light,
 } from '@/features/ledger/core/budget'
-import { formatMoney, formatPercent, monthLabel } from '@/features/ledger/core/format'
+import { formatAmount, formatMoney, formatPercent, monthLabel } from '@/features/ledger/core/format'
 import { GROUP_DOT_CLASSES } from '@/features/ledger/core/labels'
 import { addMonths, monthRange, type Month } from '@/features/ledger/core/month'
 import type { BudgetGroup, BudgetVersion } from '@/features/ledger/core/types'
@@ -246,8 +246,9 @@ export function TrafficLight({
                     m.month === today && 'bg-muted/60',
                     versionStarts.has(m.month) && 'border-primary/60 border-l-2',
                   )}
+                  title={`Renda: ${formatMoney(m.incomeCents)}`}
                 >
-                  {formatMoney(m.incomeCents)}
+                  {formatAmount(m.incomeCents)}
                 </TableCell>
               ))}
             </TableRow>

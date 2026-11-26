@@ -212,7 +212,8 @@ describe('DashboardView', () => {
 
   it('fills the bar of a budget group spent without a target', () => {
     renderDashboard(sampleData(), [{ ...PLAN, targets: { essential: 3300 } }])
-    expect(screen.getByText(/^R\$ 7\.000,00 \/ R\$ 0,00$/)).toBeInTheDocument()
+    const pair = screen.getByText(/^7\.000,00 \/ 0,00$/)
+    expect(pair).toHaveAccessibleName('R$ 7.000,00 planejado de R$ 0,00')
   })
 
   it('opens the bills on the most urgent tab and pays in one click', async () => {
@@ -230,7 +231,9 @@ describe('DashboardView', () => {
     await userEvent.click(screen.getByRole('tab', { name: /7 dias/ }))
     const panel = screen.getByRole('tabpanel')
     expect(within(panel).getAllByRole('listitem')).toHaveLength(2)
-    await userEvent.click(within(panel).getAllByRole('button', { name: /^Pago/ })[0] ?? panel)
+    await userEvent.click(
+      within(panel).getAllByRole('button', { name: /^Marcar como pago/ })[0] ?? panel,
+    )
     await waitFor(() => expect(markPaidAction).toHaveBeenCalledOnce())
   })
 

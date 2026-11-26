@@ -16,6 +16,7 @@ import {
 } from '@/features/ledger/core/dashboard'
 import {
   dayLongLabel,
+  formatAmount,
   formatMoney,
   monthLabel,
   monthLongLabel,
@@ -192,8 +193,12 @@ function BudgetGroupsThisMonth({
                 />
                 <span className="truncate">{budgetGroup.name}</span>
               </span>
-              <span className="text-muted-foreground shrink-0 font-mono text-xs tabular-nums">
-                {formatMoney(cell.plannedCents)} / {formatMoney(target)}
+              <span
+                className="text-muted-foreground shrink-0 font-mono text-xs tabular-nums"
+                aria-label={`${formatMoney(cell.plannedCents)} planejado de ${formatMoney(target)}`}
+                title={`${formatMoney(cell.plannedCents)} planejado de ${formatMoney(target)}`}
+              >
+                {formatAmount(cell.plannedCents)} / {formatAmount(target)}
               </span>
             </div>
             <div className="bg-muted h-1.5 overflow-hidden rounded-full">
@@ -382,8 +387,10 @@ export function DashboardView({
               <h2>Grupos em {monthLabel(month)}</h2>
             </CardTitle>
             <CardDescription>
-              Planejado ÷ meta
-              {` · renda ${formatMoney(budget.incomeCents)}`}
+              Planejado ÷ meta · renda{' '}
+              <span title={formatMoney(budget.incomeCents)}>
+                {formatAmount(budget.incomeCents)}
+              </span>
             </CardDescription>
           </CardHeader>
           <CardContent className="-mr-2 min-h-0 flex-1 overflow-y-auto pr-2">

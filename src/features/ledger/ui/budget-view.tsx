@@ -5,11 +5,13 @@ import type { BudgetVersion } from '@/features/ledger/core/types'
 import type { LedgerData } from '@/features/ledger/core/view'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, Typography } from '@cbrl/design'
 import { BudgetGroupsCard } from './budget/groups-card'
-import { TrafficLight, useBudgetMonth } from './budget/traffic-light'
+import { BUDGET_WINDOW, TrafficLight, useBudgetMonth } from './budget/traffic-light'
 
 /**
- * "Orçamento": the budget groups and their targets per budget version, and the monthly
- * traffic light (12 months, walked with arrows).
+ * "Orçamento": the monthly traffic light, full width and with the dashboard
+ * widget's window and presentation (previous, current and the next 3 months,
+ * walked with arrows; each cell explains itself on hover), above the budget
+ * groups and their targets per budget version.
  */
 export function BudgetView({
   data,
@@ -28,13 +30,7 @@ export function BudgetView({
       <Typography variant="pageTitle" as="h1">
         Orçamento
       </Typography>
-      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
-        <BudgetGroupsCard
-          budgetGroups={data.budgetGroups}
-          versions={versions}
-          today={today}
-          current={current}
-        />
+      <div className="grid gap-4">
         <Card className="min-w-0">
           <CardHeader>
             <CardTitle asChild>
@@ -42,13 +38,26 @@ export function BudgetView({
             </CardTitle>
             <CardDescription>
               Planejado ÷ renda do mês, contra a versão do orçamento em vigor naquele mês. Passe o
-              mouse num valor para ver a meta.
+              mouse num valor para ver a meta e a situação.
             </CardDescription>
           </CardHeader>
           <CardContent className="min-w-0">
-            <TrafficLight data={data} versions={versions} today={today} span={12} />
+            <TrafficLight
+              data={data}
+              versions={versions}
+              today={today}
+              span={BUDGET_WINDOW.span}
+              before={BUDGET_WINDOW.before}
+              compact
+            />
           </CardContent>
         </Card>
+        <BudgetGroupsCard
+          budgetGroups={data.budgetGroups}
+          versions={versions}
+          today={today}
+          current={current}
+        />
       </div>
     </div>
   )

@@ -42,7 +42,7 @@ import {
 import { ArrowRight, TrendingDown, TrendingUp } from 'lucide-react'
 import Link from 'next/link'
 import { useMemo } from 'react'
-import { TrafficLight, useBudgetMonth } from '../budget/traffic-light'
+import { BUDGET_WINDOW, TrafficLight, useBudgetMonth } from '../budget/traffic-light'
 import { Money, toneOf } from '../money'
 import { BankAvatars } from './bank-avatars'
 import { UpcomingBills } from './upcoming-bills'
@@ -340,8 +340,8 @@ export function DashboardView({
               data={data}
               versions={versions}
               today={month}
-              span={5}
-              before={1}
+              span={BUDGET_WINDOW.span}
+              before={BUDGET_WINDOW.before}
               compact
             />
           </CardContent>

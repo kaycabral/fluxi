@@ -51,6 +51,9 @@ const LEGEND: Record<Light, string> = {
   bad: 'Mais de 20% fora',
 }
 
+/** The window both the dashboard widget and the budget page open on: previous, current and the next 3 months. */
+export const BUDGET_WINDOW = { span: 5, before: 1 } as const
+
 /** First month shown by default: `before` months before today (default: the window ends two months after today). */
 export function defaultFirstMonth(today: Month, span: number, before = span - 3): Month {
   return addMonths(today, -before)

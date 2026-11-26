@@ -2,9 +2,8 @@
 
 import { formatAmount, monthLabel } from '@/features/ledger/core/format'
 import { ACCOUNT_TYPE_LABELS } from '@/features/ledger/core/labels'
-import { monthRange, type Month } from '@/features/ledger/core/month'
-import type { MonthResult } from '@/features/ledger/core/projection'
-import { initialSelectedMonth, sumBalances } from '@/features/ledger/core/timeline'
+import type { Month } from '@/features/ledger/core/month'
+import { sumBalances } from '@/features/ledger/core/timeline'
 import { projectWindow, type LedgerData } from '@/features/ledger/core/view'
 import {
   Badge,
@@ -18,7 +17,6 @@ import {
 } from '@cbrl/design'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { CountFromForm } from './count-from-form'
 import { MonthDetail } from './month-detail'
 
 type Props = {
@@ -32,24 +30,10 @@ const cellClass =
   'px-2 py-1.5 text-right font-mono text-xs whitespace-nowrap tabular-nums sm:text-sm'
 const firstColClass = 'bg-card sticky left-0 z-10 px-2 py-1.5 text-left whitespace-nowrap'
 
-function ValueCell({
-  result,
-  cents,
-  tone = false,
-}: {
-  result: MonthResult
-  cents: number | null
-  tone?: boolean
-}) {
+function ValueCell({ cents, tone = false }: { cents: number; tone?: boolean }) {
   return (
-    <td
-      className={cn(
-        cellClass,
-        !result.counted && 'text-muted-foreground opacity-50',
-        tone && cents !== null && cents < 0 && 'text-destructive',
-      )}
-    >
-      {cents === null ? '–' : formatAmount(cents)}
+    <td className={cn(cellClass, tone && cents < 0 && 'text-destructive')}>
+      {formatAmount(cents)}
     </td>
   )
 }
@@ -60,14 +44,12 @@ export function TimelineView({ data, window, today }: Props) {
     () => projectWindow(data, window.from, window.to),
     [data, window.from, window.to],
   )
-  const options = useMemo(() => monthRange(window.from, window.to), [window.from, window.to])
-  const [selected, setSelected] = useState(() => initialSelectedMonth(data.countFrom, today))
+  const [selected, setSelected] = useState(today)
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
-  const selectedResult = months.find((m) => m.month === selected) ?? months[0]
+  const selectedResult = months.find((m) => m.month === selected)
 
   const active = data.accounts.filter((a) => !a.archived)
   const activeIds = active.map((a) => a.id)
-  const countFromLabel = monthLabel(data.countFrom ?? window.from)
 
   if (data.accounts.length === 0) {
     return (
@@ -86,11 +68,6 @@ export function TimelineView({ data, window, today }: Props) {
           <CardTitle asChild>
             <h2>Mês a mês</h2>
           </CardTitle>
-          <CountFromForm
-            value={data.countFrom}
-            months={options}
-            onSaved={(month) => setSelected((current) => (current < month ? month : current))}
-          />
         </CardHeader>
         <CardContent className="grid gap-3">
           <div className="overflow-x-auto">
@@ -109,7 +86,6 @@ export function TimelineView({ data, window, today }: Props) {
                         className={cn(
                           'font-medium',
                           m.month === selected && 'text-primary bg-primary/10',
-                          !m.counted && 'opacity-50',
                         )}
                         onClick={() => setSelected(m.month)}
                       >
@@ -129,7 +105,7 @@ export function TimelineView({ data, window, today }: Props) {
                     Entradas
                   </td>
                   {months.map((m) => (
-                    <ValueCell key={m.month} result={m} cents={m.totals.incomeCents} />
+                    <ValueCell key={m.month} cents={m.totals.incomeCents} />
                   ))}
                 </tr>
                 <tr className="border-b">
@@ -141,13 +117,13 @@ export function TimelineView({ data, window, today }: Props) {
                     Saídas
                   </td>
                   {months.map((m) => (
-                    <ValueCell key={m.month} result={m} cents={-m.totals.expenseCents} />
+                    <ValueCell key={m.month} cents={-m.totals.expenseCents} />
                   ))}
                 </tr>
                 <tr className="border-foreground/20 border-t border-b font-semibold">
                   <td className={firstColClass}>Resultado do mês</td>
                   {months.map((m) => (
-                    <ValueCell key={m.month} result={m} cents={m.totals.netCents} tone />
+                    <ValueCell key={m.month} cents={m.totals.netCents} tone />
                   ))}
                 </tr>
                 <tr className="bg-primary/10 border-b font-semibold">
@@ -162,7 +138,6 @@ export function TimelineView({ data, window, today }: Props) {
                   {months.map((m) => (
                     <ValueCell
                       key={m.month}
-                      result={m}
                       cents={sumBalances(m.closingBalances, activeIds)}
                       tone
                     />
@@ -193,7 +168,6 @@ export function TimelineView({ data, window, today }: Props) {
                       {months.map((m) => (
                         <ValueCell
                           key={m.month}
-                          result={m}
                           cents={sumBalances(
                             m.closingBalances,
                             accounts.map((a) => a.id),
@@ -214,7 +188,6 @@ export function TimelineView({ data, window, today }: Props) {
                             {months.map((m) => (
                               <ValueCell
                                 key={m.month}
-                                result={m}
                                 cents={sumBalances(m.closingBalances, [account.id])}
                                 tone
                               />
@@ -228,8 +201,8 @@ export function TimelineView({ data, window, today }: Props) {
             </table>
           </div>
           <p className="text-muted-foreground text-xs">
-            Meses antes de {countFromLabel} aparecem apagados e não entram no saldo. Cada conta
-            começa com o saldo inicial cadastrado em Bancos e contas.
+            Cada conta começa com o saldo inicial cadastrado em Bancos e contas e soma todos os
+            lançamentos desde o primeiro.
           </p>
         </CardContent>
       </Card>

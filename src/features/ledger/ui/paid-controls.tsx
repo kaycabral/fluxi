@@ -14,7 +14,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@cbrl/design'
-import { CalendarDays, Check } from 'lucide-react'
+import { CalendarDays, Check, Landmark } from 'lucide-react'
 import { useId, useOptimistic, useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { useLedgerUi } from './ledger-shell'
@@ -44,8 +44,26 @@ function usePaymentWrite(landing: Landing) {
   return { pending, run }
 }
 
+/** "Pago"/"Recebido" of a bank entry: the bank says it happened; nothing to toggle. */
+export function BankPaidBadge({ landing }: { landing: Landing }) {
+  return (
+    <span
+      className="text-muted-foreground inline-flex items-center gap-1 text-xs"
+      title="Vem do banco"
+    >
+      <Landmark className="size-3.5" aria-hidden />
+      {paidLabel(landing.amountCents)} · banco
+    </span>
+  )
+}
+
 /** Paid checkbox of one occurrence (dia a dia). Optimistic; clicks never reach the row. */
 export function PaidCheckbox({ landing, paid }: { landing: Landing; paid: boolean }) {
+  if (landing.entry.fromBank) return <BankPaidBadge landing={landing} />
+  return <EditablePaidCheckbox landing={landing} paid={paid} />
+}
+
+function EditablePaidCheckbox({ landing, paid }: { landing: Landing; paid: boolean }) {
   const { offerUndo } = useLedgerUi()
   const [, startTransition] = useTransition()
   const [optimistic, setOptimistic] = useOptimistic(paid)
@@ -72,6 +90,11 @@ export function PaidCheckbox({ landing, paid }: { landing: Landing; paid: boolea
 
 /** One-click "Pago"/"Recebido" (today) plus a popover to pick another date. */
 export function PayButton({ landing }: { landing: Landing }) {
+  if (landing.entry.fromBank) return <BankPaidBadge landing={landing} />
+  return <EditablePayButton landing={landing} />
+}
+
+function EditablePayButton({ landing }: { landing: Landing }) {
   const { refs } = useLedgerUi()
   const { pending, run } = usePaymentWrite(landing)
   const [date, setDate] = useState(refs.today)
@@ -128,8 +151,13 @@ export function PayButton({ landing }: { landing: Landing }) {
   )
 }
 
-/** Undo a payment (the paid items of "A pagar"). */
+/** Undo a payment (the paid items of "A pagar"); a bank entry stays paid. */
 export function UnpayButton({ landing }: { landing: Landing }) {
+  if (landing.entry.fromBank) return <BankPaidBadge landing={landing} />
+  return <EditableUnpayButton landing={landing} />
+}
+
+function EditableUnpayButton({ landing }: { landing: Landing }) {
   const { pending, run } = usePaymentWrite(landing)
   return (
     <Button

@@ -14,8 +14,11 @@ import { signedFlowCents, verifyLedger, type Flow, type Verification } from './v
  * `e<n>` for entries, category keys); the adapter assigns database ids.
  */
 
-/** First month Fluxi counts balances from (`user_settings.count_from_month`). */
-export const COUNT_FROM_MONTH = '2026-12'
+/**
+ * First month whose benefit mirror outflows are dropped (`core/mirrors.ts`):
+ * the month Fluxi started tracking the workspace's money.
+ */
+export const MIRRORS_FROM_MONTH = '2026-12'
 
 /** A Notion money movement with the row it came from. */
 export type SourceFlow = Flow & { externalId: string }
@@ -141,7 +144,7 @@ function statsOf(entries: readonly PlannedEntry[]) {
 /** Builds the plan from the raw workspace (pure; throws on unmappable accounts). */
 export function buildImportPlan(
   source: NotionSource,
-  options: { countFrom?: string } = {},
+  options: { mirrorsFrom?: string } = {},
 ): ImportPlan {
   const banks = planBanks(source.banks)
   const accounts = planAccounts(source.accounts, banks)
@@ -158,7 +161,7 @@ export function buildImportPlan(
   const benefitIds = new Set(
     accounts.filter((a) => bucketOfType(a.type) === 'benefit').map((a) => a.externalId),
   )
-  const mirrors = dropBenefitMirrors(items, benefitIds, options.countFrom ?? COUNT_FROM_MONTH)
+  const mirrors = dropBenefitMirrors(items, benefitIds, options.mirrorsFrom ?? MIRRORS_FROM_MONTH)
   const { entries, zeroOnlyRuns } = groupIntoEntries(mirrors.kept)
   return {
     banks,
@@ -207,6 +210,7 @@ export function planAsLedger(plan: ImportPlan): { entries: Entry[]; overrides: E
       monthBy: 'day',
       installments: null,
       endMonth: e.endMonth,
+      fromBank: false,
     })),
     // The import only skips months; it never deletes an occurrence.
     overrides: plan.entries.flatMap((e) =>

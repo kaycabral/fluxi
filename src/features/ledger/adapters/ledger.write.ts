@@ -1,6 +1,8 @@
 import 'server-only'
 
-import { accounts, banks, entries, entryOverrides, entryParts, userSettings } from '@/db/schema'
+import { accounts, banks, entries, entryOverrides, entryParts } from '@/db/schema'
+import { bankFeedAccounts } from '@/db/schema-bank-feed'
+import { changesBankFields } from '@/features/ledger/core/bank-lock'
 import { monthToDate, type Month } from '@/features/ledger/core/month'
 import { amountFor, dayFor, occursIn } from '@/features/ledger/core/occurrence'
 import { keepPartIds } from '@/features/ledger/core/payments'
@@ -83,6 +85,7 @@ function entryFromFields(id: string, fields: EntryFields): Entry {
     monthBy: fields.monthBy,
     installments: fields.installments,
     endMonth: fields.endMonth,
+    fromBank: false,
   }
 }
 
@@ -254,6 +257,27 @@ function patchOf(
 const isEmpty = (patch: OccurrencePatch) =>
   patch.amountCents === undefined && patch.day === undefined && patch.parts === undefined
 
+/** The user's part of a bank entry: description, category, pot and tags; anything else is refused. */
+async function updateBankEntry(
+  tx: Tx,
+  scope: Scope,
+  loaded: SeriesState,
+  fields: EntryFields,
+): Promise<WriteResult> {
+  if (changesBankFields(loaded.entry, fields) || loaded.parts.length > 0) {
+    return fail('bank_locked')
+  }
+  const undo = await captureUndo(tx, scope, [loaded.entry.id])
+  await writeEntryRow(tx, scope, {
+    ...loaded.entry,
+    description: fields.description,
+    categoryId: fields.categoryId,
+    pot: fields.pot,
+    tags: fields.tags,
+  })
+  return undoable(undo)
+}
+
 export type OccurrenceEdit = { month: Month; scope: EditScope | null }
 
 /**
@@ -274,6 +298,7 @@ export async function updateEntry(
     db().transaction(async (tx) => {
       const loaded = await loadSeries(tx, scope, entryId)
       if (loaded === null) return fail('not_found')
+      if (loaded.entry.fromBank) return updateBankEntry(tx, scope, loaded, fields)
       // A new kind re-signs the stored amounts (expense → income flips them; transfer is negative).
       const state = resignForKind(loaded, fields.kind)
       const resigned = state !== loaded
@@ -340,6 +365,7 @@ export async function changeOccurrenceDay(
       const { entryId, month, day, scope: editScope } = input
       const state = await loadSeries(tx, scope, entryId)
       if (state === null) return fail('not_found')
+      if (state.entry.fromBank) return fail('bank_locked')
       if (!occursIn(state.entry, month) || state.parts.length > 0) return fail('no_occurrence')
       if (state.entry.recurrence === 'none') {
         const undo = await captureUndo(tx, scope, [entryId])
@@ -372,6 +398,7 @@ export async function deleteEntry(
     db().transaction(async (tx) => {
       const state = await loadSeries(tx, scope, entryId)
       if (state === null) return fail('not_found')
+      if (state.entry.fromBank) return fail('bank_locked')
       const { entry } = state
       const removeAll = async () => {
         const undo = await captureUndo(tx, scope, [entryId])
@@ -472,6 +499,7 @@ export async function updateAccount(
   scope: Scope,
   input: Omit<AccountInput, 'bankId'> & { archived: boolean },
 ): Promise<WriteResult> {
+  if (input.archived && (await isConnected(scope, input.id))) return fail('account_connected')
   const rows = await db()
     .update(accounts)
     .set({
@@ -487,13 +515,46 @@ export async function updateAccount(
   return rows.length === 0 ? fail('not_found') : ok
 }
 
-export async function setCountFrom(scope: Scope, month: Month): Promise<WriteResult> {
-  await db()
-    .insert(userSettings)
-    .values({ ...owned(scope), countFromMonth: monthToDate(month) })
-    .onConflictDoUpdate({
-      target: userSettings.spaceId,
-      set: { countFromMonth: monthToDate(month), updatedAt: sql`now()` },
+/** Whether a bank feed is mapped to the account (it cannot be archived then). */
+async function isConnected(scope: Scope, accountId: string): Promise<boolean> {
+  const rows = await db()
+    .select({ id: bankFeedAccounts.id })
+    .from(bankFeedAccounts)
+    .where(and(inScope(bankFeedAccounts, scope), eq(bankFeedAccounts.accountId, accountId)))
+    .limit(1)
+  return rows.length > 0
+}
+
+/** Rename one of the space's accounts. */
+export async function renameAccount(
+  scope: Scope,
+  input: { id: string; name: string },
+): Promise<WriteResult> {
+  const rows = await db()
+    .update(accounts)
+    .set({ name: input.name, updatedAt: sql`now()` })
+    .where(and(eq(accounts.id, input.id), inScope(accounts, scope)))
+    .returning({ id: accounts.id })
+  return rows.length === 0 ? fail('not_found') : ok
+}
+
+/**
+ * Archive (or bring back) one of the space's accounts. An archived account
+ * leaves the pickers and the timeline; its entries and balance still count
+ * (history is never rewritten). A connected account is refused: unmap first.
+ */
+export async function setAccountArchived(
+  scope: Scope,
+  input: { id: string; archived: boolean },
+): Promise<WriteResult> {
+  if (input.archived && (await isConnected(scope, input.id))) return fail('account_connected')
+  const rows = await db()
+    .update(accounts)
+    .set({
+      archivedAt: input.archived ? sql`coalesce(${accounts.archivedAt}, now())` : null,
+      updatedAt: sql`now()`,
     })
-  return ok
+    .where(and(eq(accounts.id, input.id), inScope(accounts, scope)))
+    .returning({ id: accounts.id })
+  return rows.length === 0 ? fail('not_found') : ok
 }

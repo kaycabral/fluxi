@@ -1,26 +1,40 @@
 'use server'
 
 import {
+  listAccounts,
+  listBanks,
+  listConnectedAccountIds,
+} from '@/features/ledger/adapters/ledger.repo'
+import {
   createAccount,
   createBank,
+  renameAccount,
+  setAccountArchived,
   updateAccount,
   updateBank,
   type WriteResult,
 } from '@/features/ledger/adapters/ledger.write'
+import { projectLedger } from '@/features/ledger/adapters/projection'
 import {
   failureMessage,
+  failureResult,
   formText,
   SESSION_EXPIRED,
+  type ActionResult,
   type FormState,
 } from '@/features/ledger/core/action-result'
-import { parseSignedMoneyInput } from '@/features/ledger/core/format'
+import { accountBalancesOn } from '@/features/ledger/core/dashboard'
+import { isoDayOf, parseSignedMoneyInput } from '@/features/ledger/core/format'
 import {
+  archiveAccountSchema,
   createAccountSchema,
   createBankSchema,
   firstIssue,
+  renameAccountSchema,
   updateAccountSchema,
   updateBankSchema,
 } from '@/features/ledger/core/schemas'
+import type { AccountType, Bank } from '@/features/ledger/core/types'
 import { getServerScope } from '@/features/spaces/adapters/scope'
 import { revalidatePath } from 'next/cache'
 import type { z } from 'zod'
@@ -84,4 +98,76 @@ export async function saveAccountAction(_prev: FormState, formData: FormData): P
   })
   if ('error' in parsed) return failed(parsed.error)
   return finish(await updateAccount(scope, parsed.data))
+}
+
+/** One account as Configurações → Contas lists it. */
+export type ManagedAccount = {
+  id: string
+  bankId: string
+  name: string
+  type: AccountType
+  archived: boolean
+  /** Balance at the end of today. */
+  balanceCents: number
+  /** A bank feed is mapped to it (archiving is refused until unmapped). */
+  connected: boolean
+}
+
+export type AccountsData = { banks: Bank[]; accounts: ManagedAccount[] }
+
+/** "Configurações → Contas" (loaded when the section opens): the current space's accounts. */
+export async function loadAccountsAction(): Promise<
+  { ok: true; data: AccountsData } | { ok: false; error: string }
+> {
+  const scope = await getServerScope()
+  if (!scope) return { ok: false, error: SESSION_EXPIRED }
+  const today = isoDayOf(new Date())
+  const month = today.slice(0, 7)
+  const [banks, list, connected, projection] = await Promise.all([
+    listBanks(scope),
+    listAccounts(scope),
+    listConnectedAccountIds(scope),
+    projectLedger(scope, { from: month, to: month }, today),
+  ])
+  const current = projection.months[0]
+  const balances = current === undefined ? {} : accountBalancesOn(current, Number(today.slice(8)))
+  return {
+    ok: true,
+    data: {
+      banks,
+      accounts: list.map((a) => ({
+        id: a.id,
+        bankId: a.bankId,
+        name: a.name,
+        type: a.type,
+        archived: a.archived,
+        balanceCents: balances[a.id] ?? a.openingBalanceCents,
+        connected: connected.includes(a.id),
+      })),
+    },
+  }
+}
+
+function result(write: WriteResult): ActionResult {
+  if (!write.ok) return failureResult(write.reason)
+  revalidatePath('/painel', 'layout')
+  return { ok: true }
+}
+
+/** Rename an account of the current space. */
+export async function renameAccountAction(input: unknown): Promise<ActionResult> {
+  const scope = await getServerScope()
+  if (!scope) return { ok: false, error: SESSION_EXPIRED }
+  const parsed = renameAccountSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) }
+  return result(await renameAccount(scope, parsed.data))
+}
+
+/** Archive or unarchive an account of the current space (a connected one is refused). */
+export async function setAccountArchivedAction(input: unknown): Promise<ActionResult> {
+  const scope = await getServerScope()
+  if (!scope) return { ok: false, error: SESSION_EXPIRED }
+  const parsed = archiveAccountSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) }
+  return result(await setAccountArchived(scope, parsed.data))
 }

@@ -1,6 +1,6 @@
 import { Unavailable } from '@/app/painel/_components/unavailable'
 import { requirePainelScope, todayIso } from '@/app/painel/_lib/session'
-import { loadCountFrom, loadLedgerData } from '@/features/ledger/adapters/views'
+import { loadLedgerData } from '@/features/ledger/adapters/views'
 import { CALENDAR_PREFS_COOKIE, parseCalendarPrefs } from '@/features/ledger/core/calendar-prefs'
 import { viewFromSlug, viewMonths } from '@/features/ledger/core/calendar-views'
 import { isoDaySchema, monthSchema } from '@/features/ledger/core/schemas'
@@ -39,12 +39,9 @@ export default async function CalendarPage({
   const view = viewFromSlug(first(params.modo)) ?? prefs.view
   const date = dateOf(params, today)
   const account = first(params.conta).slice(0, 80)
-  const countFrom = await loadCountFrom(scope)
-  const data = countFrom.ok
-    ? await loadLedgerData(scope, viewMonths(view, date), countFrom.data)
-    : null
+  const data = await loadLedgerData(scope, viewMonths(view, date), today)
 
-  return data?.ok === true ? (
+  return data.ok ? (
     <CalendarView
       data={data.data}
       view={view}

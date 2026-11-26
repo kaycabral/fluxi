@@ -49,7 +49,8 @@ export function sampleData(overrides: Partial<LedgerData> = {}): LedgerData {
         bankId: IDS.btg,
         name: 'Conta',
         type: 'checking',
-        openingBalanceCents: 100000,
+        // R$ 1.000,00 on Dec 1st: Sep–Nov move +R$ 1.220,00 before it.
+        openingBalanceCents: -22000,
         archived: false,
       },
       {
@@ -95,7 +96,6 @@ export function sampleData(overrides: Partial<LedgerData> = {}): LedgerData {
       },
     ],
     pots: samplePots(),
-    countFrom: '2026-12',
     entries: [
       makeEntry({
         id: IDS.salary,
@@ -155,6 +155,7 @@ export function sampleData(overrides: Partial<LedgerData> = {}): LedgerData {
     parts: salarySplit(IDS.salary),
     overrides: [],
     payments: [],
+    feed: { connectedAccountIds: [], today: '2026-12-15' },
     ...overrides,
   }
 }

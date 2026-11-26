@@ -188,6 +188,9 @@ export const createAccountSchema = z.object({
   type: accountTypeSchema,
   openingBalanceCents: centsSchema,
 })
+export const renameAccountSchema = z.object({ id: idSchema, name: nameSchema })
+export const archiveAccountSchema = z.object({ id: idSchema, archived: z.boolean() })
+
 export const updateAccountSchema = z.object({
   id: idSchema,
   name: nameSchema,
@@ -234,8 +237,6 @@ export const budgetPlanSchema = z.object({
   targets: potTargetsSchema,
 })
 export type BudgetPlanInput = z.infer<typeof budgetPlanSchema>
-
-export const countFromSchema = z.object({ month: monthSchema })
 
 /** First issue's message, for `{ ok: false, error }` results. */
 export function firstIssue(error: z.ZodError): string {

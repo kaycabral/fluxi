@@ -79,6 +79,8 @@ export function EntryForm({
   const accounts = refs.accounts.filter((a) => !a.archived || usedAccountIds.has(a.id))
   const occurrence = isOccurrenceEdit(target) && target !== null ? target.month : null
   const isTransfer = values.kind === 'transfer'
+  /** The bank owns this entry: only description, category, pot and tags stay editable. */
+  const locked = target?.entry.fromBank === true
 
   /** A category's suggested pot, unless it was archived since. */
   function activePot(key: string | null | undefined): string {
@@ -226,7 +228,7 @@ export function EntryForm({
             value={values.description}
             onChange={(e) => set({ description: e.target.value })}
           />
-          <div className="flex flex-wrap items-center gap-2">
+          <fieldset disabled={locked} className="flex flex-wrap items-center gap-2">
             <DateField
               id="entry-date"
               aria-label="Data"
@@ -256,7 +258,12 @@ export function EntryForm({
                 <span className="text-muted-foreground text-sm">parcelas</span>
               </div>
             )}
-          </div>
+          </fieldset>
+          {locked && (
+            <p className="text-muted-foreground text-xs" role="note">
+              Vem do banco: valor, data e conta não podem ser alterados.
+            </p>
+          )}
           {occurrence !== null && (
             <p className="text-muted-foreground text-xs">
               Editando {monthLabel(occurrence)}. Se mudar valor ou dia, você escolhe o alcance ao
@@ -267,17 +274,19 @@ export function EntryForm({
         <div className="flex shrink-0 items-center gap-1">
           {target !== null && (
             <>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="rounded-full"
-                aria-label="Excluir"
-                onClick={() => void remove()}
-                disabled={pending}
-              >
-                <Trash2 />
-              </Button>
+              {!locked && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="rounded-full"
+                  aria-label="Excluir"
+                  onClick={() => void remove()}
+                  disabled={pending}
+                >
+                  <Trash2 />
+                </Button>
+              )}
               <Button
                 type="button"
                 variant="ghost"
@@ -317,58 +326,60 @@ export function EntryForm({
           <h2 className="text-primary border-primary w-fit border-b-2 pb-1 text-sm font-medium">
             Detalhes do lançamento
           </h2>
-          <KindToggle value={values.kind} onChange={changeKind} />
+          <fieldset disabled={locked} aria-label="Dados do banco" className="contents">
+            <KindToggle value={values.kind} onChange={changeKind} />
 
-          <DetailRow icon={Banknote}>
-            <div className="grid gap-1.5">
-              <Label htmlFor="entry-amount">{amountLabel(values)}</Label>
-              <MoneyInput
-                id="entry-amount"
-                placeholder="0,00"
-                value={values.amount}
-                onValueChange={(amount) => set({ amount })}
-                aria-describedby={totalHint === null ? undefined : 'entry-amount-total'}
-              />
-              {/* The line is always there so the rows below never jump when the hint shows. */}
-              <p id="entry-amount-total" className="text-muted-foreground min-h-4 text-xs">
-                {totalHint}
-              </p>
-              {values.kind === 'expense' && (
-                <RefundCheckbox
-                  id="entry-refund"
-                  checked={values.refund}
-                  onChange={(refund) => set({ refund })}
-                />
-              )}
-            </div>
-          </DetailRow>
-
-          <DetailRow icon={Wallet}>
-            <div className="grid gap-3 sm:grid-cols-2 [&>*]:min-w-0">
+            <DetailRow icon={Banknote}>
               <div className="grid gap-1.5">
-                <Label htmlFor="entry-account">Conta</Label>
-                <AccountSelect
-                  id="entry-account"
-                  banks={refs.banks}
-                  accounts={accounts}
-                  value={values.accountId}
-                  onValueChange={(accountId) => set({ accountId })}
+                <Label htmlFor="entry-amount">{amountLabel(values)}</Label>
+                <MoneyInput
+                  id="entry-amount"
+                  placeholder="0,00"
+                  value={values.amount}
+                  onValueChange={(amount) => set({ amount })}
+                  aria-describedby={totalHint === null ? undefined : 'entry-amount-total'}
                 />
+                {/* The line is always there so the rows below never jump when the hint shows. */}
+                <p id="entry-amount-total" className="text-muted-foreground min-h-4 text-xs">
+                  {totalHint}
+                </p>
+                {values.kind === 'expense' && (
+                  <RefundCheckbox
+                    id="entry-refund"
+                    checked={values.refund}
+                    onChange={(refund) => set({ refund })}
+                  />
+                )}
               </div>
-              {isTransfer && (
+            </DetailRow>
+
+            <DetailRow icon={Wallet}>
+              <div className="grid gap-3 sm:grid-cols-2 [&>*]:min-w-0">
                 <div className="grid gap-1.5">
-                  <Label htmlFor="entry-to-account">Para a conta</Label>
+                  <Label htmlFor="entry-account">Conta</Label>
                   <AccountSelect
-                    id="entry-to-account"
+                    id="entry-account"
                     banks={refs.banks}
                     accounts={accounts}
-                    value={values.toAccountId}
-                    onValueChange={(toAccountId) => set({ toAccountId })}
+                    value={values.accountId}
+                    onValueChange={(accountId) => set({ accountId })}
                   />
                 </div>
-              )}
-            </div>
-          </DetailRow>
+                {isTransfer && (
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="entry-to-account">Para a conta</Label>
+                    <AccountSelect
+                      id="entry-to-account"
+                      banks={refs.banks}
+                      accounts={accounts}
+                      value={values.toAccountId}
+                      onValueChange={(toAccountId) => set({ toAccountId })}
+                    />
+                  </div>
+                )}
+              </div>
+            </DetailRow>
+          </fieldset>
 
           {!isTransfer && (
             <DetailRow icon={Tag}>
@@ -410,7 +421,7 @@ export function EntryForm({
           </DetailRow>
 
           {/* Splitting is for income paid in parts (advance + balance); an entry already split keeps it. */}
-          {(isIncomeCategory || values.split) && (
+          {!locked && (isIncomeCategory || values.split) && (
             <DetailRow icon={SplitSquareVertical} align="box">
               <PartsEditor
                 split={values.split}

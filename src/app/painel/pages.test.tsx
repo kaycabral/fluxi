@@ -18,19 +18,20 @@ type Read<T> = { ok: true; data: T } | { ok: false }
 
 const views = {
   loadRefs: vi.fn<() => Promise<Read<unknown>>>(),
-  loadCountFrom: vi.fn<() => Promise<Read<string | null>>>(),
   loadLedgerData:
-    vi.fn<(scope: unknown, window: unknown, countFrom: unknown) => Promise<Read<unknown>>>(),
+    vi.fn<(scope: unknown, window: unknown, today: string) => Promise<Read<unknown>>>(),
   loadBudgetPlans: vi.fn<(scope: unknown) => Promise<Read<unknown>>>(),
   loadAccountBalances:
-    vi.fn<(scope: unknown, first: string, later: string) => Promise<Read<unknown>>>(),
+    vi.fn<
+      (scope: unknown, first: string, later: string, today: string) => Promise<Read<unknown>>
+    >(),
 }
 vi.mock('@/features/ledger/adapters/views', () => ({
   loadRefs: () => views.loadRefs(),
-  loadCountFrom: () => views.loadCountFrom(),
-  loadLedgerData: (u: unknown, w: unknown, c: unknown) => views.loadLedgerData(u, w, c),
+  loadLedgerData: (u: unknown, w: unknown, t: string) => views.loadLedgerData(u, w, t),
   loadBudgetPlans: (u: unknown) => views.loadBudgetPlans(u),
-  loadAccountBalances: (u: unknown, f: string, l: string) => views.loadAccountBalances(u, f, l),
+  loadAccountBalances: (u: unknown, f: string, l: string, t: string) =>
+    views.loadAccountBalances(u, f, l, t),
 }))
 const PERSONAL = { id: 's1', name: 'Pessoal', kind: 'personal', archived: false } as const
 const SCOPE = { userId: 'u1', spaceId: 's1', space: PERSONAL, spaces: [PERSONAL] }
@@ -152,7 +153,6 @@ const ok = <T,>(data: T): Read<T> => ({ ok: true, data })
 
 beforeEach(() => {
   views.loadRefs.mockResolvedValue(ok(sampleRefs()))
-  views.loadCountFrom.mockResolvedValue(ok('2026-11'))
   views.loadLedgerData.mockResolvedValue(ok(sampleData()))
   views.loadBudgetPlans.mockResolvedValue(ok([{}, {}]))
   views.loadAccountBalances.mockResolvedValue(ok({ firstMonth: '2026-11' }))
@@ -167,13 +167,13 @@ describe('painel pages', () => {
   it('timeline loads the window around the count start', async () => {
     render(await TimelinePage())
     expect(screen.getByRole('heading', { level: 1, name: 'Linha do tempo' })).toBeInTheDocument()
-    expect(screen.getByText('timeline 2026-08..2028-12')).toBeInTheDocument()
+    expect(screen.getByText('timeline 2026-09..2028-12')).toBeInTheDocument()
   })
 
-  it('a pagar loads from the count start to next month with today', async () => {
+  it('a pagar loads 12 months back to next month with today', async () => {
     render(await PayablesPage())
     expect(screen.getByRole('heading', { level: 1, name: 'A pagar' })).toBeInTheDocument()
-    expect(screen.getByText('payables 2026-11..2027-01@2026-12-15')).toBeInTheDocument()
+    expect(screen.getByText('payables 2025-12..2027-01@2026-12-15')).toBeInTheDocument()
   })
 
   it('search loads the whole ledger with the query this browser left', async () => {
@@ -183,15 +183,20 @@ describe('painel pages', () => {
     expect(views.loadLedgerData).toHaveBeenCalledWith(
       SCOPE,
       { from: '1900-01', to: '9999-12' },
-      null,
+      '2026-12-15',
     )
     searchCookie = undefined
   })
 
-  it('accounts load balances from the count start to a year later', async () => {
+  it('accounts load balances from this month to a year later', async () => {
     render(await AccountsPage())
     expect(screen.getByText('accounts 2026-11')).toBeInTheDocument()
-    expect(views.loadAccountBalances).toHaveBeenCalledWith(SCOPE, '2026-11', '2027-11')
+    expect(views.loadAccountBalances).toHaveBeenCalledWith(
+      SCOPE,
+      '2026-12',
+      '2027-12',
+      '2026-12-15',
+    )
   })
 
   it('the settings and the old connections addresses open the settings modal', () => {
@@ -210,7 +215,7 @@ describe('painel pages', () => {
     expect(views.loadLedgerData).toHaveBeenCalledWith(
       SCOPE,
       { from: '1900-01', to: '9999-12' },
-      '2026-11',
+      '2026-12-15',
     )
   })
 
@@ -230,7 +235,7 @@ describe('painel pages', () => {
     expect(views.loadLedgerData).toHaveBeenLastCalledWith(
       SCOPE,
       { from: '2027-02', to: '2027-02' },
-      '2026-11',
+      '2026-12-15',
     )
   })
 
@@ -246,7 +251,7 @@ describe('painel pages', () => {
     expect(views.loadLedgerData).toHaveBeenLastCalledWith(
       SCOPE,
       { from: '2026-11', to: '2027-01' },
-      '2026-11',
+      '2026-12-15',
     )
     prefsCookie = undefined
   })
@@ -265,7 +270,6 @@ describe('painel pages', () => {
   })
 
   it('degrades every page when the backend is unavailable', async () => {
-    views.loadCountFrom.mockResolvedValue({ ok: false })
     views.loadRefs.mockResolvedValue({ ok: false })
     views.loadLedgerData.mockResolvedValue({ ok: false })
     for (const page of [

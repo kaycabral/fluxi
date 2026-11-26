@@ -128,7 +128,7 @@ function BillList({ group, data }: { group: PayableGroup; data: LedgerData }) {
  */
 export function UpcomingBills({ data, today }: { data: LedgerData; today: string }) {
   const groups = useMemo(() => {
-    const window = payablesWindow(data.countFrom, today.slice(0, 7))
+    const window = payablesWindow(today.slice(0, 7))
     const landings = projectWindow(data, window.from, window.to).flatMap((m) => m.landings)
     return groupPayables(landings, data.payments, today)
   }, [data, today])

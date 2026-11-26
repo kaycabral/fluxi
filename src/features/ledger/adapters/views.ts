@@ -5,7 +5,7 @@ import type { BudgetPlan } from '@/features/ledger/core/types'
 import type { LedgerData, LedgerRefs } from '@/features/ledger/core/view'
 import { readBackend, type BackendRead } from '@/lib/backend-read'
 import {
-  getCountFrom,
+  EPOCH,
   listAccounts,
   listBanks,
   listBudgetPlans,
@@ -37,22 +37,23 @@ export function loadRefs(scope: Scope, today: string): Promise<BackendRead<Ledge
   })
 }
 
-export function loadCountFrom(scope: Scope): Promise<BackendRead<Month | null>> {
-  return readBackend('count from', () => getCountFrom(scope))
-}
-
 /**
- * The ledger over `window`, loaded from `count_from_month` when that is
- * earlier, so the client projection accumulates balances correctly.
+ * The ledger up to `window.to`, every entry since the first: balances
+ * accumulate from the accounts' opening balances, so the client projection
+ * needs the whole history before the window too. `today` (`YYYY-MM-DD`)
+ * drives the bank-fed accounts rule (`FeedRule`).
  */
 export function loadLedgerData(
   scope: Scope,
   window: MonthWindow,
-  countFrom: Month | null,
+  today: string,
 ): Promise<BackendRead<LedgerData>> {
   return readBackend('ledger', async () => {
-    const from = countFrom !== null && countFrom < window.from ? countFrom : window.from
-    return loadLedger(scope, { from, to: window.to })
+    const { connectedAccountIds, ...ledger } = await loadLedger(scope, {
+      from: EPOCH,
+      to: window.to,
+    })
+    return { ...ledger, feed: { connectedAccountIds, today } }
   })
 }
 
@@ -64,7 +65,7 @@ export function loadBudgetPlans(scope: Scope): Promise<BackendRead<BudgetPlan[]>
 export type AccountsData = {
   firstMonth: Month
   laterMonth: Month
-  /** Balance per account at the end of each month (null before the count start). */
+  /** Balance per account at the end of each month (null when it was not projected). */
   firstClosing: Record<string, number> | null
   laterClosing: Record<string, number> | null
 }
@@ -74,9 +75,10 @@ export function loadAccountBalances(
   scope: Scope,
   first: Month,
   later: Month,
+  today: string,
 ): Promise<BackendRead<AccountsData>> {
   return readBackend('account balances', async () => {
-    const { months } = await projectLedger(scope, { from: first, to: later })
+    const { months } = await projectLedger(scope, { from: first, to: later }, today)
     return {
       firstMonth: first,
       laterMonth: later,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { balanceSnapshot, monthEndBalances, monthTotalsOf } from './dashboard'
+import { accountBalancesOn, balanceSnapshot, monthEndBalances, monthTotalsOf } from './dashboard'
 import { makeEntry } from './fixtures'
 import { projectMonths } from './projection'
 
@@ -8,7 +8,7 @@ const accounts = [
   { id: 'va', openingBalanceCents: 20000 },
 ]
 
-function project(countFrom: string | null = '2026-12') {
+function project() {
   return projectMonths({
     entries: [
       makeEntry({ id: 'salary', kind: 'income', pot: null, amountCents: 500000, day: 5 }),
@@ -26,8 +26,7 @@ function project(countFrom: string | null = '2026-12') {
     parts: [],
     overrides: [],
     accounts,
-    months: ['2026-11', '2026-12', '2027-01'],
-    countFrom,
+    months: ['2026-12', '2027-01'],
   })
 }
 
@@ -45,7 +44,7 @@ describe('balanceSnapshot', () => {
 
   it('counts what lands today and starts from the opening balance before anything lands', () => {
     expect(balanceSnapshot(project(), '2026-12-05')?.todayCents).toBe(670000)
-    expect(balanceSnapshot(project('2026-12'), '2026-12-01')?.todayCents).toBe(170000)
+    expect(balanceSnapshot(project(), '2026-12-01')?.todayCents).toBe(170000)
   })
 
   it('keeps today as the lowest when nothing ahead goes below it', () => {
@@ -55,7 +54,6 @@ describe('balanceSnapshot', () => {
       overrides: [],
       accounts,
       months: ['2026-12'],
-      countFrom: null,
     })
     expect(balanceSnapshot(results, '2026-12-10')).toMatchObject({
       todayCents: 120000,
@@ -64,16 +62,14 @@ describe('balanceSnapshot', () => {
     })
   })
 
-  it('is null when the current month is not counted or not projected', () => {
-    expect(balanceSnapshot(project('2027-01'), '2026-12-12')).toBeNull()
+  it('is null when the current month was not projected', () => {
     expect(balanceSnapshot(project(), '2030-01-01')).toBeNull()
   })
 })
 
 describe('monthEndBalances', () => {
-  it('sums every account at the end of each month, null before the count start', () => {
+  it('sums every account at the end of each month', () => {
     expect(monthEndBalances(project())).toEqual([
-      { month: '2026-11', closingCents: null },
       { month: '2026-12', closingCents: -30000 },
       { month: '2027-01', closingCents: -180000 },
     ])
@@ -90,5 +86,31 @@ describe('monthTotalsOf', () => {
       byPot: {},
       unallocatedCents: 0,
     })
+  })
+})
+
+describe('accountBalancesOn', () => {
+  it('sums each account up to the day, transfers on both sides', () => {
+    const [december] = projectMonths({
+      entries: [
+        makeEntry({ id: 'rent', amountCents: -400000, day: 10, startMonth: '2026-12' }),
+        makeEntry({
+          id: 'move',
+          kind: 'transfer',
+          pot: null,
+          amountCents: -1000,
+          day: 5,
+          toAccountId: 'va',
+          startMonth: '2026-12',
+        }),
+      ],
+      parts: [],
+      overrides: [],
+      accounts,
+      months: ['2026-12'],
+    })
+    if (december === undefined) throw new Error('no month')
+    expect(accountBalancesOn(december, 9)).toEqual({ checking: 99000, va: 21000 })
+    expect(accountBalancesOn(december, 10)).toEqual({ checking: -301000, va: 21000 })
   })
 })

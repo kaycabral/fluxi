@@ -111,3 +111,18 @@ Tudo pelo Dashboard ou pelo CLI com o login do operador; nada de conexão ao ban
    `200` com `"ok": true` = sincronizou; `401` = token do Vault ≠ `FLUXI_SYNC_TOKEN`; `500` = veja os logs em Edge Functions → `pluggy-sync` → Logs (só agregados e o motivo). Execuções agendadas: `select * from cron.job_run_details order by start_time desc limit 5;`.
 
 **Rotação**: token → gere outro, `supabase secrets set FLUXI_SYNC_TOKEN=...` (vale sem redeploy) e atualize o Vault; senha do `fluxi_sync` → passos 3 (só `FLUXI_SYNC_DB_URL`) e 4; Pluggy → regenere e `supabase secrets set PLUGGY_CLIENT_SECRET=...`. **Ressalva conhecida**: enquanto a requisição do `pg_net` está na fila, o token aparece decifrado em `net.http_request_queue`; por isso ele só serve pra disparar o sync (não é uma chave do Supabase).
+
+## Integração do feed bancário ao ledger
+
+O sync (`pluggy-sync`) chama `private.materialize_bank_feed(user, space, today)` depois de gravar o feed de cada espaço, e o app chama a mesma função ao mapear uma conta em Configurações → Conexões: cada transação de uma conta do feed **mapeada** (`bank_feed_accounts.account_id`) vira um lançamento avulso pago, ligado pela `bank_entry_links` (transferências entre contas mapeadas viram uma transferência só), e o saldo inicial das contas mapeadas é ancorado no saldo do banco. Nas contas conectadas, o planejado até hoje deixa de contar (o passado é o do banco). Nenhum dado existente é apagado. A função roda como `SECURITY DEFINER` num schema não exposto (`private`); executam só o dono (`postgres`, o papel do app) e o `fluxi_sync`.
+
+O código não usa mais `count_from_month`: o saldo de cada conta começa no `opening_balance_cents` e soma todos os lançamentos. A coluna `user_settings.count_from_month` continua no schema (marcada como obsoleta) e **só é removida num PR seguinte** (expand → contract), depois deste estar no ar.
+
+Ordem em produção:
+
+1. **Merge e deploy**: `migrate-production` (migrations `0019`–`0021`) e a Vercel promove o app.
+2. **Reimplantar a função** `pluggy-sync` (job `deploy-edge-functions`; sem o PAT, deploy manual): o módulo novo chama o materializador.
+3. **Mapear as contas pelo app**: Configurações → Conexões, em cada conta do banco escolher "Conta no Fluxi" (uma existente do mesmo tipo ou "Criar conta"). Mapear já materializa e ancora o espaço. Contas antigas que não serão mais usadas: Configurações → Contas → Arquivar.
+4. **Sync**: o diário faz o resto; pra rodar na hora, dispare o job (`do $$ begin execute (select command from cron.job where jobname = 'pluggy-sync-daily'); end $$;`) e confira `ledger` no resumo.
+
+Regras: o banco é dono de valor, data, conta, tipo, repetição e "Pago" (re-sincronizados; o app recusa mudar ou excluir esses lançamentos); o usuário, de descrição, categoria, pote e tags. Transação que o banco removeu (janela de 360 dias) apaga o lançamento. Desmapear ou trocar a conta apaga o que aquela conta do feed materializou e deixa de ancorar a conta antiga (o saldo inicial dela fica como está). Cartão: uma conta de cartão da Pluggy agrega todos os cartões (físicos e virtuais) que dividem o mesmo limite, então todas as transações caem na mesma conta do feed e mapeiam pra UMA conta de crédito do Fluxi; o feed reporta a fatura como positiva (devida) e o ledger guarda dívida negativa, então a âncora é `-balance_cents`.

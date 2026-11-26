@@ -3,7 +3,7 @@ import type { Scope } from '@/features/spaces/core/space'
 import { and, eq } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
 import type { FluxiDb } from './db'
-import { accounts, banks, categories, entries, entryParts, userSettings } from './schema'
+import { accounts, banks, categories, entries, entryParts } from './schema'
 
 /**
  * Demo ledger for the LOCAL dev user, shaped like the validated prototype
@@ -62,10 +62,6 @@ export async function seedDemoLedger(db: FluxiDb, scope: Scope, start: Month): P
       openingBalanceCents: 31000,
     },
   ])
-  await db
-    .insert(userSettings)
-    .values({ ...owner, countFromMonth: at(0) })
-    .onConflictDoUpdate({ target: userSettings.spaceId, set: { countFromMonth: at(0) } })
 
   const cats = await db
     .select({ id: categories.id, name: categories.name })

@@ -6,8 +6,8 @@ import { effectOn, type MonthResult } from './projection'
 export type CalendarDay = {
   day: number
   landings: Landing[]
-  /** Balance of the selected accounts at the end of the day; null when the month is not counted. */
-  endBalanceCents: number | null
+  /** Balance of the selected accounts at the end of the day. */
+  endBalanceCents: number
 }
 
 export type CalendarMonth = {
@@ -26,19 +26,16 @@ export function firstWeekday(month: Month): number {
 /** Month grid for the accounts `ids` (null = every account). */
 export function calendarMonth(result: MonthResult, ids: readonly string[] | null): CalendarMonth {
   const opening = result.openingBalances
-  const accountIds = ids ?? (opening === null ? [] : Object.keys(opening))
-  let running: number | null =
-    opening === null ? null : accountIds.reduce((sum, id) => sum + (opening[id] ?? 0), 0)
+  const accountIds = ids ?? Object.keys(opening)
+  let running = accountIds.reduce((sum, id) => sum + (opening[id] ?? 0), 0)
 
   const days: CalendarDay[] = []
   for (let day = 1; day <= daysInMonth(result.month); day += 1) {
     const landings = result.landings.filter(
       (l) => l.day === day && entryMatchesAccounts(l.entry, ids),
     )
-    if (running !== null) {
-      for (const landing of landings) {
-        running += accountIds.reduce((sum, id) => sum + effectOn(landing, id), 0)
-      }
+    for (const landing of landings) {
+      running += accountIds.reduce((sum, id) => sum + effectOn(landing, id), 0)
     }
     days.push({ day, landings, endBalanceCents: running })
   }
@@ -50,10 +47,11 @@ export type DayMove = { entryId: string; competence: Month; day: number }
 
 /**
  * Whether a landing can be dragged to another day: whole occurrences only (a
- * split entry's parts carry their own days and are edited in the sheet).
+ * split entry's parts carry their own days and are edited in the sheet), and
+ * never a bank entry (the bank owns its date).
  */
 export function isMovable(landing: Landing): boolean {
-  return landing.part === null
+  return landing.part === null && !landing.entry.fromBank
 }
 
 /** The days with pending `moves` applied: each moved occurrence leaves its day for the new one. */

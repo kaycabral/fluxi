@@ -1,5 +1,7 @@
 'use client'
 
+import { loadAccountsAction, type AccountsData } from '@/features/ledger/adapters/actions/accounts'
+import { AccountsSettings } from '@/features/ledger/ui/accounts-settings'
 import {
   loadConnectionsAction,
   type ConnectionsData,
@@ -28,10 +30,16 @@ export const SETTINGS_HASH_PREFIX = '#configuracoes/'
 
 const SECTIONS = [
   {
+    key: 'contas',
+    label: 'Contas',
+    description:
+      'As contas deste espaço por banco, com o saldo de hoje. Renomeie ou arquive as que não usa mais.',
+  },
+  {
     key: 'conexoes',
     label: 'Conexões',
     description:
-      'Escolha em qual espaço entram os dados de cada conexão. Sem espaço, a conexão não é sincronizada. Ao trocar o espaço, todas as transações desta conexão vão junto para o novo espaço.',
+      'Escolha em qual espaço entram os dados de cada conexão e a conta do Fluxi de cada conta do banco. Sem espaço, a conexão não é sincronizada.',
   },
 ] as const
 
@@ -45,23 +53,50 @@ function sectionFromHash(hash: string): (typeof SECTIONS)[number] | null {
   return SECTIONS.find((s) => s.key === key) ?? null
 }
 
-type Loaded = { ok: true; data: ConnectionsData } | { ok: false; error: string }
+type Read<T> = { ok: true; data: T } | { ok: false; error: string }
+type Loaded =
+  { key: 'conexoes'; read: Read<ConnectionsData> } | { key: 'contas'; read: Read<AccountsData> }
 
-function ConnectionsSection({ loaded, reload }: { loaded: Loaded; reload: () => void }) {
-  if (!loaded.ok) {
-    return (
-      <div className="grid justify-items-start gap-2 text-sm">
-        <p>{loaded.error}</p>
-        <Button variant="outline" size="sm" onClick={reload}>
-          Tentar de novo
-        </Button>
-      </div>
-    )
+async function loadSection(key: SectionKey): Promise<Loaded> {
+  if (key === 'contas') {
+    const read = await loadAccountsAction().catch(() => ({
+      ok: false as const,
+      error: 'Não foi possível carregar as contas.',
+    }))
+    return { key, read }
   }
+  const read = await loadConnectionsAction().catch(() => ({
+    ok: false as const,
+    error: 'Não foi possível carregar as conexões.',
+  }))
+  return { key, read }
+}
+
+function Failed({ error, reload }: { error: string; reload: () => void }) {
+  return (
+    <div className="grid justify-items-start gap-2 text-sm">
+      <p>{error}</p>
+      <Button variant="outline" size="sm" onClick={reload}>
+        Tentar de novo
+      </Button>
+    </div>
+  )
+}
+
+function SectionBody({ loaded, reload }: { loaded: Loaded; reload: () => void }) {
+  if (!loaded.read.ok) return <Failed error={loaded.read.error} reload={reload} />
+  if (loaded.key === 'contas') {
+    return <AccountsSettings data={loaded.read.data} onChanged={reload} />
+  }
+  return <ConnectionsSection data={loaded.read.data} reload={reload} />
+}
+
+function ConnectionsSection({ data, reload }: { data: ConnectionsData; reload: () => void }) {
   return (
     <BankConnections
-      connections={loaded.data.connections}
-      spaces={loaded.data.spaces}
+      connections={data.connections}
+      spaces={data.spaces}
+      accounts={data.accounts}
       onChanged={reload}
     />
   )
@@ -79,23 +114,19 @@ export function SettingsModal() {
     return () => window.removeEventListener('hashchange', sync)
   }, [])
 
+  const key = section?.key ?? null
   const load = useCallback(async () => {
+    if (key === null) return
     const id = ++requestId.current
-    const result: Loaded = await loadConnectionsAction().catch(() => ({
-      ok: false as const,
-      error: 'Não foi possível carregar as conexões.',
-    }))
+    const result = await loadSection(key)
     if (id === requestId.current) setLoaded(result)
-  }, [])
+  }, [key])
 
   useEffect(() => {
-    if (section === null) {
-      requestId.current++
-      setLoaded(null)
-      return
-    }
-    void load()
-  }, [section, load])
+    requestId.current++
+    setLoaded(null)
+    if (key !== null) void load()
+  }, [key, load])
 
   const select = (key: SectionKey) => {
     window.history.replaceState(null, '', settingsHash(key))
@@ -146,7 +177,7 @@ export function SettingsModal() {
                   <Skeleton className="h-40 w-full" />
                 </div>
               ) : (
-                <ConnectionsSection loaded={loaded} reload={() => void load()} />
+                <SectionBody loaded={loaded} reload={() => void load()} />
               )}
             </div>
           </ScrollArea>

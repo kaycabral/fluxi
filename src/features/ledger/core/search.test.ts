@@ -95,7 +95,6 @@ const months = projectMonths({
     { id: 'nucc', openingBalanceCents: 0 },
   ],
   months: monthRange('2026-12', '2027-02'),
-  countFrom: '2026-12',
 })
 
 const base = EMPTY_SEARCH_QUERY
@@ -291,7 +290,6 @@ describe('searchOccurrences by money bucket', () => {
       { id: 'va', openingBalanceCents: 0 },
     ],
     months: ['2026-12'],
-    countFrom: '2026-12',
   })
   const query = EMPTY_SEARCH_QUERY
   const run = (money: SearchQuery['money'], account = '') =>

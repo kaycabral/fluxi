@@ -31,6 +31,7 @@ describe('toFeedTransaction', () => {
       description: 'Mercado',
       status: 'POSTED',
       category: null,
+      operationType: null,
       installmentNumber: null,
       totalInstallments: null,
       billMonth: null,
@@ -72,6 +73,13 @@ describe('toFeedTransaction', () => {
     )
     expect(row.amountCents).toBe(5550)
     expect(row.billMonth).toBeNull()
+  })
+
+  it('keeps the Open Finance operation type, a transfer signal', () => {
+    expect(toFeedTransaction(tx({ operationType: ' PAGAMENTO_FATURA ' })).operationType).toBe(
+      'PAGAMENTO_FATURA',
+    )
+    expect(toFeedTransaction(tx({ operationType: '' })).operationType).toBeNull()
   })
 })
 

@@ -492,14 +492,17 @@ export const occurrencePayments = pgTable(
 ).enableRLS()
 
 /**
- * Per-space preferences (the table keeps its historic name); `count_from_month`
- * is where balances start accumulating. Seeded per space.
+ * Per-space preferences (the table keeps its historic name), seeded per space.
+ * `count_from_month` is DEPRECATED and unused by the code (balances now
+ * accumulate from each account's opening balance over every entry); it stays
+ * until a follow-up contract migration drops it (expand → contract).
  */
 export const userSettings = pgTable(
   'user_settings',
   {
     spaceId: uuid('space_id').primaryKey(),
     userId: ownerId(),
+    /** @deprecated Unused; dropped by a follow-up contract migration. */
     countFromMonth: month('count_from_month'),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -534,6 +537,10 @@ export const undoSnapshots = pgTable(
     entryParts: jsonb('entry_parts').notNull(),
     entryOverrides: jsonb('entry_overrides').notNull(),
     occurrencePayments: jsonb('occurrence_payments').notNull(),
+    /** `bank_entry_links` of those entries: an undo re-links what it restores. */
+    bankEntryLinks: jsonb('bank_entry_links')
+      .notNull()
+      .default(sql`'[]'::jsonb`),
     createdAt: createdAt(),
   },
   (t) => [inSpace('undo_snapshots', t)],

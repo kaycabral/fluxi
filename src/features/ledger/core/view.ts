@@ -2,7 +2,7 @@ import type { EditTarget } from './entry-form'
 import { diffMonths, monthRange, type Month } from './month'
 import type { Landing } from './occurrence'
 import type { OccurrencePayment } from './payments'
-import { projectMonths, type MonthResult } from './projection'
+import { firstLandingMonth, projectMonths, type FeedRule, type MonthResult } from './projection'
 import type { Account, Bank, Category, Entry, EntryOverride, EntryPart, Pot } from './types'
 
 /**
@@ -16,11 +16,12 @@ export type LedgerData = {
   categories: Category[]
   /** Every pot, archived ones included (old entries still point at them). */
   pots: Pot[]
-  countFrom: Month | null
   entries: Entry[]
   parts: EntryPart[]
   overrides: EntryOverride[]
   payments: OccurrencePayment[]
+  /** Bank-fed accounts and today: planned past occurrences on them do not count. */
+  feed: FeedRule
 }
 
 /** Reference data the entry sheet needs on every page. */
@@ -36,16 +37,21 @@ export type LedgerRefs = {
   today: string
 }
 
-/** Project `[from, to]`, accumulating balances from `count_from_month` when it is earlier. */
+/**
+ * Project `[from, to]`. Balances accumulate from each account's opening
+ * balance over every entry, so the projection starts at the first month an
+ * entry lands in when that is earlier and drops the months before `from`.
+ */
 export function projectWindow(data: LedgerData, from: Month, to: Month): MonthResult[] {
-  const start = data.countFrom !== null && data.countFrom < from ? data.countFrom : from
+  const first = firstLandingMonth(data.entries)
+  const start = first !== null && first < from ? first : from
   return projectMonths({
     entries: data.entries,
     parts: data.parts,
     overrides: data.overrides,
     accounts: data.accounts,
     months: monthRange(start, to),
-    countFrom: data.countFrom,
+    feed: data.feed,
   }).filter((m) => m.month >= from)
 }
 

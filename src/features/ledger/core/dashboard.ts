@@ -1,6 +1,12 @@
 import { isoDate } from './format'
 import { addMonths, type Month } from './month'
-import { dailyBalance, type MonthResult, type MonthTotals } from './projection'
+import {
+  dailyBalance,
+  effectOn,
+  type Balances,
+  type MonthResult,
+  type MonthTotals,
+} from './projection'
 
 /** Numbers of the "Painel" cards, over every account. */
 
@@ -16,8 +22,8 @@ export type BalanceSnapshot = {
 
 /**
  * Today's balance, the month-end projection and the lowest balance ahead
- * (today to the end of next month). Null when the current month is not
- * counted (before `count_from_month`), since balances do not exist there.
+ * (today to the end of next month). Null when the current month was not
+ * projected.
  */
 export function balanceSnapshot(
   results: readonly MonthResult[],
@@ -26,8 +32,8 @@ export function balanceSnapshot(
   const month = today.slice(0, 7)
   const day = Number(today.slice(8, 10))
   const current = results.find((r) => r.month === month)
-  const currentDaily = current === undefined ? null : dailyBalance(current, null)
-  if (current === undefined || currentDaily === null) return null
+  if (current === undefined) return null
+  const currentDaily = dailyBalance(current, null)
 
   let todayCents = currentDaily.openingCents
   for (const row of currentDaily.rows) {
@@ -46,9 +52,8 @@ export function balanceSnapshot(
     if (row.landing.day > day) consider(row.balanceAfterCents, isoDate(month, row.landing.day))
   }
   const next = results.find((r) => r.month === addMonths(month, 1))
-  const nextDaily = next === undefined ? null : dailyBalance(next, null)
-  if (next !== undefined && nextDaily !== null) {
-    for (const row of nextDaily.rows) {
+  if (next !== undefined) {
+    for (const row of dailyBalance(next, null).rows) {
       consider(row.balanceAfterCents, isoDate(next.month, row.landing.day))
     }
   }
@@ -56,16 +61,25 @@ export function balanceSnapshot(
   return { todayCents, monthEndCents: currentDaily.closingCents, lowestCents, lowestDate }
 }
 
-export type MonthBalance = { month: Month; closingCents: number | null }
+/** Each account's balance at the end of `day` of `result`'s month (what lands up to it counts). */
+export function accountBalancesOn(result: MonthResult, day: number): Balances {
+  const balances: Record<string, number> = { ...result.openingBalances }
+  for (const landing of result.landings) {
+    if (landing.day > day) continue
+    for (const id of [landing.entry.accountId, landing.entry.toAccountId]) {
+      if (id !== null) balances[id] = (balances[id] ?? 0) + effectOn(landing, id)
+    }
+  }
+  return balances
+}
 
-/** Month-end balance over every account, per month (null for an uncounted month). */
+export type MonthBalance = { month: Month; closingCents: number }
+
+/** Month-end balance over every account, per month. */
 export function monthEndBalances(results: readonly MonthResult[]): MonthBalance[] {
   return results.map((r) => ({
     month: r.month,
-    closingCents:
-      r.closingBalances === null
-        ? null
-        : Object.values(r.closingBalances).reduce((sum, cents) => sum + cents, 0),
+    closingCents: Object.values(r.closingBalances).reduce((sum, cents) => sum + cents, 0),
   }))
 }
 

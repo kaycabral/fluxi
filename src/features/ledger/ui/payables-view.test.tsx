@@ -124,6 +124,30 @@ describe('PayablesView', () => {
     )
   })
 
+  it('never offers to pay a bank entry', () => {
+    const data = sampleData()
+    renderPayables({
+      ...data,
+      entries: data.entries.map((e) => (e.id === IDS.once ? { ...e, fromBank: true } : e)),
+    })
+    expect(screen.queryByRole('button', { name: /Pago: Avulso/ })).toBeNull()
+    expect(screen.getByText('Pago · banco')).toBeInTheDocument()
+  })
+
+  it('never lets a bank entry be unpaid: it shows where it came from', async () => {
+    const data = sampleData({
+      payments: [{ entryId: IDS.once, month: '2026-12', partId: null, paidOn: '2026-12-03' }],
+    })
+    renderPayables({
+      ...data,
+      entries: data.entries.map((e) => (e.id === IDS.once ? { ...e, fromBank: true } : e)),
+    })
+    await userEvent.click(screen.getByLabelText('Mostrar também os pagos deste mês'))
+    const paid = group(/Pagos neste mês/)
+    expect(within(paid).getByText('Pago · banco')).toBeInTheDocument()
+    expect(within(paid).queryByRole('button', { name: 'Desfazer: Avulso' })).toBeNull()
+  })
+
   it('lists benefit-account occurrences like any other', () => {
     renderPayables(sampleDataWithBenefit())
     expect(screen.getAllByText('Mercado VA').length).toBeGreaterThan(0)

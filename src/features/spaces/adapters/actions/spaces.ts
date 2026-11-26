@@ -1,15 +1,20 @@
 'use server'
 
+import { mapFeedAccountSchema } from '@/features/bank-feed/core/mapping'
 import { SESSION_EXPIRED, type ActionResult } from '@/features/ledger/core/action-result'
+import { isoDayOf } from '@/features/ledger/core/format'
 import { firstIssue } from '@/features/ledger/core/schemas'
+import { mapFeedAccount } from '@/features/spaces/adapters/feed-mapping'
 import {
   archiveSpace,
   assignFeedItem,
   createSpace,
   listFeedItems,
+  listMappableAccounts,
   listSpaces,
   resolveScope,
   type FeedItem,
+  type MappableAccount,
 } from '@/features/spaces/adapters/space.repo'
 import {
   assignFeedItemSchema,
@@ -100,7 +105,35 @@ export async function assignFeedItemAction(input: unknown): Promise<ActionResult
   return refreshed()
 }
 
-export type ConnectionsData = { connections: FeedItem[]; spaces: Space[] }
+/**
+ * "Conta no Fluxi" of a bank feed account: map it (to an account of the
+ * connection's space or a new one) or unmap it; the space is materialized
+ * right away. Changing a mapping deletes what that feed account had created.
+ */
+export async function mapFeedAccountAction(input: unknown): Promise<ActionResult> {
+  const user = await getServerUser()
+  if (!user) return { ok: false, error: SESSION_EXPIRED }
+  const parsed = mapFeedAccountSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) }
+  const result = await mapFeedAccount(user.id, parsed.data, isoDayOf(new Date()))
+  if (!result.ok) {
+    return {
+      ok: false,
+      error:
+        result.reason === 'not_found'
+          ? 'Conta do banco não encontrada. Atualize e tente de novo.'
+          : 'Escolha uma conta ativa do mesmo espaço e de um tipo compatível.',
+    }
+  }
+  return refreshed()
+}
+
+export type ConnectionsData = {
+  connections: FeedItem[]
+  spaces: Space[]
+  /** Active fluxi accounts of every space, for "Conta no Fluxi". */
+  accounts: MappableAccount[]
+}
 
 /** "Configurações → Conexões" (loaded when the settings modal opens): the user's connections and spaces. */
 export async function loadConnectionsAction(): Promise<
@@ -108,6 +141,10 @@ export async function loadConnectionsAction(): Promise<
 > {
   const user = await getServerUser()
   if (!user) return { ok: false, error: SESSION_EXPIRED }
-  const [connections, spaces] = await Promise.all([listFeedItems(user.id), listSpaces(user.id)])
-  return { ok: true, data: { connections, spaces } }
+  const [connections, spaces, accounts] = await Promise.all([
+    listFeedItems(user.id),
+    listSpaces(user.id),
+    listMappableAccounts(user.id),
+  ])
+  return { ok: true, data: { connections, spaces, accounts } }
 }

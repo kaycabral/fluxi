@@ -24,10 +24,6 @@ vi.mock('@/features/ledger/adapters/actions/entries', () => ({
   deleteEntryAction: vi.fn(),
   changeDayAction: vi.fn(),
 }))
-const setCountFromAction = vi.fn<(prev: unknown, data: FormData) => Promise<unknown>>()
-vi.mock('@/features/ledger/adapters/actions/settings', () => ({
-  setCountFromAction: (p: unknown, d: FormData) => setCountFromAction(p, d),
-}))
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 
 const PLAN: BudgetPlan = {
@@ -65,11 +61,6 @@ describe('DashboardView', () => {
     expect(within(summary).queryByText('–')).not.toBeInTheDocument()
   })
 
-  it('shows dashes when the current month is before the count start', () => {
-    renderDashboard(sampleData({ countFrom: '2027-06' }))
-    expect(within(screen.getByRole('region', { name: 'Resumo' })).getAllByText('–')).toHaveLength(3)
-  })
-
   it('shows six months of the traffic light and the pots of this month', () => {
     renderDashboard()
     expect(screen.getByText('set/26 – fev/27')).toBeInTheDocument()
@@ -101,6 +92,16 @@ describe('DashboardView', () => {
     expect(screen.getByRole('img', { name: /^dez\/26: -R\$/ })).toBeInTheDocument()
   })
 
+  it('draws only positive bars when no month ends below zero', () => {
+    const data = sampleData()
+    renderDashboard({
+      ...data,
+      accounts: data.accounts.map((a) => ({ ...a, openingBalanceCents: 100_000_000 })),
+    })
+    expect(screen.queryByRole('img', { name: /-R\$/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('img', { name: /^dez\/26: R\$/ })).toBeInTheDocument()
+  })
+
   it('fills the bar of a pot spent without a target', () => {
     renderDashboard(sampleData(), [{ ...PLAN, targets: { essential: 3300 } }])
     expect(screen.getByText(/^R\$ 7\.000,00 \/ R\$ 0,00$/)).toBeInTheDocument()
@@ -110,7 +111,8 @@ describe('DashboardView', () => {
     renderDashboard()
     const overdue = screen.getByRole('tab', { name: /Atrasadas/ })
     expect(overdue).toHaveAttribute('aria-selected', 'true')
-    expect(overdue).toHaveTextContent('3')
+    // 12 months back: the unpaid Sep–Nov occurrences are overdue too.
+    expect(overdue).toHaveTextContent('7')
     await userEvent.click(screen.getByRole('tab', { name: /7 dias/ }))
     const panel = screen.getByRole('tabpanel')
     expect(within(panel).getAllByRole('listitem')).toHaveLength(2)
@@ -129,15 +131,6 @@ describe('DashboardView', () => {
     renderDashboard(sampleData({ entries: [], parts: [] }))
     expect(screen.getByRole('tab', { name: /7 dias/ })).toHaveAttribute('aria-selected', 'true')
     expect(screen.getByText('Nada vence nos próximos 7 dias.')).toBeInTheDocument()
-  })
-
-  it('changes where balances start counting from the header', async () => {
-    setCountFromAction.mockResolvedValue({ ok: true, error: null, savedAt: 1 })
-    renderDashboard()
-    await userEvent.click(screen.getByLabelText('Contar a partir de'))
-    await userEvent.click(await screen.findByRole('option', { name: 'nov/26' }))
-    await waitFor(() => expect(setCountFromAction).toHaveBeenCalledOnce())
-    expect(setCountFromAction.mock.calls[0]?.[1].get('month')).toBe('2026-11')
   })
 
   it('asks for a first account before anything else', () => {

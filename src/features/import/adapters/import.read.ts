@@ -55,6 +55,7 @@ export async function readImportedLedger(db: FluxiDb, scope: Scope): Promise<Imp
       monthBy: r.monthBy,
       installments: r.installments,
       endMonth: r.endMonth === null ? null : monthFromDate(r.endMonth),
+      fromBank: false,
     })),
     overrides: overrideRows.map((r) => ({
       entryId: r.entryId,

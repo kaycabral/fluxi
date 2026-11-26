@@ -1,7 +1,7 @@
 import 'server-only'
 
 import { personalScope } from '@/db/queries/spaces'
-import { spaces } from '@/db/schema'
+import { accounts, banks, spaces } from '@/db/schema'
 import { bankFeedAccounts, bankFeedItems, bankTransactions } from '@/db/schema-bank-feed'
 import {
   pickActiveSpace,
@@ -93,6 +93,48 @@ export type FeedItem = {
   accounts: string[]
   /** Transactions stored for this connection (any space): what a move carries along. */
   transactionCount: number
+  /** The connection's feed accounts in its current space, with their mapping. */
+  feedAccounts: FeedAccountView[]
+}
+
+/** A bank feed account as "Conexões" shows it. */
+export type FeedAccountView = {
+  id: string
+  name: string
+  /** `BANK` or `CREDIT`. */
+  type: string
+  subtype: string
+  /** Last balance the bank reported (a card's open bill, positive = owed). */
+  balanceCents: number
+  accountId: string | null
+  /** Ledger entries materialized from it (what an unmap/remap deletes). */
+  entryCount: number
+}
+
+/** An active fluxi account a feed account can be mapped to. */
+export type MappableAccount = {
+  id: string
+  spaceId: string
+  bankName: string
+  name: string
+  type: string
+}
+
+/** The user's active fluxi accounts (every space), for the mapping pickers. */
+export async function listMappableAccounts(userId: string): Promise<MappableAccount[]> {
+  const rows = await db()
+    .select({
+      id: accounts.id,
+      spaceId: accounts.spaceId,
+      bankName: banks.name,
+      name: accounts.name,
+      type: accounts.type,
+    })
+    .from(accounts)
+    .innerJoin(banks, eq(banks.id, accounts.bankId))
+    .where(and(eq(accounts.userId, userId), isNull(accounts.archivedAt)))
+    .orderBy(asc(banks.sort), asc(banks.name), asc(accounts.name))
+  return rows
 }
 
 /** The user's bank connections with the accounts and transactions stored for each. */
@@ -121,16 +163,38 @@ export async function listFeedItems(userId: string): Promise<FeedItem[]> {
       .where(eq(bankTransactions.userId, userId))
       .groupBy(bankFeedAccounts.itemId),
   ])
+  const feeds = await db()
+    .select({
+      id: bankFeedAccounts.id,
+      itemId: bankFeedAccounts.itemId,
+      spaceId: bankFeedAccounts.spaceId,
+      name: bankFeedAccounts.name,
+      type: bankFeedAccounts.type,
+      subtype: bankFeedAccounts.subtype,
+      balanceCents: bankFeedAccounts.balanceCents,
+      accountId: bankFeedAccounts.accountId,
+      entryCount: sql<number>`(
+        select count(distinct l.entry_id)::int from bank_entry_links l
+        join bank_transactions t on t.id = l.bank_transaction_id
+        where t.feed_account_id = "bank_feed_accounts"."id" and l.user_id = ${userId}
+      )`.mapWith(Number),
+    })
+    .from(bankFeedAccounts)
+    .where(eq(bankFeedAccounts.userId, userId))
+    .orderBy(asc(bankFeedAccounts.type), asc(bankFeedAccounts.name))
   return items.map((item) => ({
     itemId: item.itemId,
     label: item.label,
     spaceId: item.spaceId,
     accounts: accounts.filter((a) => a.itemId === item.itemId).map((a) => a.name),
     transactionCount: counts.find((c) => c.itemId === item.itemId)?.count ?? 0,
+    feedAccounts: feeds
+      .filter((f) => f.itemId === item.itemId && f.spaceId === item.spaceId)
+      .map(({ itemId: _item, spaceId: _space, ...view }) => view),
   }))
 }
 
-type Tx = Parameters<Parameters<ReturnType<typeof db>['transaction']>[0]>[0]
+export type Tx = Parameters<Parameters<ReturnType<typeof db>['transaction']>[0]>[0]
 
 /**
  * Route one of the user's bank connections to one of the user's active spaces
@@ -140,7 +204,9 @@ type Tx = Parameters<Parameters<ReturnType<typeof db>['transaction']>[0]>[0]
  * referenced from the new one. When the destination already holds the same
  * external account (an earlier move back and forth), the two are merged: the
  * destination row is kept and only the transactions it lacks (by external id)
- * move. Unassigning keeps the stored data where it is. Ledger entries never move.
+ * move. Unassigning keeps the stored data where it is. Ledger entries never move:
+ * the ones materialized from the moved transactions are deleted (the next sync
+ * materializes them in the new space once its feed accounts are mapped).
  */
 export async function assignFeedItem(
   userId: string,
@@ -198,6 +264,7 @@ async function moveFeedAccounts(tx: Tx, userId: string, itemId: string, spaceId:
         ),
       )
       .for('update')
+    await unmaterialize(tx, userId, source.id)
     const targetId = existing?.id ?? (await copyFeedAccount(tx, source, spaceId))
     await tx
       .update(bankTransactions)
@@ -218,6 +285,29 @@ async function moveFeedAccounts(tx: Tx, userId: string, itemId: string, spaceId:
       .delete(bankFeedAccounts)
       .where(and(eq(bankFeedAccounts.userId, userId), eq(bankFeedAccounts.id, source.id)))
   }
+}
+
+/**
+ * The ledger entries materialized from a feed account's transactions belong
+ * to the space it leaves: delete them with their links (a transfer's other
+ * link too, so its transaction is materialized again on its own), never
+ * leaving a link pointing across spaces. Also used when a feed account is
+ * unmapped or remapped (`mapFeedAccount`).
+ */
+export async function unmaterialize(tx: Tx, userId: string, feedAccountId: string) {
+  const { rows } = await tx.execute<{ entry_id: string | null }>(sql`
+    delete from bank_entry_links l
+    using bank_transactions t
+    where t.id = l.bank_transaction_id and t.user_id = ${userId}
+      and t.feed_account_id = ${feedAccountId} and l.user_id = ${userId}
+    returning l.entry_id`)
+  const entryIds = rows.flatMap((r) => (r.entry_id === null ? [] : [r.entry_id]))
+  if (entryIds.length === 0) return
+  const ids = `{${entryIds.join(',')}}`
+  await tx.execute(
+    sql`delete from bank_entry_links where user_id = ${userId} and entry_id = any(${ids}::uuid[])`,
+  )
+  await tx.execute(sql`delete from entries where user_id = ${userId} and id = any(${ids}::uuid[])`)
 }
 
 async function copyFeedAccount(

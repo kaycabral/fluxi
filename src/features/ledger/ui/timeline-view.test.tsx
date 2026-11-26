@@ -1,5 +1,4 @@
-import { INITIAL_FORM_STATE, type FormState } from '@/features/ledger/core/action-result'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { LedgerShell } from './ledger-shell'
@@ -8,7 +7,6 @@ import { TimelineView } from './timeline-view'
 
 type Result = { ok: true } | { ok: false; error: string }
 const changeDayAction = vi.fn<(input: unknown) => Promise<Result>>()
-const setCountFromAction = vi.fn<(prev: FormState, data: FormData) => Promise<FormState>>()
 vi.mock('@/features/ledger/adapters/actions/undo', () => ({
   undoAction: vi.fn(),
   forgetUndoAction: vi.fn(),
@@ -18,9 +16,6 @@ vi.mock('@/features/ledger/adapters/actions/entries', () => ({
   updateEntryAction: vi.fn(),
   deleteEntryAction: vi.fn(),
   changeDayAction: (i: unknown) => changeDayAction(i),
-}))
-vi.mock('@/features/ledger/adapters/actions/settings', () => ({
-  setCountFromAction: (p: FormState, d: FormData) => setCountFromAction(p, d),
 }))
 const markPaidAction = vi.fn<(input: unknown) => Promise<Result>>()
 const unmarkPaidAction = vi.fn<(input: unknown) => Promise<Result>>()
@@ -47,22 +42,19 @@ function rowOf(label: string) {
 
 beforeEach(() => {
   changeDayAction.mockResolvedValue({ ok: true })
-  setCountFromAction.mockResolvedValue({ ok: true, error: null, savedAt: 1 })
   markPaidAction.mockResolvedValue({ ok: true })
   unmarkPaidAction.mockResolvedValue({ ok: true })
 })
 afterEach(() => vi.clearAllMocks())
 
 describe('TimelineView', () => {
-  it('shows totals, balances and dims the months before the count start', () => {
+  it('shows totals and balances accumulated over every month', () => {
     renderTimeline()
     expect(screen.getByRole('heading', { name: 'Mês a mês' })).toBeInTheDocument()
     const balances = within(rowOf('Saldo total')).getAllByRole('cell')
-    expect(balances[1]).toHaveTextContent('–')
-    // dez/26: 1200 (openings) + 5000 salary (rest of nov + advance) − 260 − 7000 − 2500 = −3560
+    // dez/26: 1200 on Dec 1st + 5000 salary (rest of nov + advance) − 260 − 7000 − 2500 = −3560
     expect(balances[4]).toHaveTextContent('-3.560,00')
-    expect(within(rowOf('Entradas')).getAllByRole('cell')[1]).toHaveClass('opacity-50')
-    expect(screen.getByText(/Meses antes de dez\/26 aparecem apagados/)).toBeInTheDocument()
+    expect(screen.getByText(/soma todos os lançamentos desde o primeiro/)).toBeInTheDocument()
   })
 
   it('expands a bank into its active accounts', async () => {
@@ -82,8 +74,7 @@ describe('TimelineView', () => {
     expect(screen.getByText('transferência')).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'out/26' }))
-    expect(screen.getByRole('heading', { name: 'out/26' })).toBeInTheDocument()
-    expect(screen.getByText(/Este mês está antes do início da contagem/)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'out/26 dia a dia' })).toBeInTheDocument()
   })
 
   it('counts benefit accounts in the totals, the banks and the day by day', () => {
@@ -106,23 +97,6 @@ describe('TimelineView', () => {
     await userEvent.click(await screen.findByRole('option', { name: 'Nubank · Conta Nu' }))
     expect(screen.getByText(/começa com R\$ 200,00/)).toBeInTheDocument()
     expect(screen.queryByText('Avulso')).not.toBeInTheDocument()
-  })
-
-  it('changes the count start through the settings action', async () => {
-    renderTimeline()
-    await userEvent.click(screen.getByLabelText('Contar a partir de'))
-    await userEvent.click(await screen.findByRole('option', { name: 'jan/27' }))
-    await waitFor(() => expect(setCountFromAction).toHaveBeenCalledOnce())
-    expect(setCountFromAction.mock.calls[0]?.[1].get('month')).toBe('2027-01')
-    expect(screen.getByRole('heading', { name: 'jan/27 dia a dia' })).toBeInTheDocument()
-  })
-
-  it('reports a failed count start change', async () => {
-    setCountFromAction.mockResolvedValue({ ...INITIAL_FORM_STATE, error: 'Mês inválido.' })
-    renderTimeline()
-    await userEvent.click(screen.getByLabelText('Contar a partir de'))
-    await userEvent.click(await screen.findByRole('option', { name: 'nov/26' }))
-    await waitFor(() => expect(toastError).toHaveBeenCalledWith('Mês inválido.'))
   })
 
   it('moves a one-off occurrence directly and asks the scope for a recurring one', async () => {
@@ -178,6 +152,26 @@ describe('TimelineView', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     await userEvent.click(screen.getByRole('button', { name: 'Lançamento' }))
     expect(await screen.findByLabelText('Data')).toHaveValue('15/12/2026')
+  })
+
+  it('opens an occurrence from the keyboard', async () => {
+    renderTimeline()
+    const row = screen.getByRole('row', { name: /Buffet/ })
+    fireEvent.keyDown(row, { key: 'Tab' })
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    fireEvent.keyDown(row, { key: 'Enter' })
+    expect(await screen.findByRole('dialog', { name: 'Editar lançamento' })).toBeInTheDocument()
+  })
+
+  it('shows a bank entry as paid by the bank, with its day fixed', () => {
+    const data = sampleData()
+    renderTimeline({
+      ...data,
+      entries: data.entries.map((e) => (e.id === IDS.once ? { ...e, fromBank: true } : e)),
+    })
+    const row = screen.getByRole('row', { name: /Avulso/ })
+    expect(within(row).getByText('Pago · banco')).toBeInTheDocument()
+    expect(within(row).queryByLabelText('Dia de Avulso')).toBeNull()
   })
 
   it('asks for a bank and account first', () => {

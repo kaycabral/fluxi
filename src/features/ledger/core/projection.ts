@@ -1,3 +1,4 @@
+import { isoDate } from './format'
 import type { Month } from './month'
 import { landingsIn, type Landing } from './occurrence'
 import type { Account, Entry, EntryOverride, EntryPart } from './types'
@@ -18,13 +19,11 @@ export type MonthTotals = {
 
 export type MonthResult = {
   month: Month
-  /** False before `countFrom`: totals are still computed, balances are not. */
-  counted: boolean
   /** Ordered by day, inflows first within a day, then input order. */
   landings: Landing[]
   totals: MonthTotals
-  openingBalances: Balances | null
-  closingBalances: Balances | null
+  openingBalances: Balances
+  closingBalances: Balances
 }
 
 export type ProjectionInput = {
@@ -33,12 +32,42 @@ export type ProjectionInput = {
   overrides: readonly EntryOverride[]
   accounts: readonly Pick<Account, 'id' | 'openingBalanceCents'>[]
   /**
-   * Months to project. Balances accumulate from `countFrom` (or the first
-   * month when null) in ascending order, so for correct balances the range
-   * must start at or before `countFrom` and be contiguous.
+   * Months to project. Balances accumulate from each account's opening balance
+   * in ascending order, so for correct balances the range must be contiguous
+   * and start at or before the first month any entry lands in
+   * ({@link firstLandingMonth}).
    */
   months: readonly Month[]
-  countFrom: Month | null
+  /** Bank-fed accounts (see {@link FeedRule}); none when omitted. */
+  feed?: FeedRule
+}
+
+/**
+ * Accounts with a mapped bank feed: their past is the bank's. A PLANNED
+ * occurrence (an entry without a bank link) landing up to `today` that touches
+ * a connected account does not exist for the projection (balances, totals,
+ * calendar, "A pagar"); the bank's own entries count as usual, and planned
+ * occurrences after `today` count. Accounts without a feed are unchanged. A
+ * planned transfer between a connected and an unconnected account is dropped
+ * whole (keep it simple: the bank already shows its side).
+ */
+export type FeedRule = {
+  connectedAccountIds: readonly string[]
+  /** `YYYY-MM-DD`. */
+  today: string
+}
+
+/** The test of {@link FeedRule}: whether a landing counts (ids indexed once). */
+export function feedFilter(rule: FeedRule | undefined): (landing: Landing) => boolean {
+  if (rule === undefined || rule.connectedAccountIds.length === 0) return () => true
+  const connected = new Set(rule.connectedAccountIds)
+  return ({ entry, month, day }) =>
+    entry.fromBank ||
+    !(
+      connected.has(entry.accountId) ||
+      (entry.toAccountId !== null && connected.has(entry.toAccountId))
+    ) ||
+    isoDate(month, day) > rule.today
 }
 
 /** Inflows (positive amounts) before outflows on the same day. */
@@ -108,25 +137,37 @@ function applyToBalances(balances: Map<string, number>, landings: readonly Landi
   }
 }
 
+/**
+ * First month anything of `entries` can land in (a series' start month), or
+ * null without entries: the projection must start there for balances that
+ * accumulate over every entry.
+ */
+export function firstLandingMonth(entries: readonly Pick<Entry, 'startMonth'>[]): Month | null {
+  let first: Month | null = null
+  for (const { startMonth } of entries) if (first === null || startMonth < first) first = startMonth
+  return first
+}
+
 /** Month-by-month totals and per-account balances. */
 export function projectMonths(input: ProjectionInput): MonthResult[] {
   const balances = new Map(input.accounts.map((a) => [a.id, a.openingBalanceCents]))
   const snapshot = (): Balances => Object.fromEntries(balances)
+  const counts = feedFilter(input.feed)
 
   return [...input.months].sort().map((month) => {
-    const counted = input.countFrom === null || month >= input.countFrom
     const landings = orderLandings(
-      input.entries.flatMap((entry) => landingsIn(entry, input.parts, input.overrides, month)),
+      input.entries
+        .flatMap((entry) => landingsIn(entry, input.parts, input.overrides, month))
+        .filter(counts),
     )
-    const openingBalances = counted ? snapshot() : null
-    if (counted) applyToBalances(balances, landings)
+    const openingBalances = snapshot()
+    applyToBalances(balances, landings)
     return {
       month,
-      counted,
       landings,
       totals: totalsOf(landings),
       openingBalances,
-      closingBalances: counted ? snapshot() : null,
+      closingBalances: snapshot(),
     }
   })
 }
@@ -148,14 +189,13 @@ export type DailyBalance = {
 
 /**
  * Day-by-day running balance of a set of accounts (all accounts when
- * `accountIds` is null) within a counted month; null for an uncounted month.
+ * `accountIds` is null) within a month.
  */
 export function dailyBalance(
   result: MonthResult,
   accountIds: readonly string[] | null,
-): DailyBalance | null {
+): DailyBalance {
   const opening = result.openingBalances
-  if (opening === null) return null
   const ids = accountIds ?? Object.keys(opening)
   const touches = (landing: Landing) =>
     ids.includes(landing.entry.accountId) ||

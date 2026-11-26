@@ -25,6 +25,7 @@ Object.assign(process.env, supabaseEnv)
 export default defineConfig(
   defineE2EConfig({
     port: E2E_PORT,
+    devCommand: `pnpm exec next dev -p ${E2E_PORT}`,
     testDir: './src',
     testMatch: '**/_e2e/**/*.spec.ts',
     webServerEnv: {

@@ -110,10 +110,45 @@ export type SkippedItem = { item: number; institution: string; status: string }
 /** A configured item no space was chosen for yet ("Conexões" in the settings): not synced. */
 export type UnassignedItem = { item: number; institution: string }
 
+/** What `private.materialize_bank_feed` did, summed over the synced spaces. */
+export type LedgerSummary = {
+  removed: number
+  transfers: number
+  created: number
+  updated: number
+  anchored: number
+}
+
 export type SyncSummary = {
   accounts: AccountSummary[]
   skipped: SkippedItem[]
   unassigned: UnassignedItem[]
+  ledger: LedgerSummary
+}
+
+const LEDGER_KEYS = ['removed', 'transfers', 'created', 'updated', 'anchored'] as const
+
+const EMPTY_LEDGER: LedgerSummary = {
+  removed: 0,
+  transfers: 0,
+  created: 0,
+  updated: 0,
+  anchored: 0,
+}
+
+/**
+ * Materialize `spaceId`'s mapped feed into its ledger and anchor the mapped
+ * accounts' balances (`private.materialize_bank_feed`, the only ledger write
+ * `fluxi_sync` can do).
+ */
+export async function materializeSpace(
+  sql: Sql,
+  { userId, spaceId }: { userId: string; spaceId: string },
+  today: string,
+): Promise<LedgerSummary> {
+  const [row] = await sql<{ result: LedgerSummary }[]>`
+    select private.materialize_bank_feed(${userId}::uuid, ${spaceId}::uuid, ${today}::date) as result`
+  return row?.result ?? EMPTY_LEDGER
 }
 
 export type SyncRun = {
@@ -157,8 +192,14 @@ export async function runPluggySync({
   itemIds,
   today,
 }: SyncRun): Promise<SyncSummary> {
-  const summary: SyncSummary = { accounts: [], skipped: [], unassigned: [] }
+  const summary: SyncSummary = {
+    accounts: [],
+    skipped: [],
+    unassigned: [],
+    ledger: { ...EMPTY_LEDGER },
+  }
   const from = coveredFrom(today)
+  const synced = new Set<string>()
   for (const [index, itemId] of itemIds.entries()) {
     const item = await pluggy.getItem(itemId)
     const institution = item.connector?.name ?? 'Pluggy'
@@ -172,6 +213,7 @@ export async function runPluggySync({
       summary.skipped.push({ item: index + 1, institution, status: readiness.reason })
       continue
     }
+    synced.add(spaceId)
     for (const account of await pluggy.listAccounts(itemId)) {
       const feed = toFeedAccount(account, institution)
       const rows = (await pluggy.listTransactions(account.id)).map(toFeedTransaction)
@@ -197,6 +239,12 @@ export async function runPluggySync({
         from: dates[0] ?? null,
         to: dates.at(-1) ?? null,
       })
+    }
+  }
+  for (const spaceId of synced) {
+    const done = await materializeSpace(sql, { userId, spaceId }, today)
+    for (const key of LEDGER_KEYS) {
+      summary.ledger[key] += done[key]
     }
   }
   return summary
@@ -278,6 +326,10 @@ export async function handleSyncRequest(
     for (const s of summary.skipped) {
       log(`item #${s.item} (${s.institution}): skipped, status ${s.status}`)
     }
+    const l = summary.ledger
+    log(
+      `ledger: ${l.created} created, ${l.transfers} transfers, ${l.updated} updated, ${l.removed} removed, ${l.anchored} balances anchored`,
+    )
     for (const u of summary.unassigned) {
       log(`item #${u.item} (${u.institution}): unassigned, choose its space in the app`)
     }

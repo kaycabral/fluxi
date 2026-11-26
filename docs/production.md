@@ -80,7 +80,7 @@ Tudo pelo Dashboard ou pelo CLI com o login do operador; nada de conexão ao ban
 
    ```bash
    umask 077; f=$(mktemp)
-   PW=$(openssl rand -hex 32); TOKEN=$(openssl rand -hex 32)
+   PW=$(openssl rand -hex 32); TOKEN=$(openssl rand -hex 32); HOLDER=$(openssl rand -hex 32)
    cat > "$f" <<EOF
    PLUGGY_CLIENT_ID=<client id>
    PLUGGY_CLIENT_SECRET=<secret regenerado no passo 1>
@@ -88,12 +88,15 @@ Tudo pelo Dashboard ou pelo CLI com o login do operador; nada de conexão ao ban
    FLUXI_SYNC_USER_ID=<UID do usuário em Authentication → Users>
    FLUXI_SYNC_DB_URL=postgresql://fluxi_sync.<ref>:$PW@aws-<n>-sa-east-1.pooler.supabase.com:6543/postgres
    FLUXI_SYNC_TOKEN=$TOKEN
+   FLUXI_HOLDER_KEY_SECRET=$HOLDER
    EOF
    pnpm exec supabase secrets set --remote=<ref> --env-file "$f"
    printf %s "$PW" | pnpm -s scram:verifier   # copie a linha SCRAM-SHA-256$... (passo 4)
    printf %s "$TOKEN"                         # copie pro Vault (passo 5)
-   shred -u "$f"; unset PW TOKEN
+   shred -u "$f"; unset PW TOKEN HOLDER
    ```
+
+   `FLUXI_HOLDER_KEY_SECRET` é a chave do HMAC que guarda o `holder_key` das contas de empresa (CNPJ nunca é gravado; só o tipo do titular e esse hash). Sem ele o sync funciona, mas loga um aviso e não reconhece "mesma empresa" entre conexões. **Não rotacione** sem necessidade: chave nova = hashes novos (as conexões já atribuídas não mudam, mas o roteamento automático de uma nova conexão da mesma empresa só volta a funcionar depois que as antigas sincronizarem de novo com a chave nova). Pra adicionar num ambiente existente: `pnpm exec supabase secrets set --remote=<ref> FLUXI_HOLDER_KEY_SECRET=$(openssl rand -hex 32)` (por arquivo, como acima, pra não ficar no histórico do shell) e redeploy da função.
 
    O pooler de transação (6543) com usuário `<papel>.<ref>` é o formato do Supavisor pra papéis próprios; a função conecta com `prepare: false`.
 

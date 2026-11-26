@@ -65,7 +65,7 @@ async function resolveTarget(
   // "Criar conta": a bank named after the connection's institution (reused
   // when one of the space is named like it), the account after the feed's.
   const siblings = await tx
-    .select({ name: bankFeedAccounts.name })
+    .select({ name: bankFeedAccounts.name, holderType: bankFeedAccounts.holderType })
     .from(bankFeedAccounts)
     .where(
       and(
@@ -75,7 +75,10 @@ async function resolveTarget(
       ),
     )
     .orderBy(asc(bankFeedAccounts.type), asc(bankFeedAccounts.name), asc(bankFeedAccounts.id))
-  const institution = institutionOf(siblings.map((s) => s.name))
+  const institution = institutionOf(
+    siblings.map((s) => s.name),
+    siblings.map((s) => s.holderType),
+  )
   const bankName = institution.slice(0, 80)
   const aliases = aliasesOf(institution)
   const spaceBanks = await tx

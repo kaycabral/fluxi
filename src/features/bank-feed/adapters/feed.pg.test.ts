@@ -39,6 +39,8 @@ const account: FeedAccountRow = {
   balanceCents: 1000,
   numberHint: '4821',
   cardStatus: null,
+  holderType: null,
+  holderKey: null,
 }
 const tx = (externalId: string, over: Partial<FeedTransactionRow> = {}): FeedTransactionRow => ({
   externalId,

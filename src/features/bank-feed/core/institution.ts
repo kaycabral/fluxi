@@ -6,7 +6,8 @@
  * the auto-link creates.
  *
  * The same rules live in SQL (`private.feed_institution`,
- * `private.feed_account_label`, migration `0022`) for the auto-link; the
+ * `private.feed_account_label`, migration `0022`; the holder suffix and the
+ * "Empresas" aliases in `0029`) for the auto-link; the
  * Postgres suite checks both agree on `INSTITUTION_SAMPLES`.
  */
 
@@ -54,12 +55,38 @@ function capitalize(word: string): string {
 
 const firstWord = (name: string) => name.trim().replace(/\s.*$/s, '')
 
+const EMPRESAS = /(^|[^a-z0-9])empresas([^a-z0-9]|$)/
+const EMPRESAS_SUFFIX = ' Empresas'
+
+/** Some account of the connection is held by a company (CNPJ). */
+export function heldByCompany(holderTypes: readonly (string | null)[]): boolean {
+  return holderTypes.includes('company')
+}
+
+/**
+ * "<name> Empresas" when a company holds the connection's accounts and the
+ * name does not already say so ("Nubank" → "Nubank Empresas"; "BTG Empresas" stays).
+ */
+export function withHolderSuffix(name: string, holderTypes: readonly (string | null)[]): string {
+  if (!heldByCompany(holderTypes) || EMPRESAS.test(normalizeName(name))) return name
+  return `${name}${EMPRESAS_SUFFIX}`
+}
+
 /**
  * The institution of a connection from its feed accounts' names: the known
  * institution most of them match (ties: rule order); none known → the most
- * frequent first word, capitalized (ties: first seen).
+ * frequent first word, capitalized (ties: first seen). With a company among
+ * the holders (`holderTypes`, one per account), "Empresas" is appended
+ * ({@link withHolderSuffix}).
  */
-export function institutionOf(names: readonly string[]): string {
+export function institutionOf(
+  names: readonly string[],
+  holderTypes: readonly (string | null)[] = [],
+): string {
+  return withHolderSuffix(baseInstitutionOf(names), holderTypes)
+}
+
+function baseInstitutionOf(names: readonly string[]): string {
   const known = INSTITUTION_RULES.map((rule) => ({
     rule,
     hits: names.filter((n) => ruleOf(n) === rule).length,
@@ -91,16 +118,25 @@ export function institutionOf(names: readonly string[]): string {
 export function connectionInstitution(
   accountNames: readonly string[],
   label: string | null,
+  holderTypes: readonly (string | null)[] = [],
 ): string | null {
-  if (accountNames.length > 0) return institutionOf(accountNames)
+  if (accountNames.length > 0) return institutionOf(accountNames, holderTypes)
   const trimmed = label?.trim() ?? ''
   return trimmed !== '' && !/pluggy/i.test(trimmed) ? trimmed : null
 }
 
-/** Normalized aliases of `institution` (its own name included). */
+/**
+ * Normalized aliases of `institution` (its own name included). A derived
+ * "<base> Empresas" that is no rule of its own also goes by its base's
+ * aliases ("Nubank Empresas" → `nubank empresas`, `nu pagamentos`, `nubank`).
+ */
 export function aliasesOf(institution: string): readonly string[] {
   const rule = INSTITUTION_RULES.find((r) => r.name === institution)
-  return [...(rule?.aliases ?? []), normalizeName(institution)]
+  const base =
+    rule === undefined && institution.endsWith(EMPRESAS_SUFFIX)
+      ? aliasesOf(institution.slice(0, -EMPRESAS_SUFFIX.length))
+      : []
+  return [...(rule?.aliases ?? []), ...base, normalizeName(institution)]
 }
 
 const LEGAL = /(^|[^a-z0-9])(s\.?a|ltda|instituicao|pagamento)([^a-z0-9]|$)/
@@ -174,9 +210,11 @@ export function institutionColor(institution: string): string {
   return INSTITUTION_COLORS[hash % INSTITUTION_COLORS.length] ?? 'bg-muted text-foreground'
 }
 
-/** Samples both implementations (TS here, SQL in `0022`) must agree on. */
+/** Samples both implementations (TS here, SQL in `0022`/`0029`) must agree on. */
 export const INSTITUTION_SAMPLES: readonly {
   names: readonly string[]
+  /** One per account; omitted = unknown holders. */
+  holders?: readonly (string | null)[]
   feed: { name: string; type: string; subtype: string }
 }[] = [
   {
@@ -206,6 +244,26 @@ export const INSTITUTION_SAMPLES: readonly {
       type: 'BANK',
       subtype: 'CHECKING_ACCOUNT',
     },
+  },
+  {
+    names: ['Nu Pagamentos S.A. - Instituição de Pagamento (Conta Pré-paga)', 'Nubank'],
+    holders: ['company', 'company'],
+    feed: { name: 'Nubank', type: 'BANK', subtype: 'CHECKING_ACCOUNT' },
+  },
+  {
+    names: ['BTG Empresas'],
+    holders: ['company'],
+    feed: { name: 'BTG Empresas', type: 'BANK', subtype: 'CHECKING_ACCOUNT' },
+  },
+  {
+    names: ['Inter Conta', 'inter cartão'],
+    holders: ['company', 'person'],
+    feed: { name: 'inter cartão', type: 'CREDIT', subtype: 'CREDIT_CARD' },
+  },
+  {
+    names: ['itau', 'Itaú Click Múltiplo MC Plat'],
+    holders: ['person', null],
+    feed: { name: 'itau', type: 'BANK', subtype: 'CHECKING_ACCOUNT' },
   },
   {
     names: ['Inter Conta', 'inter cartão', 'Caixa'],

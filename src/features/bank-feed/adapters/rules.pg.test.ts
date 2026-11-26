@@ -34,6 +34,8 @@ const checkingFeed: FeedAccountRow = {
   balanceCents: 100000,
   numberHint: '4821',
   cardStatus: null,
+  holderType: null,
+  holderKey: null,
 }
 const cardFeed: FeedAccountRow = {
   ...checkingFeed,
@@ -44,6 +46,8 @@ const cardFeed: FeedAccountRow = {
   balanceCents: 30000,
   numberHint: '1234',
   cardStatus: null,
+  holderType: null,
+  holderKey: null,
 }
 
 const tx = (externalId: string, over: Partial<FeedTransactionRow> = {}): FeedTransactionRow => ({

@@ -48,11 +48,28 @@ export const bankFeedItems = pgTable(
     itemId: text('item_id').notNull(),
     spaceId: uuid('space_id'),
     label: text('label'),
+    /**
+     * Who chose `space_id`: `auto` = the sync's routing
+     * (`private.route_bank_feed_item`), `manual` = the user (pausing
+     * included), null = nobody yet. Routing only ever decides while null.
+     */
+    spaceSource: text('space_source'),
+    /** Name offered for a new space ("Criar espaço …") while an unknown company's connection waits for one. */
+    suggestedSpaceName: text('suggested_space_name'),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
   (t) => [
     primaryKey({ name: 'bank_feed_items_pk', columns: [t.userId, t.itemId] }),
+    check(
+      'bank_feed_items_space_source',
+      sql`${t.spaceSource} is null or ${t.spaceSource} in ('auto', 'manual')`,
+    ),
+    check('bank_feed_items_routed', sql`${t.spaceId} is null or ${t.spaceSource} is not null`),
+    check(
+      'bank_feed_items_suggestion',
+      sql`${t.suggestedSpaceName} is null or (${t.spaceId} is null and char_length(${t.suggestedSpaceName}) between 1 and 40)`,
+    ),
     foreignKey({
       name: 'bank_feed_items_space_fk',
       columns: [t.spaceId, t.userId],
@@ -86,6 +103,10 @@ export const bankFeedAccounts = pgTable(
     numberHint: text('number_hint'),
     /** A card's status from Pluggy (`active`/`blocked`/`cancelled`); null for bank accounts. */
     cardStatus: text('card_status'),
+    /** Holder kind from the account's document (11 digits = `person`, 14 = `company`); the document is never stored. */
+    holderType: text('holder_type'),
+    /** HMAC-SHA256 (hex) of a company holder's CNPJ: "same company" without the CNPJ. Null for persons. */
+    holderKey: text('holder_key'),
     accountId: uuid('account_id'),
     /**
      * Who decided `account_id`: `auto` = the auto-link
@@ -115,6 +136,15 @@ export const bankFeedAccounts = pgTable(
       'bank_feed_accounts_mapping_source',
       sql`${t.mappingSource} is null or ${t.mappingSource} in ('auto', 'manual')`,
     ),
+    check(
+      'bank_feed_accounts_holder_type',
+      sql`${t.holderType} is null or ${t.holderType} in ('person', 'company')`,
+    ),
+    check(
+      'bank_feed_accounts_holder_key',
+      sql`${t.holderKey} is null or (${t.holderType} = 'company' and ${t.holderKey} ~ '^[0-9a-f]{64}$')`,
+    ),
+    index('bank_feed_accounts_holder_key_idx').on(t.userId, t.holderKey),
     check(
       'bank_feed_accounts_card_status',
       sql`${t.cardStatus} is null or ${t.cardStatus} in ('active', 'blocked', 'cancelled')`,

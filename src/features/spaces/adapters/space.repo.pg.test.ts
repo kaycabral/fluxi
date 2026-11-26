@@ -8,7 +8,7 @@ import {
 } from '@/db/schema-bank-feed'
 import { listUnlinkedConnectedInstitutions } from '@/features/ledger/adapters/ledger.repo'
 import type { Scope } from '@/features/spaces/core/space'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { assignFeedItem, createSpace, listFeedItems, listSpaces, updateSpace } from './space.repo'
 
@@ -77,9 +77,9 @@ describe('assignFeedItem (Postgres)', () => {
     await db()
       .insert(bankFeedItems)
       .values([
-        { userId: ANA, itemId: 'item-1', spaceId: ana.spaceId },
-        { userId: ANA, itemId: 'item-2', spaceId: ana.spaceId },
-        { userId: BIA, itemId: 'item-1', spaceId: bia.spaceId },
+        { userId: ANA, itemId: 'item-1', spaceId: ana.spaceId, spaceSource: 'manual' },
+        { userId: ANA, itemId: 'item-2', spaceId: ana.spaceId, spaceSource: 'manual' },
+        { userId: BIA, itemId: 'item-1', spaceId: bia.spaceId, spaceSource: 'manual' },
       ])
   })
 
@@ -184,6 +184,27 @@ describe('assignFeedItem (Postgres)', () => {
     expect(await txRows(BIA)).toHaveLength(1)
   })
 
+  it('makes the user choice manual and drops the suggestion, so routing never overrides it', async () => {
+    await db()
+      .update(bankFeedItems)
+      .set({ spaceId: null, spaceSource: null, suggestedSpaceName: 'ACME' })
+      .where(and(eq(bankFeedItems.userId, ANA), eq(bankFeedItems.itemId, 'item-1')))
+    expect(await assignFeedItem(ANA, 'item-1', work.spaceId, TODAY)).toBe(true)
+    const routed = await db().execute<{ space: string | null }>(
+      sql`select private.route_bank_feed_item(${ANA}::uuid, 'item-1', '{person}'::text[], '{}'::text[], null) as space`,
+    )
+    expect(routed.rows[0]?.space).toBe(work.spaceId)
+    const [item] = await db()
+      .select()
+      .from(bankFeedItems)
+      .where(and(eq(bankFeedItems.userId, ANA), eq(bankFeedItems.itemId, 'item-1')))
+    expect(item).toMatchObject({
+      spaceId: work.spaceId,
+      spaceSource: 'manual',
+      suggestedSpaceName: null,
+    })
+  })
+
   it('merges with the same external account already in the destination', async () => {
     await feedAccount(ana, 'item-1', 'acc-1', ['t1', 't2'])
     const twin = await feedAccount(work, 'item-1', 'acc-1', ['t2', 't3'])
@@ -274,9 +295,15 @@ describe('connection status and connected banks (Postgres)', () => {
     await db()
       .insert(bankFeedItems)
       .values([
-        { userId: ANA, itemId: 'item-1', spaceId: ana.spaceId },
-        { userId: ANA, itemId: 'item-2', spaceId: ana.spaceId, label: 'Inter' },
-        { userId: BIA, itemId: 'item-1', spaceId: bia.spaceId },
+        { userId: ANA, itemId: 'item-1', spaceId: ana.spaceId, spaceSource: 'manual' },
+        {
+          userId: ANA,
+          itemId: 'item-2',
+          spaceId: ana.spaceId,
+          spaceSource: 'manual',
+          label: 'Inter',
+        },
+        { userId: BIA, itemId: 'item-1', spaceId: bia.spaceId, spaceSource: 'manual' },
       ])
   })
 

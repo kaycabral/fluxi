@@ -6,13 +6,14 @@ import {
   feedAccountShortLabel,
 } from '@/features/bank-feed/core/institution'
 import { compatibleTypes, ledgerBalanceOf } from '@/features/bank-feed/core/mapping'
-import type { CardStatus } from '@/features/bank-feed/core/pluggy'
+import type { CardStatus, HolderType } from '@/features/bank-feed/core/pluggy'
 import { feedAccountStatusLine } from '@/features/bank-feed/core/status'
 import { BankLogo } from '@/features/bank-feed/ui/bank-logo'
 import { formatMoney } from '@/features/ledger/core/format'
 import { useAction } from '@/features/ledger/ui/budget/shared'
 import {
   assignFeedItemAction,
+  createConnectionSpaceAction,
   mapFeedAccountAction,
 } from '@/features/spaces/adapters/actions/spaces'
 import { switcherSpaces, type Space } from '@/features/spaces/core/space'
@@ -33,6 +34,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@cbrl/design'
+import { Building2 } from 'lucide-react'
 import { useState } from 'react'
 
 /** A bank feed account under its connection (see `FeedAccountView`). */
@@ -54,6 +56,8 @@ export type FeedAccount = {
   lastMovement?: string | null
   /** A card's status from Pluggy; null for bank accounts or when unknown. */
   cardStatus?: CardStatus | null
+  /** Holder kind (`person`/`company`); null/absent when unknown. */
+  holderType?: HolderType | null
 }
 
 /** A fluxi account the mapping picker offers (see `MappableAccount`). */
@@ -70,6 +74,10 @@ export type BankConnection = {
   itemId: string
   label: string | null
   spaceId: string | null
+  /** Who chose the space (`auto` = routed by the sync from the holder, `manual` = the user). */
+  spaceSource?: 'auto' | 'manual' | null
+  /** Offered name for a new space (a company connection nobody routed yet). */
+  suggestedSpaceName?: string | null
   accounts: string[]
   transactionCount: number
   feedAccounts: FeedAccount[]
@@ -103,14 +111,15 @@ export function hasMovement(feed: Pick<FeedAccount, 'transactionCount' | 'balanc
 
 /**
  * The name a connection shows: the institution derived from its accounts
- * (`institutionOf`), never the proxy connector's "MeuPluggy".
+ * (`institutionOf`, "… Empresas" when a company holds them), never the proxy
+ * connector's "MeuPluggy". Without accounts in its space, the label the sync
+ * derived the same way.
  */
 export function connectionName(connection: BankConnection, index: number): string {
-  const names =
-    connection.feedAccounts.length > 0
-      ? connection.feedAccounts.map((f) => f.name)
-      : connection.accounts
-  return connectionInstitution(names, connection.label) ?? `Conexão ${index + 1}`
+  const inSpace = connection.feedAccounts.length > 0
+  const names = inSpace ? connection.feedAccounts.map((f) => f.name) : connection.accounts
+  const holders = inSpace ? connection.feedAccounts.map((f) => f.holderType ?? null) : []
+  return connectionInstitution(names, connection.label, holders) ?? `Conexão ${index + 1}`
 }
 
 /**
@@ -157,6 +166,12 @@ export function BankConnections({
       spaceId === null ? 'Conexão pausada.' : 'Espaço da conexão atualizado.',
       onChanged,
     )
+  const createSpaceFor = (connection: BankConnection, spaceName: string) =>
+    run(
+      () => createConnectionSpaceAction({ itemId: connection.itemId, name: spaceName }),
+      `Espaço “${spaceName}” criado.`,
+      onChanged,
+    )
   const choose = (connection: BankConnection, name: string, value: string) => {
     const space = options.find((s) => s.id === value)
     // "Sem espaço" (`UNASSIGNED`) matches no space: pause, keeping the data.
@@ -183,6 +198,7 @@ export function BankConnections({
                   accounts={accounts}
                   disabled={pending}
                   onChooseSpace={(value) => choose(c, name, value)}
+                  onCreateSpace={(spaceName) => createSpaceFor(c, spaceName)}
                   onChooseAccount={chooseAccount}
                 />
               </li>
@@ -224,6 +240,7 @@ function ConnectionCard({
   accounts,
   disabled,
   onChooseSpace,
+  onCreateSpace,
   onChooseAccount,
 }: {
   connection: BankConnection
@@ -232,6 +249,7 @@ function ConnectionCard({
   accounts: readonly MappableAccount[]
   disabled: boolean
   onChooseSpace: (value: string) => void
+  onCreateSpace?: (name: string) => void
   onChooseAccount: ChooseAccount
 }) {
   const [showQuiet, setShowQuiet] = useState(false)
@@ -256,7 +274,9 @@ function ConnectionCard({
       c.feedAccounts.length === 0
         ? 'Nenhuma conta sincronizada ainda'
         : plural(c.feedAccounts.length, 'conta', 'contas')
+    if (c.spaceSource === 'auto') summary += ' · espaço escolhido pelo titular'
   }
+  const suggestion = c.spaceId === null ? (c.suggestedSpaceName ?? null) : null
   return (
     <div className="grid min-w-0 gap-3">
       <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
@@ -285,6 +305,24 @@ function ConnectionCard({
           </SelectContent>
         </Select>
       </div>
+      {suggestion !== null && onCreateSpace !== undefined && (
+        <div className="bg-muted/50 grid min-w-0 gap-2 rounded-md p-3 text-sm">
+          <p className="text-muted-foreground">
+            Conta de empresa. Crie um espaço para ela ou escolha um existente.
+          </p>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="min-w-0 justify-self-start"
+            disabled={disabled}
+            onClick={() => onCreateSpace(suggestion)}
+          >
+            <Building2 aria-hidden />
+            <span className="truncate">Criar espaço “{suggestion}”</span>
+          </Button>
+        </div>
+      )}
       {c.spaceId !== null && active.length > 0 && (
         <ul className="grid min-w-0 gap-3 border-t pt-3" aria-label={`Contas de ${name}`}>
           {active.map(row)}

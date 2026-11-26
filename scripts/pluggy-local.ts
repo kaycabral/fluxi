@@ -8,7 +8,8 @@
 //     writes the gitignored `supabase/functions/.env` (mode 600): Pluggy
 //     credentials from ~/.config/fluxi/pluggy.env (the DEMO app; env vars are
 //     ignored on purpose so local never points at prod), the user's id, the
-//     role's connection URL inside the Docker network and a random token.
+//     role's connection URL inside the Docker network, a random token and
+//     the holder-key secret (kept across runs, so company keys stay stable).
 //   pnpm pluggy:serve   (another terminal; serves the function locally)
 //   pnpm pluggy:sync
 //     POSTs to the local function with the token and prints its JSON summary
@@ -42,6 +43,14 @@ function localDbUrl(): string {
   return url
 }
 
+/** The holder-key secret already in the local env file, so company keys survive a re-run. */
+async function existingHolderSecret(): Promise<string | null> {
+  const current = await readFile(ENV_FILE, 'utf8').catch(() => '')
+  const line = current.split('\n').find((l) => l.startsWith('FLUXI_HOLDER_KEY_SECRET='))
+  const value = line?.slice('FLUXI_HOLDER_KEY_SECRET='.length).trim() ?? ''
+  return value.length >= 32 ? value : null
+}
+
 async function writeEnv(): Promise<void> {
   const file = await readFile(path.join(homedir(), '.config', 'fluxi', 'pluggy.env'), 'utf8')
   const pluggy = parsePluggyConfig(file, {})
@@ -64,6 +73,7 @@ async function writeEnv(): Promise<void> {
       FLUXI_SYNC_USER_ID: userId,
       FLUXI_SYNC_DB_URL: `postgresql://fluxi_sync:${password}@${DOCKER_DB_HOST}/postgres`,
       FLUXI_SYNC_TOKEN: randomBytes(32).toString('hex'),
+      FLUXI_HOLDER_KEY_SECRET: (await existingHolderSecret()) ?? randomBytes(32).toString('hex'),
     }
     // The same Vault secrets the pg_cron job reads (migration 0015), pointing at
     // the local gateway inside the Docker network.

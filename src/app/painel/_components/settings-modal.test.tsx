@@ -38,6 +38,8 @@ const DATA: ConnectionsData = {
       itemId: 'i1',
       label: 'Nubank',
       spaceId: PERSONAL.id,
+      spaceSource: 'manual',
+      suggestedSpaceName: null,
       accounts: [],
       transactionCount: 0,
       feedAccounts: [],

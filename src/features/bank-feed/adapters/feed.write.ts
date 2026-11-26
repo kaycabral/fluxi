@@ -9,7 +9,8 @@ import type { FeedAccountRow, FeedTransactionRow } from '../core/pluggy.ts'
  * that settled under a new id, reversals) — but only from `coveredFrom` on:
  * Open Finance exposes a rolling 12-month window, so older rows are history
  * the source simply stopped serving and are kept forever. The user's mapping
- * onto a fluxi account is never touched. Every statement is scoped by the
+ * onto a fluxi account is never touched. Of the holder only its kind
+ * (`holder_type`) and, for a company, a keyed hash (`holder_key`) are stored. Every statement is scoped by the
  * user and the space the connection is routed to (`bank_feed_items`).
  *
  * Runtime-agnostic (postgres.js + relative imports with extensions): the
@@ -43,11 +44,11 @@ export function syncFeedAccount(
     const [row] = await tx<{ id: string }[]>`
       insert into bank_feed_accounts
         (user_id, space_id, source, external_id, item_id, institution, name, type, subtype,
-         balance_cents, number_hint, card_status, synced_at)
+         balance_cents, number_hint, card_status, holder_type, holder_key, synced_at)
       values
         (${userId}, ${spaceId}, ${source}, ${account.externalId}, ${account.itemId}, ${account.institution},
          ${account.name}, ${account.type}, ${account.subtype}, ${account.balanceCents}, ${account.numberHint},
-         ${account.cardStatus},
+         ${account.cardStatus}, ${account.holderType}, ${account.holderKey},
          ${syncedAt})
       on conflict (space_id, source, external_id) do update set
         item_id = excluded.item_id,
@@ -58,6 +59,8 @@ export function syncFeedAccount(
         balance_cents = excluded.balance_cents,
         number_hint = excluded.number_hint,
         card_status = excluded.card_status,
+        holder_type = excluded.holder_type,
+        holder_key = excluded.holder_key,
         synced_at = excluded.synced_at,
         updated_at = excluded.synced_at
       where bank_feed_accounts.user_id = excluded.user_id

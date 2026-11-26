@@ -1,11 +1,13 @@
 import { z } from 'zod'
 import {
   pluggyAccountSchema,
+  pluggyIdentitySchema,
   pluggyItemSchema,
   pluggyTransactionSchema,
   transactionsPageSchema,
   type PluggyAccount,
   type PluggyConfig,
+  type PluggyIdentity,
   type PluggyItem,
   type PluggyTransaction,
 } from '../core/pluggy.ts'
@@ -45,6 +47,8 @@ export type PluggyClient = {
   getItem(itemId: string): Promise<PluggyItem>
   listAccounts(itemId: string): Promise<PluggyAccount[]>
   listTransactions(accountId: string): Promise<PluggyTransaction[]>
+  /** `companyName`/`documentType` of the item's identity only; null when Pluggy has none. */
+  getIdentity(itemId: string): Promise<PluggyIdentity | null>
 }
 
 export async function createPluggyClient(
@@ -74,6 +78,18 @@ export async function createPluggyClient(
           )
         out.push(...json.results)
         if (page >= json.totalPages) return out
+      }
+    },
+    async getIdentity(itemId) {
+      try {
+        // The schema keeps two fields; the rest of the payload is dropped unread.
+        return pluggyIdentitySchema.parse(
+          await get(`/identity?itemId=${encodeURIComponent(itemId)}`),
+        )
+      } catch {
+        // No identity for this connector (404) or a transient failure: the
+        // suggestion falls back to the account owner / institution.
+        return null
       }
     },
     async listTransactions(accountId) {

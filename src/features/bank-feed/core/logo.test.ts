@@ -60,3 +60,11 @@ describe('public/banks', () => {
     }
   })
 })
+
+describe('holder-suffixed names', () => {
+  it('still resolves the logo of "<institution> Empresas"', () => {
+    expect(bankLogoSlug('Nubank Empresas')).toBe('nubank')
+    expect(bankLogoSlug('BTG Empresas')).toBe('btg-empresas')
+    expect(bankLogoSlug('Itaú Empresas')).toBe('itau')
+  })
+})

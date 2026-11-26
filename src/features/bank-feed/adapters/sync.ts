@@ -1,10 +1,18 @@
 import postgres, { type Sql } from 'postgres'
+import { connectionInstitution } from '../core/institution.ts'
 import {
+  companyDocumentOf,
   coveredFrom,
+  holderKeyOf,
+  holderTypeOf,
   itemReadiness,
   PLUGGY_SOURCE,
+  spaceNameOf,
   toFeedAccount,
   toFeedTransaction,
+  type HolderType,
+  type ItemReadiness,
+  type PluggyAccount,
 } from '../core/pluggy.ts'
 import { syncFeedAccount } from './feed.write.ts'
 import { createPluggyClient, type PluggyClient } from './pluggy.client.ts'
@@ -34,6 +42,8 @@ export type SyncEnv = {
   userId: string
   dbUrl: string
   token: string
+  /** Key of the companies' `holder_key` HMAC; null = keys are not stored (warned). */
+  holderKeySecret: string | null
 }
 
 const ENV_KEYS = {
@@ -43,6 +53,7 @@ const ENV_KEYS = {
   userId: 'FLUXI_SYNC_USER_ID',
   dbUrl: 'FLUXI_SYNC_DB_URL',
   token: 'FLUXI_SYNC_TOKEN',
+  holderKeySecret: 'FLUXI_HOLDER_KEY_SECRET',
 } as const
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -64,6 +75,7 @@ export function parseSyncEnv(raw: Readonly<Record<string, string | undefined>>):
     userId: read(ENV_KEYS.userId),
     dbUrl: read(ENV_KEYS.dbUrl),
     token: read(ENV_KEYS.token),
+    holderKeySecret: read(ENV_KEYS.holderKeySecret) || null,
   }
   const problems = [
     !env.pluggyClientId && `missing ${ENV_KEYS.pluggyClientId}`,
@@ -73,6 +85,9 @@ export function parseSyncEnv(raw: Readonly<Record<string, string | undefined>>):
     !env.dbUrl && `missing ${ENV_KEYS.dbUrl}`,
     env.token.length < MIN_TOKEN_LENGTH &&
       `${ENV_KEYS.token} must have at least ${MIN_TOKEN_LENGTH} characters`,
+    env.holderKeySecret !== null &&
+      env.holderKeySecret.length < MIN_TOKEN_LENGTH &&
+      `${ENV_KEYS.holderKeySecret} must have at least ${MIN_TOKEN_LENGTH} characters`,
   ].filter((p): p is string => typeof p === 'string')
   return problems.length > 0 ? { ok: false, problems } : { ok: true, env }
 }
@@ -108,7 +123,15 @@ export type AccountSummary = {
 export type SkippedItem = { item: number; institution: string; status: string }
 
 /** A configured item no space was chosen for yet ("Conexões" in the settings): not synced. */
-export type UnassignedItem = { item: number; institution: string }
+export type UnassignedItem = {
+  item: number
+  institution: string
+  /** A company holds it: the app offers to create a space for it. */
+  company: boolean
+}
+
+/** Items the sync routed to a space on its own this run (`space_source = 'auto'`). */
+export type RoutedItem = { item: number; institution: string; holder: 'person' | 'company' }
 
 /** What `private.materialize_bank_feed` did, summed over the synced spaces. */
 export type LedgerSummary = {
@@ -129,6 +152,7 @@ export type SyncSummary = {
   accounts: AccountSummary[]
   skipped: SkippedItem[]
   unassigned: UnassignedItem[]
+  routed: RoutedItem[]
   ledger: LedgerSummary
 }
 
@@ -176,26 +200,153 @@ export type SyncRun = {
   itemIds: readonly string[]
   /** `YYYY-MM-DD` in America/Sao_Paulo. */
   today: string
+  /** `FLUXI_HOLDER_KEY_SECRET`; null = companies get no `holder_key`. */
+  holderKeySecret?: string | null
+}
+
+/** What the sync keeps of an item's holders: kinds and companies' keys, never documents. */
+export type ItemHolders = {
+  types: (HolderType | null)[]
+  /** `holder_key` by Pluggy account id (companies, with the secret only). */
+  keys: Map<string, string>
+}
+
+/** Holder kinds and keys of an item's accounts; the documents are dropped right here. */
+export async function holdersOf(
+  accounts: readonly PluggyAccount[],
+  secret: string | null,
+): Promise<ItemHolders> {
+  const keys = new Map<string, string>()
+  for (const account of accounts) {
+    const cnpj = companyDocumentOf(account.taxNumber)
+    if (cnpj !== null && secret !== null) keys.set(account.id, await holderKeyOf(cnpj, secret))
+  }
+  return { types: accounts.map((a) => holderTypeOf(a.taxNumber)), keys }
 }
 
 /**
- * Record `itemId` (label = institution) and return the space it is routed to,
- * or null while the user has not assigned it.
+ * The name offered for a new space for a company's connection: Pluggy's
+ * identity `companyName` (often the legal name; Pluggy has no trade name for
+ * the holder), else the `owner` of one of its company accounts, else the
+ * institution ("Nubank Empresas").
  */
-async function routeItem(
+export async function suggestedSpaceName(
+  pluggy: PluggyClient,
+  itemId: string,
+  accounts: readonly PluggyAccount[],
+  institution: string,
+): Promise<string> {
+  const identity = await pluggy.getIdentity(itemId)
+  const owner = accounts.find((a) => holderTypeOf(a.taxNumber) === 'company')?.owner
+  return spaceNameOf(identity?.companyName) ?? spaceNameOf(owner) ?? institution
+}
+
+/**
+ * Record `itemId` (label = institution) and return its space and who chose
+ * it (null source = nobody yet).
+ */
+async function recordItem(
   sql: Sql,
   userId: string,
   itemId: string,
   label: string,
-): Promise<string | null> {
-  const [row] = await sql<{ space_id: string | null }[]>`
+): Promise<{ spaceId: string | null; source: string | null }> {
+  const [row] = await sql<{ space_id: string | null; space_source: string | null }[]>`
     insert into bank_feed_items (user_id, item_id, label)
     values (${userId}, ${itemId}, ${label})
     on conflict (user_id, item_id) do update set
       label = excluded.label,
       updated_at = now()
-    returning space_id`
+    returning space_id, space_source`
+  return { spaceId: row?.space_id ?? null, source: row?.space_source ?? null }
+}
+
+/** `private.route_bank_feed_item`: the space chosen for an undecided item, or null. */
+async function routeItem(
+  sql: Sql,
+  { userId, itemId }: { userId: string; itemId: string },
+  holders: ItemHolders,
+  suggested: string | null,
+): Promise<string | null> {
+  const [row] = await sql<{ space_id: string | null }[]>`
+    select private.route_bank_feed_item(${userId}::uuid, ${itemId}, ${holders.types}::text[],
+      ${[...holders.keys.values()]}::text[], ${suggested}) as space_id`
   return row?.space_id ?? null
+}
+
+/** An item as the sync sees it once recorded (and routed, when nobody had decided). */
+type ResolvedItem = {
+  connector: string
+  institution: string
+  readiness: ItemReadiness
+  accounts: PluggyAccount[]
+  holders: ItemHolders
+  company: boolean
+  spaceId: string | null
+  /** The sync chose the space just now. */
+  routed: boolean
+}
+
+/**
+ * Read the item's accounts (holder kinds and keys only), record it and, while
+ * nobody chose its space, let the database route it from the holders.
+ */
+async function resolveItem(
+  { sql, pluggy, userId, holderKeySecret = null }: SyncRun,
+  itemId: string,
+): Promise<ResolvedItem> {
+  const item = await pluggy.getItem(itemId)
+  const connector = item.connector?.name ?? 'Pluggy'
+  const accounts = await pluggy.listAccounts(itemId)
+  const holders = await holdersOf(accounts, holderKeySecret)
+  const company = holders.types.includes('company')
+  const names = accounts.map((a) => a.marketingName?.trim() || a.name)
+  const institution = connectionInstitution(names, connector, holders.types) ?? connector
+  const recorded = await recordItem(sql, userId, itemId, institution)
+  const base = {
+    connector,
+    institution,
+    readiness: itemReadiness(item),
+    accounts,
+    holders,
+    company,
+  }
+  if (recorded.source !== null) return { ...base, spaceId: recorded.spaceId, routed: false }
+  const suggested = company ? await suggestedSpaceName(pluggy, itemId, accounts, institution) : null
+  const spaceId = await routeItem(sql, { userId, itemId }, holders, suggested)
+  return { ...base, spaceId, routed: spaceId !== null }
+}
+
+/** Store one item's accounts and transactions in its space; returns their summaries. */
+async function syncItemAccounts(
+  { sql, pluggy, userId, today }: SyncRun,
+  resolved: ResolvedItem & { spaceId: string },
+  item: number,
+): Promise<AccountSummary[]> {
+  const out: AccountSummary[] = []
+  for (const account of resolved.accounts) {
+    const key = resolved.holders.keys.get(account.id) ?? null
+    const feed = toFeedAccount(account, resolved.connector, key)
+    const rows = (await pluggy.listTransactions(account.id)).map(toFeedTransaction)
+    const dates = rows.map((r) => r.date).sort()
+    const counts = await syncFeedAccount(
+      sql,
+      { userId, spaceId: resolved.spaceId },
+      { source: PLUGGY_SOURCE, account: feed, transactions: rows, coveredFrom: coveredFrom(today) },
+    )
+    out.push({
+      item,
+      institution: resolved.institution,
+      type: feed.type,
+      subtype: feed.subtype,
+      transactions: rows.length,
+      pending: rows.filter((r) => r.status === 'PENDING').length,
+      removed: counts.removed,
+      from: dates[0] ?? null,
+      to: dates.at(-1) ?? null,
+    })
+  }
+  return out
 }
 
 /**
@@ -203,61 +354,33 @@ async function routeItem(
  * memory at a time. Items that are not UPDATED yet, or not routed to a space,
  * are reported and skipped.
  */
-export async function runPluggySync({
-  sql,
-  pluggy,
-  userId,
-  itemIds,
-  today,
-}: SyncRun): Promise<SyncSummary> {
+export async function runPluggySync(run: SyncRun): Promise<SyncSummary> {
+  const { sql, userId, itemIds, today } = run
   const summary: SyncSummary = {
     accounts: [],
     skipped: [],
     unassigned: [],
+    routed: [],
     ledger: { ...EMPTY_LEDGER },
   }
-  const from = coveredFrom(today)
   const synced = new Set<string>()
   for (const [index, itemId] of itemIds.entries()) {
-    const item = await pluggy.getItem(itemId)
-    const institution = item.connector?.name ?? 'Pluggy'
-    const spaceId = await routeItem(sql, userId, itemId, institution)
+    const item = index + 1
+    const resolved = await resolveItem(run, itemId)
+    const { institution, company, spaceId, readiness } = resolved
+    if (resolved.routed) {
+      summary.routed.push({ item, institution, holder: company ? 'company' : 'person' })
+    }
     if (spaceId === null) {
-      summary.unassigned.push({ item: index + 1, institution })
+      summary.unassigned.push({ item, institution, company })
       continue
     }
-    const readiness = itemReadiness(item)
     if (!readiness.ready) {
-      summary.skipped.push({ item: index + 1, institution, status: readiness.reason })
+      summary.skipped.push({ item, institution, status: readiness.reason })
       continue
     }
     synced.add(spaceId)
-    for (const account of await pluggy.listAccounts(itemId)) {
-      const feed = toFeedAccount(account, institution)
-      const rows = (await pluggy.listTransactions(account.id)).map(toFeedTransaction)
-      const dates = rows.map((r) => r.date).sort()
-      const counts = await syncFeedAccount(
-        sql,
-        { userId, spaceId },
-        {
-          source: PLUGGY_SOURCE,
-          account: feed,
-          transactions: rows,
-          coveredFrom: from,
-        },
-      )
-      summary.accounts.push({
-        item: index + 1,
-        institution,
-        type: feed.type,
-        subtype: feed.subtype,
-        transactions: rows.length,
-        pending: rows.filter((r) => r.status === 'PENDING').length,
-        removed: counts.removed,
-        from: dates[0] ?? null,
-        to: dates.at(-1) ?? null,
-      })
-    }
+    summary.accounts.push(...(await syncItemAccounts(run, { ...resolved, spaceId }, item)))
   }
   for (const spaceId of synced) {
     const done = await materializeSpace(sql, { userId, spaceId }, today)
@@ -299,6 +422,29 @@ const json = (status: number, body: unknown) =>
     headers: { 'Content-Type': 'application/json' },
   })
 
+/** Aggregate-only lines of a sync run. */
+function logSummary(summary: SyncSummary, log: (line: string) => void): void {
+  for (const a of summary.accounts) {
+    log(
+      `item #${a.item} (${a.institution}) ${a.type}/${a.subtype}: ${a.transactions} transactions (${a.pending} pending), ${a.from ?? '-'} → ${a.to ?? '-'}, removed ${a.removed}`,
+    )
+  }
+  for (const s of summary.skipped) {
+    log(`item #${s.item} (${s.institution}): skipped, status ${s.status}`)
+  }
+  const l = summary.ledger
+  log(
+    `ledger: ${l.created} created, ${l.transfers} transfers, ${l.updated} updated, ${l.removed} removed, ${l.split} transfers split, ${l.categorized} categorized by rules, ${l.named} named after the merchant, ${l.anchored} balances anchored`,
+  )
+  for (const r of summary.routed) {
+    log(`item #${r.item} (${r.institution}): routed automatically (${r.holder} holder)`)
+  }
+  for (const u of summary.unassigned) {
+    const hint = u.company ? ' (company, space suggested)' : ''
+    log(`item #${u.item} (${u.institution}): unassigned${hint}, choose its space in the app`)
+  }
+}
+
 export async function handleSyncRequest(
   request: Request,
   rawEnv: Readonly<Record<string, string | undefined>>,
@@ -335,22 +481,12 @@ export async function handleSyncRequest(
       userId: env.userId,
       itemIds: env.itemIds,
       today: saoPauloDay(now()),
+      holderKeySecret: env.holderKeySecret,
     })
-    for (const a of summary.accounts) {
-      log(
-        `item #${a.item} (${a.institution}) ${a.type}/${a.subtype}: ${a.transactions} transactions (${a.pending} pending), ${a.from ?? '-'} → ${a.to ?? '-'}, removed ${a.removed}`,
-      )
+    if (env.holderKeySecret === null) {
+      log(`pluggy-sync: ${ENV_KEYS.holderKeySecret} missing, company connections get no holder key`)
     }
-    for (const s of summary.skipped) {
-      log(`item #${s.item} (${s.institution}): skipped, status ${s.status}`)
-    }
-    const l = summary.ledger
-    log(
-      `ledger: ${l.created} created, ${l.transfers} transfers, ${l.updated} updated, ${l.removed} removed, ${l.split} transfers split, ${l.categorized} categorized by rules, ${l.named} named after the merchant, ${l.anchored} balances anchored`,
-    )
-    for (const u of summary.unassigned) {
-      log(`item #${u.item} (${u.institution}): unassigned, choose its space in the app`)
-    }
+    logSummary(summary, log)
     return json(200, { ok: true, ...summary })
   } catch (error) {
     log(`pluggy-sync failed: ${error instanceof Error ? error.message : 'unknown error'}`)

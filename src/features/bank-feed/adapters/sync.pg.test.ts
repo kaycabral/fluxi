@@ -1,6 +1,8 @@
 import { fluxiDb, personalScope, seedUser, truncateFluxiTables } from '@/db'
+import { spaces } from '@/db/schema'
 import { bankFeedAccounts, bankFeedItems, bankTransactions } from '@/db/schema-bank-feed'
 import { requireEnv } from '@cbrl/env'
+import { sql } from 'drizzle-orm'
 import postgres from 'postgres'
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PluggyClient } from './pluggy.client'
@@ -15,31 +17,48 @@ const env = {
   FLUXI_SYNC_USER_ID: ANA,
   FLUXI_SYNC_DB_URL: requireEnv('POSTGRES_URL'),
   FLUXI_SYNC_TOKEN: TOKEN,
+  FLUXI_HOLDER_KEY_SECRET: 'k'.repeat(64),
 }
+
+type FakeAccount = { id: string; name: string; taxNumber?: string; owner?: string }
+type FakeItem = {
+  status?: string
+  accounts?: FakeAccount[]
+  identity?: { companyName?: string | null; documentType?: string | null } | null
+}
+
+const PF = '123.456.789-09'
+const PJ = '12.345.678/0001-90'
+
+/** Per-item Pluggy fixtures; items not listed are one plain account of unknown holder. */
+let fixtures: Record<string, FakeItem> = {}
 
 const pluggy: PluggyClient = {
   getItem: (id) =>
     Promise.resolve({
       id,
-      status: id === 'item-ok' ? 'UPDATED' : 'UPDATING',
-      connector: { name: 'Banco X' },
+      status: fixtures[id]?.status ?? (id === 'item-busy' ? 'UPDATING' : 'UPDATED'),
+      connector: { name: 'MeuPluggy' },
     }),
   listAccounts: (itemId) =>
-    Promise.resolve([
-      {
-        id: 'acc-1',
+    Promise.resolve(
+      (fixtures[itemId]?.accounts ?? [{ id: 'acc-1', name: 'Inter Conta' }]).map((a) => ({
+        id: `${itemId}-${a.id}`,
         itemId,
-        type: 'BANK',
+        type: 'BANK' as const,
         subtype: 'CHECKING_ACCOUNT',
-        name: 'Conta',
+        name: a.name,
         balance: 10,
         currencyCode: 'BRL',
-      },
-    ]),
+        taxNumber: a.taxNumber ?? null,
+        owner: a.owner ?? null,
+      })),
+    ),
+  getIdentity: (itemId) => Promise.resolve(fixtures[itemId]?.identity ?? null),
   listTransactions: (accountId) =>
     Promise.resolve([
       {
-        id: 't1',
+        id: `${accountId}-t1`,
         accountId,
         description: 'Café',
         amount: 5,
@@ -47,7 +66,14 @@ const pluggy: PluggyClient = {
         type: 'DEBIT',
         status: 'PENDING',
       },
-      { id: 't2', accountId, description: 'Pix', amount: 50, date: '2026-11-03', type: 'CREDIT' },
+      {
+        id: `${accountId}-t2`,
+        accountId,
+        description: 'Pix',
+        amount: 50,
+        date: '2026-11-03',
+        type: 'CREDIT',
+      },
     ]),
 }
 
@@ -78,6 +104,7 @@ describe('pluggy-sync handler (Postgres)', () => {
   beforeEach(async () => {
     await truncateFluxiTables(db())
     await seedUser(db(), { id: ANA, email: 'ana@example.test' })
+    fixtures = {}
   })
   afterAll(async () => {
     await truncateFluxiTables(db())
@@ -114,9 +141,10 @@ describe('pluggy-sync handler (Postgres)', () => {
       accounts: [],
       skipped: [],
       unassigned: [
-        { item: 1, institution: 'Banco X' },
-        { item: 2, institution: 'Banco X' },
+        { item: 1, institution: 'Inter', company: false },
+        { item: 2, institution: 'Inter', company: false },
       ],
+      routed: [],
       ledger: {
         removed: 0,
         transfers: 0,
@@ -130,8 +158,8 @@ describe('pluggy-sync handler (Postgres)', () => {
     })
     const items = await db().select().from(bankFeedItems)
     expect(items.map((i) => [i.itemId, i.spaceId, i.label]).sort()).toEqual([
-      ['item-busy', null, 'Banco X'],
-      ['item-ok', null, 'Banco X'],
+      ['item-busy', null, 'Inter'],
+      ['item-ok', null, 'Inter'],
     ])
     expect(await db().select().from(bankFeedAccounts)).toHaveLength(0)
     expect(await db().select().from(bankTransactions)).toHaveLength(0)
@@ -142,8 +170,8 @@ describe('pluggy-sync handler (Postgres)', () => {
     await db()
       .insert(bankFeedItems)
       .values([
-        { userId: ANA, itemId: 'item-ok', spaceId },
-        { userId: ANA, itemId: 'item-busy', spaceId },
+        { userId: ANA, itemId: 'item-ok', spaceId, spaceSource: 'manual' },
+        { userId: ANA, itemId: 'item-busy', spaceId, spaceSource: 'manual' },
       ])
     const { response, log } = call(authed)
     const res = await response
@@ -153,7 +181,7 @@ describe('pluggy-sync handler (Postgres)', () => {
       accounts: [
         {
           item: 1,
-          institution: 'Banco X',
+          institution: 'Inter',
           type: 'BANK',
           subtype: 'CHECKING_ACCOUNT',
           transactions: 2,
@@ -163,9 +191,10 @@ describe('pluggy-sync handler (Postgres)', () => {
           to: '2026-11-03',
         },
       ],
-      skipped: [{ item: 2, institution: 'Banco X', status: 'UPDATING' }],
+      skipped: [{ item: 2, institution: 'Inter', status: 'UPDATING' }],
       unassigned: [],
-      // The feed account with movement is auto-linked (a new "Banco X" account)
+      routed: [],
+      // The feed account with movement is auto-linked (a new "Inter" account)
       // and its transactions materialized, all as fluxi_sync.
       ledger: {
         removed: 0,
@@ -181,11 +210,132 @@ describe('pluggy-sync handler (Postgres)', () => {
     const rows = await db().select().from(bankTransactions)
     expect(rows.every((r) => r.spaceId === spaceId)).toBe(true)
     expect(rows.map((r) => [r.externalId, r.amountCents]).sort()).toEqual([
-      ['t1', -500],
-      ['t2', 5000],
+      ['item-ok-acc-1-t1', -500],
+      ['item-ok-acc-1-t2', 5000],
     ])
     const logged = log.mock.calls.map(([line]) => line).join('\n')
     expect(logged).not.toMatch(/Café|Pix|secret|a{64}/)
+  })
+
+  it('routes a connection held only by persons to the personal space (auto)', async () => {
+    fixtures = { 'item-ok': { accounts: [{ id: 'a', name: 'Nubank', taxNumber: PF }] } }
+    const { spaceId } = await personalScope(db(), ANA)
+    const res = await call(authed, { ...env, PLUGGY_ITEM_IDS: 'item-ok' }).response
+    expect(await res.json()).toMatchObject({
+      routed: [{ item: 1, institution: 'Nubank', holder: 'person' }],
+      unassigned: [],
+    })
+    const [item] = await db().select().from(bankFeedItems)
+    expect(item).toMatchObject({ spaceId, spaceSource: 'auto', suggestedSpaceName: null })
+    const [feed] = await db().select().from(bankFeedAccounts)
+    expect(feed).toMatchObject({ spaceId, holderType: 'person', holderKey: null })
+  })
+
+  it('leaves an unknown company unassigned with a suggested space name', async () => {
+    fixtures = {
+      'item-a': {
+        accounts: [{ id: 'a', name: 'Nubank', taxNumber: PJ, owner: 'Dona Ltda' }],
+        identity: { companyName: '  ACME Comércio Ltda ', documentType: 'CNPJ' },
+      },
+      'item-b': { accounts: [{ id: 'a', name: 'Nubank', taxNumber: PJ, owner: 'Dona Ltda' }] },
+      'item-c': { accounts: [{ id: 'a', name: 'Inter Conta', taxNumber: '12345678000190' }] },
+    }
+    const { response, log } = call(authed, { ...env, PLUGGY_ITEM_IDS: 'item-a,item-b,item-c' })
+    expect(await (await response).json()).toMatchObject({
+      routed: [],
+      unassigned: [
+        { item: 1, institution: 'Nubank Empresas', company: true },
+        { item: 2, institution: 'Nubank Empresas', company: true },
+        { item: 3, institution: 'Inter Empresas', company: true },
+      ],
+    })
+    const items = await db().select().from(bankFeedItems)
+    expect(
+      items.map((i) => [i.itemId, i.spaceId, i.spaceSource, i.suggestedSpaceName]).sort(),
+    ).toEqual([
+      ['item-a', null, null, 'ACME Comércio Ltda'],
+      ['item-b', null, null, 'Dona Ltda'],
+      ['item-c', null, null, 'Inter Empresas'],
+    ])
+    expect(await db().select().from(bankFeedAccounts)).toHaveLength(0)
+    expect(log.mock.calls.join('\n')).not.toMatch(/12\.?345|ACME|Dona/)
+  })
+
+  it('routes a company to the space already holding the same company (auto)', async () => {
+    const [work] = await db()
+      .insert(spaces)
+      .values({ userId: ANA, name: 'Loja', kind: 'business' })
+      .returning()
+    fixtures = {
+      'item-1': { accounts: [{ id: 'a', name: 'Nubank', taxNumber: PJ }] },
+      'item-2': { accounts: [{ id: 'a', name: 'Inter Conta', taxNumber: '12345678000190' }] },
+      'item-3': { accounts: [{ id: 'a', name: 'Itaú', taxNumber: '98.765.432/0001-10' }] },
+    }
+    await db()
+      .insert(bankFeedItems)
+      .values({ userId: ANA, itemId: 'item-1', spaceId: work!.id, spaceSource: 'manual' })
+    await (await call(authed, { ...env, PLUGGY_ITEM_IDS: 'item-1' }).response).json()
+    const [stored] = await db().select().from(bankFeedAccounts)
+    expect(stored?.holderType).toBe('company')
+    expect(stored?.holderKey).toMatch(/^[0-9a-f]{64}$/)
+    // The document itself is nowhere in the row.
+    expect(JSON.stringify(stored)).not.toMatch(/12345678|0001/)
+
+    const res = await call(authed, { ...env, PLUGGY_ITEM_IDS: 'item-2,item-3' }).response
+    expect(await res.json()).toMatchObject({
+      routed: [{ item: 1, institution: 'Inter Empresas', holder: 'company' }],
+      unassigned: [{ item: 2, institution: 'Itaú Empresas', company: true }],
+    })
+    const items = await db().select().from(bankFeedItems)
+    expect(items.find((i) => i.itemId === 'item-2')).toMatchObject({
+      spaceId: work!.id,
+      spaceSource: 'auto',
+    })
+  })
+
+  it('never overrides a manual choice, pausing included', async () => {
+    fixtures = {
+      'item-1': { accounts: [{ id: 'a', name: 'Nubank', taxNumber: PF }] },
+      'item-2': { accounts: [{ id: 'a', name: 'Nubank', taxNumber: PJ }] },
+    }
+    await db()
+      .insert(bankFeedItems)
+      .values([
+        { userId: ANA, itemId: 'item-1', spaceSource: 'manual' },
+        { userId: ANA, itemId: 'item-2', spaceSource: 'manual' },
+      ])
+    const res = await call(authed, { ...env, PLUGGY_ITEM_IDS: 'item-1,item-2' }).response
+    expect(await res.json()).toMatchObject({ routed: [], accounts: [] })
+    const items = await db().select().from(bankFeedItems)
+    expect(items.every((i) => i.spaceId === null && i.suggestedSpaceName === null)).toBe(true)
+  })
+
+  it('stores no holder key (and warns) without the secret', async () => {
+    fixtures = { 'item-1': { accounts: [{ id: 'a', name: 'Nubank', taxNumber: PJ }] } }
+    const personal = await personalScope(db(), ANA)
+    await db()
+      .insert(bankFeedItems)
+      .values({ userId: ANA, itemId: 'item-1', spaceId: personal.spaceId, spaceSource: 'manual' })
+    const { FLUXI_HOLDER_KEY_SECRET: _secret, ...rest } = env
+    const { response, log } = call(authed, { ...rest, PLUGGY_ITEM_IDS: 'item-1' })
+    expect((await response).status).toBe(200)
+    const [stored] = await db().select().from(bankFeedAccounts)
+    expect(stored).toMatchObject({ holderType: 'company', holderKey: null })
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('FLUXI_HOLDER_KEY_SECRET missing'))
+  })
+
+  it('gives fluxi_sync the routing function and still no access to spaces', async () => {
+    const { rows } = await db().execute<{ route: boolean; spaces: boolean; banks: boolean }>(sql`
+      select
+        has_function_privilege('fluxi_sync',
+          'private.route_bank_feed_item(uuid, text, text[], text[], text)', 'EXECUTE') as route,
+        has_table_privilege('fluxi_sync', 'public.spaces', 'SELECT') as spaces,
+        has_table_privilege('fluxi_sync', 'public.banks', 'SELECT') as banks`)
+    expect(rows[0]).toEqual({ route: true, spaces: false, banks: false })
+    const { rows: anon } = await db().execute<{ ok: boolean }>(sql`
+      select has_function_privilege('authenticated',
+        'private.route_bank_feed_item(uuid, text, text[], text[], text)', 'EXECUTE') as ok`)
+    expect(anon[0]?.ok).toBe(false)
   })
 
   it('answers 500 without details when the sync fails', async () => {

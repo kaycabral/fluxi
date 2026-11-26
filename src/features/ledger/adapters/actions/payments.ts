@@ -8,6 +8,7 @@ import {
   type ActionResult,
 } from '@/features/ledger/core/action-result'
 import { isoDayOf } from '@/features/ledger/core/format'
+import { FUTURE_PAID_DATE, isPayableDate } from '@/features/ledger/core/pay-dates'
 import { firstIssue, markPaidSchema, paymentKeySchema } from '@/features/ledger/core/schemas'
 import { getServerScope } from '@/features/spaces/adapters/scope'
 import { revalidatePath } from 'next/cache'
@@ -30,7 +31,12 @@ export async function markPaidAction(input: unknown): Promise<ActionResult> {
   const parsed = markPaidSchema.safeParse(input)
   if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) }
   const { paidOn, ...key } = parsed.data
-  return done(await markOccurrencePaid(scope, { ...key, paidOn: paidOn ?? isoDayOf(new Date()) }))
+  const today = isoDayOf(new Date())
+  // Paying records a fact: a date after today is refused, whatever the client sent.
+  if (paidOn !== undefined && !isPayableDate(paidOn, today)) {
+    return { ok: false, error: FUTURE_PAID_DATE }
+  }
+  return done(await markOccurrencePaid(scope, { ...key, paidOn: paidOn ?? today }))
 }
 
 export async function unmarkPaidAction(input: unknown): Promise<ActionResult> {

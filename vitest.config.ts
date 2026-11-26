@@ -19,6 +19,9 @@ export default defineConfig({
     setupFiles: ['./vitest.setup.ts'],
     // The ledger UI tests drive whole Radix flows (sheet → select → dialog).
     testTimeout: 15_000,
+    // `readBackend` (`@cbrl/next/server`) logs through `@cbrl/log`: inlining the
+    // package lets `vi.mock('@cbrl/log')` reach its import.
+    server: { deps: { inline: ['@cbrl/next'] } },
     include: ['src/**/*.test.{ts,tsx}'],
     // The Postgres suite needs the local Supabase stack: `vitest.pg.config.ts`.
     exclude: [...configDefaults.exclude, 'src/**/*.pg.test.ts'],

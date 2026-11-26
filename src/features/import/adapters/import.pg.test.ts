@@ -1,8 +1,9 @@
-import { fluxiDb, seedUser, truncateFluxiTables } from '@/db'
+import { fluxiDb, personalScope, seedUser, truncateFluxiTables } from '@/db'
 import { accounts, entries, userSettings } from '@/db/schema'
 import { workspace } from '@/features/import/core/fixtures'
 import { buildImportPlan, expectedFlows } from '@/features/import/core/plan'
 import { verifyLedger } from '@/features/import/core/verify'
+import type { Scope } from '@/features/spaces/core/space'
 import { eq, sql } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
@@ -12,9 +13,12 @@ import { findUserIdByEmail, writeImport } from './import.write'
 const ANA = '11111111-1111-4111-8111-111111111111'
 const BIA = '22222222-2222-4222-8222-222222222222'
 
+let anaScope: Scope
+let biaScope: Scope
+
 const db = () => fluxiDb.db()
 const plan = buildImportPlan(workspace)
-const run = (userId: string) => writeImport(db(), userId, { plan, source: workspace })
+const run = (scope: Scope) => writeImport(db(), scope, { plan, source: workspace })
 
 const TABLES = [
   'banks',
@@ -27,11 +31,11 @@ const TABLES = [
   'import_raw',
 ] as const
 
-async function countsFor(userId: string): Promise<Record<string, number>> {
+async function countsFor(scope: Scope): Promise<Record<string, number>> {
   const out: Record<string, number> = {}
   for (const table of TABLES) {
     const result = await db().execute<{ n: number }>(
-      sql`select count(*)::int as n from ${sql.identifier(table)} where user_id = ${userId}`,
+      sql`select count(*)::int as n from ${sql.identifier(table)} where user_id = ${scope.userId} and space_id = ${scope.spaceId}`,
     )
     out[table] = result.rows[0]?.n ?? 0
   }
@@ -46,6 +50,8 @@ describe('Notion import (Postgres)', () => {
     await truncateFluxiTables(db())
     await seedUser(db(), { id: ANA, email: 'ana@example.test' })
     await seedUser(db(), { id: BIA, email: 'bia@example.test' })
+    anaScope = await personalScope(db(), ANA)
+    biaScope = await personalScope(db(), BIA)
   })
   afterAll(async () => {
     await fluxiDb.close()
@@ -57,8 +63,8 @@ describe('Notion import (Postgres)', () => {
   })
 
   it('writes the plan, archives every Notion row and verifies from the database', async () => {
-    const before = await countsFor(ANA)
-    const summary = await run(ANA)
+    const before = await countsFor(anaScope)
+    const summary = await run(anaScope)
     expect(summary).toMatchObject({
       removed: { entries: 0, categories: 0, accounts: 0, banks: 0 },
       banks: { created: 2, kept: 0 },
@@ -68,7 +74,7 @@ describe('Notion import (Postgres)', () => {
       links: 10,
       raw: 13 + 6 + 2 + 2,
     })
-    const after = await countsFor(ANA)
+    const after = await countsFor(anaScope)
     expect((after.categories ?? 0) - (before.categories ?? 0)).toBe(summary.categories.created)
     expect(after.import_raw).toBe(summary.raw + summary.categories.created)
 
@@ -80,7 +86,7 @@ describe('Notion import (Postgres)', () => {
       .where(eq(accounts.userId, ANA))
     expect(archived.filter((a) => a.archivedAt !== null)).toHaveLength(1)
 
-    const written = await readImportedLedger(db(), ANA)
+    const written = await readImportedLedger(db(), anaScope)
     const originals = expectedFlows(plan).map((f) => ({
       ...f,
       accountId: written.accountIds.get(f.accountId) ?? '',
@@ -89,29 +95,31 @@ describe('Notion import (Postgres)', () => {
   })
 
   it('re-runs idempotently: same counts, no duplicates', async () => {
-    await run(ANA)
-    const first = await countsFor(ANA)
-    const summary = await run(ANA)
+    await run(anaScope)
+    const first = await countsFor(anaScope)
+    const summary = await run(anaScope)
     expect(summary.removed.entries).toBe(plan.entries.length)
-    expect(await countsFor(ANA)).toEqual(first)
+    expect(await countsFor(anaScope)).toEqual(first)
   })
 
   it('keeps an imported account the user used elsewhere, reusing it on re-run', async () => {
-    await run(ANA)
+    await run(anaScope)
     const [account] = await db().select().from(accounts).where(eq(accounts.userId, ANA)).limit(1)
     if (account === undefined) throw new Error('no account imported')
-    await db().insert(entries).values({
-      id: randomUUID(),
-      userId: ANA,
-      kind: 'expense',
-      description: 'Manual',
-      amountCents: -100,
-      accountId: account.id,
-      startMonth: '2026-12-01',
-      day: 1,
-      recurrence: 'none',
-    })
-    const summary = await run(ANA)
+    await db()
+      .insert(entries)
+      .values({
+        id: randomUUID(),
+        ...anaScope,
+        kind: 'expense',
+        description: 'Manual',
+        amountCents: -100,
+        accountId: account.id,
+        startMonth: '2026-12-01',
+        day: 1,
+        recurrence: 'none',
+      })
+    const summary = await run(anaScope)
     expect(summary.removed.accounts).toBe(1)
     expect(summary.accounts).toEqual({ created: 1, kept: 1 })
     const ids = (
@@ -119,15 +127,15 @@ describe('Notion import (Postgres)', () => {
     ).map((a) => a.id)
     expect(ids).toHaveLength(2)
     expect(ids).toContain(account.id)
-    expect((await countsFor(ANA)).entries).toBe(plan.entries.length + 1)
+    expect((await countsFor(anaScope)).entries).toBe(plan.entries.length + 1)
   })
 
   it('never touches another user', async () => {
-    await run(BIA)
-    const bia = await countsFor(BIA)
-    await run(ANA)
-    await run(ANA)
-    expect(await countsFor(BIA)).toEqual(bia)
+    await run(biaScope)
+    const bia = await countsFor(biaScope)
+    await run(anaScope)
+    await run(anaScope)
+    expect(await countsFor(biaScope)).toEqual(bia)
     const anaEntries = await db()
       .select({ id: entries.id })
       .from(entries)

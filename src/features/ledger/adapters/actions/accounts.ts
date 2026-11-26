@@ -21,7 +21,7 @@ import {
   updateAccountSchema,
   updateBankSchema,
 } from '@/features/ledger/core/schemas'
-import { getServerUser } from '@/lib/auth/server'
+import { getServerScope } from '@/features/spaces/adapters/scope'
 import { revalidatePath } from 'next/cache'
 import type { z } from 'zod'
 
@@ -51,20 +51,20 @@ function parse<T extends z.ZodType>(
 }
 
 export async function saveBankAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const user = await getServerUser()
-  if (!user) return failed(SESSION_EXPIRED)
+  const scope = await getServerScope()
+  if (!scope) return failed(SESSION_EXPIRED)
   const input = { id: formText(formData, 'id'), name: formText(formData, 'name') }
   const isCreate = formText(formData, 'intent') === 'create'
   const parsed = parse(isCreate ? createBankSchema : updateBankSchema, input)
   if ('error' in parsed) return failed(parsed.error)
   return finish(
-    isCreate ? await createBank(user.id, parsed.data) : await updateBank(user.id, parsed.data),
+    isCreate ? await createBank(scope, parsed.data) : await updateBank(scope, parsed.data),
   )
 }
 
 export async function saveAccountAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const user = await getServerUser()
-  if (!user) return failed(SESSION_EXPIRED)
+  const scope = await getServerScope()
+  if (!scope) return failed(SESSION_EXPIRED)
   const opening = parseSignedMoneyInput(formText(formData, 'openingBalance') || '0')
   if (opening === null) return failed('Saldo inicial inválido.')
   const common = {
@@ -76,12 +76,12 @@ export async function saveAccountAction(_prev: FormState, formData: FormData): P
   if (formText(formData, 'intent') === 'create') {
     const parsed = parse(createAccountSchema, { ...common, bankId: formText(formData, 'bankId') })
     if ('error' in parsed) return failed(parsed.error)
-    return finish(await createAccount(user.id, parsed.data))
+    return finish(await createAccount(scope, parsed.data))
   }
   const parsed = parse(updateAccountSchema, {
     ...common,
     archived: formText(formData, 'active') !== 'on',
   })
   if ('error' in parsed) return failed(parsed.error)
-  return finish(await updateAccount(user.id, parsed.data))
+  return finish(await updateAccount(scope, parsed.data))
 }

@@ -9,7 +9,7 @@
 // only: never descriptions, single amounts or the token. Exits non-zero when
 // the re-expanded ledger diverges from Notion.
 
-import { fluxiDb } from '@/db'
+import { fluxiDb, personalScope } from '@/db'
 import { readImportedLedger } from '@/features/import/adapters/import.read'
 import {
   categoryIdsByKey,
@@ -81,6 +81,8 @@ async function main(): Promise<number> {
   console.log(`alvo: ${describeTarget(targetUrl)}${values['dry-run'] ? ' (dry-run)' : ''}`)
   const userId = await findUserIdByEmail(db, email)
   if (userId === null) throw new Error('no user with that email in the target database')
+  // The import always goes into the user's personal space.
+  const scope = await personalScope(db, userId)
 
   const dump = values['from-dump']
   const source = dump
@@ -88,7 +90,7 @@ async function main(): Promise<number> {
     : await fetchNotionSource(await readNotionToken())
   const plan = buildImportPlan(source)
   const planCheck = verifyPlan(plan)
-  const existing = await categoryIdsByKey(db, userId)
+  const existing = await categoryIdsByKey(db, scope)
   const toCreate = plan.categories.filter((c) => !existing.has(c.key)).length
 
   if (values['dry-run'] || planCheck.divergences > 0) {
@@ -97,8 +99,8 @@ async function main(): Promise<number> {
     return planCheck.divergences > 0 ? 1 : 0
   }
 
-  const summary = await writeImport(db, userId, { plan, source })
-  const written = await readImportedLedger(db, userId)
+  const summary = await writeImport(db, scope, { plan, source })
+  const written = await readImportedLedger(db, scope)
   const originals = expectedFlows(plan).map((f) => ({
     ...f,
     accountId: written.accountIds.get(f.accountId) ?? f.accountId,

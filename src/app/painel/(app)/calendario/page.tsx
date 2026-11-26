@@ -1,5 +1,5 @@
 import { Unavailable } from '@/app/painel/_components/unavailable'
-import { requirePainelUser, todayIso } from '@/app/painel/_lib/session'
+import { requirePainelScope, todayIso } from '@/app/painel/_lib/session'
 import { loadCountFrom, loadLedgerData } from '@/features/ledger/adapters/views'
 import { CALENDAR_PREFS_COOKIE, parseCalendarPrefs } from '@/features/ledger/core/calendar-prefs'
 import { viewFromSlug, viewMonths } from '@/features/ledger/core/calendar-views'
@@ -32,16 +32,16 @@ export default async function CalendarPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
-  const user = await requirePainelUser()
+  const scope = await requirePainelScope()
   const params = await searchParams
   const today = todayIso()
   const prefs = parseCalendarPrefs((await cookies()).get(CALENDAR_PREFS_COOKIE)?.value)
   const view = viewFromSlug(first(params.modo)) ?? prefs.view
   const date = dateOf(params, today)
   const account = first(params.conta).slice(0, 80)
-  const countFrom = await loadCountFrom(user.id)
+  const countFrom = await loadCountFrom(scope)
   const data = countFrom.ok
-    ? await loadLedgerData(user.id, viewMonths(view, date), countFrom.data)
+    ? await loadLedgerData(scope, viewMonths(view, date), countFrom.data)
     : null
 
   return data?.ok === true ? (

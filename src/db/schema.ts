@@ -15,6 +15,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
   type AnyPgColumn,
 } from 'drizzle-orm/pg-core'
@@ -31,22 +32,29 @@ import { authUsers } from 'drizzle-orm/supabase'
  *
  * Ledger conventions: money is integer cents (`bigint`, mode number), shares
  * are basis points (10000 = 100%), months are a `date` pinned to the 1st.
- * Every ledger row carries `user_id` (cascade from `profiles`), and rows that
- * point at another ledger row do it through a composite `(id, user_id)` foreign
- * key, so the database itself refuses a reference across users.
+ * Every ledger row carries `user_id` (cascade from `profiles`) and `space_id`
+ * (one of the user's `spaces`: "Pessoal", "Empresa"…, through the composite
+ * `(space_id, user_id)` foreign key, so a row's space always belongs to its
+ * user). Rows that point at another ledger row do it through a composite
+ * `(id, space_id)` foreign key, so the database itself refuses a reference
+ * across spaces — and therefore across users.
  */
 
-const createdAt = () => timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
-const updatedAt = () => timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
+export const createdAt = () =>
+  timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
+export const updatedAt = () =>
+  timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
 const archivedAt = () => timestamp('archived_at', { withTimezone: true })
-const cents = (name: string) => bigint(name, { mode: 'number' })
-const month = (name: string) => date(name, { mode: 'string' })
-const ownerId = () =>
+export const cents = (name: string) => bigint(name, { mode: 'number' })
+export const month = (name: string) => date(name, { mode: 'string' })
+export const ownerId = () =>
   uuid('user_id')
     .notNull()
     .references(() => profiles.id, { onDelete: 'cascade' })
 
-const isFirstOfMonth = (column: AnyPgColumn): SQL => sql`extract(day from ${column}) = 1`
+export const spaceIdColumn = () => uuid('space_id').notNull()
+
+export const isFirstOfMonth = (column: AnyPgColumn): SQL => sql`extract(day from ${column}) = 1`
 const isDayOfMonth = (column: AnyPgColumn): SQL => sql`${column} between 1 and 31`
 
 /**
@@ -62,6 +70,44 @@ export const profiles = pgTable('profiles', {
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 }).enableRLS()
+
+export const spaceKind = pgEnum('space_kind', ['personal', 'business'])
+
+/**
+ * A fully separated ledger of one user ("Pessoal", "Empresa"): every financial
+ * row belongs to exactly one space and nothing is summed across spaces. Every
+ * user has exactly one `personal` space (created by the auth trigger, never
+ * archived); other spaces can be archived (hidden, data kept), never deleted.
+ */
+export const spaces = pgTable(
+  'spaces',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: ownerId(),
+    name: text('name').notNull(),
+    kind: spaceKind('kind').notNull(),
+    sort: integer('sort').notNull().default(0),
+    archivedAt: archivedAt(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    unique('spaces_id_user_id_unique').on(t.id, t.userId),
+    uniqueIndex('spaces_one_personal_idx')
+      .on(t.userId)
+      .where(sql`${t.kind} = 'personal'`),
+    check('spaces_name_length', sql`char_length(${t.name}) between 1 and 40`),
+    check('spaces_personal_active', sql`${t.kind} <> 'personal' or ${t.archivedAt} is null`),
+  ],
+).enableRLS()
+
+/** `(space_id, user_id)` → `spaces`: a row's space always belongs to the row's user. */
+export const inSpace = (table: string, t: { spaceId: AnyPgColumn; userId: AnyPgColumn }) =>
+  foreignKey({
+    name: `${table}_space_fk`,
+    columns: [t.spaceId, t.userId],
+    foreignColumns: [spaces.id, spaces.userId],
+  }).onDelete('cascade')
 
 export const accountType = pgEnum('account_type', [
   'checking',
@@ -84,6 +130,7 @@ export const banks = pgTable(
   {
     id: uuid('id').primaryKey().defaultRandom(),
     userId: ownerId(),
+    spaceId: spaceIdColumn(),
     name: text('name').notNull(),
     sort: integer('sort').notNull().default(0),
     archivedAt: archivedAt(),
@@ -91,8 +138,9 @@ export const banks = pgTable(
     updatedAt: updatedAt(),
   },
   (t) => [
-    unique('banks_id_user_id_unique').on(t.id, t.userId),
-    index('banks_user_id_sort_idx').on(t.userId, t.sort),
+    inSpace('banks', t),
+    unique('banks_id_space_id_unique').on(t.id, t.spaceId),
+    index('banks_space_id_sort_idx').on(t.spaceId, t.sort),
   ],
 ).enableRLS()
 
@@ -102,6 +150,7 @@ export const accounts = pgTable(
   {
     id: uuid('id').primaryKey().defaultRandom(),
     userId: ownerId(),
+    spaceId: spaceIdColumn(),
     bankId: uuid('bank_id').notNull(),
     name: text('name').notNull(),
     type: accountType('type').notNull(),
@@ -111,13 +160,14 @@ export const accounts = pgTable(
     updatedAt: updatedAt(),
   },
   (t) => [
-    unique('accounts_id_user_id_unique').on(t.id, t.userId),
+    inSpace('accounts', t),
+    unique('accounts_id_space_id_unique').on(t.id, t.spaceId),
     foreignKey({
       name: 'accounts_bank_fk',
-      columns: [t.bankId, t.userId],
-      foreignColumns: [banks.id, banks.userId],
+      columns: [t.bankId, t.spaceId],
+      foreignColumns: [banks.id, banks.spaceId],
     }),
-    index('accounts_user_id_idx').on(t.userId),
+    index('accounts_space_id_idx').on(t.spaceId),
     index('accounts_bank_id_idx').on(t.bankId),
   ],
 ).enableRLS()
@@ -133,6 +183,7 @@ export const pots = pgTable(
   'pots',
   {
     userId: ownerId(),
+    spaceId: spaceIdColumn(),
     key: text('key').notNull(),
     name: text('name').notNull(),
     color: text('color').notNull(),
@@ -143,7 +194,8 @@ export const pots = pgTable(
     updatedAt: updatedAt(),
   },
   (t) => [
-    primaryKey({ name: 'pots_pk', columns: [t.userId, t.key] }),
+    primaryKey({ name: 'pots_pk', columns: [t.spaceId, t.key] }),
+    inSpace('pots', t),
     check('pots_key_format', sql`${t.key} ~ '^[a-z0-9_]{1,40}$'`),
     check('pots_name_length', sql`char_length(${t.name}) between 1 and 40`),
     check('pots_goal_valid', sql`${t.goal} in ('limit', 'minimum')`),
@@ -159,13 +211,15 @@ export const budgetPlans = pgTable(
   {
     id: uuid('id').primaryKey().defaultRandom(),
     userId: ownerId(),
+    spaceId: spaceIdColumn(),
     startsMonth: month('starts_month').notNull(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
   (t) => [
-    unique('budget_plans_id_user_id_unique').on(t.id, t.userId),
-    unique('budget_plans_user_starts_unique').on(t.userId, t.startsMonth),
+    inSpace('budget_plans', t),
+    unique('budget_plans_id_space_id_unique').on(t.id, t.spaceId),
+    unique('budget_plans_space_starts_unique').on(t.spaceId, t.startsMonth),
     check('budget_plans_starts_first_day', isFirstOfMonth(t.startsMonth)),
   ],
 ).enableRLS()
@@ -176,6 +230,7 @@ export const budgetPlanTargets = pgTable(
   {
     planId: uuid('plan_id').notNull(),
     userId: ownerId(),
+    spaceId: spaceIdColumn(),
     potKey: text('pot_key').notNull(),
     targetBps: integer('target_bps').notNull(),
   },
@@ -183,14 +238,15 @@ export const budgetPlanTargets = pgTable(
     primaryKey({ name: 'budget_plan_targets_pk', columns: [t.planId, t.potKey] }),
     foreignKey({
       name: 'budget_plan_targets_plan_fk',
-      columns: [t.planId, t.userId],
-      foreignColumns: [budgetPlans.id, budgetPlans.userId],
+      columns: [t.planId, t.spaceId],
+      foreignColumns: [budgetPlans.id, budgetPlans.spaceId],
     }).onDelete('cascade'),
     foreignKey({
       name: 'budget_plan_targets_pot_fk',
-      columns: [t.potKey, t.userId],
-      foreignColumns: [pots.key, pots.userId],
+      columns: [t.potKey, t.spaceId],
+      foreignColumns: [pots.key, pots.spaceId],
     }).onDelete('cascade'),
+    inSpace('budget_plan_targets', t),
     check('budget_plan_targets_bps_range', sql`${t.targetBps} between 0 and 10000`),
   ],
 ).enableRLS()
@@ -201,6 +257,7 @@ export const categories = pgTable(
   {
     id: uuid('id').primaryKey().defaultRandom(),
     userId: ownerId(),
+    spaceId: spaceIdColumn(),
     groupName: text('group_name').notNull(),
     name: text('name').notNull(),
     defaultPot: text('default_pot'),
@@ -210,12 +267,13 @@ export const categories = pgTable(
     updatedAt: updatedAt(),
   },
   (t) => [
-    unique('categories_id_user_id_unique').on(t.id, t.userId),
-    unique('categories_user_group_name_unique').on(t.userId, t.groupName, t.name),
+    inSpace('categories', t),
+    unique('categories_id_space_id_unique').on(t.id, t.spaceId),
+    unique('categories_space_group_name_unique').on(t.spaceId, t.groupName, t.name),
     foreignKey({
       name: 'categories_default_pot_fk',
-      columns: [t.defaultPot, t.userId],
-      foreignColumns: [pots.key, pots.userId],
+      columns: [t.defaultPot, t.spaceId],
+      foreignColumns: [pots.key, pots.spaceId],
     }),
   ],
 ).enableRLS()
@@ -233,6 +291,7 @@ export const entries = pgTable(
   {
     id: uuid('id').primaryKey().defaultRandom(),
     userId: ownerId(),
+    spaceId: spaceIdColumn(),
     kind: entryKind('kind').notNull(),
     description: text('description').notNull(),
     amountCents: cents('amount_cents').notNull(),
@@ -256,29 +315,30 @@ export const entries = pgTable(
     updatedAt: updatedAt(),
   },
   (t) => [
-    unique('entries_id_user_id_unique').on(t.id, t.userId),
+    inSpace('entries', t),
+    unique('entries_id_space_id_unique').on(t.id, t.spaceId),
     foreignKey({
       name: 'entries_account_fk',
-      columns: [t.accountId, t.userId],
-      foreignColumns: [accounts.id, accounts.userId],
+      columns: [t.accountId, t.spaceId],
+      foreignColumns: [accounts.id, accounts.spaceId],
     }),
     foreignKey({
       name: 'entries_to_account_fk',
-      columns: [t.toAccountId, t.userId],
-      foreignColumns: [accounts.id, accounts.userId],
+      columns: [t.toAccountId, t.spaceId],
+      foreignColumns: [accounts.id, accounts.spaceId],
     }),
     foreignKey({
       name: 'entries_category_fk',
-      columns: [t.categoryId, t.userId],
-      foreignColumns: [categories.id, categories.userId],
+      columns: [t.categoryId, t.spaceId],
+      foreignColumns: [categories.id, categories.spaceId],
     }),
     foreignKey({
       name: 'entries_pot_fk',
-      columns: [t.pot, t.userId],
-      foreignColumns: [pots.key, pots.userId],
+      columns: [t.pot, t.spaceId],
+      foreignColumns: [pots.key, pots.spaceId],
     }),
-    index('entries_pot_idx').on(t.userId, t.pot),
-    index('entries_user_id_start_month_idx').on(t.userId, t.startMonth),
+    index('entries_pot_idx').on(t.spaceId, t.pot),
+    index('entries_space_id_start_month_idx').on(t.spaceId, t.startMonth),
     index('entries_account_id_idx').on(t.accountId),
     index('entries_to_account_id_idx').on(t.toAccountId),
     index('entries_category_id_idx').on(t.categoryId),
@@ -323,6 +383,7 @@ export const entryParts = pgTable(
     id: uuid('id').primaryKey().defaultRandom(),
     entryId: uuid('entry_id').notNull(),
     userId: ownerId(),
+    spaceId: spaceIdColumn(),
     label: text('label').notNull(),
     bps: integer('bps').notNull(),
     day: smallint('day').notNull(),
@@ -334,13 +395,14 @@ export const entryParts = pgTable(
   (t) => [
     foreignKey({
       name: 'entry_parts_entry_fk',
-      columns: [t.entryId, t.userId],
-      foreignColumns: [entries.id, entries.userId],
+      columns: [t.entryId, t.spaceId],
+      foreignColumns: [entries.id, entries.spaceId],
     }).onDelete('cascade'),
+    inSpace('entry_parts', t),
     // Target of `occurrence_payments_part_fk`: a payment's part belongs to its entry.
     unique('entry_parts_id_entry_id_unique').on(t.id, t.entryId),
     index('entry_parts_entry_id_sort_idx').on(t.entryId, t.sort),
-    index('entry_parts_user_id_idx').on(t.userId),
+    index('entry_parts_space_id_idx').on(t.spaceId),
     check('entry_parts_bps_range', sql`${t.bps} between 1 and 10000`),
     check('entry_parts_day_range', isDayOfMonth(t.day)),
   ],
@@ -355,6 +417,7 @@ export const entryOverrides = pgTable(
   {
     entryId: uuid('entry_id').notNull(),
     userId: ownerId(),
+    spaceId: spaceIdColumn(),
     month: month('month').notNull(),
     amountCents: cents('amount_cents'),
     day: smallint('day'),
@@ -373,10 +436,11 @@ export const entryOverrides = pgTable(
     primaryKey({ name: 'entry_overrides_pk', columns: [t.entryId, t.month] }),
     foreignKey({
       name: 'entry_overrides_entry_fk',
-      columns: [t.entryId, t.userId],
-      foreignColumns: [entries.id, entries.userId],
+      columns: [t.entryId, t.spaceId],
+      foreignColumns: [entries.id, entries.spaceId],
     }).onDelete('cascade'),
-    index('entry_overrides_user_id_month_idx').on(t.userId, t.month),
+    inSpace('entry_overrides', t),
+    index('entry_overrides_space_id_month_idx').on(t.spaceId, t.month),
     check('entry_overrides_month_first_day', isFirstOfMonth(t.month)),
     check('entry_overrides_amount_nonzero', sql`${t.amountCents} is null or ${t.amountCents} <> 0`),
     check('entry_overrides_day_range', sql`${t.day} is null or ${isDayOfMonth(t.day)}`),
@@ -397,6 +461,7 @@ export const occurrencePayments = pgTable(
   {
     id: uuid('id').primaryKey().defaultRandom(),
     userId: ownerId(),
+    spaceId: spaceIdColumn(),
     entryId: uuid('entry_id').notNull(),
     month: month('month').notNull(),
     partId: uuid('part_id'),
@@ -406,9 +471,10 @@ export const occurrencePayments = pgTable(
   (t) => [
     foreignKey({
       name: 'occurrence_payments_entry_fk',
-      columns: [t.entryId, t.userId],
-      foreignColumns: [entries.id, entries.userId],
+      columns: [t.entryId, t.spaceId],
+      foreignColumns: [entries.id, entries.spaceId],
     }).onDelete('cascade'),
+    inSpace('occurrence_payments', t),
     foreignKey({
       name: 'occurrence_payments_part_fk',
       columns: [t.partId, t.entryId],
@@ -419,24 +485,27 @@ export const occurrencePayments = pgTable(
     unique('occurrence_payments_occurrence_unique')
       .on(t.entryId, t.month, t.partId)
       .nullsNotDistinct(),
-    index('occurrence_payments_user_id_month_idx').on(t.userId, t.month),
+    index('occurrence_payments_space_id_month_idx').on(t.spaceId, t.month),
     index('occurrence_payments_part_id_idx').on(t.partId),
     check('occurrence_payments_month_first_day', isFirstOfMonth(t.month)),
   ],
 ).enableRLS()
 
-/** Per-user preferences; `count_from_month` is where balances start accumulating. Seeded per user. */
+/**
+ * Per-space preferences (the table keeps its historic name); `count_from_month`
+ * is where balances start accumulating. Seeded per space.
+ */
 export const userSettings = pgTable(
   'user_settings',
   {
-    userId: uuid('user_id')
-      .primaryKey()
-      .references(() => profiles.id, { onDelete: 'cascade' }),
+    spaceId: uuid('space_id').primaryKey(),
+    userId: ownerId(),
     countFromMonth: month('count_from_month'),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
   (t) => [
+    inSpace('user_settings', t),
     check(
       'user_settings_count_from_first_day',
       sql`${t.countFromMonth} is null or ${isFirstOfMonth(t.countFromMonth)}`,
@@ -445,27 +514,30 @@ export const userSettings = pgTable(
 ).enableRLS()
 
 /**
- * The last undoable ledger action of each user ("Desfazer", like Google
+ * The last undoable ledger action of each space ("Desfazer", like Google
  * Calendar): the rows of the entries it touched as they were before it, one
- * `to_jsonb` per row, restored as they were. One row per user, replaced by
+ * `to_jsonb` per row, restored as they were. One row per space, replaced by
  * each new action and honored for a few minutes only; expired rows are swept
  * on every new action and the client drops its own when the toast closes, so
  * a deleted entry does not live on here.
  */
-export const undoSnapshots = pgTable('undo_snapshots', {
-  userId: uuid('user_id')
-    .primaryKey()
-    .references(() => profiles.id, { onDelete: 'cascade' }),
-  /** Changes on every action: an undo only applies to the action it was offered for. */
-  token: uuid('token').notNull(),
-  /** Every entry the action touched, including the ones it created. */
-  entryIds: uuid('entry_ids').array().notNull(),
-  entries: jsonb('entries').notNull(),
-  entryParts: jsonb('entry_parts').notNull(),
-  entryOverrides: jsonb('entry_overrides').notNull(),
-  occurrencePayments: jsonb('occurrence_payments').notNull(),
-  createdAt: createdAt(),
-}).enableRLS()
+export const undoSnapshots = pgTable(
+  'undo_snapshots',
+  {
+    spaceId: uuid('space_id').primaryKey(),
+    userId: ownerId(),
+    /** Changes on every action: an undo only applies to the action it was offered for. */
+    token: uuid('token').notNull(),
+    /** Every entry the action touched, including the ones it created. */
+    entryIds: uuid('entry_ids').array().notNull(),
+    entries: jsonb('entries').notNull(),
+    entryParts: jsonb('entry_parts').notNull(),
+    entryOverrides: jsonb('entry_overrides').notNull(),
+    occurrencePayments: jsonb('occurrence_payments').notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [inSpace('undo_snapshots', t)],
+).enableRLS()
 
 /**
  * Internal: maps an external record (e.g. a Notion page) to the entry it
@@ -475,6 +547,7 @@ export const importLinks = pgTable(
   'import_links',
   {
     userId: ownerId(),
+    spaceId: spaceIdColumn(),
     source: text('source').notNull(),
     externalId: text('external_id').notNull(),
     entryId: uuid('entry_id').notNull(),
@@ -486,9 +559,10 @@ export const importLinks = pgTable(
     primaryKey({ name: 'import_links_pk', columns: [t.userId, t.source, t.externalId] }),
     foreignKey({
       name: 'import_links_entry_fk',
-      columns: [t.entryId, t.userId],
-      foreignColumns: [entries.id, entries.userId],
+      columns: [t.entryId, t.spaceId],
+      foreignColumns: [entries.id, entries.spaceId],
     }).onDelete('cascade'),
+    inSpace('import_links', t),
     index('import_links_entry_id_idx').on(t.entryId),
     check('import_links_month_first_day', sql`${t.month} is null or ${isFirstOfMonth(t.month)}`),
   ],
@@ -506,6 +580,7 @@ export const importRaw = pgTable(
   'import_raw',
   {
     userId: ownerId(),
+    spaceId: spaceIdColumn(),
     source: text('source').notNull(),
     kind: text('kind').notNull(),
     externalId: text('external_id').notNull(),
@@ -515,82 +590,6 @@ export const importRaw = pgTable(
   },
   (t) => [
     primaryKey({ name: 'import_raw_pk', columns: [t.userId, t.source, t.kind, t.externalId] }),
-  ],
-).enableRLS()
-
-/**
- * Bank feed (Open Finance via Pluggy / Meu Pluggy): an external account as the
- * institution reports it, refreshed by `pnpm pluggy:sync`. `account_id` maps it
- * onto a fluxi account (null until the user maps it); deleting the fluxi
- * account only unmaps the feed. `balance_cents` is the last reported balance
- * (credit cards: the open bill, positive = owed).
- */
-export const bankFeedAccounts = pgTable(
-  'bank_feed_accounts',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    userId: ownerId(),
-    source: text('source').notNull(),
-    externalId: text('external_id').notNull(),
-    itemId: text('item_id').notNull(),
-    institution: text('institution').notNull(),
-    name: text('name').notNull(),
-    type: text('type').notNull(),
-    subtype: text('subtype').notNull(),
-    balanceCents: cents('balance_cents').notNull(),
-    accountId: uuid('account_id'),
-    syncedAt: timestamp('synced_at', { withTimezone: true }).notNull(),
-    createdAt: createdAt(),
-    updatedAt: updatedAt(),
-  },
-  (t) => [
-    unique('bank_feed_accounts_id_user_id_unique').on(t.id, t.userId),
-    unique('bank_feed_accounts_external_unique').on(t.userId, t.source, t.externalId),
-    foreignKey({
-      name: 'bank_feed_accounts_account_fk',
-      columns: [t.accountId, t.userId],
-      foreignColumns: [accounts.id, accounts.userId],
-    }).onDelete('set null'),
-    index('bank_feed_accounts_account_id_idx').on(t.accountId),
-  ],
-).enableRLS()
-
-/**
- * One real transaction of a feed account. `amount_cents` is signed from the
- * holder's view (DEBIT < 0, CREDIT > 0, also on credit cards). Counterparty
- * documents (`paymentData`) are deliberately NOT stored.
- */
-export const bankTransactions = pgTable(
-  'bank_transactions',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    userId: ownerId(),
-    feedAccountId: uuid('feed_account_id').notNull(),
-    externalId: text('external_id').notNull(),
-    date: date('date', { mode: 'string' }).notNull(),
-    amountCents: cents('amount_cents').notNull(),
-    description: text('description').notNull(),
-    status: text('status').notNull(),
-    category: text('category'),
-    installmentNumber: smallint('installment_number'),
-    totalInstallments: smallint('total_installments'),
-    billMonth: month('bill_month'),
-    syncedAt: timestamp('synced_at', { withTimezone: true }).notNull(),
-    createdAt: createdAt(),
-    updatedAt: updatedAt(),
-  },
-  (t) => [
-    unique('bank_transactions_external_unique').on(t.userId, t.feedAccountId, t.externalId),
-    foreignKey({
-      name: 'bank_transactions_feed_account_fk',
-      columns: [t.feedAccountId, t.userId],
-      foreignColumns: [bankFeedAccounts.id, bankFeedAccounts.userId],
-    }).onDelete('cascade'),
-    index('bank_transactions_feed_account_date_idx').on(t.feedAccountId, t.date),
-    check('bank_transactions_status', sql`${t.status} in ('POSTED', 'PENDING')`),
-    check(
-      'bank_transactions_bill_month_first_day',
-      sql`${t.billMonth} is null or ${isFirstOfMonth(t.billMonth)}`,
-    ),
+    inSpace('import_raw', t),
   ],
 ).enableRLS()

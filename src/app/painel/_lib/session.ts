@@ -1,15 +1,17 @@
 import 'server-only'
 
 import { isoDayOf } from '@/features/ledger/core/format'
-import { getServerUser } from '@/lib/auth/server'
-import type { SessionUser } from '@cbrl/supabase'
+import { getServerScope, type ServerScope } from '@/features/spaces/adapters/scope'
 import { redirect } from 'next/navigation'
 
-/** The signed-in user of a painel page (the layout already redirects; this narrows the type). */
-export async function requirePainelUser(): Promise<SessionUser> {
-  const user = await getServerUser()
-  if (!user) redirect('/?login=1&next=%2Fpainel')
-  return user
+/**
+ * The scope of a painel page: the signed-in user and the active space (the
+ * layout already redirects without a session; this narrows the type).
+ */
+export async function requirePainelScope(): Promise<ServerScope> {
+  const scope = await getServerScope()
+  if (!scope) redirect('/?login=1&next=%2Fpainel')
+  return scope
 }
 
 /** Today in São Paulo as `YYYY-MM-DD`. */

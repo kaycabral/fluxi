@@ -1,5 +1,6 @@
 import { LedgerShell } from '@/features/ledger/ui/ledger-shell'
 import { sampleRefs } from '@/features/ledger/ui/test-fixtures'
+import type { Space } from '@/features/spaces/core/space'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
@@ -23,10 +24,23 @@ vi.mock('@/features/ledger/adapters/actions/entries', () => ({
   changeDayAction: vi.fn(),
 }))
 
-function renderSidebar(legacyScreens = true, defaultOpen = true) {
+vi.mock('@/features/spaces/adapters/actions/spaces', () => ({
+  switchSpaceAction: vi.fn(),
+  createSpaceAction: vi.fn(),
+  archiveSpaceAction: vi.fn(),
+}))
+
+const PERSONAL = { id: 's1', name: 'Pessoal', kind: 'personal', archived: false } as const
+const WORK = { id: 's2', name: 'Loja', kind: 'business', archived: false } as const
+
+function renderSidebar(legacyScreens = true, defaultOpen = true, current: Space | null = PERSONAL) {
   return render(
     <LedgerShell refs={sampleRefs()}>
-      <AppSidebar legacyScreens={legacyScreens} defaultOpen={defaultOpen}>
+      <AppSidebar
+        legacyScreens={legacyScreens}
+        defaultOpen={defaultOpen}
+        spaces={current === null ? null : { current, all: [PERSONAL, WORK] }}
+      >
         <p>conteúdo</p>
       </AppSidebar>
     </LedgerShell>,
@@ -58,6 +72,29 @@ describe('AppSidebar', () => {
     )
     await userEvent.click(screen.getByRole('button', { name: 'Sair' }))
     expect(signOut).toHaveBeenCalledOnce()
+  })
+
+  it('shows the current space in the header and the switcher on top of the sidebar', () => {
+    renderSidebar(true, true, WORK)
+    const badge = screen.getByLabelText('Espaço atual: Loja')
+    expect(within(badge).getByText('Empresa')).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Espaço: Loja. Trocar de espaço' }),
+    ).toBeInTheDocument()
+  })
+
+  it('leaves the space out when the spaces could not be read', () => {
+    renderSidebar(true, true, null)
+    expect(screen.queryByLabelText(/Espaço atual/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Trocar de espaço/ })).not.toBeInTheDocument()
+  })
+
+  it('links to the bank connections', () => {
+    renderSidebar()
+    expect(screen.getByRole('link', { name: 'Conexões bancárias' })).toHaveAttribute(
+      'href',
+      '/painel/conexoes',
+    )
   })
 
   it('hides the old screens when they are off (production)', () => {

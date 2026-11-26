@@ -19,7 +19,7 @@ import {
   firstIssue,
   updateEntrySchema,
 } from '@/features/ledger/core/schemas'
-import { getServerUser } from '@/lib/auth/server'
+import { getServerScope } from '@/features/spaces/adapters/scope'
 import { revalidatePath } from 'next/cache'
 
 /**
@@ -35,35 +35,39 @@ function done(result: WriteResult): ActionResult {
 }
 
 export async function createEntryAction(input: unknown): Promise<ActionResult> {
-  const user = await getServerUser()
-  if (!user) return { ok: false, error: SESSION_EXPIRED }
+  const scope = await getServerScope()
+  if (!scope) return { ok: false, error: SESSION_EXPIRED }
   const parsed = createEntrySchema.safeParse(input)
   if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) }
-  return done(await createEntry(user.id, parsed.data.id, parsed.data.fields))
+  return done(await createEntry(scope, parsed.data.id, parsed.data.fields))
 }
 
 export async function updateEntryAction(input: unknown): Promise<ActionResult> {
-  const user = await getServerUser()
-  if (!user) return { ok: false, error: SESSION_EXPIRED }
+  const scope = await getServerScope()
+  if (!scope) return { ok: false, error: SESSION_EXPIRED }
   const parsed = updateEntrySchema.safeParse(input)
   if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) }
-  const { entryId, month, scope, fields } = parsed.data
-  return done(await updateEntry(user.id, entryId, fields, month === null ? null : { month, scope }))
+  const { entryId, month, scope: editScope, fields } = parsed.data
+  return done(
+    await updateEntry(scope, entryId, fields, month === null ? null : { month, scope: editScope }),
+  )
 }
 
 export async function deleteEntryAction(input: unknown): Promise<ActionResult> {
-  const user = await getServerUser()
-  if (!user) return { ok: false, error: SESSION_EXPIRED }
+  const scope = await getServerScope()
+  if (!scope) return { ok: false, error: SESSION_EXPIRED }
   const parsed = deleteEntrySchema.safeParse(input)
   if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) }
-  const { entryId, month, scope } = parsed.data
-  return done(await deleteEntry(user.id, entryId, month === null ? null : { month, scope }))
+  const { entryId, month, scope: editScope } = parsed.data
+  return done(
+    await deleteEntry(scope, entryId, month === null ? null : { month, scope: editScope }),
+  )
 }
 
 export async function changeDayAction(input: unknown): Promise<ActionResult> {
-  const user = await getServerUser()
-  if (!user) return { ok: false, error: SESSION_EXPIRED }
+  const scope = await getServerScope()
+  if (!scope) return { ok: false, error: SESSION_EXPIRED }
   const parsed = changeDaySchema.safeParse(input)
   if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) }
-  return done(await changeOccurrenceDay(user.id, parsed.data))
+  return done(await changeOccurrenceDay(scope, parsed.data))
 }

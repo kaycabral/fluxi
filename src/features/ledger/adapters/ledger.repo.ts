@@ -27,11 +27,12 @@ import type {
 } from '@/features/ledger/core/types'
 import { isPotColor } from '@/features/ledger/core/types'
 import { fluxiDb } from '@/lib/db'
-import { and, asc, eq, gte, inArray, isNull, lte, ne, or, sql } from 'drizzle-orm'
+import { and, asc, gte, inArray, isNull, lte, ne, or, sql } from 'drizzle-orm'
+import { inScope, type Scope } from './scope-filter'
 
 /**
- * Read side of the ledger. Every query is scoped by `userId` (the session
- * user, resolved by the caller): there is no unscoped read in this module.
+ * Read side of the ledger. Every query is scoped by `scope` (the session user and
+ * the active space, resolved by the caller): there is no unscoped read in this module.
  */
 
 export type MonthWindow = { from: Month; to: Month }
@@ -51,11 +52,11 @@ export type LedgerSnapshot = {
 const db = () => fluxiDb.db()
 const monthOrNull = (value: string | null) => (value === null ? null : monthFromDate(value))
 
-export async function listBanks(userId: string): Promise<Bank[]> {
+export async function listBanks(scope: Scope): Promise<Bank[]> {
   const rows = await db()
     .select()
     .from(banks)
-    .where(eq(banks.userId, userId))
+    .where(inScope(banks, scope))
     .orderBy(asc(banks.sort), asc(banks.name))
   return rows.map((r) => ({
     id: r.id,
@@ -65,11 +66,11 @@ export async function listBanks(userId: string): Promise<Bank[]> {
   }))
 }
 
-export async function listAccounts(userId: string): Promise<Account[]> {
+export async function listAccounts(scope: Scope): Promise<Account[]> {
   const rows = await db()
     .select()
     .from(accounts)
-    .where(eq(accounts.userId, userId))
+    .where(inScope(accounts, scope))
     .orderBy(asc(accounts.name))
   return rows.map((r) => ({
     id: r.id,
@@ -81,11 +82,11 @@ export async function listAccounts(userId: string): Promise<Account[]> {
   }))
 }
 
-export async function listCategories(userId: string): Promise<Category[]> {
+export async function listCategories(scope: Scope): Promise<Category[]> {
   const rows = await db()
     .select()
     .from(categories)
-    .where(eq(categories.userId, userId))
+    .where(inScope(categories, scope))
     .orderBy(asc(categories.sort), asc(categories.groupName), asc(categories.name))
   return rows.map((r) => ({
     id: r.id,
@@ -96,12 +97,12 @@ export async function listCategories(userId: string): Promise<Category[]> {
   }))
 }
 
-/** Every pot of `userId`, archived ones included, in the user's order. */
-export async function listPots(userId: string): Promise<Pot[]> {
+/** Every pot of `scope`, archived ones included, in the user's order. */
+export async function listPots(scope: Scope): Promise<Pot[]> {
   const rows = await db()
     .select()
     .from(pots)
-    .where(eq(pots.userId, userId))
+    .where(inScope(pots, scope))
     .orderBy(asc(pots.sort), asc(pots.createdAt))
   return rows.map((r) => ({
     key: r.key,
@@ -114,15 +115,15 @@ export async function listPots(userId: string): Promise<Pot[]> {
   }))
 }
 
-/** Budget versions of `userId`, oldest first, each with its targets. */
-export async function listBudgetPlans(userId: string): Promise<BudgetPlan[]> {
+/** Budget versions of `scope`, oldest first, each with its targets. */
+export async function listBudgetPlans(scope: Scope): Promise<BudgetPlan[]> {
   const [planRows, targetRows] = await Promise.all([
     db()
       .select()
       .from(budgetPlans)
-      .where(eq(budgetPlans.userId, userId))
+      .where(inScope(budgetPlans, scope))
       .orderBy(asc(budgetPlans.startsMonth)),
-    db().select().from(budgetPlanTargets).where(eq(budgetPlanTargets.userId, userId)),
+    db().select().from(budgetPlanTargets).where(inScope(budgetPlanTargets, scope)),
   ])
   return planRows.map((plan) => ({
     id: plan.id,
@@ -133,11 +134,11 @@ export async function listBudgetPlans(userId: string): Promise<BudgetPlan[]> {
   }))
 }
 
-export async function getCountFrom(userId: string): Promise<Month | null> {
+export async function getCountFrom(scope: Scope): Promise<Month | null> {
   const [row] = await db()
     .select({ countFromMonth: userSettings.countFromMonth })
     .from(userSettings)
-    .where(eq(userSettings.userId, userId))
+    .where(inScope(userSettings, scope))
     .limit(1)
   return monthOrNull(row?.countFromMonth ?? null)
 }
@@ -147,14 +148,14 @@ export async function getCountFrom(userId: string): Promise<Month | null> {
  * the month preceding it (a `nextMonth` part of that occurrence lands in
  * `from`). A superset; the core decides what actually lands.
  */
-export async function listEntries(userId: string, window: MonthWindow): Promise<Entry[]> {
+export async function listEntries(scope: Scope, window: MonthWindow): Promise<Entry[]> {
   const lookBack = monthToDate(addMonths(window.from, -1))
   const rows = await db()
     .select()
     .from(entries)
     .where(
       and(
-        eq(entries.userId, userId),
+        inScope(entries, scope),
         lte(entries.startMonth, monthToDate(window.to)),
         or(isNull(entries.endMonth), gte(entries.endMonth, lookBack)),
         or(ne(entries.recurrence, 'none'), gte(entries.startMonth, lookBack)),
@@ -182,14 +183,14 @@ export async function listEntries(userId: string, window: MonthWindow): Promise<
 }
 
 export async function listEntryParts(
-  userId: string,
+  scope: Scope,
   entryIds: readonly string[],
 ): Promise<EntryPart[]> {
   if (entryIds.length === 0) return []
   const rows = await db()
     .select()
     .from(entryParts)
-    .where(and(eq(entryParts.userId, userId), inArray(entryParts.entryId, [...entryIds])))
+    .where(and(inScope(entryParts, scope), inArray(entryParts.entryId, [...entryIds])))
     .orderBy(asc(entryParts.entryId), asc(entryParts.sort))
   return rows.map((r) => ({
     id: r.id,
@@ -204,7 +205,7 @@ export async function listEntryParts(
 
 /** Overrides of `entryIds` for the window (plus the month before it, see {@link listEntries}). */
 export async function listEntryOverrides(
-  userId: string,
+  scope: Scope,
   entryIds: readonly string[],
   window: MonthWindow,
 ): Promise<EntryOverride[]> {
@@ -214,7 +215,7 @@ export async function listEntryOverrides(
     .from(entryOverrides)
     .where(
       and(
-        eq(entryOverrides.userId, userId),
+        inScope(entryOverrides, scope),
         inArray(entryOverrides.entryId, [...entryIds]),
         gte(entryOverrides.month, monthToDate(addMonths(window.from, -1))),
         lte(entryOverrides.month, monthToDate(window.to)),
@@ -233,7 +234,7 @@ export async function listEntryOverrides(
 
 /** Payments of `entryIds` for the window (plus the month before it, see {@link listEntries}). */
 export async function listOccurrencePayments(
-  userId: string,
+  scope: Scope,
   entryIds: readonly string[],
   window: MonthWindow,
 ): Promise<OccurrencePayment[]> {
@@ -243,7 +244,7 @@ export async function listOccurrencePayments(
     .from(occurrencePayments)
     .where(
       and(
-        eq(occurrencePayments.userId, userId),
+        inScope(occurrencePayments, scope),
         inArray(occurrencePayments.entryId, [...entryIds]),
         gte(occurrencePayments.month, monthToDate(addMonths(window.from, -1))),
         lte(occurrencePayments.month, monthToDate(window.to)),
@@ -258,21 +259,21 @@ export async function listOccurrencePayments(
   }))
 }
 
-/** Everything the core needs to project `userId`'s ledger over `window`. */
-export async function loadLedger(userId: string, window: MonthWindow): Promise<LedgerSnapshot> {
+/** Everything the core needs to project `scope`'s ledger over `window`. */
+export async function loadLedger(scope: Scope, window: MonthWindow): Promise<LedgerSnapshot> {
   const [bankRows, accountRows, categoryRows, potRows, countFrom, entryRows] = await Promise.all([
-    listBanks(userId),
-    listAccounts(userId),
-    listCategories(userId),
-    listPots(userId),
-    getCountFrom(userId),
-    listEntries(userId, window),
+    listBanks(scope),
+    listAccounts(scope),
+    listCategories(scope),
+    listPots(scope),
+    getCountFrom(scope),
+    listEntries(scope, window),
   ])
   const entryIds = entryRows.map((e) => e.id)
   const [parts, overrides, payments] = await Promise.all([
-    listEntryParts(userId, entryIds),
-    listEntryOverrides(userId, entryIds, window),
-    listOccurrencePayments(userId, entryIds, window),
+    listEntryParts(scope, entryIds),
+    listEntryOverrides(scope, entryIds, window),
+    listOccurrencePayments(scope, entryIds, window),
   ])
   return {
     banks: bankRows,
@@ -287,11 +288,11 @@ export async function loadLedger(userId: string, window: MonthWindow): Promise<L
   }
 }
 
-/** Distinct tags across `userId`'s entries, sorted, for the form's tags autocomplete. */
-export async function listTags(userId: string): Promise<string[]> {
+/** Distinct tags across `scope`'s entries, sorted, for the form's tags autocomplete. */
+export async function listTags(scope: Scope): Promise<string[]> {
   const rows = await db()
     .selectDistinct({ tag: sql<string>`unnest(${entries.tags})` })
     .from(entries)
-    .where(eq(entries.userId, userId))
+    .where(inScope(entries, scope))
   return rows.map((r) => r.tag).sort((a, b) => a.localeCompare(b, 'pt-BR'))
 }

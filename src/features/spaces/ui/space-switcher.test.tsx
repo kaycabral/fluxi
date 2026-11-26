@@ -1,0 +1,107 @@
+import type { ActionResult } from '@/features/ledger/core/action-result'
+import type { Space } from '@/features/spaces/core/space'
+import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { SpaceBadge, SpaceSwitcher } from './space-switcher'
+
+const actions = {
+  switchSpaceAction: vi.fn<(input: unknown) => Promise<ActionResult>>(),
+  createSpaceAction: vi.fn<(input: unknown) => Promise<ActionResult>>(),
+  archiveSpaceAction: vi.fn<(input: unknown) => Promise<ActionResult>>(),
+}
+vi.mock('@/features/spaces/adapters/actions/spaces', () => ({
+  switchSpaceAction: (i: unknown) => actions.switchSpaceAction(i),
+  createSpaceAction: (i: unknown) => actions.createSpaceAction(i),
+  archiveSpaceAction: (i: unknown) => actions.archiveSpaceAction(i),
+}))
+const toast = { success: vi.fn<(m: string) => void>(), error: vi.fn<(m: string) => void>() }
+vi.mock('sonner', () => ({
+  toast: { success: (m: string) => toast.success(m), error: (m: string) => toast.error(m) },
+}))
+
+const PERSONAL: Space = {
+  id: '00000000-0000-4000-8000-000000000001',
+  name: 'Pessoal',
+  kind: 'personal',
+  archived: false,
+}
+const SHOP: Space = {
+  id: '00000000-0000-4000-8000-000000000002',
+  name: 'Loja',
+  kind: 'business',
+  archived: false,
+}
+const OLD: Space = {
+  ...SHOP,
+  id: '00000000-0000-4000-8000-000000000003',
+  name: 'Antiga',
+  archived: true,
+}
+
+afterEach(() => vi.resetAllMocks())
+
+async function openMenu(current: Space) {
+  render(<SpaceSwitcher current={current} spaces={[SHOP, PERSONAL, OLD]} />)
+  await userEvent.click(
+    screen.getByRole('button', { name: `Espaço: ${current.name}. Trocar de espaço` }),
+  )
+}
+
+describe('SpaceBadge', () => {
+  it('marks a business space clearly', () => {
+    const { rerender } = render(<SpaceBadge space={SHOP} />)
+    expect(screen.getByLabelText('Espaço atual: Loja')).toHaveTextContent('LojaEmpresa')
+    rerender(<SpaceBadge space={PERSONAL} />)
+    expect(screen.getByLabelText('Espaço atual: Pessoal')).toHaveTextContent(/^Pessoal$/)
+  })
+})
+
+describe('SpaceSwitcher', () => {
+  it('lists the active spaces, personal first, and switches to another one', async () => {
+    actions.switchSpaceAction.mockResolvedValue({ ok: true })
+    await openMenu(PERSONAL)
+    const items = screen.getAllByRole('menuitem').map((i) => i.textContent?.trim())
+    expect(items).toEqual(['Pessoal', 'LojaEmpresa', 'Novo espaço…'])
+    expect(screen.getByLabelText('atual')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('menuitem', { name: /Loja/ }))
+    await waitFor(() => expect(actions.switchSpaceAction).toHaveBeenCalledWith(SHOP.id))
+  })
+
+  it('does not switch to the current space', async () => {
+    await openMenu(PERSONAL)
+    await userEvent.click(screen.getByRole('menuitem', { name: /Pessoal/ }))
+    expect(actions.switchSpaceAction).not.toHaveBeenCalled()
+  })
+
+  it('creates a business space from "Novo espaço…"', async () => {
+    actions.createSpaceAction.mockResolvedValue({ ok: true })
+    await openMenu(PERSONAL)
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Novo espaço…' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Novo espaço' })
+    expect(dialog).toHaveTextContent('Empresa')
+    await userEvent.type(screen.getByLabelText('Nome'), 'Minha empresa')
+    await userEvent.click(screen.getByRole('button', { name: 'Criar espaço' }))
+    await waitFor(() =>
+      expect(actions.createSpaceAction).toHaveBeenCalledWith({
+        name: 'Minha empresa',
+        kind: 'business',
+      }),
+    )
+    expect(toast.success).toHaveBeenCalledWith('Espaço criado.')
+  })
+
+  it('archives the current business space after confirming, never the personal one', async () => {
+    actions.archiveSpaceAction.mockResolvedValue({ ok: false, error: 'Espaço não encontrado.' })
+    await openMenu(SHOP)
+    await userEvent.click(screen.getByRole('menuitem', { name: /Arquivar/ }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Arquivar' }))
+    await waitFor(() => expect(actions.archiveSpaceAction).toHaveBeenCalledWith(SHOP.id))
+    expect(toast.error).toHaveBeenCalledWith('Espaço não encontrado.')
+  })
+
+  it('offers no archive for the personal space', async () => {
+    await openMenu(PERSONAL)
+    expect(screen.queryByRole('menuitem', { name: /Arquivar/ })).not.toBeInTheDocument()
+  })
+})

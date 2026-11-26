@@ -1,6 +1,7 @@
-import { fluxiDb, seedUser, truncateFluxiTables } from '@/db'
+import { fluxiDb, personalScope, seedUser, truncateFluxiTables } from '@/db'
 import { entries, entryParts, occurrencePayments } from '@/db/schema'
 import type { EntryFields } from '@/features/ledger/core/schemas'
+import type { Scope } from '@/features/spaces/core/space'
 import { asc, eq, sql } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
@@ -19,22 +20,25 @@ import { projectLedger } from './projection'
 
 const ANA = '11111111-1111-4111-8111-111111111111'
 const BIA = '22222222-2222-4222-8222-222222222222'
+
+let anaScope: Scope
+let biaScope: Scope
 const WINDOW = { from: '2026-12', to: '2027-04' }
 
 const db = () => fluxiDb.db()
 
-async function setupUser(userId: string): Promise<string> {
+async function setupUser(scope: Scope): Promise<string> {
   const bankId = randomUUID()
   const accountId = randomUUID()
-  await createBank(userId, { id: bankId, name: 'BTG' })
-  await createAccount(userId, {
+  await createBank(scope, { id: bankId, name: 'BTG' })
+  await createAccount(scope, {
     id: accountId,
     bankId,
     name: 'Conta',
     type: 'checking',
     openingBalanceCents: 100000,
   })
-  await setCountFrom(userId, '2026-12')
+  await setCountFrom(scope, '2026-12')
   return accountId
 }
 
@@ -114,10 +118,12 @@ beforeEach(async () => {
   await truncateFluxiTables(db())
   await seedUser(db(), { id: ANA, email: 'ana@example.com' })
   await seedUser(db(), { id: BIA, email: 'bia@example.com' })
-  anaAccount = await setupUser(ANA)
-  biaAccount = await setupUser(BIA)
+  anaScope = await personalScope(db(), ANA)
+  biaScope = await personalScope(db(), BIA)
+  anaAccount = await setupUser(anaScope)
+  biaAccount = await setupUser(biaScope)
   entryId = randomUUID()
-  await createEntry(ANA, entryId, rent(anaAccount))
+  await createEntry(anaScope, entryId, rent(anaAccount))
 })
 
 afterAll(async () => {
@@ -127,27 +133,36 @@ afterAll(async () => {
 describe('markOccurrencePaid / unmarkOccurrencePaid', () => {
   it('marks idempotently (a replay only moves the date) and unmarks', async () => {
     const key = { entryId, month: '2027-01', partId: null }
-    await expect(markOccurrencePaid(ANA, { ...key, paidOn: '2027-01-09' })).resolves.toMatchObject({
+    await expect(
+      markOccurrencePaid(anaScope, { ...key, paidOn: '2027-01-09' }),
+    ).resolves.toMatchObject({
       ok: true,
     })
-    await expect(markOccurrencePaid(ANA, { ...key, paidOn: '2027-01-11' })).resolves.toMatchObject({
+    await expect(
+      markOccurrencePaid(anaScope, { ...key, paidOn: '2027-01-11' }),
+    ).resolves.toMatchObject({
       ok: true,
     })
     expect(await paymentRows()).toEqual([
       { userId: ANA, entryId, month: '2027-01-01', partId: null, paidOn: '2027-01-11' },
     ])
-    const ledger = await loadLedger(ANA, WINDOW)
+    const ledger = await loadLedger(anaScope, WINDOW)
     expect(ledger.payments).toEqual([{ ...key, paidOn: '2027-01-11' }])
 
-    await expect(unmarkOccurrencePaid(ANA, key)).resolves.toMatchObject({ ok: true })
-    await expect(unmarkOccurrencePaid(ANA, key)).resolves.toMatchObject({ ok: true })
+    await expect(unmarkOccurrencePaid(anaScope, key)).resolves.toMatchObject({ ok: true })
+    await expect(unmarkOccurrencePaid(anaScope, key)).resolves.toMatchObject({ ok: true })
     expect(await paymentRows()).toEqual([])
   })
 
   it('does not change the projected balance', async () => {
-    const before = await projectLedger(ANA, WINDOW)
-    await markOccurrencePaid(ANA, { entryId, month: '2026-12', partId: null, paidOn: '2026-12-10' })
-    const after = await projectLedger(ANA, WINDOW)
+    const before = await projectLedger(anaScope, WINDOW)
+    await markOccurrencePaid(anaScope, {
+      entryId,
+      month: '2026-12',
+      partId: null,
+      paidOn: '2026-12-10',
+    })
+    const after = await projectLedger(anaScope, WINDOW)
     expect(after.months.map((m) => m.closingBalances)).toEqual(
       before.months.map((m) => m.closingBalances),
     )
@@ -155,20 +170,20 @@ describe('markOccurrencePaid / unmarkOccurrencePaid', () => {
 
   it('refuses another user’s entry and never touches their payments', async () => {
     const key = { entryId, month: '2026-12', partId: null }
-    await expect(markOccurrencePaid(BIA, { ...key, paidOn: '2026-12-10' })).resolves.toEqual({
+    await expect(markOccurrencePaid(biaScope, { ...key, paidOn: '2026-12-10' })).resolves.toEqual({
       ok: false,
       reason: 'not_found',
     })
-    await markOccurrencePaid(ANA, { ...key, paidOn: '2026-12-10' })
-    await unmarkOccurrencePaid(BIA, key)
+    await markOccurrencePaid(anaScope, { ...key, paidOn: '2026-12-10' })
+    await unmarkOccurrencePaid(biaScope, key)
     expect(await paymentRows()).toHaveLength(1)
-    expect((await loadLedger(BIA, WINDOW)).payments).toEqual([])
+    expect((await loadLedger(biaScope, WINDOW)).payments).toEqual([])
   })
 
   it('the database refuses a payment pointing at another user’s entry', async () => {
     const insert = db()
       .insert(occurrencePayments)
-      .values({ userId: BIA, entryId, month: '2026-12-01', paidOn: '2026-12-10' })
+      .values({ ...biaScope, entryId, month: '2026-12-01', paidOn: '2026-12-10' })
     await expect(insert).rejects.toMatchObject({
       cause: { code: '23503', constraint: 'occurrence_payments_entry_fk' },
     })
@@ -177,27 +192,36 @@ describe('markOccurrencePaid / unmarkOccurrencePaid', () => {
   it('refuses a month without an occurrence or a skipped one', async () => {
     const paidOn = '2026-12-10'
     await expect(
-      markOccurrencePaid(ANA, { entryId, month: '2026-11', partId: null, paidOn }),
+      markOccurrencePaid(anaScope, { entryId, month: '2026-11', partId: null, paidOn }),
     ).resolves.toEqual({ ok: false, reason: 'no_occurrence' })
-    await deleteEntry(ANA, entryId, { month: '2027-01', scope: 'one' })
+    await deleteEntry(anaScope, entryId, { month: '2027-01', scope: 'one' })
     await expect(
-      markOccurrencePaid(ANA, { entryId, month: '2027-01', partId: null, paidOn }),
+      markOccurrencePaid(anaScope, { entryId, month: '2027-01', partId: null, paidOn }),
     ).resolves.toEqual({ ok: false, reason: 'no_occurrence' })
   })
 
   it('pays each part of a split entry separately and refuses the whole/foreign parts', async () => {
     const salary = randomUUID()
-    await createEntry(ANA, salary, rent(anaAccount, { kind: 'income', pot: null, parts: SPLIT }))
+    await createEntry(
+      anaScope,
+      salary,
+      rent(anaAccount, { kind: 'income', pot: null, parts: SPLIT }),
+    )
     const [advance, rest] = await partIds(salary)
     const paidOn = '2026-12-20'
     await expect(
-      markOccurrencePaid(ANA, { entryId: salary, month: '2026-12', partId: null, paidOn }),
+      markOccurrencePaid(anaScope, { entryId: salary, month: '2026-12', partId: null, paidOn }),
     ).resolves.toEqual({ ok: false, reason: 'no_occurrence' })
     await expect(
-      markOccurrencePaid(ANA, { entryId, month: '2026-12', partId: advance ?? null, paidOn }),
+      markOccurrencePaid(anaScope, { entryId, month: '2026-12', partId: advance ?? null, paidOn }),
     ).resolves.toEqual({ ok: false, reason: 'no_occurrence' })
-    await markOccurrencePaid(ANA, { entryId: salary, month: '2026-12', partId: advance!, paidOn })
-    await markOccurrencePaid(ANA, {
+    await markOccurrencePaid(anaScope, {
+      entryId: salary,
+      month: '2026-12',
+      partId: advance!,
+      paidOn,
+    })
+    await markOccurrencePaid(anaScope, {
       entryId: salary,
       month: '2026-12',
       partId: rest!,
@@ -207,7 +231,7 @@ describe('markOccurrencePaid / unmarkOccurrencePaid', () => {
     // The database itself refuses a part of another entry.
     const foreignPart = db()
       .insert(occurrencePayments)
-      .values({ userId: ANA, entryId, month: '2026-12-01', partId: advance!, paidOn })
+      .values({ ...anaScope, entryId, month: '2026-12-01', partId: advance!, paidOn })
     await expect(foreignPart).rejects.toMatchObject({
       cause: { code: '23503', constraint: 'occurrence_payments_part_fk' },
     })
@@ -217,32 +241,32 @@ describe('markOccurrencePaid / unmarkOccurrencePaid', () => {
 describe('payments under scoped edits and deletes', () => {
   async function payMonths(months: string[]) {
     for (const month of months) {
-      await markOccurrencePaid(ANA, { entryId, month, partId: null, paidOn: `${month}-10` })
+      await markOccurrencePaid(anaScope, { entryId, month, partId: null, paidOn: `${month}-10` })
     }
   }
 
   it('deleting one occurrence removes its payment only', async () => {
     await payMonths(['2026-12', '2027-01'])
-    await deleteEntry(ANA, entryId, { month: '2027-01', scope: 'one' })
+    await deleteEntry(anaScope, entryId, { month: '2027-01', scope: 'one' })
     expect((await paymentRows()).map((p) => p.month)).toEqual(['2026-12-01'])
   })
 
   it('deleting "future" removes the payments from that month on', async () => {
     await payMonths(['2026-12', '2027-01', '2027-02'])
-    await deleteEntry(ANA, entryId, { month: '2027-01', scope: 'future' })
+    await deleteEntry(anaScope, entryId, { month: '2027-01', scope: 'future' })
     expect((await paymentRows()).map((p) => p.month)).toEqual(['2026-12-01'])
   })
 
   it('deleting the series removes every payment', async () => {
     await payMonths(['2026-12', '2027-01'])
-    await deleteEntry(ANA, entryId, { month: '2027-01', scope: 'all' })
+    await deleteEntry(anaScope, entryId, { month: '2027-01', scope: 'all' })
     expect(await paymentRows()).toEqual([])
   })
 
   it('a "future" split moves the payments from the split month to the new entry', async () => {
     await payMonths(['2026-12', '2027-01', '2027-02'])
     await updateEntry(
-      ANA,
+      anaScope,
       entryId,
       rent(anaAccount, { amountCents: -210000, startMonth: '2027-01' }),
       {
@@ -262,19 +286,28 @@ describe('payments under scoped edits and deletes', () => {
 
   it('a "future" day change on a split entry moves part payments to the copied parts', async () => {
     const salary = randomUUID()
-    await createEntry(ANA, salary, rent(anaAccount, { kind: 'income', pot: null, parts: SPLIT }))
+    await createEntry(
+      anaScope,
+      salary,
+      rent(anaAccount, { kind: 'income', pot: null, parts: SPLIT }),
+    )
     const [advance, rest] = await partIds(salary)
     for (const month of ['2026-12', '2027-01']) {
-      await markOccurrencePaid(ANA, {
+      await markOccurrencePaid(anaScope, {
         entryId: salary,
         month,
         partId: advance!,
         paidOn: '2027-01-01',
       })
-      await markOccurrencePaid(ANA, { entryId: salary, month, partId: rest!, paidOn: '2027-01-01' })
+      await markOccurrencePaid(anaScope, {
+        entryId: salary,
+        month,
+        partId: rest!,
+        paidOn: '2027-01-01',
+      })
     }
     await updateEntry(
-      ANA,
+      anaScope,
       salary,
       rent(anaAccount, {
         kind: 'income',
@@ -305,23 +338,23 @@ describe('payments under scoped edits and deletes', () => {
   it('editing the series keeps payments of months that still occur', async () => {
     await payMonths(['2026-12', '2027-02'])
     // Starting later drops December's occurrence (and its payment).
-    await updateEntry(ANA, entryId, rent(anaAccount, { startMonth: '2027-01' }), null)
+    await updateEntry(anaScope, entryId, rent(anaAccount, { startMonth: '2027-01' }), null)
     expect((await paymentRows()).map((p) => p.month)).toEqual(['2027-02-01'])
-    await changeOccurrenceDay(ANA, { entryId, month: '2027-02', day: 12, scope: 'one' })
+    await changeOccurrenceDay(anaScope, { entryId, month: '2027-02', day: 12, scope: 'one' })
     expect((await paymentRows()).map((p) => p.month)).toEqual(['2027-02-01'])
   })
 
   it('splitting an entry into parts drops its whole-occurrence payments', async () => {
     await payMonths(['2026-12'])
-    await updateEntry(ANA, entryId, rent(anaAccount, { parts: SPLIT }), null)
+    await updateEntry(anaScope, entryId, rent(anaAccount, { parts: SPLIT }), null)
     expect(await paymentRows()).toEqual([])
   })
 
   it('cascades with the user, leaving the other user’s payments', async () => {
     await payMonths(['2026-12'])
     const biaEntry = randomUUID()
-    await createEntry(BIA, biaEntry, rent(biaAccount))
-    await markOccurrencePaid(BIA, {
+    await createEntry(biaScope, biaEntry, rent(biaAccount))
+    await markOccurrencePaid(biaScope, {
       entryId: biaEntry,
       month: '2026-12',
       partId: null,

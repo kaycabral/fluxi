@@ -2,6 +2,8 @@
 
 import { BrandLink } from '@/components/brand-link'
 import { useLedgerUi } from '@/features/ledger/ui/ledger-shell'
+import type { Space } from '@/features/spaces/core/space'
+import { SpaceBadge, SpaceSwitcher } from '@/features/spaces/ui/space-switcher'
 import { useSignOut } from '@/hooks/use-sign-out'
 import { writeBrowserCookie } from '@/lib/browser-cookie'
 import {
@@ -15,6 +17,7 @@ import {
 import {
   CalendarDays,
   History,
+  Landmark,
   LayoutDashboard,
   ListIcon,
   LogOut,
@@ -42,16 +45,20 @@ const SECTIONS: NavSection[] = [
 ]
 
 /**
- * Chrome of the new layout: collapsible sidebar (dashboard, calendar,
- * entries and budget),
+ * Chrome of the new layout: the space switcher on top of the collapsible
+ * sidebar (dashboard, calendar, entries and budget of the current space), the
+ * current space in the header,
  * the "Criar" button in the header and, at the bottom, sign-out and (outside
  * production) the way back to the MVP screens.
  */
 export function AppSidebar({
   legacyScreens,
   defaultOpen,
+  spaces,
   children,
 }: {
+  /** The current space and the user's spaces (null when they could not be read). */
+  spaces: { current: Space; all: readonly Space[] } | null
   /** Show the way back to the MVP screens (never in production). */
   legacyScreens: boolean
   /** Expanded or collapsed, as this browser left it (cookie read by the server). */
@@ -72,10 +79,16 @@ export function AppSidebar({
       open={open}
       onOpenChange={changeOpen}
       brand={
-        <BrandLink href="/painel" className="text-base font-bold tracking-tight">
-          Fluxi
-        </BrandLink>
+        <div className="grid gap-2">
+          <BrandLink href="/painel" className="text-base font-bold tracking-tight">
+            Fluxi
+          </BrandLink>
+          {spaces !== null && open && (
+            <SpaceSwitcher current={spaces.current} spaces={spaces.all} />
+          )}
+        </div>
       }
+      headerStart={spaces === null ? undefined : <SpaceBadge space={spaces.current} />}
       sections={SECTIONS}
       pathname={pathname}
       navLabel="Seções"
@@ -104,6 +117,14 @@ export function AppSidebar({
               </SidebarMenuButton>
             </SidebarMenuItem>
           )}
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild tooltip="Conexões bancárias">
+              <Link href="/painel/conexoes">
+                <Landmark />
+                <span>Conexões bancárias</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton tooltip="Sair" onClick={() => void signOut()}>
               <LogOut />

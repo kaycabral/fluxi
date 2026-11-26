@@ -22,7 +22,11 @@ const write = {
 const getServerUser = vi.fn<() => Promise<SessionUser | null>>()
 const revalidatePath = vi.fn<(path: string, type?: string) => void>()
 
-vi.mock('@/lib/auth/server', () => ({ getServerUser: () => getServerUser() }))
+// The scope comes from the session user and the active space (resolved server-side).
+const SCOPE = { userId: 'session-user', spaceId: 'space-1' }
+vi.mock('@/features/spaces/adapters/scope', () => ({
+  getServerScope: async () => ((await getServerUser()) === null ? null : SCOPE),
+}))
 vi.mock('next/cache', () => ({
   revalidatePath: (path: string, type?: string) => revalidatePath(path, type),
 }))
@@ -55,13 +59,13 @@ describe('budget actions', () => {
     await expect(createPotAction({ name: ' Viagens ', color: 'sky' })).resolves.toEqual({
       ok: true,
     })
-    expect(write.createPot).toHaveBeenCalledWith('session-user', { name: 'Viagens', color: 'sky' })
+    expect(write.createPot).toHaveBeenCalledWith(SCOPE, { name: 'Viagens', color: 'sky' })
     await expect(
       updatePotAction({ key: 'comfort', name: 'Lazer', goal: 'minimum' }),
     ).resolves.toEqual({
       ok: true,
     })
-    expect(write.updatePot).toHaveBeenCalledWith('session-user', {
+    expect(write.updatePot).toHaveBeenCalledWith(SCOPE, {
       key: 'comfort',
       name: 'Lazer',
       goal: 'minimum',
@@ -101,7 +105,7 @@ describe('budget actions', () => {
   it('save and delete versions, mapping write failures to messages', async () => {
     const plan = { id: PLAN, startsMonth: '2026-12', targets: { essential: 3300 } }
     await expect(saveBudgetPlanAction(plan)).resolves.toEqual({ ok: true })
-    expect(write.saveBudgetPlan).toHaveBeenCalledWith('session-user', plan)
+    expect(write.saveBudgetPlan).toHaveBeenCalledWith(SCOPE, plan)
     write.saveBudgetPlan.mockResolvedValue({ ok: false, reason: 'duplicate_plan' })
     await expect(saveBudgetPlanAction(plan)).resolves.toMatchObject({
       error: 'Já existe uma versão começando nesse mês.',

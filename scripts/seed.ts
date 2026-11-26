@@ -6,7 +6,7 @@
 // data). Reads URL/keys/database from `supabase status`, so it can only ever
 // target the local stack.
 
-import { fluxiDb, fluxiSchema } from '@/db'
+import { fluxiDb, fluxiSchema, personalScope } from '@/db'
 import { seedDemoLedger } from '@/db/demo-ledger'
 import { monthOf } from '@/features/ledger/core/format'
 import { readLocalSupabase } from '@cbrl/supabase/local'
@@ -37,9 +37,10 @@ async function main(): Promise<void> {
       .from(fluxiSchema.banks)
       .where(eq(fluxiSchema.banks.userId, userId))
       .limit(1)
+    const scope = await personalScope(db, userId)
     // Demo data shaped like the prototype, counting from the current month.
     const seeded = banks.length === 0
-    if (seeded) await seedDemoLedger(db, userId, monthOf(new Date()))
+    if (seeded) await seedDemoLedger(db, scope, monthOf(new Date()))
     const line = '─'.repeat(64)
     console.log(`\n${line}`)
     console.log(

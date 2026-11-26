@@ -10,7 +10,11 @@ const createEntry = vi.fn<(...args: unknown[]) => Promise<Result>>()
 const getServerUser = vi.fn<() => Promise<SessionUser | null>>()
 const revalidatePath = vi.fn<(path: string, type?: string) => void>()
 
-vi.mock('@/lib/auth/server', () => ({ getServerUser: () => getServerUser() }))
+// The scope comes from the session user and the active space (resolved server-side).
+const SCOPE = { userId: 'session-user', spaceId: 'space-1' }
+vi.mock('@/features/spaces/adapters/scope', () => ({
+  getServerScope: async () => ((await getServerUser()) === null ? null : SCOPE),
+}))
 vi.mock('next/cache', () => ({
   revalidatePath: (path: string, type?: string) => revalidatePath(path, type),
 }))
@@ -42,7 +46,7 @@ afterEach(() => vi.clearAllMocks())
 describe('undo actions', () => {
   it('undoes the session user’s last action and refreshes the ledger', async () => {
     expect(await undoAction({ token: TOKEN })).toEqual({ ok: true })
-    expect(undoLastAction).toHaveBeenCalledWith('session-user', TOKEN)
+    expect(undoLastAction).toHaveBeenCalledWith(SCOPE, TOKEN)
     expect(revalidatePath).toHaveBeenCalledWith('/painel', 'layout')
   })
 
@@ -60,7 +64,7 @@ describe('undo actions', () => {
 
   it('forgets only with a session and a valid token', async () => {
     await forgetUndoAction({ token: TOKEN })
-    expect(forgetUndo).toHaveBeenCalledWith('session-user', TOKEN)
+    expect(forgetUndo).toHaveBeenCalledWith(SCOPE, TOKEN)
     await forgetUndoAction({ token: 'x' })
     getServerUser.mockResolvedValue(null)
     await forgetUndoAction({ token: TOKEN })

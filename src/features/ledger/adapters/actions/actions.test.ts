@@ -21,7 +21,11 @@ const write = {
 const getServerUser = vi.fn<() => Promise<SessionUser | null>>()
 const revalidatePath = vi.fn<(path: string, type?: string) => void>()
 
-vi.mock('@/lib/auth/server', () => ({ getServerUser: () => getServerUser() }))
+// The scope comes from the session user and the active space (resolved server-side).
+const SCOPE = { userId: 'session-user', spaceId: 'space-1' }
+vi.mock('@/features/spaces/adapters/scope', () => ({
+  getServerScope: async () => ((await getServerUser()) === null ? null : SCOPE),
+}))
 vi.mock('next/cache', () => ({
   revalidatePath: (path: string, type?: string) => revalidatePath(path, type),
 }))
@@ -112,27 +116,27 @@ describe('entry actions', () => {
     await expect(createEntryAction({ id: ID, fields, userId: 'attacker' })).resolves.toEqual({
       ok: true,
     })
-    expect(write.createEntry).toHaveBeenCalledWith('session-user', ID, fields)
+    expect(write.createEntry).toHaveBeenCalledWith(SCOPE, ID, fields)
     expect(revalidatePath).toHaveBeenCalledWith('/painel', 'layout')
 
     await updateEntryAction({ entryId: ID, month: '2027-01', scope: 'future', fields })
-    expect(write.updateEntry).toHaveBeenCalledWith('session-user', ID, fields, {
+    expect(write.updateEntry).toHaveBeenCalledWith(SCOPE, ID, fields, {
       month: '2027-01',
       scope: 'future',
     })
     await updateEntryAction({ entryId: ID, month: null, scope: null, fields })
-    expect(write.updateEntry).toHaveBeenLastCalledWith('session-user', ID, fields, null)
+    expect(write.updateEntry).toHaveBeenLastCalledWith(SCOPE, ID, fields, null)
 
     await deleteEntryAction({ entryId: ID, month: '2027-01', scope: 'one' })
-    expect(write.deleteEntry).toHaveBeenCalledWith('session-user', ID, {
+    expect(write.deleteEntry).toHaveBeenCalledWith(SCOPE, ID, {
       month: '2027-01',
       scope: 'one',
     })
     await deleteEntryAction({ entryId: ID, month: null, scope: 'all' })
-    expect(write.deleteEntry).toHaveBeenLastCalledWith('session-user', ID, null)
+    expect(write.deleteEntry).toHaveBeenLastCalledWith(SCOPE, ID, null)
 
     await changeDayAction({ entryId: ID, month: '2026-12', day: 3, scope: 'one' })
-    expect(write.changeOccurrenceDay).toHaveBeenCalledWith('session-user', {
+    expect(write.changeOccurrenceDay).toHaveBeenCalledWith(SCOPE, {
       entryId: ID,
       month: '2026-12',
       day: 3,
@@ -166,9 +170,9 @@ describe('bank and account actions', () => {
       ok: true,
       error: null,
     })
-    expect(write.createBank).toHaveBeenCalledWith('session-user', { id: ID, name: 'Nubank' })
+    expect(write.createBank).toHaveBeenCalledWith(SCOPE, { id: ID, name: 'Nubank' })
     await saveBankAction(INITIAL_FORM_STATE, form({ id: ID, name: 'Nu' }))
-    expect(write.updateBank).toHaveBeenCalledWith('session-user', { id: ID, name: 'Nu' })
+    expect(write.updateBank).toHaveBeenCalledWith(SCOPE, { id: ID, name: 'Nu' })
     await expect(saveBankAction(INITIAL_FORM_STATE, form({ id: ID, name: ' ' }))).resolves.toEqual({
       ok: false,
       error: 'Informe o nome.',
@@ -194,7 +198,7 @@ describe('bank and account actions', () => {
         openingBalance: '1.234,50',
       }),
     )
-    expect(write.createAccount).toHaveBeenCalledWith('session-user', {
+    expect(write.createAccount).toHaveBeenCalledWith(SCOPE, {
       id: ID,
       bankId: ACC,
       name: 'Conta',
@@ -205,7 +209,7 @@ describe('bank and account actions', () => {
       INITIAL_FORM_STATE,
       form({ id: ID, name: 'Cartão', type: 'credit', openingBalance: '-10', active: 'on' }),
     )
-    expect(write.updateAccount).toHaveBeenCalledWith('session-user', {
+    expect(write.updateAccount).toHaveBeenCalledWith(SCOPE, {
       id: ID,
       name: 'Cartão',
       type: 'credit',
@@ -214,7 +218,7 @@ describe('bank and account actions', () => {
     })
     await saveAccountAction(INITIAL_FORM_STATE, form({ id: ID, name: 'Cartão', type: 'credit' }))
     expect(write.updateAccount).toHaveBeenLastCalledWith(
-      'session-user',
+      SCOPE,
       expect.objectContaining({ archived: true }),
     )
     await expect(
@@ -253,7 +257,7 @@ describe('settings actions', () => {
     await expect(
       setCountFromAction(INITIAL_FORM_STATE, form({ month: '2027-01' })),
     ).resolves.toMatchObject({ ok: true })
-    expect(write.setCountFrom).toHaveBeenCalledWith('session-user', '2027-01')
+    expect(write.setCountFrom).toHaveBeenCalledWith(SCOPE, '2027-01')
     await expect(
       setCountFromAction(INITIAL_FORM_STATE, form({ month: 'jan' })),
     ).resolves.toMatchObject({

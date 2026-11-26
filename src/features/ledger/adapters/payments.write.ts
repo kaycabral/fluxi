@@ -12,6 +12,7 @@ import {
 import type { SeriesState } from '@/features/ledger/core/scoped-edit'
 import type { Entry, EntryPart } from '@/features/ledger/core/types'
 import { and, eq, inArray, isNull, type SQL } from 'drizzle-orm'
+import { inScope, owned, type Scope } from './scope-filter'
 import { captureUndo } from './undo.write'
 import {
   db,
@@ -28,16 +29,16 @@ import {
  * "Pago/recebido" writes, and how the ledger writes keep payments consistent:
  * {@link syncPayments} drops payments that no longer match an occurrence after
  * an edit/delete, {@link movePaymentsToSplit} follows a `future` split. Every
- * statement filters by the session `userId`.
+ * statement filters by the session `scope`.
  */
 
 type PaymentRow = OccurrencePayment & { id: string }
 
-async function loadPayments(tx: Tx, userId: string, entryId: string): Promise<PaymentRow[]> {
+async function loadPayments(tx: Tx, scope: Scope, entryId: string): Promise<PaymentRow[]> {
   const rows = await tx
     .select()
     .from(occurrencePayments)
-    .where(and(eq(occurrencePayments.entryId, entryId), eq(occurrencePayments.userId, userId)))
+    .where(and(eq(occurrencePayments.entryId, entryId), inScope(occurrencePayments, scope)))
   return rows.map((r) => ({
     id: r.id,
     entryId: r.entryId,
@@ -48,19 +49,19 @@ async function loadPayments(tx: Tx, userId: string, entryId: string): Promise<Pa
 }
 
 /** Delete the entry's payments that no longer match one of its occurrences. */
-export async function syncPayments(tx: Tx, userId: string, entryId: string): Promise<void> {
-  const state = await loadSeries(tx, userId, entryId)
+export async function syncPayments(tx: Tx, scope: Scope, entryId: string): Promise<void> {
+  const state = await loadSeries(tx, scope, entryId)
   if (state === null) return
   const stale = stalePayments(
     state.entry,
     state.parts,
     state.overrides,
-    await loadPayments(tx, userId, entryId),
+    await loadPayments(tx, scope, entryId),
   )
   if (stale.length === 0) return
   await tx.delete(occurrencePayments).where(
     and(
-      eq(occurrencePayments.userId, userId),
+      inScope(occurrencePayments, scope),
       inArray(
         occurrencePayments.id,
         stale.map((p) => p.id),
@@ -72,11 +73,11 @@ export async function syncPayments(tx: Tx, userId: string, entryId: string): Pro
 /** A `future` split moves the payments from its month on to the new entry. */
 export async function movePaymentsToSplit(
   tx: Tx,
-  userId: string,
+  scope: Scope,
   state: SeriesState,
   split: { entry: Entry; parts: readonly EntryPart[] },
 ): Promise<void> {
-  const payments = await loadPayments(tx, userId, state.entry.id)
+  const payments = await loadPayments(tx, scope, state.entry.id)
   const moved = splitPayments(
     payments,
     { fromEntryId: state.entry.id, toEntryId: split.entry.id, month: split.entry.startMonth },
@@ -88,14 +89,14 @@ export async function movePaymentsToSplit(
   if (lost.length > 0) {
     await tx
       .delete(occurrencePayments)
-      .where(and(eq(occurrencePayments.userId, userId), inArray(occurrencePayments.id, lost)))
+      .where(and(inScope(occurrencePayments, scope), inArray(occurrencePayments.id, lost)))
   }
   for (const payment of moved) {
     if (payment.entryId === state.entry.id) continue
     await tx
       .update(occurrencePayments)
       .set({ entryId: payment.entryId, partId: payment.partId })
-      .where(and(eq(occurrencePayments.id, payment.id), eq(occurrencePayments.userId, userId)))
+      .where(and(eq(occurrencePayments.id, payment.id), inScope(occurrencePayments, scope)))
   }
 }
 
@@ -109,27 +110,27 @@ const samePart = (partId: string | null): SQL =>
  * another entry, the whole occurrence of a split entry.
  */
 export async function markOccurrencePaid(
-  userId: string,
+  scope: Scope,
   input: PaymentKey & { paidOn: string },
 ): Promise<WriteResult> {
   return guarded(() =>
     db().transaction(async (tx) => {
       const { entryId, month, partId, paidOn } = input
-      const state = await loadSeries(tx, userId, entryId)
+      const state = await loadSeries(tx, scope, entryId)
       if (state === null) return fail('not_found')
       if (!occursIn(state.entry, month) || isSkipped(state.entry, state.overrides, month))
         return fail('no_occurrence')
       const validPart =
         partId === null ? state.parts.length === 0 : state.parts.some((p) => p.id === partId)
       if (!validPart) return fail('no_occurrence')
-      const undo = await captureUndo(tx, userId, [entryId])
+      const undo = await captureUndo(tx, scope, [entryId])
       await tx
         .insert(occurrencePayments)
-        .values({ userId, entryId, month: monthToDate(month), partId, paidOn })
+        .values({ ...owned(scope), entryId, month: monthToDate(month), partId, paidOn })
         .onConflictDoUpdate({
           target: [occurrencePayments.entryId, occurrencePayments.month, occurrencePayments.partId],
           set: { paidOn },
-          setWhere: eq(occurrencePayments.userId, userId),
+          setWhere: inScope(occurrencePayments, scope),
         })
       return undoable(undo)
     }),
@@ -137,12 +138,9 @@ export async function markOccurrencePaid(
 }
 
 /** Undo {@link markOccurrencePaid}. Idempotent; another user's payment is never touched. */
-export async function unmarkOccurrencePaid(
-  userId: string,
-  input: PaymentKey,
-): Promise<WriteResult> {
+export async function unmarkOccurrencePaid(scope: Scope, input: PaymentKey): Promise<WriteResult> {
   const payment = and(
-    eq(occurrencePayments.userId, userId),
+    inScope(occurrencePayments, scope),
     eq(occurrencePayments.entryId, input.entryId),
     eq(occurrencePayments.month, monthToDate(input.month)),
     samePart(input.partId),
@@ -155,7 +153,7 @@ export async function unmarkOccurrencePaid(
       .for('update')
     // Not paid (or not this user's): nothing to unmark, nothing to undo.
     if (paid === undefined) return ok
-    const undo = await captureUndo(tx, userId, [input.entryId])
+    const undo = await captureUndo(tx, scope, [input.entryId])
     await tx.delete(occurrencePayments).where(payment)
     return undoable(undo)
   })

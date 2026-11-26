@@ -1,28 +1,28 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { requirePainelUser, todayIso } from './session'
+import { requirePainelScope, todayIso } from './session'
 
 // `server-only` throws outside a React Server Component bundle.
 vi.mock('server-only', () => ({}))
 
-const getServerUser = vi.fn<() => Promise<{ id: string } | null>>()
-vi.mock('@/lib/auth/server', () => ({ getServerUser: () => getServerUser() }))
+const getServerScope = vi.fn<() => Promise<{ userId: string; spaceId: string } | null>>()
+vi.mock('@/features/spaces/adapters/scope', () => ({ getServerScope: () => getServerScope() }))
 const redirect = vi.fn<(url: string) => never>()
 vi.mock('next/navigation', () => ({ redirect: (url: string) => redirect(url) }))
 
 afterEach(() => vi.resetAllMocks())
 
 describe('painel session', () => {
-  it('returns the signed-in user', async () => {
-    getServerUser.mockResolvedValue({ id: 'u1' })
-    await expect(requirePainelUser()).resolves.toEqual({ id: 'u1' })
+  it('returns the signed-in scope', async () => {
+    getServerScope.mockResolvedValue({ userId: 'u1', spaceId: 's1' })
+    await expect(requirePainelScope()).resolves.toEqual({ userId: 'u1', spaceId: 's1' })
   })
 
   it('redirects without a session', async () => {
-    getServerUser.mockResolvedValue(null)
+    getServerScope.mockResolvedValue(null)
     redirect.mockImplementation(() => {
       throw new Error('redirected')
     })
-    await expect(requirePainelUser()).rejects.toThrow('redirected')
+    await expect(requirePainelScope()).rejects.toThrow('redirected')
     expect(redirect).toHaveBeenCalledWith('/?login=1&next=%2Fpainel')
   })
 

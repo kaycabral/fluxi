@@ -20,6 +20,7 @@ import type { AccountType, Entry, EntryOverride, EntryPart } from '@/features/le
 import { and, eq, gte, notInArray, sql } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
 import { movePaymentsToSplit, syncPayments } from './payments.write'
+import { inScope, owned, type Scope } from './scope-filter'
 import { captureUndo, widenUndo } from './undo.write'
 import {
   db,
@@ -34,10 +35,10 @@ import {
 } from './write-base'
 
 /**
- * Write side of the ledger. Every function takes the session `userId` and
+ * Write side of the ledger. Every function takes the session `scope` (user + active space) and
  * every UPDATE/DELETE filters by it, so a foreign id is a no-op
- * (`not_found`); inserts that point at another user's account/category are
- * refused by the composite `(id, user_id)` foreign keys (`invalid_reference`).
+ * (`not_found`); inserts that point at another space's account/category are
+ * refused by the composite `(id, space_id)` foreign keys (`invalid_reference`).
  * Multi-row changes (scoped edits, series splits) run in one
  * transaction with the entry row locked.
  */
@@ -89,11 +90,11 @@ function partsFromFields(entryId: string, fields: EntryFields): EntryPart[] {
   return fields.parts.map((p, sort) => ({ id: randomUUID(), entryId, sort, ...p }))
 }
 
-function partRow(userId: string, part: EntryPart) {
+function partRow(scope: Scope, part: EntryPart) {
   return {
     id: part.id,
     entryId: part.entryId,
-    userId,
+    ...owned(scope),
     label: part.label,
     bps: part.bps,
     day: part.day,
@@ -102,10 +103,10 @@ function partRow(userId: string, part: EntryPart) {
   }
 }
 
-function overrideRow(userId: string, override: EntryOverride) {
+function overrideRow(scope: Scope, override: EntryOverride) {
   return {
     entryId: override.entryId,
-    userId,
+    ...owned(scope),
     month: monthToDate(override.month),
     amountCents: override.amountCents,
     day: override.day,
@@ -116,7 +117,7 @@ function overrideRow(userId: string, override: EntryOverride) {
 
 /** Create an entry with its parts. Idempotent on `id`: a replay is a no-op. */
 export async function createEntry(
-  userId: string,
+  scope: Scope,
   id: string,
   fields: EntryFields,
 ): Promise<WriteResult> {
@@ -124,7 +125,7 @@ export async function createEntry(
     db().transaction(async (tx) => {
       const inserted = await tx
         .insert(entries)
-        .values({ id, userId, ...entryColumns(entryFromFields(id, fields)) })
+        .values({ id, ...owned(scope), ...entryColumns(entryFromFields(id, fields)) })
         .onConflictDoNothing({ target: entries.id })
         .returning({ id: entries.id })
       if (inserted.length === 0) {
@@ -132,22 +133,22 @@ export async function createEntry(
         const [mine] = await tx
           .select({ id: entries.id })
           .from(entries)
-          .where(and(eq(entries.id, id), eq(entries.userId, userId)))
+          .where(and(eq(entries.id, id), inScope(entries, scope)))
         return mine === undefined ? fail('not_found') : ok
       }
       const parts = partsFromFields(id, fields)
-      if (parts.length > 0) await tx.insert(entryParts).values(parts.map((p) => partRow(userId, p)))
+      if (parts.length > 0) await tx.insert(entryParts).values(parts.map((p) => partRow(scope, p)))
       // Its undo removes it: nothing of it existed before.
-      return undoable(await captureUndo(tx, userId, [id], { created: true }))
+      return undoable(await captureUndo(tx, scope, [id], { created: true }))
     }),
   )
 }
 
-async function writeEntryRow(tx: Tx, userId: string, entry: Entry): Promise<void> {
+async function writeEntryRow(tx: Tx, scope: Scope, entry: Entry): Promise<void> {
   await tx
     .update(entries)
     .set({ ...entryColumns(entry), updatedAt: sql`now()` })
-    .where(and(eq(entries.id, entry.id), eq(entries.userId, userId)))
+    .where(and(eq(entries.id, entry.id), inScope(entries, scope)))
 }
 
 /**
@@ -157,7 +158,7 @@ async function writeEntryRow(tx: Tx, userId: string, entry: Entry): Promise<void
  */
 async function replaceParts(
   tx: Tx,
-  userId: string,
+  scope: Scope,
   entryId: string,
   parts: readonly EntryPart[],
 ): Promise<void> {
@@ -167,12 +168,12 @@ async function replaceParts(
     .where(
       and(
         eq(entryParts.entryId, entryId),
-        eq(entryParts.userId, userId),
+        inScope(entryParts, scope),
         ids.length > 0 ? notInArray(entryParts.id, ids) : undefined,
       ),
     )
   for (const part of parts) {
-    const row = partRow(userId, part)
+    const row = partRow(scope, part)
     await tx
       .insert(entryParts)
       .values(row)
@@ -186,7 +187,7 @@ async function replaceParts(
           sort: row.sort,
           updatedAt: sql`now()`,
         },
-        setWhere: and(eq(entryParts.entryId, entryId), eq(entryParts.userId, userId)),
+        setWhere: and(eq(entryParts.entryId, entryId), inScope(entryParts, scope)),
       })
   }
 }
@@ -194,40 +195,40 @@ async function replaceParts(
 /** Persist a scoped edit computed from `state` (whose entry is the locked row). */
 async function persistScopedEdit(
   tx: Tx,
-  userId: string,
+  scope: Scope,
   state: SeriesState,
   result: ScopedEditResult,
 ): Promise<void> {
   const [edited, split] = result.entries
   if (edited === undefined) return
-  await writeEntryRow(tx, userId, edited)
+  await writeEntryRow(tx, scope, edited)
   await replaceParts(
     tx,
-    userId,
+    scope,
     edited.id,
     result.parts.filter((p) => p.entryId === edited.id),
   )
   if (split !== undefined) {
-    await tx.insert(entries).values({ id: split.id, userId, ...entryColumns(split) })
+    await tx.insert(entries).values({ id: split.id, ...owned(scope), ...entryColumns(split) })
     const copied = result.parts.filter((p) => p.entryId === split.id)
-    if (copied.length > 0) await tx.insert(entryParts).values(copied.map((p) => partRow(userId, p)))
-    await movePaymentsToSplit(tx, userId, state, { entry: split, parts: copied })
+    if (copied.length > 0) await tx.insert(entryParts).values(copied.map((p) => partRow(scope, p)))
+    await movePaymentsToSplit(tx, scope, state, { entry: split, parts: copied })
   }
-  await replaceOverrides(tx, userId, state.entry.id, result.overrides)
+  await replaceOverrides(tx, scope, state.entry.id, result.overrides)
 }
 
 /** Replace `entryId`'s overrides by `overrides` (a series split's may point at the new entry). */
 async function replaceOverrides(
   tx: Tx,
-  userId: string,
+  scope: Scope,
   entryId: string,
   overrides: readonly EntryOverride[],
 ): Promise<void> {
   await tx
     .delete(entryOverrides)
-    .where(and(eq(entryOverrides.entryId, entryId), eq(entryOverrides.userId, userId)))
+    .where(and(eq(entryOverrides.entryId, entryId), inScope(entryOverrides, scope)))
   if (overrides.length > 0) {
-    await tx.insert(entryOverrides).values(overrides.map((o) => overrideRow(userId, o)))
+    await tx.insert(entryOverrides).values(overrides.map((o) => overrideRow(scope, o)))
   }
 }
 
@@ -264,14 +265,14 @@ export type OccurrenceEdit = { month: Month; scope: EditScope | null }
  * a new split cannot apply to one month: `split_needs_series`).
  */
 export async function updateEntry(
-  userId: string,
+  scope: Scope,
   entryId: string,
   fields: EntryFields,
   occurrence: OccurrenceEdit | null,
 ): Promise<WriteResult> {
   return guarded(() =>
     db().transaction(async (tx) => {
-      const loaded = await loadSeries(tx, userId, entryId)
+      const loaded = await loadSeries(tx, scope, entryId)
       if (loaded === null) return fail('not_found')
       // A new kind re-signs the stored amounts (expense → income flips them; transfer is negative).
       const state = resignForKind(loaded, fields.kind)
@@ -279,11 +280,11 @@ export async function updateEntry(
       const parts = keepPartIds(partsFromFields(entryId, fields), state.parts)
 
       if (occurrence === null || state.entry.recurrence === 'none') {
-        const undo = await captureUndo(tx, userId, [entryId])
-        await writeEntryRow(tx, userId, entryFromFields(entryId, fields))
-        if (resigned) await replaceOverrides(tx, userId, entryId, state.overrides)
-        await replaceParts(tx, userId, entryId, parts)
-        await syncPayments(tx, userId, entryId)
+        const undo = await captureUndo(tx, scope, [entryId])
+        await writeEntryRow(tx, scope, entryFromFields(entryId, fields))
+        if (resigned) await replaceOverrides(tx, scope, entryId, state.overrides)
+        await replaceParts(tx, scope, entryId, parts)
+        await syncPayments(tx, scope, entryId)
         return undoable(undo)
       }
 
@@ -307,11 +308,11 @@ export async function updateEntry(
         moved,
       )
       if (!occursIn(series, moved)) throw new ScopeError('no_occurrence')
-      const undo = await captureUndo(tx, userId, [entryId])
-      await writeEntryRow(tx, userId, series)
-      if (resigned) await replaceOverrides(tx, userId, entryId, state.overrides)
+      const undo = await captureUndo(tx, scope, [entryId])
+      await writeEntryRow(tx, scope, series)
+      if (resigned) await replaceOverrides(tx, scope, entryId, state.overrides)
       if (isEmpty(patch) || occurrence.scope === null) {
-        await syncPayments(tx, userId, entryId)
+        await syncPayments(tx, scope, entryId)
         return undoable(undo)
       }
 
@@ -321,9 +322,9 @@ export async function updateEntry(
         { month: moved, patch, scope: occurrence.scope },
         randomUUID,
       )
-      await persistScopedEdit(tx, userId, next, result)
-      for (const entry of result.entries) await syncPayments(tx, userId, entry.id)
-      await widenUndo(tx, userId, createdBy(result, entryId))
+      await persistScopedEdit(tx, scope, next, result)
+      for (const entry of result.entries) await syncPayments(tx, scope, entry.id)
+      await widenUndo(tx, scope, createdBy(result, entryId))
       return undoable(undo)
     }),
   )
@@ -331,27 +332,27 @@ export async function updateEntry(
 
 /** Move one occurrence to another day (the timeline's inline day input). */
 export async function changeOccurrenceDay(
-  userId: string,
+  scope: Scope,
   input: { entryId: string; month: Month; day: number; scope: EditScope | null },
 ): Promise<WriteResult> {
   return guarded(() =>
     db().transaction(async (tx) => {
-      const { entryId, month, day, scope } = input
-      const state = await loadSeries(tx, userId, entryId)
+      const { entryId, month, day, scope: editScope } = input
+      const state = await loadSeries(tx, scope, entryId)
       if (state === null) return fail('not_found')
       if (!occursIn(state.entry, month) || state.parts.length > 0) return fail('no_occurrence')
       if (state.entry.recurrence === 'none') {
-        const undo = await captureUndo(tx, userId, [entryId])
-        await writeEntryRow(tx, userId, { ...state.entry, day })
+        const undo = await captureUndo(tx, scope, [entryId])
+        await writeEntryRow(tx, scope, { ...state.entry, day })
         return undoable(undo)
       }
       if (dayFor(state.entry, state.overrides, month) === day) return ok
-      if (scope === null) return fail('scope_required')
-      const undo = await captureUndo(tx, userId, [entryId])
-      const result = applyScopedEdit(state, { month, patch: { day }, scope }, randomUUID)
-      await persistScopedEdit(tx, userId, state, result)
-      for (const entry of result.entries) await syncPayments(tx, userId, entry.id)
-      await widenUndo(tx, userId, createdBy(result, entryId))
+      if (editScope === null) return fail('scope_required')
+      const undo = await captureUndo(tx, scope, [entryId])
+      const result = applyScopedEdit(state, { month, patch: { day }, scope: editScope }, randomUUID)
+      await persistScopedEdit(tx, scope, state, result)
+      for (const entry of result.entries) await syncPayments(tx, scope, entry.id)
+      await widenUndo(tx, scope, createdBy(result, entryId))
       return undoable(undo)
     }),
   )
@@ -363,52 +364,58 @@ export async function changeOccurrenceDay(
  * (deleting it when `month` is the start), `all` deletes the entry.
  */
 export async function deleteEntry(
-  userId: string,
+  scope: Scope,
   entryId: string,
   occurrence: { month: Month; scope: EditScope } | null,
 ): Promise<WriteResult> {
   return guarded(() =>
     db().transaction(async (tx) => {
-      const state = await loadSeries(tx, userId, entryId)
+      const state = await loadSeries(tx, scope, entryId)
       if (state === null) return fail('not_found')
       const { entry } = state
       const removeAll = async () => {
-        const undo = await captureUndo(tx, userId, [entryId])
-        await tx.delete(entries).where(and(eq(entries.id, entryId), eq(entries.userId, userId)))
+        const undo = await captureUndo(tx, scope, [entryId])
+        await tx.delete(entries).where(and(eq(entries.id, entryId), inScope(entries, scope)))
         return undoable(undo)
       }
       if (occurrence === null || entry.recurrence === 'none' || occurrence.scope === 'all')
         return removeAll()
-      const { month, scope } = occurrence
+      const { month, scope: editScope } = occurrence
       if (!occursIn(entry, month)) return fail('no_occurrence')
 
-      if (scope === 'one') {
-        const undo = await captureUndo(tx, userId, [entryId])
+      if (editScope === 'one') {
+        const undo = await captureUndo(tx, scope, [entryId])
         await tx
           .insert(entryOverrides)
-          .values({ entryId, userId, month: monthToDate(month), skipped: true, deleted: true })
+          .values({
+            entryId,
+            ...owned(scope),
+            month: monthToDate(month),
+            skipped: true,
+            deleted: true,
+          })
           .onConflictDoUpdate({
             target: [entryOverrides.entryId, entryOverrides.month],
             set: { skipped: true, deleted: true, updatedAt: sql`now()` },
-            setWhere: eq(entryOverrides.userId, userId),
+            setWhere: inScope(entryOverrides, scope),
           })
-        await syncPayments(tx, userId, entryId)
+        await syncPayments(tx, scope, entryId)
         return undoable(undo)
       }
 
       if (month === entry.startMonth) return removeAll()
-      const undo = await captureUndo(tx, userId, [entryId])
-      await writeEntryRow(tx, userId, endSeriesBefore(entry, month))
+      const undo = await captureUndo(tx, scope, [entryId])
+      await writeEntryRow(tx, scope, endSeriesBefore(entry, month))
       await tx
         .delete(entryOverrides)
         .where(
           and(
             eq(entryOverrides.entryId, entryId),
-            eq(entryOverrides.userId, userId),
+            inScope(entryOverrides, scope),
             gte(entryOverrides.month, monthToDate(month)),
           ),
         )
-      await syncPayments(tx, userId, entryId)
+      await syncPayments(tx, scope, entryId)
       return undoable(undo)
     }),
   )
@@ -416,28 +423,28 @@ export async function deleteEntry(
 
 /** Create a bank. Idempotent on `id`. */
 export async function createBank(
-  userId: string,
+  scope: Scope,
   input: { id: string; name: string },
 ): Promise<WriteResult> {
   const sort = await db()
     .select({ next: sql<number>`coalesce(max(${banks.sort}), -1) + 1` })
     .from(banks)
-    .where(eq(banks.userId, userId))
+    .where(inScope(banks, scope))
   await db()
     .insert(banks)
-    .values({ id: input.id, userId, name: input.name, sort: sort[0]?.next ?? 0 })
+    .values({ id: input.id, ...owned(scope), name: input.name, sort: sort[0]?.next ?? 0 })
     .onConflictDoNothing({ target: banks.id })
   return ok
 }
 
 export async function updateBank(
-  userId: string,
+  scope: Scope,
   input: { id: string; name: string },
 ): Promise<WriteResult> {
   const rows = await db()
     .update(banks)
     .set({ name: input.name, updatedAt: sql`now()` })
-    .where(and(eq(banks.id, input.id), eq(banks.userId, userId)))
+    .where(and(eq(banks.id, input.id), inScope(banks, scope)))
     .returning({ id: banks.id })
   return rows.length === 0 ? fail('not_found') : ok
 }
@@ -451,18 +458,18 @@ export type AccountInput = {
 }
 
 /** Create an account in one of the user's banks. Idempotent on `id`. */
-export async function createAccount(userId: string, input: AccountInput): Promise<WriteResult> {
+export async function createAccount(scope: Scope, input: AccountInput): Promise<WriteResult> {
   return guarded(async () => {
     await db()
       .insert(accounts)
-      .values({ ...input, userId })
+      .values({ ...input, ...owned(scope) })
       .onConflictDoNothing({ target: accounts.id })
     return ok
   })
 }
 
 export async function updateAccount(
-  userId: string,
+  scope: Scope,
   input: Omit<AccountInput, 'bankId'> & { archived: boolean },
 ): Promise<WriteResult> {
   const rows = await db()
@@ -475,17 +482,17 @@ export async function updateAccount(
       archivedAt: input.archived ? sql`coalesce(${accounts.archivedAt}, now())` : null,
       updatedAt: sql`now()`,
     })
-    .where(and(eq(accounts.id, input.id), eq(accounts.userId, userId)))
+    .where(and(eq(accounts.id, input.id), inScope(accounts, scope)))
     .returning({ id: accounts.id })
   return rows.length === 0 ? fail('not_found') : ok
 }
 
-export async function setCountFrom(userId: string, month: Month): Promise<WriteResult> {
+export async function setCountFrom(scope: Scope, month: Month): Promise<WriteResult> {
   await db()
     .insert(userSettings)
-    .values({ userId, countFromMonth: monthToDate(month) })
+    .values({ ...owned(scope), countFromMonth: monthToDate(month) })
     .onConflictDoUpdate({
-      target: userSettings.userId,
+      target: userSettings.spaceId,
       set: { countFromMonth: monthToDate(month), updatedAt: sql`now()` },
     })
   return ok

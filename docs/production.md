@@ -67,7 +67,7 @@ A sincronização roda **dentro do Supabase**, na Edge Function `pluggy-sync` (`
 
 - **Agenda**: job `pluggy-sync-daily` do `pg_cron` (migration `0015_sync_schedule`), `0 9 * * *` UTC = 06:00 em São Paulo. Lê a URL e o token do Vault (`pluggy_sync_url`, `pluggy_sync_token`) e chama a função com `net.http_post` (timeout 150 s, o limite de inatividade da função).
 - **Saída**: JSON só com agregados (por conta: transações, pendentes, removidas, intervalo de datas; itens pulados com o status). Logs idem: nunca credenciais, descrições ou valores.
-- **Deploy**: job `deploy-edge-functions`, depois do `migrate-production`, com o CLI fixado do `package.json` (`supabase functions deploy pluggy-sync --use-api`).
+- **Deploy**: job `deploy-edge-functions`, depois do `migrate-production`, com o CLI fixado do `package.json` (`supabase functions deploy pluggy-sync --use-api`). Sem o secret `SUPABASE_ACCESS_TOKEN` (PAT com escopo, passo 2) no environment `production`, o job só avisa e não faz deploy: aí o deploy é manual, de uma máquina logada no projeto, `pnpm exec supabase functions deploy pluggy-sync --workdir . --project-ref <ref> --use-api`. A variable `SUPABASE_PROJECT_REF` já está cadastrada.
 
 ### Configuração (uma vez, nesta ordem)
 

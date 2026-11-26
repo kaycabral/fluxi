@@ -21,7 +21,13 @@ let ana: Scope
 let bia: Scope
 let work: Scope
 
-async function feedAccount(scope: Scope, itemId: string, externalId: string, txIds: string[]) {
+async function feedAccount(
+  scope: Scope,
+  itemId: string,
+  externalId: string,
+  txIds: string[],
+  name = `Conta ${externalId}`,
+) {
   const [row] = await db()
     .insert(bankFeedAccounts)
     .values({
@@ -30,7 +36,7 @@ async function feedAccount(scope: Scope, itemId: string, externalId: string, txI
       externalId,
       itemId,
       institution: 'Banco X',
-      name: `Conta ${externalId}`,
+      name,
       type: 'BANK',
       subtype: 'CHECKING_ACCOUNT',
       balanceCents: 100,
@@ -300,8 +306,10 @@ describe('connection status and connected banks (Postgres)', () => {
   })
 
   it('lists the connected institutions of the space that have no linked account', async () => {
-    await feedAccount(ana, 'item-1', 'acc-1', [])
-    await expect(listUnlinkedConnectedInstitutions(ana)).resolves.toEqual(['Banco X', 'Inter'])
+    // The stored institution is the proxy connector's: named from the accounts instead.
+    await feedAccount(ana, 'item-1', 'acc-1', [], 'Nu Pagamentos S.A. - Instituição de Pagamento')
+    await db().update(bankFeedAccounts).set({ institution: 'MeuPluggy' })
+    await expect(listUnlinkedConnectedInstitutions(ana)).resolves.toEqual(['Inter', 'Nubank'])
     const [bank] = await db()
       .insert(banks)
       .values({ ...ana, name: 'B' })

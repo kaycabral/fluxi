@@ -1,6 +1,6 @@
 'use client'
 
-import { feedAccountLabel, institutionOf } from '@/features/bank-feed/core/institution'
+import { connectionInstitution, feedAccountLabel } from '@/features/bank-feed/core/institution'
 import { compatibleTypes, ledgerBalanceOf } from '@/features/bank-feed/core/mapping'
 import type { CardStatus } from '@/features/bank-feed/core/pluggy'
 import { feedAccountStatusLine } from '@/features/bank-feed/core/status'
@@ -104,13 +104,11 @@ export function hasMovement(feed: Pick<FeedAccount, 'transactionCount' | 'balanc
  * (`institutionOf`), never the proxy connector's "MeuPluggy".
  */
 export function connectionName(connection: BankConnection, index: number): string {
-  if (connection.feedAccounts.length > 0) {
-    return institutionOf(connection.feedAccounts.map((f) => f.name))
-  }
-  if (connection.accounts.length > 0) return institutionOf(connection.accounts)
-  const label = connection.label?.trim() ?? ''
-  if (label !== '' && !/pluggy/i.test(label)) return label
-  return `Conexão ${index + 1}`
+  const names =
+    connection.feedAccounts.length > 0
+      ? connection.feedAccounts.map((f) => f.name)
+      : connection.accounts
+  return connectionInstitution(names, connection.label) ?? `Conexão ${index + 1}`
 }
 
 /**

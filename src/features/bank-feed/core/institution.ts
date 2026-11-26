@@ -82,6 +82,21 @@ export function institutionOf(names: readonly string[]): string {
   return top === '' ? 'Banco' : capitalize(top)
 }
 
+/**
+ * The institution a connection shows: from its accounts' names
+ * ({@link institutionOf}), else its label unless that is the proxy
+ * connector's ("MeuPluggy"); null when nothing names it. The stored
+ * `institution` column is never used: it is always the proxy's name.
+ */
+export function connectionInstitution(
+  accountNames: readonly string[],
+  label: string | null,
+): string | null {
+  if (accountNames.length > 0) return institutionOf(accountNames)
+  const trimmed = label?.trim() ?? ''
+  return trimmed !== '' && !/pluggy/i.test(trimmed) ? trimmed : null
+}
+
 /** Normalized aliases of `institution` (its own name included). */
 export function aliasesOf(institution: string): readonly string[] {
   const rule = INSTITUTION_RULES.find((r) => r.name === institution)

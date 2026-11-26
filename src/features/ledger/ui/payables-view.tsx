@@ -63,7 +63,7 @@ function GroupCard({ group, data }: { group: PayableGroup; data: LedgerData }) {
         </CardTitle>
         <GroupTotals group={group} />
       </CardHeader>
-      <CardContent>
+      <CardContent className="@container">
         <Table aria-labelledby={headingId}>
           <TableHeader>
             <TableRow>

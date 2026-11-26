@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { LedgerShell } from './ledger-shell'
@@ -96,11 +96,16 @@ describe('PayablesView', () => {
     markPaidAction.mockResolvedValueOnce({ ok: false, error: 'Falhou.' })
     renderPayables()
     await userEvent.click(within(group(/Próximos 7 dias/)).getByLabelText('Mais opções: Luz'))
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Pago em outra data…' }))
-    const date = await screen.findByLabelText('Pago em')
-    expect(date).toHaveValue('2026-12-15')
-    fireEvent.change(date, { target: { value: '2026-12-14' } })
-    await userEvent.click(screen.getByRole('button', { name: 'Confirmar' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: /Outra data/ }))
+    // Regression: the picker used to close as soon as the menu returned focus.
+    const picker = await screen.findByRole('dialog', { name: 'Pago em' })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(picker).toBeInTheDocument()
+    expect(screen.queryByRole('menu')).toBeNull()
+    // Future days are disabled: paying records a past fact.
+    expect(within(picker).getByRole('button', { name: /16 de dezembro/ })).toBeDisabled()
+    await userEvent.click(within(picker).getByRole('button', { name: /14 de dezembro/ }))
+    expect(screen.queryByRole('dialog', { name: 'Pago em' })).toBeNull()
     await waitFor(() =>
       expect(markPaidAction).toHaveBeenCalledWith({
         entryId: IDS.power,
@@ -110,6 +115,22 @@ describe('PayablesView', () => {
       }),
     )
     await waitFor(() => expect(toastError).toHaveBeenCalledWith('Falhou.'))
+  })
+
+  it('marks one paid yesterday or on its past due date from the menu', async () => {
+    renderPayables()
+    await userEvent.click(screen.getByLabelText('Mais opções: Avulso'))
+    const items = (await screen.findAllByRole('menuitem')).map((i) => i.textContent)
+    expect(items).toEqual(['Ontem14/12', 'Anteontem13/12', 'No vencimento03/12', ' Outra data…'])
+    await userEvent.click(screen.getByRole('menuitem', { name: /Ontem/ }))
+    await waitFor(() =>
+      expect(markPaidAction).toHaveBeenCalledWith({
+        entryId: IDS.once,
+        month: '2026-12',
+        partId: null,
+        paidOn: '2026-12-14',
+      }),
+    )
   })
 
   it('hides paid occurrences unless asked, then lets them be undone', async () => {

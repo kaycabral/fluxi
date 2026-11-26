@@ -53,7 +53,7 @@ function BillList({ group, data }: { group: PayableGroup; data: LedgerData }) {
   const label = (id: string | null) => accountLabel(id, data.accounts, data.banks)
   return (
     <div className="flex h-full min-h-0 flex-col gap-2">
-      <ul className="divide-border -mr-2 min-h-0 flex-1 divide-y overflow-y-auto pr-2">
+      <ul className="divide-border @container -mr-2 min-h-0 flex-1 divide-y overflow-y-auto pr-2">
         {group.items.map(({ landing, date }) => {
           const { entry } = landing
           const installment = installmentLabel(landing)

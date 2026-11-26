@@ -1,19 +1,22 @@
 'use client'
 
+import { ButtonGroup } from '@/components/button-group'
 import { markPaidAction, unmarkPaidAction } from '@/features/ledger/adapters/actions/payments'
 import type { ActionResult } from '@/features/ledger/core/action-result'
 import { paidLabel } from '@/features/ledger/core/labels'
 import type { Landing } from '@/features/ledger/core/occurrence'
-import { paymentKeyOf } from '@/features/ledger/core/payments'
+import { dayMonth, payControlLabel, payShortcuts } from '@/features/ledger/core/pay-dates'
+import { landingDate, paymentKeyOf } from '@/features/ledger/core/payments'
 import {
   Button,
+  Calendar,
   Checkbox,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
-  Input,
-  Label,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -22,8 +25,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@cbrl/design'
-import { CalendarDays, Check, ChevronDown, Landmark } from 'lucide-react'
-import { useId, useOptimistic, useState, useTransition } from 'react'
+import { CalendarDays, Check, ChevronDown, Landmark, Undo2 } from 'lucide-react'
+import { useOptimistic, useRef, useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { useLedgerUi } from './ledger-shell'
 
@@ -96,10 +99,28 @@ function EditablePaidCheckbox({ landing, paid }: { landing: Landing; paid: boole
   )
 }
 
+/** ISO day ↔ local `Date`: the calendar works in local days. */
+function isoToLocalDate(iso: string): Date {
+  return new Date(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10)))
+}
+
+function localDateToIso(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+}
+
 /**
- * "Marcar como pago/recebido" (today) as an icon button attached to a menu
- * with the same action on another date (a date popover). Fixed width, so
- * the rows of a list line up.
+ * The short visible label: hidden until the nearest `@container` ancestor is
+ * wide enough, so narrow widgets get icon-only buttons with the same names.
+ */
+function ShortLabel({ children }: { children: string }) {
+  return <span className="hidden @sm:inline">{children}</span>
+}
+
+/**
+ * "Pagar"/"Receber" (today) joined to a menu of past dates (ontem,
+ * anteontem, no vencimento, outra data… in a calendar). Same width per
+ * state, so the rows of a list line up.
  */
 export function PayButton({ landing }: { landing: Landing }) {
   if (landing.entry.fromBank) return <BankPaidBadge landing={landing} />
@@ -109,42 +130,48 @@ export function PayButton({ landing }: { landing: Landing }) {
 function EditablePayButton({ landing }: { landing: Landing }) {
   const { refs } = useLedgerUi()
   const { pending, run } = usePaymentWrite(landing)
-  const [date, setDate] = useState(refs.today)
-  const [open, setOpen] = useState(false)
-  const id = useId()
+  const [pickerOpen, setPickerOpen] = useState(false)
+  // Set by "Outra data…": the picker opens only once the menu has closed and
+  // returned focus, else that focus move dismisses the brand-new popover.
+  const pickAfterClose = useRef(false)
+  const today = refs.today
   const label = paidLabel(landing.amountCents)
   const action = `Marcar como ${label.toLowerCase()}`
   const name = occurrenceName(landing)
   const key = paymentKeyOf(landing)
+  const shortcuts = payShortcuts(today, landingDate(landing))
+  const payOn = (paidOn?: string) =>
+    run(true, () => markPaidAction(paidOn === undefined ? key : { ...key, paidOn }))
 
   return (
-    <div role="group" aria-label={`${action}: ${name}`} className="flex w-16 justify-end">
+    <ButtonGroup aria-label={`${action}: ${name}`} className="ml-auto">
       <TooltipProvider delayDuration={150}>
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
-              size="icon-sm"
+              size="sm"
               variant="outline"
-              className="rounded-r-none"
+              className="w-8 px-0 @sm:w-24 @sm:px-3"
               disabled={pending}
               aria-label={`${action}: ${name}`}
-              onClick={() => run(true, () => markPaidAction(key))}
+              onClick={() => payOn()}
             >
               <Check />
+              <ShortLabel>{payControlLabel(landing.amountCents, false)}</ShortLabel>
             </Button>
           </TooltipTrigger>
-          <TooltipContent>{action}</TooltipContent>
+          <TooltipContent>{action} hoje</TooltipContent>
         </Tooltip>
       </TooltipProvider>
-      {/* The popover anchors on the menu trigger; only the menu item opens it. */}
-      <Popover open={open} onOpenChange={(next) => !next && setOpen(false)}>
+      {/* The popover anchors on the menu trigger; only "Outra data…" opens it. */}
+      <Popover open={pickerOpen} onOpenChange={(next) => !next && setPickerOpen(false)}>
         <DropdownMenu>
           <PopoverTrigger asChild>
             <DropdownMenuTrigger asChild>
               <Button
-                size="icon-sm"
+                size="sm"
                 variant="outline"
-                className="w-7 rounded-l-none border-l-0"
+                className="w-7 pl-2!"
                 disabled={pending}
                 aria-label={`Mais opções: ${name}`}
               >
@@ -155,35 +182,47 @@ function EditablePayButton({ landing }: { landing: Landing }) {
           <DropdownMenuContent
             align="end"
             className="w-max"
-            onCloseAutoFocus={(e) => open && e.preventDefault()}
+            onCloseAutoFocus={(e) => {
+              if (!pickAfterClose.current) return
+              pickAfterClose.current = false
+              e.preventDefault()
+              setPickerOpen(true)
+            }}
           >
-            <DropdownMenuItem onSelect={() => setOpen(true)}>
-              <CalendarDays /> {label} em outra data…
+            <DropdownMenuLabel className="text-muted-foreground text-xs font-normal">
+              {label} em
+            </DropdownMenuLabel>
+            {shortcuts.map((s) => (
+              <DropdownMenuItem key={s.key} onSelect={() => payOn(s.date)}>
+                {s.label}
+                <span className="text-muted-foreground ml-auto pl-4 text-xs tabular-nums">
+                  {dayMonth(s.date)}
+                </span>
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onSelect={() => {
+                pickAfterClose.current = true
+              }}
+            >
+              <CalendarDays /> Outra data…
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        <PopoverContent align="end" className="grid w-56 gap-2">
-          <Label htmlFor={id}>{label} em</Label>
-          <Input
-            id={id}
-            type="date"
-            value={date}
-            required
-            onChange={(e) => setDate(e.target.value)}
-          />
-          <Button
-            size="sm"
-            disabled={pending || date === ''}
-            onClick={() => {
-              setOpen(false)
-              run(true, () => markPaidAction({ ...key, paidOn: date }))
+        <PopoverContent align="end" className="w-auto p-0" aria-label={`${label} em`}>
+          <Calendar
+            defaultMonth={isoToLocalDate(today)}
+            endMonth={isoToLocalDate(today)}
+            disabled={{ after: isoToLocalDate(today) }}
+            onDayClick={(date) => {
+              setPickerOpen(false)
+              payOn(localDateToIso(date))
             }}
-          >
-            Confirmar
-          </Button>
+          />
         </PopoverContent>
       </Popover>
-    </div>
+    </ButtonGroup>
   )
 }
 
@@ -196,14 +235,23 @@ export function UnpayButton({ landing }: { landing: Landing }) {
 function EditableUnpayButton({ landing }: { landing: Landing }) {
   const { pending, run } = usePaymentWrite(landing)
   return (
-    <Button
-      size="sm"
-      variant="ghost"
-      disabled={pending}
-      aria-label={`Desfazer: ${occurrenceName(landing)}`}
-      onClick={() => run(false, () => unmarkPaidAction(paymentKeyOf(landing)))}
-    >
-      Desfazer
-    </Button>
+    <TooltipProvider delayDuration={150}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-muted-foreground w-15 px-0 @sm:w-31 @sm:px-3"
+            disabled={pending}
+            aria-label={`Desfazer: ${occurrenceName(landing)}`}
+            onClick={() => run(false, () => unmarkPaidAction(paymentKeyOf(landing)))}
+          >
+            <Undo2 />
+            <ShortLabel>{payControlLabel(landing.amountCents, true)}</ShortLabel>
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>Desfazer</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   )
 }

@@ -52,6 +52,14 @@ function Opener() {
         editar luz
       </button>
       <button onClick={() => openEdit(targetFor(data, landingOf(IDS.once)))}>editar avulso</button>
+      <button
+        onClick={() => {
+          const landing = landingOf(IDS.once)
+          openEdit(targetFor(data, { ...landing, entry: { ...landing.entry, fromBank: true } }))
+        }}
+      >
+        editar do banco
+      </button>
       <input aria-label="campo qualquer" />
     </>
   )
@@ -384,5 +392,28 @@ describe('editing', () => {
     await userEvent.click(within(sheet).getByRole('button', { name: 'Duplicar' }))
     expect(await screen.findByRole('dialog', { name: 'Novo lançamento' })).toBeInTheDocument()
     expect(screen.getByLabelText('Descrição')).toHaveValue('Avulso (cópia)')
+  })
+
+  it('locks what the bank owns and saves only the user fields of a bank entry', async () => {
+    renderShell()
+    await userEvent.click(screen.getByRole('button', { name: 'editar do banco' }))
+    const sheet = await screen.findByRole('dialog', { name: 'Editar lançamento' })
+    expect(
+      within(sheet).getByText('Vem do banco: valor, data e conta não podem ser alterados.'),
+    ).toBeInTheDocument()
+    expect(within(sheet).queryByRole('button', { name: 'Excluir' })).not.toBeInTheDocument()
+    expect(within(sheet).getByLabelText('Data')).toBeDisabled()
+    expect(within(sheet).getByLabelText('Valor')).toBeDisabled()
+    expect(within(sheet).getByLabelText('Conta')).toBeDisabled()
+    expect(within(sheet).getByRole('group', { name: 'Dados do banco' })).toBeDisabled()
+    expect(within(sheet).getByLabelText('Categoria')).toBeEnabled()
+    await userEvent.clear(within(sheet).getByLabelText('Descrição'))
+    await userEvent.type(within(sheet).getByLabelText('Descrição'), 'Farmácia')
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Salvar' }))
+    await waitFor(() => expect(actions.updateEntryAction).toHaveBeenCalledOnce())
+    expect(actions.updateEntryAction.mock.calls[0]?.[0]).toMatchObject({
+      entryId: IDS.once,
+      fields: { description: 'Farmácia', amountCents: -700000, day: 3 },
+    })
   })
 })

@@ -3,9 +3,15 @@ import { accounts, banks, entries, occurrencePayments } from '@/db/schema'
 import { bankEntryLinks, bankFeedAccounts, bankTransactions } from '@/db/schema-bank-feed'
 import type { FeedAccountRow, FeedTransactionRow } from '@/features/bank-feed/core/pluggy'
 import { loadLedger } from '@/features/ledger/adapters/ledger.repo'
-import { deleteEntry } from '@/features/ledger/adapters/ledger.write'
+import {
+  changeOccurrenceDay,
+  deleteEntry,
+  updateEntry,
+} from '@/features/ledger/adapters/ledger.write'
+import { markOccurrencePaid, unmarkOccurrencePaid } from '@/features/ledger/adapters/payments.write'
 import { projectLedger } from '@/features/ledger/adapters/projection'
 import { undoLastAction } from '@/features/ledger/adapters/undo.write'
+import type { EntryFields } from '@/features/ledger/core/schemas'
 import type { Scope } from '@/features/spaces/core/space'
 import { requireEnv } from '@cbrl/env'
 import { and, eq } from 'drizzle-orm'
@@ -189,34 +195,85 @@ describe('materialize_bank_feed (Postgres)', () => {
     expect(paid.map((p) => [p.month, p.paidOn])).toEqual([['2026-12-01', '2026-12-02']])
   })
 
-  it('keeps a deleted entry as a tombstone, and undo brings the link back', async () => {
-    await feed(ana, checkingFeed, [tx('t1')])
+  it('refuses every change of a bank entry the bank owns, and keeps the user fields', async () => {
+    await feed(ana, checkingFeed, [tx('t1', { date: '2026-11-03' })])
     await map(ana, 'acc-checking', checkingId)
     await materialize()
-    const [entry] = await entriesOf(ana)
+    const [row] = await entriesOf(ana)
+    const id = row!.id
+    const fields: EntryFields = {
+      kind: 'expense',
+      description: 'Banco t1',
+      amountCents: -5000,
+      accountId: checkingId,
+      toAccountId: null,
+      categoryId: null,
+      pot: null,
+      tags: [],
+      startMonth: '2026-11',
+      day: 3,
+      recurrence: 'none',
+      repeatEvery: 1,
+      monthBy: 'day',
+      installments: null,
+      endMonth: null,
+      parts: [],
+    }
+    const locked = { ok: false, reason: 'bank_locked' }
+    for (const patch of [
+      { amountCents: -1 },
+      { amountCents: 5000 },
+      { kind: 'income' as const, amountCents: 5000 },
+      { accountId: cardId },
+      { day: 4 },
+      { startMonth: '2026-12' },
+      { recurrence: 'monthly' as const },
+      { parts: [{ label: 'A', bps: 10000, day: 3, nextMonth: false }] },
+    ]) {
+      expect(await updateEntry(ana, id, { ...fields, ...patch }, null)).toEqual(locked)
+    }
+    expect(await deleteEntry(ana, id, null)).toEqual(locked)
+    expect(await deleteEntry(ana, id, { month: '2026-11', scope: 'one' })).toEqual(locked)
+    expect(
+      await changeOccurrenceDay(ana, { entryId: id, month: '2026-11', day: 9, scope: 'one' }),
+    ).toEqual(locked)
+    const key = { entryId: id, month: '2026-11', partId: null }
+    expect(await unmarkOccurrencePaid(ana, key)).toEqual(locked)
+    expect(await markOccurrencePaid(ana, { ...key, paidOn: '2026-11-04' })).toEqual(locked)
 
-    const deleted = await deleteEntry(ana, entry!.id, null)
-    expect(deleted.ok).toBe(true)
-    expect((await linksOf(ana)).map((l) => [l.entryId, l.discarded])).toEqual([[null, true]])
-    expect(await materialize()).toMatchObject({ created: 0 })
-    expect(await entriesOf(ana)).toHaveLength(0)
+    const edited = await updateEntry(
+      ana,
+      id,
+      { ...fields, description: 'Farmácia', pot: 'essential', tags: ['saúde'] },
+      null,
+    )
+    expect(edited.ok).toBe(true)
+    const [after] = await entriesOf(ana)
+    expect(after).toMatchObject({
+      description: 'Farmácia',
+      pot: 'essential',
+      tags: ['saúde'],
+      amountCents: -5000,
+      day: 3,
+    })
+    expect(await db().select().from(occurrencePayments)).toHaveLength(1)
 
-    if (!deleted.ok || deleted.undo === undefined) throw new Error('no undo token')
-    expect(await undoLastAction(ana, deleted.undo)).toEqual({ ok: true })
-    expect((await linksOf(ana)).map((l) => [l.entryId, l.discarded])).toEqual([[entry!.id, false]])
+    // Undo of the edit restores the row and keeps it linked to the bank.
+    if (!edited.ok || edited.undo === undefined) throw new Error('no undo token')
+    expect(await undoLastAction(ana, edited.undo)).toEqual({ ok: true })
+    expect((await linksOf(ana)).map((l) => l.entryId)).toEqual([id])
+    expect(await materialize()).toMatchObject({ created: 0, removed: 0 })
   })
 
-  it('deletes the entry of a transaction the bank removed, and drops a tombstone', async () => {
+  it('deletes the entry of a transaction the bank removed', async () => {
     await feed(ana, checkingFeed, [tx('t1'), tx('t2')])
     await map(ana, 'acc-checking', checkingId)
     await materialize()
-    const t2 = (await entriesOf(ana)).find((e) => e.description === 'Banco t2')
-    await deleteEntry(ana, t2!.id, null)
 
-    await feed(ana, checkingFeed, [])
+    await feed(ana, checkingFeed, [tx('t1')])
     expect(await materialize()).toMatchObject({ removed: 1 })
-    expect(await entriesOf(ana)).toHaveLength(0)
-    expect(await linksOf(ana)).toHaveLength(0)
+    expect((await entriesOf(ana)).map((e) => e.description)).toEqual(['Banco t1'])
+    expect(await linksOf(ana)).toHaveLength(1)
   })
 
   it('pairs a card bill payment into one transfer, even when one side arrives later', async () => {
@@ -285,7 +342,7 @@ describe('materialize_bank_feed (Postgres)', () => {
       })
     const ledger = await loadLedger(ana, { from: '2026-11', to: '2026-11' })
     expect(ledger.connectedAccountIds).toEqual([checkingId, cardId].sort())
-    expect(ledger.bankEntryIds).toHaveLength(4)
+    expect(ledger.entries.filter((e) => e.fromBank)).toHaveLength(4)
     const bia = await personalScope(db(), BIA)
     expect((await loadLedger(bia, { from: '2026-11', to: '2026-11' })).connectedAccountIds).toEqual(
       [],

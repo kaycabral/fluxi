@@ -2024,16 +2024,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "discarded": {
-          "name": "discarded",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "generated": {
-            "as": "entry_id is null",
-            "type": "stored"
-          }
-        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",

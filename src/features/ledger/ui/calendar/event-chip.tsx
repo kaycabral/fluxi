@@ -234,16 +234,18 @@ export function EventDetails({
         <Button variant="ghost" size="icon-sm" aria-label="Editar lançamento" onClick={edit}>
           <Pencil />
         </Button>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Excluir lançamento"
-          disabled={pending}
-          onClick={() => void remove()}
-        >
-          <Trash2 />
-        </Button>
-        {!skipped && (
+        {!entry.fromBank && (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Excluir lançamento"
+            disabled={pending}
+            onClick={() => void remove()}
+          >
+            <Trash2 />
+          </Button>
+        )}
+        {!skipped && !entry.fromBank && (
           <Button
             variant="ghost"
             size="icon-sm"
@@ -319,10 +321,11 @@ function statusLine(input: {
   if (skipped)
     return { icon: EyeOff, label: 'Situação', text: 'Ignorado neste mês: não conta no saldo' }
   if (status === 'paid') {
+    const bank = landing.entry.fromBank ? ' (vem do banco)' : ''
     return {
       icon: CircleCheck,
       label: 'Situação',
-      text: `${paidLabel(landing.amountCents)} em ${dayLongLabel(payment?.paidOn ?? today)}`,
+      text: `${paidLabel(landing.amountCents)} em ${dayLongLabel(payment?.paidOn ?? today)}${bank}`,
     }
   }
   if (status === 'overdue') return { icon: CircleAlert, label: 'Situação', text: 'Atrasada' }

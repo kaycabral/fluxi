@@ -7,7 +7,6 @@ CREATE TABLE "bank_entry_links" (
 	"space_id" uuid NOT NULL,
 	"bank_transaction_id" uuid,
 	"entry_id" uuid,
-	"discarded" boolean GENERATED ALWAYS AS (entry_id is null) STORED NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );

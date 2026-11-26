@@ -155,7 +155,7 @@ export function sampleData(overrides: Partial<LedgerData> = {}): LedgerData {
     parts: salarySplit(IDS.salary),
     overrides: [],
     payments: [],
-    feed: { connectedAccountIds: [], bankEntryIds: [], today: '2026-12-15' },
+    feed: { connectedAccountIds: [], today: '2026-12-15' },
     ...overrides,
   }
 }

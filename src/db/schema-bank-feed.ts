@@ -1,6 +1,5 @@
 import { sql } from 'drizzle-orm'
 import {
-  boolean,
   check,
   date,
   foreignKey,
@@ -148,14 +147,16 @@ export const bankTransactions = pgTable(
  * Bank transaction ↔ ledger entry: each transaction of a MAPPED feed account
  * is materialized as a one-off entry (`private.materialize_bank_feed`, run by
  * the sync), one link per transaction; a detected transfer pair is ONE entry
- * linked from both transactions. The bank owns the entry's amount and date
- * (re-synced), the user its description, category and pot.
+ * linked from both transactions. The bank owns the entry (amount, date,
+ * account, kind, "Pago"; the user can neither change nor delete it), the user
+ * its description, category, pot and tags.
  *
  * Both foreign keys null only their own column on delete, so the link
- * outlives either side: the user deleting the entry leaves `entry_id` null =
- * `discarded` (a tombstone, never re-created); the bank dropping the
- * transaction leaves `bank_transaction_id` null, and the next
- * materialization deletes the entry (unless discarded) and the link.
+ * outlives either side: the bank dropping the transaction leaves
+ * `bank_transaction_id` null and the next materialization deletes the entry
+ * and the link; `entry_id` is null only inside an undo (which deletes and
+ * restores the entry, then re-points the link) and a link left that way is
+ * dropped and re-materialized.
  */
 export const bankEntryLinks = pgTable(
   'bank_entry_links',
@@ -165,9 +166,6 @@ export const bankEntryLinks = pgTable(
     spaceId: spaceIdColumn(),
     bankTransactionId: uuid('bank_transaction_id'),
     entryId: uuid('entry_id'),
-    discarded: boolean('discarded')
-      .notNull()
-      .generatedAlwaysAs(sql`entry_id is null`),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },

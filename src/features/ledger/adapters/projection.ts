@@ -41,7 +41,6 @@ export async function projectLedger(
         ? undefined
         : {
             connectedAccountIds: ledger.connectedAccountIds,
-            bankEntryIds: ledger.bankEntryIds,
             today,
           },
   }).filter((m) => m.month >= window.from)

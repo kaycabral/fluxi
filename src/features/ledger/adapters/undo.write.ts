@@ -14,8 +14,8 @@ import { db, fail, guarded, ok, type Tx, type WriteResult } from './write-base'
  * with them by cascade) and puts the recorded rows back.
  *
  * Bank-materialized entries keep their `bank_entry_links`: the undo deletes
- * the entries (their links' `entry_id` goes null, which would read as
- * "discarded") and then points the recorded links back at the restored rows.
+ * the entries (their links' `entry_id` goes null, which the materializer
+ * would re-create) and then points the recorded links back at the restored rows.
  *
  * Only the last action in a space can be undone (one row per space), and only
  * for {@link UNDO_WINDOW}: the toast offering it lasts seconds, the rest is

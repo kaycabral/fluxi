@@ -49,11 +49,11 @@ export function loadLedgerData(
   today: string,
 ): Promise<BackendRead<LedgerData>> {
   return readBackend('ledger', async () => {
-    const { connectedAccountIds, bankEntryIds, ...ledger } = await loadLedger(scope, {
+    const { connectedAccountIds, ...ledger } = await loadLedger(scope, {
       from: EPOCH,
       to: window.to,
     })
-    return { ...ledger, feed: { connectedAccountIds, bankEntryIds, today } }
+    return { ...ledger, feed: { connectedAccountIds, today } }
   })
 }
 

@@ -13,8 +13,10 @@
 -- Steps (deterministic, idempotent; a re-run with the same feed changes
 -- nothing):
 -- 1. Removal: links whose transaction is gone (bank removed it inside the
---    360-day window) or whose feed account was unmapped: the entry is deleted
---    unless the user already deleted it (discarded); the link is dropped.
+--    360-day window), whose feed account was unmapped, or without an entry:
+--    the entry (if any) and the link are deleted. The user cannot delete a
+--    bank entry (the app refuses), so a link without entry is never a choice
+--    to keep: its transaction is materialized again.
 -- 2. Transfers: opposite amounts on two different mapped accounts within 3
 --    days, at least one side not linked yet, Pluggy signals first (card bill
 --    payment / same-person transfer category, `PAGAMENTO_FATURA`), then the
@@ -102,7 +104,7 @@ BEGIN
   LEFT JOIN public.bank_feed_accounts f ON f.id = t.feed_account_id AND f.space_id = t.space_id
   WHERE l.user_id = p_user
     AND l.space_id = p_space
-    AND (t.id IS NULL OR f.account_id IS NULL);
+    AND (t.id IS NULL OR f.account_id IS NULL OR l.entry_id IS NULL);
   -- The other link of a removed transfer goes too: its transaction is
   -- materialized again below (as a single, or paired anew).
   DELETE FROM public.bank_entry_links l
@@ -126,9 +128,9 @@ BEGIN
         ON e.id = l.entry_id AND e.user_id = p_user AND e.space_id = p_space
     ),
     free AS (
-      -- Not linked yet, or linked to a single (not discarded, not a transfer).
+      -- Not linked yet, or linked to a single (not a transfer).
       SELECT * FROM state
-      WHERE link_id IS NULL OR (entry_id IS NOT NULL AND entry_kind <> 'transfer')
+      WHERE link_id IS NULL OR entry_kind <> 'transfer'
     )
     SELECT
       a.id AS out_id, b.id AS in_id,

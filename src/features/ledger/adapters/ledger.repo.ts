@@ -12,7 +12,7 @@ import {
   occurrencePayments,
   pots,
 } from '@/db/schema'
-import { bankEntryLinks, bankFeedAccounts } from '@/db/schema-bank-feed'
+import { bankFeedAccounts } from '@/db/schema-bank-feed'
 import { addMonths, monthFromDate, monthToDate, type Month } from '@/features/ledger/core/month'
 import type { OccurrencePayment } from '@/features/ledger/core/payments'
 import type {
@@ -51,11 +51,14 @@ export type LedgerSnapshot = {
   payments: OccurrencePayment[]
   /** Fluxi accounts a bank feed is mapped to. */
   connectedAccountIds: string[]
-  /** Entries materialized from bank transactions. */
-  bankEntryIds: string[]
 }
 
 const db = () => fluxiDb.db()
+
+/** Whether an `entries` row was materialized from a bank transaction. */
+export const isFromBank = sql<boolean>`exists (
+  select 1 from bank_entry_links l where l.entry_id = "entries"."id"
+)`.mapWith(Boolean)
 const monthOrNull = (value: string | null) => (value === null ? null : monthFromDate(value))
 
 export async function listBanks(scope: Scope): Promise<Bank[]> {
@@ -148,7 +151,7 @@ export async function listBudgetPlans(scope: Scope): Promise<BudgetPlan[]> {
 export async function listEntries(scope: Scope, window: MonthWindow): Promise<Entry[]> {
   const lookBack = monthToDate(addMonths(window.from, -1))
   const rows = await db()
-    .select()
+    .select({ entry: entries, fromBank: isFromBank })
     .from(entries)
     .where(
       and(
@@ -159,7 +162,7 @@ export async function listEntries(scope: Scope, window: MonthWindow): Promise<En
       ),
     )
     .orderBy(asc(entries.startMonth), asc(entries.createdAt), asc(entries.id))
-  return rows.map((r) => ({
+  return rows.map(({ entry: r, fromBank }) => ({
     id: r.id,
     kind: r.kind,
     description: r.description,
@@ -176,6 +179,7 @@ export async function listEntries(scope: Scope, window: MonthWindow): Promise<En
     monthBy: r.monthBy,
     installments: r.installments,
     endMonth: monthOrNull(r.endMonth),
+    fromBank,
   }))
 }
 
@@ -265,34 +269,17 @@ export async function listConnectedAccountIds(scope: Scope): Promise<string[]> {
   return rows.flatMap((r) => (r.accountId === null ? [] : [r.accountId])).sort()
 }
 
-/** Entries of `scope` materialized from bank transactions (not the discarded links). */
-export async function listBankEntryIds(scope: Scope): Promise<string[]> {
-  const rows = await db()
-    .selectDistinct({ entryId: bankEntryLinks.entryId })
-    .from(bankEntryLinks)
-    .where(and(inScope(bankEntryLinks, scope), isNotNull(bankEntryLinks.entryId)))
-  return rows.flatMap((r) => (r.entryId === null ? [] : [r.entryId])).sort()
-}
-
 /** Everything the core needs to project `scope`'s ledger over `window`. */
 export async function loadLedger(scope: Scope, window: MonthWindow): Promise<LedgerSnapshot> {
-  const [
-    bankRows,
-    accountRows,
-    categoryRows,
-    potRows,
-    entryRows,
-    connectedAccountIds,
-    bankEntryIds,
-  ] = await Promise.all([
-    listBanks(scope),
-    listAccounts(scope),
-    listCategories(scope),
-    listPots(scope),
-    listEntries(scope, window),
-    listConnectedAccountIds(scope),
-    listBankEntryIds(scope),
-  ])
+  const [bankRows, accountRows, categoryRows, potRows, entryRows, connectedAccountIds] =
+    await Promise.all([
+      listBanks(scope),
+      listAccounts(scope),
+      listCategories(scope),
+      listPots(scope),
+      listEntries(scope, window),
+      listConnectedAccountIds(scope),
+    ])
   const entryIds = entryRows.map((e) => e.id)
   const [parts, overrides, payments] = await Promise.all([
     listEntryParts(scope, entryIds),
@@ -309,7 +296,6 @@ export async function loadLedger(scope: Scope, window: MonthWindow): Promise<Led
     overrides,
     payments,
     connectedAccountIds,
-    bankEntryIds,
   }
 }
 

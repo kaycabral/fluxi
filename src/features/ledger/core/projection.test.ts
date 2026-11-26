@@ -306,6 +306,7 @@ describe('projectMonths with bank-fed accounts', () => {
   const planned = makeEntry({ id: 'planned', amountCents: -1000, day: 10, startMonth: '2026-12' })
   const fromBank = makeEntry({
     id: 'bank',
+    fromBank: true,
     amountCents: -3000,
     day: 8,
     recurrence: 'none',
@@ -334,7 +335,7 @@ describe('projectMonths with bank-fed accounts', () => {
       overrides: [],
       accounts,
       months: ['2026-12', '2027-01'],
-      feed: { connectedAccountIds: ['checking'], bankEntryIds: ['bank'], today },
+      feed: { connectedAccountIds: ['checking'], today },
     })
   const ids = (result: MonthResult | undefined) => result?.landings.map((l) => l.entry.id)
 
@@ -365,7 +366,7 @@ describe('projectMonths with bank-fed accounts', () => {
       overrides: [],
       accounts,
       months: ['2026-12'],
-      feed: { connectedAccountIds: ['checking'], bankEntryIds: [], today: '2026-12-10' },
+      feed: { connectedAccountIds: ['checking'], today: '2026-12-10' },
     })
     expect(ids(december)).toEqual([])
   })
@@ -381,7 +382,7 @@ describe('projectMonths with bank-fed accounts', () => {
       overrides: [],
       accounts,
       months: ['2026-12'],
-      feed: { connectedAccountIds: [], bankEntryIds: ['bank'], today: '2026-12-31' },
+      feed: { connectedAccountIds: [], today: '2026-12-31' },
     })
     expect(ids(december)).toEqual(['bank', 'planned'])
   })

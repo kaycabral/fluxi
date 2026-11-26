@@ -74,6 +74,8 @@ describe('calendarMonth', () => {
     if (landing === undefined) throw new Error('no landing')
     expect(isMovable(landing)).toBe(true)
     expect(isMovable({ ...landing, part: makePart() })).toBe(false)
+    // The bank owns the date of its entries.
+    expect(isMovable({ ...landing, entry: { ...landing.entry, fromBank: true } })).toBe(false)
     const days = [{ day: 3, landings: [{ ...landing, part: makePart() }], endBalanceCents: 0 }]
     const moved = withMoves(days, [{ entryId: landing.entry.id, competence: '2026-12', day: 9 }])
     expect(moved[0]?.landings).toHaveLength(1)

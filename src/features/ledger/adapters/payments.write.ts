@@ -118,6 +118,8 @@ export async function markOccurrencePaid(
       const { entryId, month, partId, paidOn } = input
       const state = await loadSeries(tx, scope, entryId)
       if (state === null) return fail('not_found')
+      // Always paid on the day it happened; the bank owns the status.
+      if (state.entry.fromBank) return fail('bank_locked')
       if (!occursIn(state.entry, month) || isSkipped(state.entry, state.overrides, month))
         return fail('no_occurrence')
       const validPart =
@@ -146,6 +148,8 @@ export async function unmarkOccurrencePaid(scope: Scope, input: PaymentKey): Pro
     samePart(input.partId),
   )
   return db().transaction(async (tx) => {
+    const state = await loadSeries(tx, scope, input.entryId)
+    if (state?.entry.fromBank === true) return fail('bank_locked')
     const [paid] = await tx
       .select({ id: occurrencePayments.id })
       .from(occurrencePayments)

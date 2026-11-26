@@ -47,10 +47,11 @@ export type DayMove = { entryId: string; competence: Month; day: number }
 
 /**
  * Whether a landing can be dragged to another day: whole occurrences only (a
- * split entry's parts carry their own days and are edited in the sheet).
+ * split entry's parts carry their own days and are edited in the sheet), and
+ * never a bank entry (the bank owns its date).
  */
 export function isMovable(landing: Landing): boolean {
-  return landing.part === null
+  return landing.part === null && !landing.entry.fromBank
 }
 
 /** The days with pending `moves` applied: each moved occurrence leaves its day for the new one. */

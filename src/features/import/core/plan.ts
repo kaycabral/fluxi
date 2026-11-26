@@ -210,6 +210,7 @@ export function planAsLedger(plan: ImportPlan): { entries: Entry[]; overrides: E
       monthBy: 'day',
       installments: null,
       endMonth: e.endMonth,
+      fromBank: false,
     })),
     // The import only skips months; it never deletes an occurrence.
     overrides: plan.entries.flatMap((e) =>

@@ -1,6 +1,7 @@
 import 'server-only'
 
 import { accounts, banks, entries, entryOverrides, entryParts } from '@/db/schema'
+import { changesBankFields } from '@/features/ledger/core/bank-lock'
 import { monthToDate, type Month } from '@/features/ledger/core/month'
 import { amountFor, dayFor, occursIn } from '@/features/ledger/core/occurrence'
 import { keepPartIds } from '@/features/ledger/core/payments'
@@ -83,6 +84,7 @@ function entryFromFields(id: string, fields: EntryFields): Entry {
     monthBy: fields.monthBy,
     installments: fields.installments,
     endMonth: fields.endMonth,
+    fromBank: false,
   }
 }
 
@@ -254,6 +256,27 @@ function patchOf(
 const isEmpty = (patch: OccurrencePatch) =>
   patch.amountCents === undefined && patch.day === undefined && patch.parts === undefined
 
+/** The user's part of a bank entry: description, category, pot and tags; anything else is refused. */
+async function updateBankEntry(
+  tx: Tx,
+  scope: Scope,
+  loaded: SeriesState,
+  fields: EntryFields,
+): Promise<WriteResult> {
+  if (changesBankFields(loaded.entry, fields) || loaded.parts.length > 0) {
+    return fail('bank_locked')
+  }
+  const undo = await captureUndo(tx, scope, [loaded.entry.id])
+  await writeEntryRow(tx, scope, {
+    ...loaded.entry,
+    description: fields.description,
+    categoryId: fields.categoryId,
+    pot: fields.pot,
+    tags: fields.tags,
+  })
+  return undoable(undo)
+}
+
 export type OccurrenceEdit = { month: Month; scope: EditScope | null }
 
 /**
@@ -274,6 +297,7 @@ export async function updateEntry(
     db().transaction(async (tx) => {
       const loaded = await loadSeries(tx, scope, entryId)
       if (loaded === null) return fail('not_found')
+      if (loaded.entry.fromBank) return updateBankEntry(tx, scope, loaded, fields)
       // A new kind re-signs the stored amounts (expense → income flips them; transfer is negative).
       const state = resignForKind(loaded, fields.kind)
       const resigned = state !== loaded
@@ -340,6 +364,7 @@ export async function changeOccurrenceDay(
       const { entryId, month, day, scope: editScope } = input
       const state = await loadSeries(tx, scope, entryId)
       if (state === null) return fail('not_found')
+      if (state.entry.fromBank) return fail('bank_locked')
       if (!occursIn(state.entry, month) || state.parts.length > 0) return fail('no_occurrence')
       if (state.entry.recurrence === 'none') {
         const undo = await captureUndo(tx, scope, [entryId])
@@ -372,6 +397,7 @@ export async function deleteEntry(
     db().transaction(async (tx) => {
       const state = await loadSeries(tx, scope, entryId)
       if (state === null) return fail('not_found')
+      if (state.entry.fromBank) return fail('bank_locked')
       const { entry } = state
       const removeAll = async () => {
         const undo = await captureUndo(tx, scope, [entryId])

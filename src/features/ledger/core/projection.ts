@@ -53,8 +53,6 @@ export type ProjectionInput = {
  */
 export type FeedRule = {
   connectedAccountIds: readonly string[]
-  /** Entries materialized from bank transactions. */
-  bankEntryIds: readonly string[]
   /** `YYYY-MM-DD`. */
   today: string
 }
@@ -63,9 +61,8 @@ export type FeedRule = {
 export function feedFilter(rule: FeedRule | undefined): (landing: Landing) => boolean {
   if (rule === undefined || rule.connectedAccountIds.length === 0) return () => true
   const connected = new Set(rule.connectedAccountIds)
-  const fromBank = new Set(rule.bankEntryIds)
   return ({ entry, month, day }) =>
-    fromBank.has(entry.id) ||
+    entry.fromBank ||
     !(
       connected.has(entry.accountId) ||
       (entry.toAccountId !== null && connected.has(entry.toAccountId))

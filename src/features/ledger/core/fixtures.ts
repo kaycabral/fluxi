@@ -19,6 +19,7 @@ export function makeEntry(overrides: Partial<Entry> = {}): Entry {
     monthBy: 'day',
     installments: null,
     endMonth: null,
+    fromBank: false,
     ...overrides,
   }
 }

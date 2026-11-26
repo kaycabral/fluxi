@@ -106,6 +106,12 @@ export type Entry = {
   monthBy: MonthBy
   installments: number | null
   endMonth: Month | null
+  /**
+   * Materialized from a bank transaction (`bank_entry_links`): the bank owns
+   * its amount, date, account, kind, repetition and "Pago"; the user may only
+   * change description, category, pot and tags. Never set by the form.
+   */
+  fromBank: boolean
 }
 
 export type EntryPart = {

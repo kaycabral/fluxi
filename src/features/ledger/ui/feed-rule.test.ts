@@ -7,7 +7,7 @@ describe('projectWindow with a bank-fed account', () => {
   const data = sampleData()
   const checking = data.accounts[0]?.id ?? ''
   const connected = sampleData({
-    feed: { connectedAccountIds: [checking], bankEntryIds: [], today: '2026-12-15' },
+    feed: { connectedAccountIds: [checking], today: '2026-12-15' },
   })
   const touches = (accountId: string | null) => accountId === checking
   const pastOnChecking = (results: ReturnType<typeof projectWindow>) =>

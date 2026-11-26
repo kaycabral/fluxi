@@ -2,6 +2,7 @@
 
 import { changeDayAction } from '@/features/ledger/adapters/actions/entries'
 import { accountLabel, decisionAccountIds } from '@/features/ledger/core/account-filter'
+import { isMovable } from '@/features/ledger/core/calendar'
 import { describeOccurrenceChange } from '@/features/ledger/core/entry-form'
 import { formatMoney, monthLabel } from '@/features/ledger/core/format'
 import { potTint } from '@/features/ledger/core/labels'
@@ -186,7 +187,7 @@ export function MonthDetail({ result, data }: { result: MonthResult; data: Ledge
                   }}
                 >
                   <TableCell>
-                    {landing.part === null ? (
+                    {isMovable(landing) ? (
                       <DayInput
                         key={`${landing.competence}-${landing.day}`}
                         row={row}

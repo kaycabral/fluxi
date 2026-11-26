@@ -411,6 +411,7 @@ describe('loading a window', () => {
       monthBy: 'day',
       installments: null,
       endMonth: null,
+      fromBank: false,
     })
     expect(ledger.parts.map((p) => [p.label, p.bps, p.nextMonth])).toEqual([
       ['Adiantamento', 4000, false],

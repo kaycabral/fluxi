@@ -122,13 +122,13 @@ test.describe('bank feed in the ledger', () => {
     await page.getByRole('option', { name: /Pessoal/ }).click()
     await page.getByRole('alertdialog').getByRole('button', { name: 'Mover' }).click()
 
-    // Linked automatically to a new "Feedbank · Conta"; the empty one is listed last.
+    // Linked automatically to a new "Feedbank · Conta"; the empty one is folded.
     const accountsList = settings.getByRole('list', { name: `Contas de ${BANK}` })
     await expect(accountsList).toContainText(`→ ${BANK} · Conta`)
     await expect(accountsList).toContainText(/Saldo R\$\s1\.000,00/)
     await expect(settings.getByText('2 contas')).toBeVisible()
-    await expect(accountsList.getByRole('listitem').last()).toContainText('Reserva')
-    await expect(accountsList).not.toContainText(`${BANK} · Reserva`)
+    await expect(settings.getByRole('button', { name: '+1 conta sem movimento' })).toBeVisible()
+    await expect(settings.getByText('Reserva')).toHaveCount(0)
     const fits = () =>
       settings.evaluate((el) => {
         const content = el.querySelector('[aria-label="Conexões"]') ?? el

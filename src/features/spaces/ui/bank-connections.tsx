@@ -27,7 +27,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   Button,
-  cn,
   Select,
   SelectContent,
   SelectItem,
@@ -235,16 +234,13 @@ function ConnectionCard({
   onChooseSpace: (value: string) => void
   onChooseAccount: ChooseAccount
 }) {
-  // Every account, the ones with movement first; the rest dimmed at the end.
-  const ordered = [
-    ...c.feedAccounts.filter(hasMovement),
-    ...c.feedAccounts.filter((f) => !hasMovement(f)),
-  ]
+  const [showQuiet, setShowQuiet] = useState(false)
+  const active = c.feedAccounts.filter(hasMovement)
+  const quiet = c.feedAccounts.filter((f) => !hasMovement(f))
   const row = (feed: FeedAccount) => (
     <FeedAccountRow
       key={feed.id}
       feed={feed}
-      quiet={!hasMovement(feed)}
       institution={name}
       linked={accounts.find((a) => a.id === feed.accountId) ?? null}
       accounts={accounts.filter(
@@ -289,10 +285,31 @@ function ConnectionCard({
           </SelectContent>
         </Select>
       </div>
-      {c.spaceId !== null && ordered.length > 0 && (
+      {c.spaceId !== null && active.length > 0 && (
         <ul className="grid min-w-0 gap-3 border-t pt-3" aria-label={`Contas de ${name}`}>
-          {ordered.map(row)}
+          {active.map(row)}
         </ul>
+      )}
+      {c.spaceId !== null && quiet.length > 0 && (
+        <div className="grid min-w-0 gap-2">
+          <Button
+            type="button"
+            variant="link"
+            size="sm"
+            className="text-muted-foreground h-auto justify-self-start p-0"
+            aria-expanded={showQuiet}
+            onClick={() => setShowQuiet((v) => !v)}
+          >
+            {showQuiet
+              ? 'Esconder contas sem movimento'
+              : `+${plural(quiet.length, 'conta sem movimento', 'contas sem movimento')}`}
+          </Button>
+          {showQuiet && (
+            <ul className="grid min-w-0 gap-3" aria-label={`Contas sem movimento de ${name}`}>
+              {quiet.map(row)}
+            </ul>
+          )}
+        </div>
       )}
     </div>
   )
@@ -338,7 +355,6 @@ function MoveDialog({
  */
 function FeedAccountRow({
   feed,
-  quiet,
   institution,
   linked,
   accounts,
@@ -346,8 +362,6 @@ function FeedAccountRow({
   onChoose,
 }: {
   feed: FeedAccount
-  /** No movement at all: dimmed. */
-  quiet: boolean
   institution: string
   linked: MappableAccount | null
   accounts: readonly MappableAccount[]
@@ -365,7 +379,7 @@ function FeedAccountRow({
   if (linked !== null) target = `→ ${linked.bankName} · ${linked.name}`
   else if (feed.accountId !== null) target = '→ conta arquivada'
   return (
-    <li className={cn('grid min-w-0 gap-1 text-sm', quiet && 'opacity-60')}>
+    <li className="grid min-w-0 gap-1 text-sm">
       <p className="truncate font-medium" title={feed.name}>
         {feedAccountShortLabel(institution, feed)}
         {feed.numberHint ? (

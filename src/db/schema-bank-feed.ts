@@ -15,6 +15,7 @@ import {
 } from 'drizzle-orm/pg-core'
 import {
   accounts,
+  categories,
   cents,
   createdAt,
   entries,
@@ -22,6 +23,7 @@ import {
   isFirstOfMonth,
   month,
   ownerId,
+  pots,
   spaceIdColumn,
   spaces,
   updatedAt,
@@ -80,6 +82,8 @@ export const bankFeedAccounts = pgTable(
     type: text('type').notNull(),
     subtype: text('subtype').notNull(),
     balanceCents: cents('balance_cents').notNull(),
+    /** Last 4 digits of the account / card number ("••4821"); never the full number. */
+    numberHint: text('number_hint'),
     accountId: uuid('account_id'),
     /**
      * Who decided `account_id`: `auto` = the auto-link
@@ -101,6 +105,10 @@ export const bankFeedAccounts = pgTable(
       foreignColumns: [accounts.id, accounts.spaceId],
     }).onDelete('set null'),
     index('bank_feed_accounts_account_id_idx').on(t.accountId),
+    check(
+      'bank_feed_accounts_number_hint',
+      sql`${t.numberHint} is null or ${t.numberHint} ~ '^[0-9]{4}$'`,
+    ),
     check(
       'bank_feed_accounts_mapping_source',
       sql`${t.mappingSource} is null or ${t.mappingSource} in ('auto', 'manual')`,
@@ -194,5 +202,44 @@ export const bankEntryLinks = pgTable(
     uniqueIndex('bank_entry_links_transaction_idx').on(t.bankTransactionId),
     index('bank_entry_links_entry_id_idx').on(t.entryId),
     index('bank_entry_links_space_id_idx').on(t.spaceId),
+  ],
+).enableRLS()
+
+/**
+ * "Fazer isso sozinho daqui para frente": a bank entry whose normalized
+ * description is `pattern` (`descriptionKey`) and whose absolute amount lies
+ * in `[min_cents, max_cents]` gets this category / pot. Applied by the
+ * materialization (`private.apply_categorization_rules`) only to bank entries
+ * still without category AND pot: it never overwrites the user. Newest wins.
+ */
+export const categorizationRules = pgTable(
+  'categorization_rules',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: ownerId(),
+    spaceId: spaceIdColumn(),
+    pattern: text('pattern').notNull(),
+    minCents: cents('min_cents').notNull(),
+    maxCents: cents('max_cents').notNull(),
+    categoryId: uuid('category_id'),
+    pot: text('pot'),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    inSpace('categorization_rules', t),
+    foreignKey({
+      name: 'categorization_rules_category_fk',
+      columns: [t.categoryId, t.spaceId],
+      foreignColumns: [categories.id, categories.spaceId],
+    }).onDelete('cascade'),
+    foreignKey({
+      name: 'categorization_rules_pot_fk',
+      columns: [t.pot, t.spaceId],
+      foreignColumns: [pots.key, pots.spaceId],
+    }).onDelete('cascade'),
+    index('categorization_rules_space_pattern_idx').on(t.spaceId, t.pattern),
+    check('categorization_rules_pattern', sql`char_length(${t.pattern}) between 1 and 200`),
+    check('categorization_rules_range', sql`${t.minCents} >= 0 and ${t.maxCents} >= ${t.minCents}`),
+    check('categorization_rules_target', sql`${t.categoryId} is not null or ${t.pot} is not null`),
   ],
 ).enableRLS()

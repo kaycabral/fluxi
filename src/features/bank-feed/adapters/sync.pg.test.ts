@@ -117,7 +117,15 @@ describe('pluggy-sync handler (Postgres)', () => {
         { item: 1, institution: 'Banco X' },
         { item: 2, institution: 'Banco X' },
       ],
-      ledger: { removed: 0, transfers: 0, created: 0, updated: 0, anchored: 0 },
+      ledger: {
+        removed: 0,
+        transfers: 0,
+        created: 0,
+        updated: 0,
+        anchored: 0,
+        split: 0,
+        categorized: 0,
+      },
     })
     const items = await db().select().from(bankFeedItems)
     expect(items.map((i) => [i.itemId, i.spaceId, i.label]).sort()).toEqual([
@@ -158,7 +166,15 @@ describe('pluggy-sync handler (Postgres)', () => {
       unassigned: [],
       // The feed account with movement is auto-linked (a new "Banco X" account)
       // and its transactions materialized, all as fluxi_sync.
-      ledger: { removed: 0, transfers: 0, created: 2, updated: 0, anchored: 1 },
+      ledger: {
+        removed: 0,
+        transfers: 0,
+        created: 2,
+        updated: 0,
+        anchored: 1,
+        split: 0,
+        categorized: 0,
+      },
     })
     const rows = await db().select().from(bankTransactions)
     expect(rows.every((r) => r.spaceId === spaceId)).toBe(true)

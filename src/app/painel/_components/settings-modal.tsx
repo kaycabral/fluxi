@@ -1,5 +1,7 @@
 'use client'
 
+import { fadeMask } from '@/components/scrollable-tabs/scroll-target'
+import { useScrollStrip } from '@/components/scrollable-tabs/use-scroll-strip'
 import { loadAccountsAction, type AccountsData } from '@/features/ledger/adapters/actions/accounts'
 import { loadRulesAction } from '@/features/ledger/adapters/actions/categorize'
 import type { CategorizationRule } from '@/features/ledger/core/similar'
@@ -123,6 +125,42 @@ function ConnectionsSection({ data, reload }: { data: ConnectionsData; reload: (
   )
 }
 
+/**
+ * The section list: a column beside the content from `sm`, a row above it on
+ * phones, scrolling sideways (never hiding the current section; edges fade
+ * where sections are hidden).
+ */
+function SettingsNav({
+  current,
+  onSelect,
+}: {
+  current: SectionKey
+  onSelect: (key: SectionKey) => void
+}) {
+  const ref = useRef<HTMLElement>(null)
+  const edges = useScrollStrip(ref, '[aria-current="page"]')
+  return (
+    <nav
+      ref={ref}
+      aria-label="Seções de configuração"
+      style={{ maskImage: fadeMask(edges) }}
+      className="bg-muted/40 flex [scrollbar-width:none] gap-0.5 overflow-x-auto border-b p-2 sm:flex-col sm:overflow-x-visible sm:border-r sm:border-b-0 [&::-webkit-scrollbar]:hidden"
+    >
+      {SECTIONS.map((item) => (
+        <button
+          key={item.key}
+          type="button"
+          onClick={() => onSelect(item.key)}
+          aria-current={item.key === current ? 'page' : undefined}
+          className="text-muted-foreground hover:bg-background/60 aria-[current=page]:bg-background aria-[current=page]:text-foreground shrink-0 cursor-pointer rounded-md px-3 py-2 text-left text-sm font-normal whitespace-nowrap transition-colors aria-[current=page]:font-medium"
+        >
+          {item.label}
+        </button>
+      ))}
+    </nav>
+  )
+}
+
 export function SettingsModal() {
   const [section, setSection] = useState<(typeof SECTIONS)[number] | null>(null)
   const [loaded, setLoaded] = useState<Loaded | null>(null)
@@ -168,22 +206,7 @@ export function SettingsModal() {
         className="grid h-[min(85vh,40rem)] max-w-3xl grid-rows-[auto_1fr] gap-0 overflow-hidden p-0 sm:max-w-3xl sm:grid-cols-[12rem_minmax(0,1fr)] sm:grid-rows-1"
         onOpenAutoFocus={(event) => event.preventDefault()}
       >
-        <nav
-          aria-label="Seções de configuração"
-          className="bg-muted/40 flex gap-0.5 border-b p-2 sm:flex-col sm:border-r sm:border-b-0"
-        >
-          {SECTIONS.map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              onClick={() => select(item.key)}
-              aria-current={item.key === section.key ? 'page' : undefined}
-              className="text-muted-foreground hover:bg-background/60 aria-[current=page]:bg-background aria-[current=page]:text-foreground cursor-pointer rounded-md px-3 py-2 text-left text-sm font-normal transition-colors aria-[current=page]:font-medium"
-            >
-              {item.label}
-            </button>
-          ))}
-        </nav>
+        <SettingsNav current={section.key} onSelect={select} />
 
         <div className="flex min-h-0 min-w-0 flex-col">
           <DialogHeader className="gap-1 border-b p-6 pr-14">

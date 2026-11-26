@@ -1,5 +1,6 @@
 'use client'
 
+import { ScrollableTabsList } from '@/components/scrollable-tabs/scrollable-tabs-list'
 import { accountLabel } from '@/features/ledger/core/account-filter'
 import {
   groupPayables,
@@ -23,7 +24,6 @@ import {
   Tabs,
   TabsContent,
   TabsCount,
-  TabsList,
   TabsTrigger,
 } from '@cbrl/design'
 import { useMemo } from 'react'
@@ -142,7 +142,7 @@ export function UpcomingBills({
       </CardHeader>
       <CardContent className="min-h-0 flex-1">
         <Tabs defaultValue={initialTab(groups)} className="h-full gap-3">
-          <TabsList variant="line">
+          <ScrollableTabsList>
             {TABS.map((tab) => {
               const count = byKey.get(tab.key)?.items.length ?? 0
               return (
@@ -156,7 +156,7 @@ export function UpcomingBills({
                 </TabsTrigger>
               )
             })}
-          </TabsList>
+          </ScrollableTabsList>
           {TABS.map((tab) => {
             const group = byKey.get(tab.key)
             return (

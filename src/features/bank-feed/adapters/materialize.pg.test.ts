@@ -63,6 +63,8 @@ const tx = (externalId: string, over: Partial<FeedTransactionRow> = {}): FeedTra
   installmentNumber: null,
   totalInstallments: null,
   billMonth: null,
+  merchantName: null,
+  merchantCategory: null,
   ...over,
 })
 
@@ -158,6 +160,7 @@ describe('materialize_bank_feed (Postgres)', () => {
       linked: 0,
       split: 0,
       categorized: 0,
+      named: 0,
     })
     const rows = await entriesOf(ana)
     expect(
@@ -182,6 +185,7 @@ describe('materialize_bank_feed (Postgres)', () => {
       linked: 0,
       split: 0,
       categorized: 0,
+      named: 0,
     })
     expect(await entriesOf(ana)).toHaveLength(2)
     expect(await linksOf(ana)).toHaveLength(2)

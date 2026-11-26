@@ -139,6 +139,12 @@ export const bankTransactions = pgTable(
     installmentNumber: smallint('installment_number'),
     totalInstallments: smallint('total_installments'),
     billMonth: month('bill_month'),
+    /**
+     * Merchant Pluggy identified (its trade name, else the legal name) and its
+     * category; names the entry when the bank's own description is generic.
+     */
+    merchantName: text('merchant_name'),
+    merchantCategory: text('merchant_category'),
     syncedAt: timestamp('synced_at', { withTimezone: true }).notNull(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),

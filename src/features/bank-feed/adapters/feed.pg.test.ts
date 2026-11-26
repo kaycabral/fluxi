@@ -50,6 +50,8 @@ const tx = (externalId: string, over: Partial<FeedTransactionRow> = {}): FeedTra
   installmentNumber: null,
   totalInstallments: null,
   billMonth: null,
+  merchantName: null,
+  merchantCategory: null,
   ...over,
 })
 

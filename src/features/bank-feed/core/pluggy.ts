@@ -3,8 +3,8 @@ import { z } from 'zod'
 /**
  * Pure mapping of Pluggy API payloads (accounts-list, transactions-list-by-
  * cursor, items-retrieve) onto bank-feed rows. Only the fields the feed keeps
- * are parsed: counterparty documents (`paymentData`) and owner tax ids never
- * leave this module; of the account number only the last 4 digits do
+ * are parsed: counterparty documents (`paymentData`), owner tax ids and the
+ * merchant's CNPJ/CNAE never leave this module (only its name and category); of the account number only the last 4 digits do
  * ({@link numberHintOf}).
  */
 
@@ -52,6 +52,14 @@ export const pluggyTransactionSchema = z.object({
       installmentNumber: z.number().nullish(),
       totalInstallments: z.number().nullish(),
       billForecastDate: z.string().nullish(),
+    })
+    .nullish(),
+  /** Merchant Pluggy extracted from the transaction (card purchases, mostly). */
+  merchant: z
+    .object({
+      name: z.string().nullish(),
+      businessName: z.string().nullish(),
+      category: z.string().nullish(),
     })
     .nullish(),
 })
@@ -139,6 +147,9 @@ export type FeedTransactionRow = {
   installmentNumber: number | null
   totalInstallments: number | null
   billMonth: string | null
+  /** The merchant's trade name, else its legal name. */
+  merchantName: string | null
+  merchantCategory: string | null
 }
 
 const BILL_MONTH = /^(\d{4})-(\d{2})$/
@@ -166,6 +177,8 @@ export function toFeedTransaction(tx: PluggyTransaction): FeedTransactionRow {
     installmentNumber: card?.installmentNumber ?? null,
     totalInstallments: card?.totalInstallments ?? null,
     billMonth: billMonthOf(card?.billForecastDate),
+    merchantName: tx.merchant?.name?.trim() || tx.merchant?.businessName?.trim() || null,
+    merchantCategory: tx.merchant?.category?.trim() || null,
   }
 }
 

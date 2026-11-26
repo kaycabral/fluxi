@@ -3,6 +3,7 @@
 import { lightSummary, potCell, visiblePots, type BudgetMonth } from '@/features/ledger/core/budget'
 import {
   balanceSnapshot,
+  bankBalancesOn,
   monthEndBalances,
   monthTotalsOf,
   type MonthBalance,
@@ -38,6 +39,7 @@ import Link from 'next/link'
 import { useMemo } from 'react'
 import { TrafficLight, useBudgetMonth } from '../budget/traffic-light'
 import { Money, toneOf } from '../money'
+import { BankAvatars } from './bank-avatars'
 import { UpcomingBills } from './upcoming-bills'
 
 function Stat({
@@ -80,7 +82,7 @@ function BalanceChart({ balances, today }: { balances: MonthBalance[]; today: Mo
   const hasPositive = values.some((v) => v > 0)
   return (
     <TooltipProvider delayDuration={150}>
-      <div className="flex h-full min-h-0 flex-col gap-2">
+      <div className="flex min-h-0 flex-1 flex-col gap-2">
         <div
           className="flex min-h-0 flex-1 items-stretch gap-1"
           role="img"
@@ -224,6 +226,7 @@ export function DashboardView({
   const pots = visiblePots(data.pots, [budget])
   const lights = lightSummary(pots, budget)
   const monthEndDelta = snapshot.monthEndCents - snapshot.todayCents
+  const banks = bankBalancesOn(results, today, data.accounts, data.banks)
 
   const header = (
     <div className="flex flex-wrap items-end justify-between gap-3">
@@ -255,7 +258,20 @@ export function DashboardView({
       {header}
 
       <section aria-label="Resumo" className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Stat label="Saldo hoje" cents={snapshot.todayCents} hint="Todas as contas" />
+        <Stat
+          label="Saldo hoje"
+          cents={snapshot.todayCents}
+          hint={
+            banks.length > 0 ? (
+              <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <BankAvatars banks={banks} />
+                <span className="whitespace-nowrap">Todas as contas</span>
+              </span>
+            ) : (
+              'Todas as contas'
+            )
+          }
+        />
         <Stat
           label={`Fim de ${monthLabel(month)}`}
           cents={snapshot.monthEndCents}
@@ -284,11 +300,11 @@ export function DashboardView({
         />
       </section>
 
-      <div className="grid items-start gap-4 lg:grid-cols-3">
-        <Card className="min-w-0 lg:col-span-2">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
+        <Card className="min-w-0">
           <CardHeader>
             <CardTitle asChild>
-              <h2>Semáforo do orçamento</h2>
+              <h2>Orçamento</h2>
             </CardTitle>
             <CardDescription>
               {budget.plan === null
@@ -304,12 +320,14 @@ export function DashboardView({
             </CardAction>
           </CardHeader>
           <CardContent className="min-w-0">
-            <TrafficLight data={data} plans={plans} today={month} span={6} />
+            <TrafficLight data={data} plans={plans} today={month} span={5} before={1} compact />
           </CardContent>
         </Card>
 
         <UpcomingBills data={data} today={today} />
+      </div>
 
+      <div className="grid items-start gap-4 lg:grid-cols-3">
         <Card className="h-[22rem] min-w-0 lg:col-span-2">
           <CardHeader>
             <CardTitle asChild>
@@ -324,7 +342,7 @@ export function DashboardView({
               </Button>
             </CardAction>
           </CardHeader>
-          <CardContent className="min-h-0 flex-1">
+          <CardContent className="flex min-h-0 flex-1 flex-col">
             <BalanceChart balances={monthEndBalances(results)} today={month} />
           </CardContent>
         </Card>

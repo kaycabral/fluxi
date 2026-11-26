@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { accountBalancesOn, balanceSnapshot, monthEndBalances, monthTotalsOf } from './dashboard'
+import {
+  accountBalancesOn,
+  balanceSnapshot,
+  bankBalancesOn,
+  monthEndBalances,
+  monthTotalsOf,
+} from './dashboard'
 import { makeEntry } from './fixtures'
 import { projectMonths } from './projection'
 
@@ -112,5 +118,51 @@ describe('accountBalancesOn', () => {
     if (december === undefined) throw new Error('no month')
     expect(accountBalancesOn(december, 9)).toEqual({ checking: 99000, va: 21000 })
     expect(accountBalancesOn(december, 10)).toEqual({ checking: -301000, va: 21000 })
+  })
+})
+
+describe('bankBalancesOn', () => {
+  it('sums the counted accounts by bank, highest first', () => {
+    const results = projectMonths({
+      entries: [makeEntry({ id: 'rent', amountCents: -400000, day: 10, startMonth: '2026-12' })],
+      parts: [],
+      overrides: [],
+      accounts: [...accounts, { id: 'savings', openingBalanceCents: 5000 }],
+      months: ['2026-12'],
+    })
+    const banks = [
+      { id: 'b1', name: 'Itaú' },
+      { id: 'b2', name: 'Caju' },
+    ]
+    const owned = [
+      { id: 'checking', bankId: 'b1' },
+      { id: 'savings', bankId: 'b1' },
+      { id: 'va', bankId: 'b2' },
+      { id: 'archived', bankId: 'b3' },
+    ]
+    expect(bankBalancesOn(results, '2026-12-09', owned, banks)).toEqual([
+      { bankId: 'b1', name: 'Itaú', cents: 105000 },
+      { bankId: 'b2', name: 'Caju', cents: 20000 },
+    ])
+    expect(bankBalancesOn(results, '2026-12-10', owned, banks)).toEqual([
+      { bankId: 'b2', name: 'Caju', cents: 20000 },
+      { bankId: 'b1', name: 'Itaú', cents: -295000 },
+    ])
+    expect(bankBalancesOn(results, '2026-12-09', [{ id: 'va', bankId: 'gone' }], [])).toEqual([
+      { bankId: 'gone', name: 'Banco', cents: 20000 },
+    ])
+    expect(bankBalancesOn(results, '2027-01-09', owned, banks)).toEqual([])
+    // Ties go by name.
+    expect(
+      bankBalancesOn(
+        results,
+        '2026-12-09',
+        [
+          { id: 'va', bankId: 'b1' },
+          { id: 'va', bankId: 'b2' },
+        ],
+        banks,
+      ).map((b) => b.name),
+    ).toEqual(['Caju', 'Itaú'])
   })
 })

@@ -1,7 +1,6 @@
 'use client'
 
 import { accountLabel } from '@/features/ledger/core/account-filter'
-import { formatMoney } from '@/features/ledger/core/format'
 import {
   groupPayables,
   payablesWindow,
@@ -17,7 +16,6 @@ import {
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
   cn,
@@ -108,25 +106,24 @@ function BillList({ group, data }: { group: PayableGroup; data: LedgerData }) {
           )
         })}
       </ul>
-      <p className="text-muted-foreground border-t pt-2 text-xs">
-        {[
-          group.expenseCents > 0 && `A pagar ${formatMoney(group.expenseCents)}`,
-          group.incomeCents > 0 && `A receber ${formatMoney(group.incomeCents)}`,
-          group.transferCents > 0 && `Transferências ${formatMoney(group.transferCents)}`,
-        ]
-          .filter((p) => p !== false)
-          .join(' · ')}
-      </p>
     </div>
   )
 }
 
 /**
- * "Próximas contas": the unpaid occurrences by urgency in one widget, one tab
+ * "Contas": the unpaid occurrences by urgency in one widget, one tab
  * per window (each with its count, overdue in red), opening on the most
  * urgent one that has anything. Paying is one click.
  */
-export function UpcomingBills({ data, today }: { data: LedgerData; today: string }) {
+export function UpcomingBills({
+  data,
+  today,
+  className,
+}: {
+  data: LedgerData
+  today: string
+  className?: string
+}) {
   const groups = useMemo(() => {
     const window = payablesWindow(today.slice(0, 7))
     const landings = projectWindow(data, window.from, window.to).flatMap((m) => m.landings)
@@ -135,12 +132,13 @@ export function UpcomingBills({ data, today }: { data: LedgerData; today: string
   const byKey = new Map(groups.map((g) => [g.key, g]))
 
   return (
-    <Card className="h-[30rem] min-w-0">
+    // Fixed height when stacked; beside the budget (lg) it takes the row's height
+    // and never grows it (`contain-size`), scrolling its list instead.
+    <Card className={cn('h-[30rem] min-w-0 lg:h-auto lg:contain-size', className)}>
       <CardHeader>
         <CardTitle asChild>
-          <h2>Próximas contas</h2>
+          <h2>Contas</h2>
         </CardTitle>
-        <CardDescription>O que falta pagar ou receber, por urgência.</CardDescription>
       </CardHeader>
       <CardContent className="min-h-0 flex-1">
         <Tabs defaultValue={initialTab(groups)} className="h-full gap-3">

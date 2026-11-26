@@ -38,7 +38,17 @@ test.describe('dashboard and budget', () => {
     await page.goto('/painel')
     await expect(page.getByRole('heading', { level: 1, name: 'Painel' })).toBeVisible()
     await expect(page.getByRole('region', { name: 'Resumo' })).toContainText('R$ 5.000,00')
-    await expect(page.getByRole('heading', { name: 'Próximas contas' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Contas', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Orçamento', exact: true })).toBeVisible()
+    // The banks behind today's balance, each with its balance on hover.
+    const banksOfBalance = page.getByRole('button', { name: 'Saldo por banco: Banco E2E' })
+    await expect(async () => {
+      await banksOfBalance.hover()
+      await expect(page.getByRole('list', { name: 'Saldo por banco' }).first()).toContainText(
+        /Banco E2E.*R\$ 5\.000,00/,
+        { timeout: 1000 },
+      )
+    }).toPass()
     await page
       .getByRole('link', { name: /Orçamento/ })
       .first()

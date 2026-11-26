@@ -7,6 +7,7 @@ import {
   type MonthResult,
   type MonthTotals,
 } from './projection'
+import type { Account, Bank } from './types'
 
 /** Numbers of the "Painel" cards, over every account. */
 
@@ -96,4 +97,34 @@ export function monthTotalsOf(results: readonly MonthResult[], month: Month): Mo
       unallocatedCents: 0,
     }
   )
+}
+
+export type BankBalance = { bankId: string; name: string; cents: number }
+
+/**
+ * Today's balance per bank (none when the current month was not projected): the accounts that count in the balance (the
+ * projected, non-archived ones) summed by bank, highest first (ties: name).
+ */
+export function bankBalancesOn(
+  results: readonly MonthResult[],
+  today: string,
+  accounts: readonly Pick<Account, 'id' | 'bankId'>[],
+  banks: readonly Pick<Bank, 'id' | 'name'>[],
+): BankBalance[] {
+  const current = results.find((r) => r.month === today.slice(0, 7))
+  if (current === undefined) return []
+  const byAccount = accountBalancesOn(current, Number(today.slice(8, 10)))
+  const byBank = new Map<string, number>()
+  for (const account of accounts) {
+    const cents = byAccount[account.id]
+    if (cents === undefined) continue
+    byBank.set(account.bankId, (byBank.get(account.bankId) ?? 0) + cents)
+  }
+  return [...byBank]
+    .map(([bankId, cents]) => ({
+      bankId,
+      name: banks.find((b) => b.id === bankId)?.name ?? 'Banco',
+      cents,
+    }))
+    .sort((a, b) => b.cents - a.cents || a.name.localeCompare(b.name, 'pt-BR'))
 }

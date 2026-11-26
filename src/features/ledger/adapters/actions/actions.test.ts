@@ -27,6 +27,12 @@ vi.mock('@/features/spaces/adapters/scope', () => ({
 vi.mock('next/cache', () => ({
   revalidatePath: (path: string, type?: string) => revalidatePath(path, type),
 }))
+vi.mock('@/features/ledger/adapters/ledger.repo', () => ({
+  listAccounts: vi.fn(),
+  listBanks: vi.fn(),
+  listConnectedAccountIds: vi.fn(),
+}))
+vi.mock('@/features/ledger/adapters/projection', () => ({ projectLedger: vi.fn() }))
 vi.mock('@/features/ledger/adapters/ledger.write', () => ({
   createEntry: (...a: unknown[]) => write.createEntry(...a),
   updateEntry: (...a: unknown[]) => write.updateEntry(...a),

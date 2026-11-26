@@ -124,6 +124,16 @@ describe('PayablesView', () => {
     )
   })
 
+  it('never offers to pay a bank entry', () => {
+    const data = sampleData()
+    renderPayables({
+      ...data,
+      entries: data.entries.map((e) => (e.id === IDS.once ? { ...e, fromBank: true } : e)),
+    })
+    expect(screen.queryByRole('button', { name: /Pago: Avulso/ })).toBeNull()
+    expect(screen.getByText('Pago · banco')).toBeInTheDocument()
+  })
+
   it('never lets a bank entry be unpaid: it shows where it came from', async () => {
     const data = sampleData({
       payments: [{ entryId: IDS.once, month: '2026-12', partId: null, paidOn: '2026-12-03' }],

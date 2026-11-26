@@ -12,6 +12,11 @@ vi.mock('@/features/ledger/adapters/actions/undo', () => ({
   undoAction: vi.fn(),
   forgetUndoAction: vi.fn(),
 }))
+vi.mock('@/features/ledger/adapters/actions/accounts', () => ({
+  loadAccountsAction: vi.fn(),
+  renameAccountAction: vi.fn(),
+  setAccountArchivedAction: vi.fn(),
+}))
 vi.mock('@/hooks/use-sign-out', () => ({ useSignOut: () => signOut }))
 vi.mock('next/navigation', () => ({
   usePathname: () => pathname,

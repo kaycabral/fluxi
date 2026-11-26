@@ -1,6 +1,12 @@
 import { isoDate } from './format'
 import { addMonths, type Month } from './month'
-import { dailyBalance, type MonthResult, type MonthTotals } from './projection'
+import {
+  dailyBalance,
+  effectOn,
+  type Balances,
+  type MonthResult,
+  type MonthTotals,
+} from './projection'
 
 /** Numbers of the "Painel" cards, over every account. */
 
@@ -53,6 +59,18 @@ export function balanceSnapshot(
   }
 
   return { todayCents, monthEndCents: currentDaily.closingCents, lowestCents, lowestDate }
+}
+
+/** Each account's balance at the end of `day` of `result`'s month (what lands up to it counts). */
+export function accountBalancesOn(result: MonthResult, day: number): Balances {
+  const balances: Record<string, number> = { ...result.openingBalances }
+  for (const landing of result.landings) {
+    if (landing.day > day) continue
+    for (const id of [landing.entry.accountId, landing.entry.toAccountId]) {
+      if (id !== null) balances[id] = (balances[id] ?? 0) + effectOn(landing, id)
+    }
+  }
+  return balances
 }
 
 export type MonthBalance = { month: Month; closingCents: number }

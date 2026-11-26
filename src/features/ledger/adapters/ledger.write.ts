@@ -1,6 +1,7 @@
 import 'server-only'
 
 import { accounts, banks, entries, entryOverrides, entryParts } from '@/db/schema'
+import { bankFeedAccounts } from '@/db/schema-bank-feed'
 import { changesBankFields } from '@/features/ledger/core/bank-lock'
 import { monthToDate, type Month } from '@/features/ledger/core/month'
 import { amountFor, dayFor, occursIn } from '@/features/ledger/core/occurrence'
@@ -498,6 +499,7 @@ export async function updateAccount(
   scope: Scope,
   input: Omit<AccountInput, 'bankId'> & { archived: boolean },
 ): Promise<WriteResult> {
+  if (input.archived && (await isConnected(scope, input.id))) return fail('account_connected')
   const rows = await db()
     .update(accounts)
     .set({
@@ -505,6 +507,50 @@ export async function updateAccount(
       type: input.type,
       openingBalanceCents: input.openingBalanceCents,
       // Keep the original archive time when it stays archived.
+      archivedAt: input.archived ? sql`coalesce(${accounts.archivedAt}, now())` : null,
+      updatedAt: sql`now()`,
+    })
+    .where(and(eq(accounts.id, input.id), inScope(accounts, scope)))
+    .returning({ id: accounts.id })
+  return rows.length === 0 ? fail('not_found') : ok
+}
+
+/** Whether a bank feed is mapped to the account (it cannot be archived then). */
+async function isConnected(scope: Scope, accountId: string): Promise<boolean> {
+  const rows = await db()
+    .select({ id: bankFeedAccounts.id })
+    .from(bankFeedAccounts)
+    .where(and(inScope(bankFeedAccounts, scope), eq(bankFeedAccounts.accountId, accountId)))
+    .limit(1)
+  return rows.length > 0
+}
+
+/** Rename one of the space's accounts. */
+export async function renameAccount(
+  scope: Scope,
+  input: { id: string; name: string },
+): Promise<WriteResult> {
+  const rows = await db()
+    .update(accounts)
+    .set({ name: input.name, updatedAt: sql`now()` })
+    .where(and(eq(accounts.id, input.id), inScope(accounts, scope)))
+    .returning({ id: accounts.id })
+  return rows.length === 0 ? fail('not_found') : ok
+}
+
+/**
+ * Archive (or bring back) one of the space's accounts. An archived account
+ * leaves the pickers and the timeline; its entries and balance still count
+ * (history is never rewritten). A connected account is refused: unmap first.
+ */
+export async function setAccountArchived(
+  scope: Scope,
+  input: { id: string; archived: boolean },
+): Promise<WriteResult> {
+  if (input.archived && (await isConnected(scope, input.id))) return fail('account_connected')
+  const rows = await db()
+    .update(accounts)
+    .set({
       archivedAt: input.archived ? sql`coalesce(${accounts.archivedAt}, now())` : null,
       updatedAt: sql`now()`,
     })

@@ -163,6 +163,17 @@ describe('TimelineView', () => {
     expect(await screen.findByRole('dialog', { name: 'Editar lançamento' })).toBeInTheDocument()
   })
 
+  it('shows a bank entry as paid by the bank, with its day fixed', () => {
+    const data = sampleData()
+    renderTimeline({
+      ...data,
+      entries: data.entries.map((e) => (e.id === IDS.once ? { ...e, fromBank: true } : e)),
+    })
+    const row = screen.getByRole('row', { name: /Avulso/ })
+    expect(within(row).getByText('Pago · banco')).toBeInTheDocument()
+    expect(within(row).queryByLabelText('Dia de Avulso')).toBeNull()
+  })
+
   it('asks for a bank and account first', () => {
     renderTimeline(sampleData({ accounts: [] }))
     expect(screen.getByText('Cadastre seu primeiro banco e conta')).toBeInTheDocument()

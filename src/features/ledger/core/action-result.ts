@@ -19,6 +19,7 @@ export type WriteFailureReason =
   | 'duplicate_plan'
   | 'last_plan'
   | 'bank_locked'
+  | 'account_connected'
 
 const MESSAGES: Record<WriteFailureReason, string> = {
   not_found: 'Não encontrado. Atualize a página e tente de novo.',
@@ -30,6 +31,8 @@ const MESSAGES: Record<WriteFailureReason, string> = {
   undo_expired: 'Não dá mais para desfazer essa ação.',
   duplicate_plan: 'Já existe uma versão começando nesse mês.',
   last_plan: 'O orçamento precisa de pelo menos uma versão.',
+  account_connected:
+    'Esta conta está vinculada a uma conta do banco. Desvincule em Configurações → Conexões antes de arquivar.',
   bank_locked:
     'Vem do banco: valor, data, conta, tipo, repetição e pagamento não podem ser alterados, nem o lançamento excluído.',
 }

@@ -188,6 +188,9 @@ export const createAccountSchema = z.object({
   type: accountTypeSchema,
   openingBalanceCents: centsSchema,
 })
+export const renameAccountSchema = z.object({ id: idSchema, name: nameSchema })
+export const archiveAccountSchema = z.object({ id: idSchema, archived: z.boolean() })
+
 export const updateAccountSchema = z.object({
   id: idSchema,
   name: nameSchema,

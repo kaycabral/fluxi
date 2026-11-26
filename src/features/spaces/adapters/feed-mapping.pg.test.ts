@@ -3,6 +3,7 @@ import { accounts, banks, entries, spaces } from '@/db/schema'
 import { bankEntryLinks, bankFeedAccounts, bankFeedItems } from '@/db/schema-bank-feed'
 import { syncFeedAccount } from '@/features/bank-feed/adapters/feed.write'
 import type { FeedTransactionRow } from '@/features/bank-feed/core/pluggy'
+import { renameAccount, setAccountArchived } from '@/features/ledger/adapters/ledger.write'
 import type { Scope } from '@/features/spaces/core/space'
 import { requireEnv } from '@cbrl/env'
 import { and, eq } from 'drizzle-orm'
@@ -154,5 +155,30 @@ describe('mapFeedAccount (Postgres)', () => {
       await mapFeedAccount(ANA, { feedAccountId: cardFeedId, target: { kind: 'create' } }, TODAY),
     ).toEqual({ ok: false, reason: 'not_found' })
     expect(await entriesOf(ana)).toHaveLength(0)
+  })
+
+  it('refuses to archive a connected account until it is unmapped', async () => {
+    await mapFeedAccount(ANA, { feedAccountId: cardFeedId, target: { kind: 'create' } }, TODAY)
+    const [feed] = await db()
+      .select()
+      .from(bankFeedAccounts)
+      .where(eq(bankFeedAccounts.id, cardFeedId))
+    const id = feed!.accountId!
+    expect(await setAccountArchived(ana, { id, archived: true })).toEqual({
+      ok: false,
+      reason: 'account_connected',
+    })
+    expect(await renameAccount(ana, { id, name: 'Cartão Visa' })).toEqual({ ok: true })
+    await mapFeedAccount(ANA, { feedAccountId: cardFeedId, target: { kind: 'none' } }, TODAY)
+    expect(await setAccountArchived(ana, { id, archived: true })).toEqual({ ok: true })
+    const [archived] = await db().select().from(accounts).where(eq(accounts.id, id))
+    expect(archived).toMatchObject({ name: 'Cartão Visa' })
+    expect(archived?.archivedAt).not.toBeNull()
+    expect(await setAccountArchived(ana, { id, archived: false })).toEqual({ ok: true })
+    const bia = await personalScope(db(), BIA)
+    expect(await setAccountArchived(bia, { id, archived: true })).toEqual({
+      ok: false,
+      reason: 'not_found',
+    })
   })
 })

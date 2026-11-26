@@ -246,6 +246,26 @@ describe('CalendarView · event popup', () => {
     await waitFor(() => expect(unmarkPaidAction).toHaveBeenCalledOnce())
   })
 
+  it('keeps a bank entry paid, undeletable and in place', async () => {
+    const data = sampleData({
+      payments: [{ entryId: IDS.once, month: '2026-12', partId: null, paidOn: '2026-12-03' }],
+    })
+    renderCalendar({
+      data: {
+        ...data,
+        entries: data.entries.map((e) => (e.id === IDS.once ? { ...e, fromBank: true } : e)),
+      },
+      prefs: { paid: true },
+    })
+    const chip = screen.getByRole('button', { name: /Avulso/ })
+    expect(chip).not.toHaveAttribute('draggable', 'true')
+    await userEvent.click(chip)
+    const popup = await screen.findByLabelText('Detalhes de Avulso')
+    expect(popup).toHaveTextContent('(vem do banco)')
+    expect(within(popup).queryByRole('button', { name: 'Excluir lançamento' })).toBeNull()
+    expect(within(popup).queryByRole('button', { name: /pago/ })).toBeNull()
+  })
+
   it('reports a refused payment', async () => {
     vi.mocked(markPaidAction).mockResolvedValue({ ok: false, error: 'Não deu.' })
     renderCalendar()

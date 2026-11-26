@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { balanceSnapshot, monthEndBalances, monthTotalsOf } from './dashboard'
+import { accountBalancesOn, balanceSnapshot, monthEndBalances, monthTotalsOf } from './dashboard'
 import { makeEntry } from './fixtures'
 import { projectMonths } from './projection'
 
@@ -86,5 +86,31 @@ describe('monthTotalsOf', () => {
       byPot: {},
       unallocatedCents: 0,
     })
+  })
+})
+
+describe('accountBalancesOn', () => {
+  it('sums each account up to the day, transfers on both sides', () => {
+    const [december] = projectMonths({
+      entries: [
+        makeEntry({ id: 'rent', amountCents: -400000, day: 10, startMonth: '2026-12' }),
+        makeEntry({
+          id: 'move',
+          kind: 'transfer',
+          pot: null,
+          amountCents: -1000,
+          day: 5,
+          toAccountId: 'va',
+          startMonth: '2026-12',
+        }),
+      ],
+      parts: [],
+      overrides: [],
+      accounts,
+      months: ['2026-12'],
+    })
+    if (december === undefined) throw new Error('no month')
+    expect(accountBalancesOn(december, 9)).toEqual({ checking: 99000, va: 21000 })
+    expect(accountBalancesOn(december, 10)).toEqual({ checking: -301000, va: 21000 })
   })
 })

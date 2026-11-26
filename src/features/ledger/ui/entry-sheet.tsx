@@ -228,11 +228,7 @@ export function EntryForm({
             value={values.description}
             onChange={(e) => set({ description: e.target.value })}
           />
-          <fieldset
-            disabled={locked}
-            aria-label="Data e repetição"
-            className="flex flex-wrap items-center gap-2"
-          >
+          <fieldset disabled={locked} className="flex flex-wrap items-center gap-2">
             <DateField
               id="entry-date"
               aria-label="Data"

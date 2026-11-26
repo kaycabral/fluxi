@@ -236,5 +236,48 @@ describe('BankConnections', () => {
         }),
       )
     })
+
+    it('creates an account, and asks before moving entries to another one', async () => {
+      mapFeedAccountAction.mockResolvedValue({ ok: true })
+      const { rerender } = render(
+        <BankConnections
+          connections={[connection(null, 0)]}
+          spaces={[PERSONAL]}
+          accounts={accounts}
+        />,
+      )
+      await userEvent.click(screen.getByRole('combobox', { name: 'Conta no Fluxi de Cartão BTG' }))
+      await userEvent.click(screen.getByRole('option', { name: 'Criar conta' }))
+      await waitFor(() =>
+        expect(mapFeedAccountAction).toHaveBeenCalledWith({
+          feedAccountId: FEED,
+          target: { kind: 'create' },
+        }),
+      )
+      rerender(
+        <BankConnections
+          connections={[connection('card', 2)]}
+          spaces={[PERSONAL]}
+          accounts={[
+            ...accounts,
+            {
+              id: 'card2',
+              spaceId: PERSONAL.id,
+              bankName: 'BTG',
+              name: 'Cartão 2',
+              type: 'credit',
+            },
+          ]}
+        />,
+      )
+      await userEvent.click(screen.getByRole('combobox', { name: 'Conta no Fluxi de Cartão BTG' }))
+      await userEvent.click(screen.getByRole('option', { name: 'BTG · Cartão 2' }))
+      const dialog = await screen.findByRole('alertdialog', {
+        name: 'Vincular “Cartão BTG” a Cartão 2?',
+      })
+      expect(within(dialog).getByText(/criados de novo na conta escolhida/)).toBeInTheDocument()
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Cancelar' }))
+      expect(mapFeedAccountAction).toHaveBeenCalledOnce()
+    })
   })
 })

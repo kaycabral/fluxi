@@ -46,7 +46,7 @@ export function TimelineView({ data, window, today }: Props) {
   )
   const [selected, setSelected] = useState(today)
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
-  const selectedResult = months.find((m) => m.month === selected) ?? months[0]
+  const selectedResult = months.find((m) => m.month === selected)
 
   const active = data.accounts.filter((a) => !a.archived)
   const activeIds = active.map((a) => a.id)

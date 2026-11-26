@@ -289,6 +289,8 @@ describe('dailyBalance', () => {
     })
     const nubank = dailyBalance(monthOf(results, '2026-12'), ['nubank'])
     expect(nubank?.rows.map((r) => r.effectCents)).toEqual([-13000, 40000])
+    // An account the month does not know starts at zero.
+    expect(dailyBalance(monthOf(results, '2026-12'), ['ghost']).openingCents).toBe(0)
   })
 })
 
@@ -344,6 +346,28 @@ describe('projectMonths with bank-fed accounts', () => {
     expect(ids(january)).toEqual(['elsewhere', 'to-nubank', 'planned'])
     expect(december?.closingBalances).toEqual({ checking: 100000 - 3000, nubank: 20000 - 500 })
     expect(december?.totals.expenseCents).toBe(3500)
+  })
+
+  it('drops a planned transfer into a connected account too', () => {
+    const fromNubank = makeEntry({
+      id: 'from-nubank',
+      kind: 'transfer',
+      pot: null,
+      amountCents: -900,
+      day: 4,
+      accountId: 'nubank',
+      toAccountId: 'checking',
+      startMonth: '2026-12',
+    })
+    const [december] = projectMonths({
+      entries: [fromNubank],
+      parts: [],
+      overrides: [],
+      accounts,
+      months: ['2026-12'],
+      feed: { connectedAccountIds: ['checking'], bankEntryIds: [], today: '2026-12-10' },
+    })
+    expect(ids(december)).toEqual([])
   })
 
   it('counts planned occurrences after today', () => {

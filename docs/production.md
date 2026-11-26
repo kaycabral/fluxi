@@ -111,3 +111,18 @@ Tudo pelo Dashboard ou pelo CLI com o login do operador; nada de conexão ao ban
    `200` com `"ok": true` = sincronizou; `401` = token do Vault ≠ `FLUXI_SYNC_TOKEN`; `500` = veja os logs em Edge Functions → `pluggy-sync` → Logs (só agregados e o motivo). Execuções agendadas: `select * from cron.job_run_details order by start_time desc limit 5;`.
 
 **Rotação**: token → gere outro, `supabase secrets set FLUXI_SYNC_TOKEN=...` (vale sem redeploy) e atualize o Vault; senha do `fluxi_sync` → passos 3 (só `FLUXI_SYNC_DB_URL`) e 4; Pluggy → regenere e `supabase secrets set PLUGGY_CLIENT_SECRET=...`. **Ressalva conhecida**: enquanto a requisição do `pg_net` está na fila, o token aparece decifrado em `net.http_request_queue`; por isso ele só serve pra disparar o sync (não é uma chave do Supabase).
+
+## Integração do feed bancário ao ledger (uma vez, depois do deploy)
+
+O sync (`pluggy-sync`) agora chama `private.materialize_bank_feed(user, space, today)` depois de gravar o feed de cada espaço: cada transação de uma conta do feed **mapeada** (`bank_feed_accounts.account_id`) vira um lançamento avulso pago, ligado pela `bank_entry_links` (transferências entre contas mapeadas viram uma transferência só), e o saldo inicial das contas mapeadas é ancorado no saldo do banco. Nas contas conectadas, o planejado até hoje deixa de contar (o passado é o do banco). `count_from_month` não existe mais: o saldo de cada conta começa no `opening_balance_cents` e soma todos os lançamentos. A função roda como `SECURITY DEFINER` num schema não exposto (`private`); o `fluxi_sync` só tem `EXECUTE` nela.
+
+Os dados de produção do usuário precisam de uma preparação, **nesta ordem** (os SQLs, parametrizados por `user_id`, ficam fora do repo; cada um numa transação, com verificação que aborta se algo não bater; saída só com agregados):
+
+1. **Deploy do código**: merge → `migrate-production` (migrations `0019`–`0022`) → `deploy-edge-functions` (a função precisa do módulo novo). Até o mapeamento (passo 4), nada muda no ledger: nenhuma conta está conectada.
+2. **Backup**: backup do Supabase (Database → Backups) e a exportação do ledger do usuário (`a_backup.sql`, `\copy` pra uma pasta cifrada; apagar depois de validar).
+3. **Corte em 2026-12-01**: `pnpm ledger:cut -- --user <uuid> --cut 2026-12` (dry-run, rollback) e depois com `--apply`. Apaga os avulsos antes de dezembro, faz as séries começarem na primeira ocorrência a partir de dezembro (parcelados ficam só com as parcelas restantes e a fatia do total, como o `endSeriesBefore`), apaga overrides/pagamentos de meses anteriores; não toca lançamentos ligados ao banco. Conferir com `b_cut_verify.sql`. Exceção à regra "ninguém acessa o banco de prod da máquina": exige a URL de prod temporária (pedir ao dono, apagar ao terminar).
+4. **Mapeamento**: `c_map_feed_accounts.sql` com a lista explícita feed (external id) → conta do Fluxi, no mesmo espaço.
+5. **Saldos das contas não conectadas**: `d_opening_balances.sql` com o saldo real de cada uma em 2026-12-01 (recusa conta conectada).
+6. **Sync**: `e_trigger_sync.sql` dispara o job e confere `ledger` no resumo (criados, transferências, saldos ancorados) e os agregados.
+
+Regras do materializador: o banco é dono de valor, conta e data (re-sincronizados); o usuário, de descrição, categoria e pote. Lançamento excluído pelo usuário vira lápide (`discarded`, nunca recriado; o "Desfazer" religa). Transação que o banco removeu (janela de 360 dias) apaga o lançamento, salvo lápide. Cartão: o feed reporta a fatura como positiva (devida) e o ledger guarda dívida negativa, então a âncora é `-balance_cents`.

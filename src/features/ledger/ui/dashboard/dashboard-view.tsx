@@ -48,7 +48,7 @@ function Stat({
   alert = false,
 }: {
   label: string
-  cents: number | null
+  cents: number
   hint?: React.ReactNode
   tone?: boolean
   alert?: boolean
@@ -58,15 +58,11 @@ function Stat({
       <CardHeader>
         <CardDescription>{label}</CardDescription>
         <CardTitle className="text-2xl">
-          {cents === null ? (
-            <span className="text-muted-foreground">–</span>
-          ) : (
-            <Money
-              cents={cents}
-              tone={tone}
-              className={cn(!tone && cents < 0 && 'text-destructive')}
-            />
-          )}
+          <Money
+            cents={cents}
+            tone={tone}
+            className={cn(!tone && cents < 0 && 'text-destructive')}
+          />
         </CardTitle>
       </CardHeader>
       {hint !== undefined && (
@@ -78,7 +74,7 @@ function Stat({
 
 /** Month-end balance of the next 12 months as bars (red below zero). */
 function BalanceChart({ balances, today }: { balances: MonthBalance[]; today: Month }) {
-  const values = balances.map((b) => b.closingCents ?? 0)
+  const values = balances.map((b) => b.closingCents)
   const max = Math.max(1, ...values.map((v) => Math.abs(v)))
   const hasNegative = values.some((v) => v < 0)
   const hasPositive = values.some((v) => v > 0)
@@ -89,14 +85,11 @@ function BalanceChart({ balances, today }: { balances: MonthBalance[]; today: Mo
           className="flex min-h-0 flex-1 items-stretch gap-1"
           role="img"
           aria-label={balances
-            .map(
-              (b) =>
-                `${monthLabel(b.month)}: ${b.closingCents === null ? 'sem saldo' : formatMoney(b.closingCents)}`,
-            )
+            .map((b) => `${monthLabel(b.month)}: ${formatMoney(b.closingCents)}`)
             .join('; ')}
         >
           {balances.map((b) => {
-            const cents = b.closingCents ?? 0
+            const cents = b.closingCents
             const height = `${(Math.abs(cents) / max) * 100}%`
             return (
               <Tooltip key={b.month}>
@@ -123,10 +116,7 @@ function BalanceChart({ balances, today }: { balances: MonthBalance[]; today: Mo
                   </div>
                 </TooltipTrigger>
                 <TooltipContent>
-                  Fim de {monthLabel(b.month)}:{' '}
-                  {b.closingCents === null
-                    ? 'antes do início da contagem'
-                    : formatMoney(b.closingCents)}
+                  Fim de {monthLabel(b.month)}: {formatMoney(b.closingCents)}
                 </TooltipContent>
               </Tooltip>
             )
@@ -222,12 +212,18 @@ export function DashboardView({
 }) {
   const month = today.slice(0, 7)
   const results = useMemo(() => projectWindow(data, month, addMonths(month, 11)), [data, month])
-  const snapshot = balanceSnapshot(results, today)
+  // The window starts at the current month, so it is always projected.
+  const snapshot = balanceSnapshot(results, today) ?? {
+    todayCents: 0,
+    monthEndCents: 0,
+    lowestCents: 0,
+    lowestDate: today,
+  }
   const thisMonth = monthTotalsOf(results, month)
   const budget = useBudgetMonth(data, plans, month)
   const pots = visiblePots(data.pots, [budget])
   const lights = lightSummary(pots, budget)
-  const monthEndDelta = snapshot === null ? null : snapshot.monthEndCents - snapshot.todayCents
+  const monthEndDelta = snapshot.monthEndCents - snapshot.todayCents
 
   const header = (
     <div className="flex flex-wrap items-end justify-between gap-3">
@@ -259,21 +255,19 @@ export function DashboardView({
       {header}
 
       <section aria-label="Resumo" className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Stat label="Saldo hoje" cents={snapshot?.todayCents ?? null} hint="Todas as contas" />
+        <Stat label="Saldo hoje" cents={snapshot.todayCents} hint="Todas as contas" />
         <Stat
           label={`Fim de ${monthLabel(month)}`}
-          cents={snapshot?.monthEndCents ?? null}
+          cents={snapshot.monthEndCents}
           hint={
-            monthEndDelta === null ? undefined : (
-              <span className={cn('inline-flex items-center gap-1', toneOf(monthEndDelta))}>
-                {monthEndDelta < 0 ? (
-                  <TrendingDown className="size-3.5" />
-                ) : (
-                  <TrendingUp className="size-3.5" />
-                )}
-                {formatMoney(monthEndDelta)} até o fim do mês
-              </span>
-            )
+            <span className={cn('inline-flex items-center gap-1', toneOf(monthEndDelta))}>
+              {monthEndDelta < 0 ? (
+                <TrendingDown className="size-3.5" />
+              ) : (
+                <TrendingUp className="size-3.5" />
+              )}
+              {formatMoney(monthEndDelta)} até o fim do mês
+            </span>
           }
         />
         <Stat
@@ -284,13 +278,9 @@ export function DashboardView({
         />
         <Stat
           label="Menor saldo previsto"
-          cents={snapshot?.lowestCents ?? null}
-          alert={snapshot !== null && snapshot.lowestCents < 0}
-          hint={
-            snapshot === null
-              ? undefined
-              : `Em ${snapshot.lowestDate.slice(8, 10)}/${snapshot.lowestDate.slice(5, 7)}, até o fim do próximo mês`
-          }
+          cents={snapshot.lowestCents}
+          alert={snapshot.lowestCents < 0}
+          hint={`Em ${snapshot.lowestDate.slice(8, 10)}/${snapshot.lowestDate.slice(5, 7)}, até o fim do próximo mês`}
         />
       </section>
 

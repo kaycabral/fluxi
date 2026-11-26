@@ -92,6 +92,16 @@ describe('DashboardView', () => {
     expect(screen.getByRole('img', { name: /^dez\/26: -R\$/ })).toBeInTheDocument()
   })
 
+  it('draws only positive bars when no month ends below zero', () => {
+    const data = sampleData()
+    renderDashboard({
+      ...data,
+      accounts: data.accounts.map((a) => ({ ...a, openingBalanceCents: 100_000_000 })),
+    })
+    expect(screen.queryByRole('img', { name: /-R\$/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('img', { name: /^dez\/26: R\$/ })).toBeInTheDocument()
+  })
+
   it('fills the bar of a pot spent without a target', () => {
     renderDashboard(sampleData(), [{ ...PLAN, targets: { essential: 3300 } }])
     expect(screen.getByText(/^R\$ 7\.000,00 \/ R\$ 0,00$/)).toBeInTheDocument()

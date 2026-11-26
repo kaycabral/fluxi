@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { LedgerShell } from './ledger-shell'
@@ -152,6 +152,15 @@ describe('TimelineView', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     await userEvent.click(screen.getByRole('button', { name: 'Lançamento' }))
     expect(await screen.findByLabelText('Data')).toHaveValue('15/12/2026')
+  })
+
+  it('opens an occurrence from the keyboard', async () => {
+    renderTimeline()
+    const row = screen.getByRole('row', { name: /Buffet/ })
+    fireEvent.keyDown(row, { key: 'Tab' })
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    fireEvent.keyDown(row, { key: 'Enter' })
+    expect(await screen.findByRole('dialog', { name: 'Editar lançamento' })).toBeInTheDocument()
   })
 
   it('asks for a bank and account first', () => {

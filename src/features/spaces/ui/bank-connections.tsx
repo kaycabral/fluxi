@@ -12,11 +12,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
   Select,
   SelectContent,
   SelectItem,
@@ -51,9 +46,12 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
 export function BankConnections({
   connections,
   spaces,
+  onChanged,
 }: {
   connections: readonly BankConnection[]
   spaces: readonly Space[]
+  /** After a successful change (the settings modal reloads its data). */
+  onChanged?: () => void
 }) {
   const [pending, run] = useAction()
   const [move, setMove] = useState<PendingMove | null>(null)
@@ -62,6 +60,7 @@ export function BankConnections({
     run(
       () => assignFeedItemAction({ itemId, spaceId }),
       spaceId === null ? 'Conexão pausada.' : 'Espaço da conexão atualizado.',
+      onChanged,
     )
   const choose = (connection: BankConnection, name: string, value: string) => {
     const space = options.find((s) => s.id === value)
@@ -73,16 +72,8 @@ export function BankConnections({
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Conexões</CardTitle>
-        <CardDescription>
-          Escolha em qual espaço entram os dados de cada conexão. Sem espaço, a conexão não é
-          sincronizada. Ao trocar o espaço, todas as transações desta conexão vão junto para o novo
-          espaço.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
+    <>
+      <div>
         {connections.length === 0 ? (
           <p className="text-muted-foreground text-sm">Nenhuma conexão ainda.</p>
         ) : (
@@ -95,7 +86,10 @@ export function BankConnections({
                   className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div className="flex min-w-0 items-start gap-2">
-                    <Landmark aria-hidden className="text-muted-foreground mt-0.5 size-4" />
+                    <Landmark
+                      aria-hidden
+                      className="text-muted-foreground mt-0.5 size-4 shrink-0"
+                    />
                     <div className="min-w-0">
                       <p className="font-medium">{name}</p>
                       <p className="text-muted-foreground truncate text-sm">
@@ -110,7 +104,7 @@ export function BankConnections({
                     onValueChange={(value) => choose(c, name, value)}
                     disabled={pending}
                   >
-                    <SelectTrigger className="sm:w-56" aria-label={`Espaço de ${name}`}>
+                    <SelectTrigger className="sm:w-56 sm:shrink-0" aria-label={`Espaço de ${name}`}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -128,7 +122,7 @@ export function BankConnections({
             })}
           </ul>
         )}
-      </CardContent>
+      </div>
       {move !== null && (
         <MoveDialog
           move={move}
@@ -139,7 +133,7 @@ export function BankConnections({
           }}
         />
       )}
-    </Card>
+    </>
   )
 }
 

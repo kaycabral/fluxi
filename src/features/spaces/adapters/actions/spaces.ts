@@ -6,13 +6,17 @@ import {
   archiveSpace,
   assignFeedItem,
   createSpace,
+  listFeedItems,
+  listSpaces,
   resolveScope,
+  type FeedItem,
 } from '@/features/spaces/adapters/space.repo'
 import {
   assignFeedItemSchema,
   createSpaceSchema,
   SPACE_COOKIE,
   spaceIdSchema,
+  type Space,
 } from '@/features/spaces/core/space'
 import { getServerUser } from '@/lib/auth/server'
 import { revalidatePath } from 'next/cache'
@@ -94,4 +98,16 @@ export async function assignFeedItemAction(input: unknown): Promise<ActionResult
     return { ok: false, error: 'Conexão ou espaço inválido.' }
   }
   return refreshed()
+}
+
+export type ConnectionsData = { connections: FeedItem[]; spaces: Space[] }
+
+/** "Configurações → Conexões" (loaded when the settings modal opens): the user's connections and spaces. */
+export async function loadConnectionsAction(): Promise<
+  { ok: true; data: ConnectionsData } | { ok: false; error: string }
+> {
+  const user = await getServerUser()
+  if (!user) return { ok: false, error: SESSION_EXPIRED }
+  const [connections, spaces] = await Promise.all([listFeedItems(user.id), listSpaces(user.id)])
+  return { ok: true, data: { connections, spaces } }
 }

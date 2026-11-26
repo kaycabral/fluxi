@@ -17,6 +17,46 @@ export type ConnectionStatus = {
   checkedAt: string | null
 }
 
+/** The health columns of a `bank_feed_items` row (timestamps as the driver returns them). */
+export type ConnectionStatusRow = {
+  itemStatus: string | null
+  executionStatus: string | null
+  errorCode: string | null
+  lastUpdatedAt: Date | null
+  nextSyncAt: Date | null
+  consentExpiresAt: Date | null
+  institutionHealth: string | null
+  checkedAt: Date | null
+}
+
+const iso = (value: Date | null) => value?.toISOString() ?? null
+
+/** A stored row → serializable {@link ConnectionStatus} (ISO strings). */
+export function connectionStatusOf(row: ConnectionStatusRow): ConnectionStatus {
+  return {
+    itemStatus: row.itemStatus,
+    executionStatus: row.executionStatus,
+    errorCode: row.errorCode,
+    lastUpdatedAt: iso(row.lastUpdatedAt),
+    nextSyncAt: iso(row.nextSyncAt),
+    consentExpiresAt: iso(row.consentExpiresAt),
+    institutionHealth: row.institutionHealth,
+    checkedAt: iso(row.checkedAt),
+  }
+}
+
+/** Never read by the sync. */
+export const NEVER_CHECKED: ConnectionStatus = {
+  itemStatus: null,
+  executionStatus: null,
+  errorCode: null,
+  lastUpdatedAt: null,
+  nextSyncAt: null,
+  consentExpiresAt: null,
+  institutionHealth: null,
+  checkedAt: null,
+}
+
 export type HealthLevel = 'ok' | 'warn' | 'error' | 'unknown'
 
 export type ConnectionHealth = {
@@ -104,65 +144,73 @@ const parse = (value: string | null): Date | null => {
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
 
+type Verdict = { level: HealthLevel; reason: string; inProgress?: boolean }
+
+/** The institution or the last execution failed: the user has to act. */
+function errorOf(status: ConnectionStatus, item: string, now: Date): Verdict | null {
+  const execution = status.executionStatus ?? ''
+  const code = status.errorCode ?? ''
+  if (NEEDS_USER_STATUSES.has(item) || NEEDS_USER.has(execution) || NEEDS_USER.has(code)) {
+    return { level: 'error', reason: 'O banco pediu nova autorização: reconecte no Meu Pluggy' }
+  }
+  const consent = parse(status.consentExpiresAt)
+  const expired = consent !== null && consent.getTime() <= now.getTime()
+  if (expired || execution === 'CONSENT_EXPIRED' || code === 'CONSENT_EXPIRED') {
+    return { level: 'error', reason: 'Consentimento vencido: renove no Meu Pluggy' }
+  }
+  if (FAILED.has(execution) || FAILED.has(code)) {
+    return { level: 'error', reason: 'A última atualização falhou' }
+  }
+  return null
+}
+
+/** Working: ok, or late, in progress or about to need attention (warn). */
+function warningOf(status: ConnectionStatus, item: string, checkedAt: Date, now: Date): Verdict {
+  if (item === 'UPDATING') return { level: 'warn', reason: 'Atualizando agora…', inProgress: true }
+  const updated = parse(status.lastUpdatedAt)
+  if (item === 'OUTDATED') {
+    const when = updated === null ? '' : ` (última ${updatedLabel(updated, now)})`
+    return {
+      level: 'warn',
+      reason: `Dados desatualizados: a última atualização não terminou${when}`,
+    }
+  }
+  if (now.getTime() - checkedAt.getTime() > STALE_AFTER_MS) {
+    return { level: 'warn', reason: `Última verificação do Fluxi: ${updatedLabel(checkedAt, now)}` }
+  }
+  if (updated === null) return { level: 'warn', reason: 'Sem data da última atualização' }
+  if (now.getTime() - updated.getTime() > STALE_AFTER_MS) {
+    return { level: 'warn', reason: `Atualizada ${updatedLabel(updated, now)}` }
+  }
+  if (status.institutionHealth !== null && status.institutionHealth !== 'ONLINE') {
+    return { level: 'warn', reason: 'Instituição instável no momento' }
+  }
+  const consent = parse(status.consentExpiresAt)
+  const days = consent === null ? Infinity : Math.ceil((consent.getTime() - now.getTime()) / DAY)
+  if (days <= CONSENT_WARN_DAYS) {
+    return { level: 'warn', reason: `Consentimento vence em ${plural(days, 'dia', 'dias')}` }
+  }
+  return { level: 'ok', reason: `Atualizada ${updatedLabel(updated, now)}` }
+}
+
 export function connectionHealth(status: ConnectionStatus, now: Date): ConnectionHealth {
   const nextAt = parse(status.nextSyncAt)
   const next =
     nextAt !== null && nextAt.getTime() > now.getTime()
       ? `Próxima atualização: ${upcomingLabel(nextAt, now)}`
       : null
-  const result = (level: HealthLevel, reason: string, inProgress = false): ConnectionHealth => ({
-    level,
-    reason,
-    inProgress,
-    next,
-  })
-
   const checkedAt = parse(status.checkedAt)
-  if (checkedAt === null || status.itemStatus === null) {
-    return result('unknown', 'Ainda não verificada pela sincronização')
-  }
   const item = status.itemStatus
-  const execution = status.executionStatus ?? ''
-  const code = status.errorCode ?? ''
-
-  if (NEEDS_USER_STATUSES.has(item) || NEEDS_USER.has(execution) || NEEDS_USER.has(code)) {
-    return result('error', 'O banco pediu nova autorização: reconecte no Meu Pluggy')
+  const verdict: Verdict =
+    checkedAt === null || item === null
+      ? { level: 'unknown', reason: 'Ainda não verificada pela sincronização' }
+      : (errorOf(status, item, now) ?? warningOf(status, item, checkedAt, now))
+  return {
+    level: verdict.level,
+    reason: verdict.reason,
+    inProgress: verdict.inProgress ?? false,
+    next,
   }
-  const consent = parse(status.consentExpiresAt)
-  if (
-    execution === 'CONSENT_EXPIRED' ||
-    code === 'CONSENT_EXPIRED' ||
-    (consent !== null && consent.getTime() <= now.getTime())
-  ) {
-    return result('error', 'Consentimento vencido: renove no Meu Pluggy')
-  }
-  if (FAILED.has(execution) || FAILED.has(code)) {
-    return result('error', 'A última atualização falhou')
-  }
-
-  if (item === 'UPDATING') return result('warn', 'Atualizando agora…', true)
-  const updated = parse(status.lastUpdatedAt)
-  if (item === 'OUTDATED') {
-    const when = updated === null ? '' : ` (última ${updatedLabel(updated, now)})`
-    return result('warn', `Dados desatualizados: a última atualização não terminou${when}`)
-  }
-  if (now.getTime() - checkedAt.getTime() > STALE_AFTER_MS) {
-    return result('warn', `Última verificação do Fluxi: ${updatedLabel(checkedAt, now)}`)
-  }
-  if (updated === null) return result('warn', 'Sem data da última atualização')
-  if (now.getTime() - updated.getTime() > STALE_AFTER_MS) {
-    return result('warn', `Atualizada ${updatedLabel(updated, now)}`)
-  }
-  if (status.institutionHealth !== null && status.institutionHealth !== 'ONLINE') {
-    return result('warn', 'Instituição instável no momento')
-  }
-  if (consent !== null) {
-    const days = Math.ceil((consent.getTime() - now.getTime()) / DAY)
-    if (days <= CONSENT_WARN_DAYS) {
-      return result('warn', `Consentimento vence em ${plural(days, 'dia', 'dias')}`)
-    }
-  }
-  return result('ok', `Atualizada ${updatedLabel(updated, now)}`)
 }
 
 const SEVERITY: Record<HealthLevel, number> = { unknown: 0, ok: 1, warn: 2, error: 3 }
@@ -174,4 +222,39 @@ export function worstHealth(healths: readonly ConnectionHealth[]): ConnectionHea
     if (worst === null || SEVERITY[health.level] > SEVERITY[worst.level]) worst = health
   }
   return worst
+}
+
+/** Key of a connected bank with no linked account in "Saldo hoje" (`withConnectedBanks`). */
+export const connectionBankKey = (institution: string) => `connection:${institution}`
+
+/**
+ * Health per "Saldo hoje" bank: a fluxi bank fed by connections takes the
+ * worst of them; a connection with no linked account is keyed by its
+ * institution ({@link connectionBankKey}). Manual banks get no entry.
+ */
+export function healthByBank(
+  connections: readonly {
+    bankIds: readonly string[]
+    institution: string | null
+    status: ConnectionStatus
+  }[],
+  now: Date,
+): Record<string, ConnectionHealth> {
+  const byKey = new Map<string, ConnectionHealth[]>()
+  const add = (key: string, health: ConnectionHealth) =>
+    byKey.set(key, [...(byKey.get(key) ?? []), health])
+  for (const connection of connections) {
+    const health = connectionHealth(connection.status, now)
+    if (connection.bankIds.length > 0) {
+      for (const bankId of connection.bankIds) add(bankId, health)
+    } else if (connection.institution !== null) {
+      add(connectionBankKey(connection.institution), health)
+    }
+  }
+  const out: Record<string, ConnectionHealth> = {}
+  for (const [key, healths] of byKey) {
+    const worst = worstHealth(healths)
+    if (worst !== null) out[key] = worst
+  }
+  return out
 }

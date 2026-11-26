@@ -1,5 +1,15 @@
+import { withConnectedBanks } from '@/features/ledger/core/dashboard'
 import { describe, expect, it } from 'vitest'
-import { connectionHealth, updatedLabel, worstHealth, type ConnectionStatus } from './health'
+import {
+  connectionBankKey,
+  connectionHealth,
+  connectionStatusOf,
+  healthByBank,
+  NEVER_CHECKED,
+  updatedLabel,
+  worstHealth,
+  type ConnectionStatus,
+} from './health'
 
 // 2026-11-26 10:00 in São Paulo (UTC-3).
 const NOW = new Date('2026-11-26T13:00:00.000Z')
@@ -8,7 +18,8 @@ const healthy: ConnectionStatus = {
   itemStatus: 'UPDATED',
   executionStatus: 'SUCCESS',
   errorCode: null,
-  lastUpdatedAt: '2026-11-26T09:02:00.000Z', // 06:02 in São Paulo
+  // 06:02 in São Paulo.
+  lastUpdatedAt: '2026-11-26T09:02:00.000Z',
   nextSyncAt: '2026-11-27T09:00:00.000Z',
   consentExpiresAt: '2027-06-01T00:00:00.000Z',
   institutionHealth: 'ONLINE',
@@ -132,6 +143,59 @@ describe('updatedLabel', () => {
   it('counts calendar days in São Paulo', () => {
     // 01:00 UTC on the 26th is still the 25th in São Paulo.
     expect(updatedLabel(new Date('2026-11-26T01:00:00.000Z'), NOW)).toBe('ontem às 22:00')
+  })
+})
+
+describe('connectionStatusOf', () => {
+  it('serializes stored timestamps', () => {
+    expect(
+      connectionStatusOf({
+        itemStatus: 'UPDATED',
+        executionStatus: null,
+        errorCode: null,
+        lastUpdatedAt: new Date('2026-11-26T09:02:00.000Z'),
+        nextSyncAt: null,
+        consentExpiresAt: null,
+        institutionHealth: 'ONLINE',
+        checkedAt: new Date('2026-11-26T09:30:00.000Z'),
+      }),
+    ).toEqual({
+      ...NEVER_CHECKED,
+      itemStatus: 'UPDATED',
+      lastUpdatedAt: '2026-11-26T09:02:00.000Z',
+      institutionHealth: 'ONLINE',
+      checkedAt: '2026-11-26T09:30:00.000Z',
+    })
+  })
+})
+
+describe('healthByBank', () => {
+  it('keys linked banks by id (worst wins), unlinked ones by institution, skips the rest', () => {
+    const byBank = healthByBank(
+      [
+        { bankIds: ['b1', 'b2'], institution: 'Inter', status: healthy },
+        {
+          bankIds: ['b2'],
+          institution: 'Inter',
+          status: { ...healthy, itemStatus: 'LOGIN_ERROR' },
+        },
+        {
+          bankIds: [],
+          institution: 'Nubank Empresas',
+          status: { ...healthy, itemStatus: 'UPDATING' },
+        },
+        { bankIds: [], institution: null, status: healthy },
+      ],
+      NOW,
+    )
+    expect(Object.keys(byBank).sort()).toEqual(['b1', 'b2', connectionBankKey('Nubank Empresas')])
+    expect(byBank.b1?.level).toBe('ok')
+    expect(byBank.b2?.level).toBe('error')
+    expect(byBank[connectionBankKey('Nubank Empresas')]?.inProgress).toBe(true)
+  })
+
+  it('uses the same key as the dashboard for unlinked connections', () => {
+    expect(withConnectedBanks([], ['Nubank'])[0]?.bankId).toBe(connectionBankKey('Nubank'))
   })
 })
 

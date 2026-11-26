@@ -7,6 +7,7 @@ import {
   bankTransactions,
 } from '@/db/schema-bank-feed'
 import { isoDayOf } from '@/features/ledger/core/format'
+import { monthToDate } from '@/features/ledger/core/month'
 import { addDays } from '@/features/ledger/core/payments'
 import { expect, test } from '@e2e/fixtures'
 import type { Page } from '@playwright/test'
@@ -56,6 +57,13 @@ test.describe('bank feed in the ledger', () => {
       .where(and(eq(banks.userId, user.id), inArray(banks.name, [BANK, 'Arquivo E2E'])))
     const bankIds = created.map((b) => b.id)
     if (bankIds.length > 0) {
+      const owned = await db
+        .select({ id: accounts.id })
+        .from(accounts)
+        .where(inArray(accounts.bankId, bankIds))
+      const accountIds = owned.map((a) => a.id)
+      if (accountIds.length > 0)
+        await db.delete(entries).where(inArray(entries.accountId, accountIds))
       await db.delete(accounts).where(inArray(accounts.bankId, bankIds))
       await db.delete(banks).where(inArray(banks.id, bankIds))
     }
@@ -139,8 +147,12 @@ test.describe('bank feed in the ledger', () => {
     expect(saved?.amountCents).toBe(-4500)
   })
 
-  test('archives an account from Configurações → Contas', async ({ page, user }) => {
+  test('archives an account: it and its entries stop counting until unarchived', async ({
+    page,
+    user,
+  }) => {
     const db = fluxiDb.db()
+    const today = isoDayOf(new Date())
     const bank = created(
       await db
         .insert(banks)
@@ -151,19 +163,47 @@ test.describe('bank feed in the ledger', () => {
     const account = created(
       await db
         .insert(accounts)
-        .values({ ...user.scope, bankId: bank.id, name: 'Velha E2E', type: 'checking' })
+        .values({
+          ...user.scope,
+          bankId: bank.id,
+          name: 'Velha E2E',
+          type: 'checking',
+          openingBalanceCents: 50000,
+        })
         .returning(),
       'account',
     )
+    await db.insert(entries).values({
+      ...user.scope,
+      kind: 'expense',
+      description: 'Gasto Arquivo E2E',
+      amountCents: -12345,
+      accountId: account.id,
+      startMonth: monthToDate(today.slice(0, 7)),
+      day: 1,
+      recurrence: 'none',
+    })
+    const todayBalance = page.locator('[data-slot="card"]', { hasText: 'Saldo hoje' })
+    const counted = async () => {
+      await page.goto('/painel/lancamentos')
+      await expect(page.getByText('Gasto Arquivo E2E').first()).toBeVisible()
+      await page.goto('/painel')
+      // 500,00 opening − 123,45 on the 1st.
+      await expect(todayBalance).toContainText(/376,55/)
+    }
+    await counted()
 
+    // A hash-only change from /painel would not reload the page.
+    await page.goto('about:blank')
     await page.goto('/painel#configuracoes/contas')
     const settings = page.getByRole('dialog', { name: 'Contas' })
     await expect(settings.getByRole('region', { name: 'Arquivo E2E' })).toBeVisible()
     await snap(page, 'ui3-contas')
     await settings.getByRole('button', { name: 'Arquivar Velha E2E' }).click()
-    await page.getByRole('alertdialog').getByRole('button', { name: 'Arquivar' }).click()
+    const confirm = page.getByRole('alertdialog')
+    await expect(confirm).toContainText('deixam de contar em qualquer lugar')
+    await confirm.getByRole('button', { name: 'Arquivar' }).click()
     await expect(settings.getByRole('button', { name: /Arquivadas/ })).toBeVisible()
-
     await expect
       .poll(async () => {
         const [row] = await db
@@ -173,5 +213,19 @@ test.describe('bank feed in the ledger', () => {
         return row?.archivedAt !== null
       })
       .toBe(true)
+
+    await page.goto('/painel/lancamentos')
+    await expect(page.getByRole('main').first()).toBeVisible()
+    await expect(page.getByText('Gasto Arquivo E2E')).toHaveCount(0)
+    await page.goto('/painel')
+    await expect(todayBalance).not.toContainText(/376,55/)
+
+    await page.goto('about:blank')
+    await page.goto('/painel#configuracoes/contas')
+    const again = page.getByRole('dialog', { name: 'Contas' })
+    await again.getByRole('button', { name: /Arquivadas/ }).click()
+    await again.getByRole('button', { name: 'Desarquivar Velha E2E' }).click()
+    await expect(again.getByRole('region', { name: 'Arquivo E2E' })).toBeVisible()
+    await counted()
   })
 })

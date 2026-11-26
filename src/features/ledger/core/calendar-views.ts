@@ -2,8 +2,8 @@ import { entryMatchesAccounts } from './account-filter'
 import { calendarMonth } from './calendar'
 import { addMonths, daysInMonth, type Month } from './month'
 import { skippedLandingsIn, type Landing } from './occurrence'
-import type { MonthResult } from './projection'
-import type { Entry, EntryOverride, EntryPart } from './types'
+import { archivedFilter, type MonthResult } from './projection'
+import type { Account, Entry, EntryOverride, EntryPart } from './types'
 
 /**
  * The calendar's view modes, like Google Calendar's: which days a view shows
@@ -216,6 +216,8 @@ export type SkipSource = {
   entries: readonly Entry[]
   parts: readonly EntryPart[]
   overrides: readonly EntryOverride[]
+  /** Skipped occurrences of archived accounts are hidden too; omitted = none archived. */
+  accounts?: readonly Pick<Account, 'id' | 'archived'>[]
 }
 
 /**
@@ -228,6 +230,7 @@ export function dayCells(
   source: SkipSource,
 ): Map<string, DayCell> {
   const cells = new Map<string, DayCell>()
+  const active = archivedFilter(source.accounts ?? [])
   for (const result of results) {
     const grid = calendarMonth(result, ids)
     for (const day of grid.days) {
@@ -240,7 +243,7 @@ export function dayCells(
       })
     }
     for (const entry of source.entries) {
-      if (!entryMatchesAccounts(entry, ids)) continue
+      if (!active(entry) || !entryMatchesAccounts(entry, ids)) continue
       for (const landing of skippedLandingsIn(
         entry,
         source.parts,

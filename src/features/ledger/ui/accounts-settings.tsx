@@ -101,7 +101,7 @@ export function AccountsSettings({
                       {bankName(account.bankId)} · {account.name}
                     </p>
                     <p className="text-muted-foreground text-xs">
-                      {ACCOUNT_TYPE_LABELS[account.type]} · {formatMoney(account.balanceCents)}
+                      {ACCOUNT_TYPE_LABELS[account.type]} · fora dos saldos e totais
                     </p>
                   </div>
                   <Button
@@ -126,9 +126,9 @@ export function AccountsSettings({
             <AlertDialogHeader>
               <AlertDialogTitle>Arquivar “{archiving.name}”?</AlertDialogTitle>
               <AlertDialogDescription>
-                A conta sai das listas de escolha de conta ao lançar e da linha do tempo. Os
-                lançamentos dela continuam no histórico, nos totais e no saldo geral; nada é
-                apagado. Dá para desarquivar quando quiser, em “Arquivadas”.
+                A conta e todos os lançamentos dela deixam de contar em qualquer lugar: saldos,
+                totais, orçamento, calendário e lista de lançamentos. Nada é apagado: ao
+                desarquivar, em “Arquivadas”, tudo volta como estava.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

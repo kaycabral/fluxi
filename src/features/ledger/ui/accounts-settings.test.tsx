@@ -60,6 +60,25 @@ describe('AccountsSettings', () => {
     ).toBeInTheDocument()
   })
 
+  it('lists an archived account as out of the balances and totals', async () => {
+    render(
+      <AccountsSettings
+        data={{ banks: [BANK], accounts: [account({ id: 'a2', name: 'Velha', archived: true })] }}
+      />,
+    )
+    await userEvent.click(screen.getByRole('button', { name: /Arquivadas/ }))
+    expect(screen.getByText(/fora dos saldos e totais/)).toBeInTheDocument()
+  })
+
+  it('explains that an archived account and its entries stop counting anywhere', async () => {
+    render(<AccountsSettings data={{ banks: [BANK], accounts: [account({})] }} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Arquivar Conta' }))
+    const dialog = await screen.findByRole('alertdialog')
+    expect(dialog).toHaveTextContent(
+      'A conta e todos os lançamentos dela deixam de contar em qualquer lugar: saldos, totais, orçamento, calendário e lista de lançamentos. Nada é apagado: ao desarquivar, em “Arquivadas”, tudo volta como estava.',
+    )
+  })
+
   it('reports a refused archive', async () => {
     setAccountArchivedAction.mockResolvedValue({ ok: false, error: 'Não deu.' })
     render(<AccountsSettings data={{ banks: [BANK], accounts: [account({})] }} />)

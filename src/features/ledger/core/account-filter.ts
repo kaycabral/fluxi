@@ -19,12 +19,14 @@ export function bankIdOf(filter: AccountFilter): string | null {
 /** Accounts the filter covers; null means "all accounts" (no restriction). */
 export function accountIdsOf(
   filter: AccountFilter,
-  accounts: readonly Pick<Account, 'id' | 'bankId'>[],
+  accounts: readonly (Pick<Account, 'id' | 'bankId'> & Partial<Pick<Account, 'archived'>>)[],
 ): string[] | null {
   if (filter === '') return null
+  // Archived accounts count nowhere, not even when a filter names them.
+  const live = accounts.filter((a) => a.archived !== true)
   const bankId = bankIdOf(filter)
-  if (bankId !== null) return accounts.filter((a) => a.bankId === bankId).map((a) => a.id)
-  return [filter]
+  if (bankId !== null) return live.filter((a) => a.bankId === bankId).map((a) => a.id)
+  return live.some((a) => a.id === filter) || !accounts.some((a) => a.id === filter) ? [filter] : []
 }
 
 /**
@@ -33,9 +35,11 @@ export function accountIdsOf(
  */
 export function decisionAccountIds(
   filter: AccountFilter,
-  accounts: readonly Pick<Account, 'id' | 'bankId'>[],
+  accounts: readonly (Pick<Account, 'id' | 'bankId'> & Partial<Pick<Account, 'archived'>>)[],
 ): string[] {
-  return accountIdsOf(filter, accounts) ?? accounts.map((a) => a.id)
+  return (
+    accountIdsOf(filter, accounts) ?? accounts.filter((a) => a.archived !== true).map((a) => a.id)
+  )
 }
 
 /** Whether an entry moves money in any account the filter covers. */

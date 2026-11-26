@@ -32,10 +32,10 @@ export default defineConfig({
       // would only dilute the ratchet.
       exclude: [...coverageBase().exclude, 'src/db/**', 'src/features/*/adapters/**'],
       thresholds: {
-        statements: 97.59,
+        statements: 97.61,
         branches: 94.51,
-        functions: 97.36,
-        lines: 97.82,
+        functions: 97.38,
+        lines: 97.83,
         autoUpdate: true,
       },
     },

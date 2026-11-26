@@ -28,8 +28,8 @@
  * the page; dark mode already separates them. TODO: move to `@cbrl/design`.
  */
 :root:not(.dark) {
-  --background: oklch(0.97 0 0);
-  --sidebar: oklch(0.97 0 0);
+  --background: oklch(0.985 0 0);
+  --sidebar: oklch(0.985 0 0);
 }
 
 html {

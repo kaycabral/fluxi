@@ -40,6 +40,7 @@ const checkingFeed: FeedAccountRow = {
   type: 'BANK',
   subtype: 'CHECKING_ACCOUNT',
   balanceCents: 100000,
+  numberHint: null,
 }
 const cardFeed: FeedAccountRow = {
   ...checkingFeed,
@@ -155,6 +156,8 @@ describe('materialize_bank_feed (Postgres)', () => {
       updated: 0,
       anchored: 1,
       linked: 0,
+      split: 0,
+      categorized: 0,
     })
     const rows = await entriesOf(ana)
     expect(
@@ -177,6 +180,8 @@ describe('materialize_bank_feed (Postgres)', () => {
       updated: 0,
       anchored: 0,
       linked: 0,
+      split: 0,
+      categorized: 0,
     })
     expect(await entriesOf(ana)).toHaveLength(2)
     expect(await linksOf(ana)).toHaveLength(2)
@@ -292,7 +297,7 @@ describe('materialize_bank_feed (Postgres)', () => {
   it('pairs a card bill payment into one transfer, even when one side arrives later', async () => {
     await feed(ana, checkingFeed, [
       tx('pay', { amountCents: -30000, date: '2026-11-10', category: 'Credit card payment' }),
-      // Same amount, no signal, same distance: loses to the signaled pair.
+      // Same amount and distance, no signal: never a transfer.
       tx('pix', { amountCents: -30000, date: '2026-11-12' }),
     ])
     await map(ana, 'acc-checking', checkingId)

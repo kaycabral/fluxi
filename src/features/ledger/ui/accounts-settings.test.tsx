@@ -40,11 +40,15 @@ describe('AccountsSettings', () => {
       <AccountsSettings
         data={{
           banks: [BANK],
-          accounts: [account({}), account({ id: 'a2', name: 'Cartão', connected: true })],
+          accounts: [
+            account({}),
+            account({ id: 'a2', name: 'Cartão', connected: true, numberHints: ['4821'] }),
+          ],
         }}
       />,
     )
     expect(screen.getByText(/Vinculada ao banco: desvincule em Conexões/)).toBeInTheDocument()
+    expect(screen.getByText(/vinculada a ••4821/)).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Renomear Conta' }))
     const input = screen.getByLabelText('Nome de Conta')
     await userEvent.clear(input)

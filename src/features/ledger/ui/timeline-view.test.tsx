@@ -7,6 +7,14 @@ import { TimelineView } from './timeline-view'
 
 type Result = { ok: true } | { ok: false; error: string }
 const changeDayAction = vi.fn<(input: unknown) => Promise<Result>>()
+vi.mock('@/features/ledger/adapters/actions/categorize', () => ({
+  findSimilarAction: vi.fn(() =>
+    Promise.resolve({ ok: true, data: { reference: null, candidates: [] } }),
+  ),
+  categorizeEntriesAction: vi.fn(() => Promise.resolve({ ok: true })),
+  loadRulesAction: vi.fn(() => Promise.resolve({ ok: true, data: [] })),
+  deleteRuleAction: vi.fn(() => Promise.resolve({ ok: true })),
+}))
 vi.mock('@/features/ledger/adapters/actions/undo', () => ({
   undoAction: vi.fn(),
   forgetUndoAction: vi.fn(),

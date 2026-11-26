@@ -245,3 +245,21 @@ export function firstIssue(error: z.ZodError): string {
 
 /** "Desfazer": the token the undoable action returned. */
 export const undoSchema = z.object({ token: idSchema })
+
+/**
+ * Category / pot on several entries at once (apply to similar, multi-select).
+ * A field left out stays as it is; `null` clears it.
+ */
+export const categorizeEntriesSchema = z
+  .object({
+    entryIds: z.array(idSchema).min(1, 'Selecione ao menos um lançamento.').max(500),
+    categoryId: idSchema.nullable().optional(),
+    pot: potKeySchema.nullable().optional(),
+    /** "Fazer isso sozinho daqui para frente": a rule from this entry and the checked ones. */
+    ruleFromEntryId: idSchema.optional(),
+  })
+  .refine((v) => v.categoryId !== undefined || v.pot !== undefined, 'Escolha categoria ou pote.')
+
+export const similarEntriesSchema = z.object({ entryId: idSchema })
+
+export const deleteRuleSchema = z.object({ id: idSchema })

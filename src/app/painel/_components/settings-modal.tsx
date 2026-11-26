@@ -110,26 +110,7 @@ function ConnectionsSection({ data, reload }: { data: ConnectionsData; reload: (
   )
 }
 
-/**
- * A fragment navigation the router did not make (address bar, `location.hash`,
- * a same-page `goto`) leaves Next's committed URL without the hash, and its
- * next history write strips it, closing the modal. Re-writing the URL through
- * the (Next-patched) `replaceState` makes the router adopt the hash.
- */
-function useAdoptExternalHash() {
-  useEffect(() => {
-    const adopt = () => {
-      if (window.location.hash.startsWith(`#${SETTINGS_HASH}/`)) {
-        window.history.replaceState(window.history.state, '', window.location.href)
-      }
-    }
-    window.addEventListener('hashchange', adopt)
-    return () => window.removeEventListener('hashchange', adopt)
-  }, [])
-}
-
 export function SettingsModal() {
-  useAdoptExternalHash()
   const { section: key, open, close } = useHashSection(SETTINGS_HASH, SECTION_KEYS)
   const [loaded, setLoaded] = useState<Loaded | null>(null)
   const requestId = useRef(0)

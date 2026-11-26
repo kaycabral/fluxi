@@ -55,7 +55,7 @@ function entryColumns(entry: Entry) {
     accountId: entry.accountId,
     toAccountId: entry.toAccountId,
     categoryId: entry.categoryId,
-    pot: entry.pot,
+    budgetGroup: entry.budgetGroup,
     tags: [...entry.tags],
     startMonth: monthToDate(entry.startMonth),
     day: entry.day,
@@ -76,7 +76,7 @@ function entryFromFields(id: string, fields: EntryFields): Entry {
     accountId: fields.accountId,
     toAccountId: fields.toAccountId,
     categoryId: fields.categoryId,
-    pot: fields.pot,
+    budgetGroup: fields.budgetGroup,
     tags: fields.tags,
     startMonth: fields.startMonth,
     day: fields.day,
@@ -257,7 +257,7 @@ function patchOf(
 const isEmpty = (patch: OccurrencePatch) =>
   patch.amountCents === undefined && patch.day === undefined && patch.parts === undefined
 
-/** The user's part of a bank entry: description, category, pot and tags; anything else is refused. */
+/** The user's part of a bank entry: description, category, budget group and tags; anything else is refused. */
 async function updateBankEntry(
   tx: Tx,
   scope: Scope,
@@ -272,7 +272,7 @@ async function updateBankEntry(
     ...loaded.entry,
     description: fields.description,
     categoryId: fields.categoryId,
-    pot: fields.pot,
+    budgetGroup: fields.budgetGroup,
     tags: fields.tags,
   })
   return undoable(undo)
@@ -283,7 +283,7 @@ export type OccurrenceEdit = { month: Month; scope: EditScope | null }
 /**
  * Update an entry. Without `occurrence` (or for a non-recurring entry) every
  * field is replaced. With `occurrence` on a recurring entry, the series-level
- * fields (description, accounts, category, pot, tags, recurrence) apply to the
+ * fields (description, accounts, category, budget group, tags, recurrence) apply to the
  * series and an amount/day/split change on that occurrence goes through
  * {@link applyScopedEdit} with the given scope (`scope_required` without one;
  * a new split cannot apply to one month: `split_needs_series`).

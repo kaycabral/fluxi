@@ -3,7 +3,7 @@ import type { Entry } from './types'
 
 /**
  * A bank-materialized entry is the bank's: only its description, category,
- * pot and tags are the user's. Whether `fields` (the form's whole entry)
+ * budget group and tags are the user's. Whether `fields` (the form's whole entry)
  * changes anything else of `entry` — refused by the writes and locked in the
  * sheet. Parts are refused too: they would move money to other days.
  */

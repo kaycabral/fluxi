@@ -215,8 +215,8 @@ describe('SettingsModal', () => {
           maxCents: 1500,
           categoryId: 'c1',
           categoryName: 'Padaria',
-          pot: null,
-          potName: null,
+          budgetGroup: null,
+          budgetGroupName: null,
         },
       ],
     })

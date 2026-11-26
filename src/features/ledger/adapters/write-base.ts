@@ -72,7 +72,7 @@ export async function loadSeries(
       accountId: row.accountId,
       toAccountId: row.toAccountId,
       categoryId: row.categoryId,
-      pot: row.pot,
+      budgetGroup: row.budgetGroup,
       tags: row.tags,
       startMonth: monthFromDate(row.startMonth),
       day: row.day,

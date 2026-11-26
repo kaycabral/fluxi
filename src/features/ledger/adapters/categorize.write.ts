@@ -1,6 +1,6 @@
 import 'server-only'
 
-import { categories, entries, pots } from '@/db/schema'
+import { budgetGroups, categories, entries } from '@/db/schema'
 import { categorizationRules } from '@/db/schema-bank-feed'
 import {
   descriptionKey,
@@ -14,7 +14,7 @@ import { inScope, owned, type Scope } from './scope-filter'
 import { db, fail, guarded, ok, ScopeError, type Tx, type WriteResult } from './write-base'
 
 /**
- * "Categorize once, replicate": the user-owned fields (category, pot) of
+ * "Categorize once, replicate": the user-owned fields (category, budget group) of
  * several entries at once, the bank entries that look like one, and the
  * categorization rules the materialization applies to new bank entries.
  * Every statement is scoped; amounts, dates and accounts are never written,
@@ -73,7 +73,7 @@ export async function findSimilarBankEntries(
       accountId: r.accountId,
       amountCents: r.amountCents,
       categoryId: r.categoryId,
-      pot: r.pot,
+      budgetGroup: r.budgetGroup,
     }))
   return { reference, candidates }
 }
@@ -82,11 +82,11 @@ export type CategorizeInput = {
   entryIds: readonly string[]
   /** Undefined = keep; null = clear. */
   categoryId?: string | null
-  pot?: string | null
+  budgetGroup?: string | null
   ruleFromEntryId?: string
 }
 
-/** The category and pot exist in the scope and are not archived. */
+/** The category and budget group exist in the scope and are not archived. */
 async function assertTargets(tx: Tx, scope: Scope, input: CategorizeInput): Promise<void> {
   if (input.categoryId) {
     const [category] = await tx
@@ -101,12 +101,18 @@ async function assertTargets(tx: Tx, scope: Scope, input: CategorizeInput): Prom
       )
     if (category === undefined) throw new ScopeError('invalid_reference')
   }
-  if (input.pot) {
-    const [pot] = await tx
-      .select({ key: pots.key })
-      .from(pots)
-      .where(and(eq(pots.key, input.pot), inScope(pots, scope), isNull(pots.archivedAt)))
-    if (pot === undefined) throw new ScopeError('invalid_reference')
+  if (input.budgetGroup) {
+    const [budgetGroup] = await tx
+      .select({ key: budgetGroups.key })
+      .from(budgetGroups)
+      .where(
+        and(
+          eq(budgetGroups.key, input.budgetGroup),
+          inScope(budgetGroups, scope),
+          isNull(budgetGroups.archivedAt),
+        ),
+      )
+    if (budgetGroup === undefined) throw new ScopeError('invalid_reference')
   }
 }
 
@@ -123,22 +129,22 @@ async function recordRule(
   if (source === undefined) throw new ScopeError('not_found')
   const pattern = descriptionKey(source.description).slice(0, 200)
   const categoryId = input.categoryId ?? null
-  const pot = input.pot ?? null
-  if (pattern === '' || (categoryId === null && pot === null)) return
+  const budgetGroup = input.budgetGroup ?? null
+  if (pattern === '' || (categoryId === null && budgetGroup === null)) return
   await tx.insert(categorizationRules).values({
     ...owned(scope),
     pattern,
     ...ruleRange([source.amountCents, ...amounts]),
     categoryId,
-    pot,
+    budgetGroup,
   })
 }
 
 /**
- * Sets category and/or pot on the scope's `entryIds` (transfers never get
- * either, incomes never a pot). With `ruleFromEntryId`, also records a rule:
+ * Sets category and/or budget group on the scope's `entryIds` (transfers never get
+ * either, incomes never a budget group). With `ruleFromEntryId`, also records a rule:
  * that entry's normalized description, the range of the absolute amounts of
- * it and of the entries, its category and pot as given.
+ * it and of the entries, its category and budget group as given.
  */
 export function categorizeEntries(scope: Scope, input: CategorizeInput): Promise<WriteResult> {
   return guarded(() =>
@@ -159,10 +165,10 @@ export function categorizeEntries(scope: Scope, input: CategorizeInput): Promise
           .set({ categoryId: input.categoryId, updatedAt: sql`now()` })
           .where(and(inArray(entries.id, notTransfer), inScope(entries, scope)))
       }
-      if (input.pot !== undefined && expenses.length > 0) {
+      if (input.budgetGroup !== undefined && expenses.length > 0) {
         await tx
           .update(entries)
-          .set({ pot: input.pot, updatedAt: sql`now()` })
+          .set({ budgetGroup: input.budgetGroup, updatedAt: sql`now()` })
           .where(and(inArray(entries.id, expenses), inScope(entries, scope)))
       }
       const { ruleFromEntryId } = input
@@ -179,13 +185,13 @@ export function categorizeEntries(scope: Scope, input: CategorizeInput): Promise
   )
 }
 
-/** The space's rules, newest first, with the names of their category and pot. */
+/** The space's rules, newest first, with the names of their category and budget group. */
 export async function listRules(scope: Scope): Promise<CategorizationRule[]> {
   const rows = await db()
     .select({
       rule: categorizationRules,
       categoryName: categories.name,
-      potName: pots.name,
+      budgetGroupName: budgetGroups.name,
     })
     .from(categorizationRules)
     .leftJoin(
@@ -196,20 +202,23 @@ export async function listRules(scope: Scope): Promise<CategorizationRule[]> {
       ),
     )
     .leftJoin(
-      pots,
-      and(eq(pots.key, categorizationRules.pot), eq(pots.spaceId, categorizationRules.spaceId)),
+      budgetGroups,
+      and(
+        eq(budgetGroups.key, categorizationRules.budgetGroup),
+        eq(budgetGroups.spaceId, categorizationRules.spaceId),
+      ),
     )
     .where(inScope(categorizationRules, scope))
     .orderBy(desc(categorizationRules.createdAt))
-  return rows.map(({ rule, categoryName, potName }) => ({
+  return rows.map(({ rule, categoryName, budgetGroupName }) => ({
     id: rule.id,
     pattern: rule.pattern,
     minCents: rule.minCents,
     maxCents: rule.maxCents,
     categoryId: rule.categoryId,
     categoryName,
-    pot: rule.pot,
-    potName,
+    budgetGroup: rule.budgetGroup,
+    budgetGroupName,
   }))
 }
 

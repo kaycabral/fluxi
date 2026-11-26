@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { POT_COLORS } from './types'
+import { GROUP_COLORS } from './types'
 
 /**
  * Write-side validation shared by the forms (client) and the server actions
@@ -12,7 +12,7 @@ const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/
 
 export const monthSchema = z.string().regex(MONTH, 'Mês inválido.')
 export const idSchema = z.uuid('Identificador inválido.')
-export const potKeySchema = z.string().regex(/^[a-z0-9_]{1,40}$/, 'Pote inválido.')
+export const budgetGroupKeySchema = z.string().regex(/^[a-z0-9_]{1,40}$/, 'Grupo inválido.')
 export const daySchema = z
   .number('Informe o dia.')
   .int('Dia inválido.')
@@ -89,7 +89,7 @@ export const entryFieldsSchema = z
     accountId: idSchema,
     toAccountId: idSchema.nullable(),
     categoryId: idSchema.nullable(),
-    pot: potKeySchema.nullable(),
+    budgetGroup: budgetGroupKeySchema.nullable(),
     tags: z.array(z.string().trim().min(1).max(40)).max(20, 'No máximo 20 tags.'),
     startMonth: monthSchema,
     day: daySchema,
@@ -111,7 +111,8 @@ export const entryFieldsSchema = z
       issue('amountCents', 'Transferência sai da conta de origem (valor negativo).')
     }
     checkRecurrence(v, issue)
-    if (v.pot !== null && v.kind !== 'expense') issue('pot', 'Só saídas vão para um pote.')
+    if (v.budgetGroup !== null && v.kind !== 'expense')
+      issue('budgetGroup', 'Só saídas vão para um grupo.')
     if (v.parts.length > 0 && v.parts.reduce((sum, p) => sum + p.bps, 0) !== 10000) {
       issue('parts', 'As partes precisam somar 100%.')
     }
@@ -201,42 +202,45 @@ export const updateAccountSchema = z.object({
 export type CreateAccountInput = z.infer<typeof createAccountSchema>
 export type UpdateAccountInput = z.infer<typeof updateAccountSchema>
 
-/** Pot targets in basis points of income; together they never exceed 100%. */
-export const potTargetsSchema = z
-  .record(potKeySchema, z.number().int().min(0).max(10000))
+/** Budget group targets in basis points of income; together they never exceed 100%. */
+export const budgetGroupTargetsSchema = z
+  .record(budgetGroupKeySchema, z.number().int().min(0).max(10000))
   .refine((targets) => Object.values(targets).reduce((a, b) => a + b, 0) <= 10000, {
-    message: 'A soma dos potes não pode passar de 100%.',
+    message: 'A soma dos grupos não pode passar de 100%.',
   })
-export type PotTargets = z.infer<typeof potTargetsSchema>
+export type BudgetGroupTargets = z.infer<typeof budgetGroupTargetsSchema>
 
-const potNameSchema = z
+const budgetGroupNameSchema = z
   .string()
   .trim()
-  .min(1, 'Dê um nome ao pote.')
-  .max(40, 'Nome do pote muito longo (até 40 letras).')
-export const potColorSchema = z.enum(POT_COLORS)
-export const potGoalSchema = z.enum(['limit', 'minimum'])
+  .min(1, 'Dê um nome ao grupo.')
+  .max(40, 'Nome do grupo muito longo (até 40 letras).')
+export const budgetGroupColorSchema = z.enum(GROUP_COLORS)
+export const budgetGroupGoalSchema = z.enum(['limit', 'minimum'])
 
-export const createPotSchema = z.object({ name: potNameSchema, color: potColorSchema })
-export type CreatePotInput = z.infer<typeof createPotSchema>
+export const createBudgetGroupSchema = z.object({
+  name: budgetGroupNameSchema,
+  color: budgetGroupColorSchema,
+})
+export type CreateBudgetGroupInput = z.infer<typeof createBudgetGroupSchema>
 
-/** Only the fields given change; `archived: false` brings an archived pot back. */
-export const updatePotSchema = z.object({
-  key: potKeySchema,
-  name: potNameSchema.optional(),
-  color: potColorSchema.optional(),
-  goal: potGoalSchema.optional(),
+/** Only the fields given change; `archived: false` brings an archived budget group back. */
+export const updateBudgetGroupSchema = z.object({
+  key: budgetGroupKeySchema,
+  name: budgetGroupNameSchema.optional(),
+  color: budgetGroupColorSchema.optional(),
+  goal: budgetGroupGoalSchema.optional(),
   archived: z.literal(false).optional(),
 })
-export type UpdatePotInput = z.infer<typeof updatePotSchema>
+export type UpdateBudgetGroupInput = z.infer<typeof updateBudgetGroupSchema>
 
 /** A budget version: create (`id` null) or edit one, with its start month and targets. */
-export const budgetPlanSchema = z.object({
+export const budgetVersionSchema = z.object({
   id: idSchema.nullable(),
   startsMonth: monthSchema,
-  targets: potTargetsSchema,
+  targets: budgetGroupTargetsSchema,
 })
-export type BudgetPlanInput = z.infer<typeof budgetPlanSchema>
+export type BudgetVersionInput = z.infer<typeof budgetVersionSchema>
 
 /** First issue's message, for `{ ok: false, error }` results. */
 export function firstIssue(error: z.ZodError): string {
@@ -247,18 +251,21 @@ export function firstIssue(error: z.ZodError): string {
 export const undoSchema = z.object({ token: idSchema })
 
 /**
- * Category / pot on several entries at once (apply to similar, multi-select).
+ * Category / budget group on several entries at once (apply to similar, multi-select).
  * A field left out stays as it is; `null` clears it.
  */
 export const categorizeEntriesSchema = z
   .object({
     entryIds: z.array(idSchema).min(1, 'Selecione ao menos uma transação.').max(500),
     categoryId: idSchema.nullable().optional(),
-    pot: potKeySchema.nullable().optional(),
+    budgetGroup: budgetGroupKeySchema.nullable().optional(),
     /** "Fazer isso sozinho daqui para frente": a rule from this entry and the checked ones. */
     ruleFromEntryId: idSchema.optional(),
   })
-  .refine((v) => v.categoryId !== undefined || v.pot !== undefined, 'Escolha categoria ou pote.')
+  .refine(
+    (v) => v.categoryId !== undefined || v.budgetGroup !== undefined,
+    'Escolha categoria ou grupo.',
+  )
 
 export const similarEntriesSchema = z.object({ entryId: idSchema })
 

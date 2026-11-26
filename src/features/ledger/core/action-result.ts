@@ -16,8 +16,8 @@ export type WriteFailureReason =
   | 'no_occurrence'
   | 'over_budget'
   | 'undo_expired'
-  | 'duplicate_plan'
-  | 'last_plan'
+  | 'duplicate_version'
+  | 'last_version'
   | 'bank_locked'
   | 'account_connected'
 
@@ -27,10 +27,10 @@ const MESSAGES: Record<WriteFailureReason, string> = {
   scope_required: 'Escolha onde aplicar a mudança.',
   split_needs_series: 'A divisão vale para a repetição: escolha "Este e os próximos" ou "Todos".',
   no_occurrence: 'Essa transação não ocorre nesse mês.',
-  over_budget: 'A soma dos potes não pode passar de 100%.',
+  over_budget: 'A soma dos grupos não pode passar de 100%.',
   undo_expired: 'Não dá mais para desfazer essa ação.',
-  duplicate_plan: 'Já existe uma versão começando nesse mês.',
-  last_plan: 'O orçamento precisa de pelo menos uma versão.',
+  duplicate_version: 'Já existe uma versão começando nesse mês.',
+  last_version: 'O orçamento precisa de pelo menos uma versão.',
   account_connected:
     'Esta conta está vinculada a uma conta do banco. Desvincule em Configurações → Conexões antes de arquivar.',
   bank_locked:

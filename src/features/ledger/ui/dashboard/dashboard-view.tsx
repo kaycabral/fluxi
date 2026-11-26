@@ -1,6 +1,11 @@
 'use client'
 
-import { lightSummary, potCell, visiblePots, type BudgetMonth } from '@/features/ledger/core/budget'
+import {
+  budgetGroupCell,
+  lightSummary,
+  visibleBudgetGroups,
+  type BudgetMonth,
+} from '@/features/ledger/core/budget'
 import {
   balanceSnapshot,
   bankBalancesOn,
@@ -14,9 +19,9 @@ import {
   monthLabel,
   monthLongLabel,
 } from '@/features/ledger/core/format'
-import { POT_DOT_CLASSES } from '@/features/ledger/core/labels'
+import { GROUP_DOT_CLASSES } from '@/features/ledger/core/labels'
 import { addMonths, type Month } from '@/features/ledger/core/month'
-import type { BudgetPlan, Pot } from '@/features/ledger/core/types'
+import type { BudgetGroup, BudgetVersion } from '@/features/ledger/core/types'
 import { projectWindow, type LedgerData } from '@/features/ledger/core/view'
 import {
   Button,
@@ -150,10 +155,16 @@ function fillOf(plannedCents: number, targetCents: number): number {
 
 const BAR_ALERT = { warn: 'bg-amber-500', bad: 'bg-destructive' } as const
 
-/** Each pot this month: planned spending against the target of the version in force. */
-function PotsThisMonth({ pots, month }: { pots: readonly Pot[]; month: BudgetMonth }) {
-  const label = `Potes em ${monthLabel(month.month)}`
-  if (month.plan === null) {
+/** Each budget group this month: planned spending against the target of the version in force. */
+function BudgetGroupsThisMonth({
+  budgetGroups,
+  month,
+}: {
+  budgetGroups: readonly BudgetGroup[]
+  month: BudgetMonth
+}) {
+  const label = `Grupos em ${monthLabel(month.month)}`
+  if (month.version === null) {
     return (
       <EmptyState
         title="Sem metas para este mês"
@@ -164,16 +175,21 @@ function PotsThisMonth({ pots, month }: { pots: readonly Pot[]; month: BudgetMon
   }
   return (
     <ul className="grid gap-3" aria-label={label}>
-      {pots.map((pot) => {
-        const cell = potCell(pot, month)
+      {budgetGroups.map((budgetGroup) => {
+        const cell = budgetGroupCell(budgetGroup, month)
         const target = cell.targetCents ?? 0
         const fill = fillOf(cell.plannedCents, target)
         return (
-          <li key={pot.key} className="grid gap-1">
+          <li key={budgetGroup.key} className="grid gap-1">
             <div className="flex items-baseline justify-between gap-2 text-sm">
               <span className="flex min-w-0 items-center gap-2">
-                <span className={cn('size-2.5 shrink-0 rounded-xs', POT_DOT_CLASSES[pot.color])} />
-                <span className="truncate">{pot.name}</span>
+                <span
+                  className={cn(
+                    'size-2.5 shrink-0 rounded-xs',
+                    GROUP_DOT_CLASSES[budgetGroup.color],
+                  )}
+                />
+                <span className="truncate">{budgetGroup.name}</span>
               </span>
               <span className="text-muted-foreground shrink-0 font-mono text-xs tabular-nums">
                 {formatMoney(cell.plannedCents)} / {formatMoney(target)}
@@ -185,7 +201,7 @@ function PotsThisMonth({ pots, month }: { pots: readonly Pot[]; month: BudgetMon
                   'h-full rounded-full',
                   cell.light === 'bad' || cell.light === 'warn'
                     ? BAR_ALERT[cell.light]
-                    : POT_DOT_CLASSES[pot.color],
+                    : GROUP_DOT_CLASSES[budgetGroup.color],
                 )}
                 style={{ width: `${fill * 100}%` }}
               />
@@ -199,16 +215,16 @@ function PotsThisMonth({ pots, month }: { pots: readonly Pot[]; month: BudgetMon
 
 /**
  * "Painel": the quick look. Balance cards, the traffic light of the budget,
- * the bills coming up, the month-end balance ahead and each pot this month.
+ * the bills coming up, the month-end balance ahead and each budget group this month.
  * Everything over every account (filter in Transações/Calendário to narrow).
  */
 export function DashboardView({
   data,
-  plans,
+  versions,
   today,
 }: {
   data: LedgerData
-  plans: readonly BudgetPlan[]
+  versions: readonly BudgetVersion[]
   /** `YYYY-MM-DD` in São Paulo. */
   today: string
 }) {
@@ -222,9 +238,9 @@ export function DashboardView({
     lowestDate: today,
   }
   const thisMonth = monthTotalsOf(results, month)
-  const budget = useBudgetMonth(data, plans, month)
-  const pots = visiblePots(data.pots, [budget])
-  const lights = lightSummary(pots, budget)
+  const budget = useBudgetMonth(data, versions, month)
+  const budgetGroups = visibleBudgetGroups(data.budgetGroups, [budget])
+  const lights = lightSummary(budgetGroups, budget)
   const monthEndDelta = snapshot.monthEndCents - snapshot.todayCents
   const banks = bankBalancesOn(results, today, data.accounts, data.banks)
 
@@ -307,8 +323,8 @@ export function DashboardView({
               <h2>Orçamento</h2>
             </CardTitle>
             <CardDescription>
-              {budget.plan === null
-                ? 'Planejado ÷ renda do mês, por pote.'
+              {budget.version === null
+                ? 'Planejado ÷ renda do mês, por grupo.'
                 : `${monthLongLabel(month)}: ${lights.good} dentro, ${lights.warn} perto e ${lights.bad} fora da meta.`}
             </CardDescription>
             <CardAction>
@@ -320,7 +336,14 @@ export function DashboardView({
             </CardAction>
           </CardHeader>
           <CardContent className="min-w-0">
-            <TrafficLight data={data} plans={plans} today={month} span={5} before={1} compact />
+            <TrafficLight
+              data={data}
+              versions={versions}
+              today={month}
+              span={5}
+              before={1}
+              compact
+            />
           </CardContent>
         </Card>
 
@@ -350,7 +373,7 @@ export function DashboardView({
         <Card className="h-[22rem] min-w-0">
           <CardHeader>
             <CardTitle asChild>
-              <h2>Potes em {monthLabel(month)}</h2>
+              <h2>Grupos em {monthLabel(month)}</h2>
             </CardTitle>
             <CardDescription>
               Planejado ÷ meta
@@ -358,7 +381,7 @@ export function DashboardView({
             </CardDescription>
           </CardHeader>
           <CardContent className="-mr-2 min-h-0 flex-1 overflow-y-auto pr-2">
-            <PotsThisMonth pots={pots} month={budget} />
+            <BudgetGroupsThisMonth budgetGroups={budgetGroups} month={budget} />
           </CardContent>
         </Card>
       </div>

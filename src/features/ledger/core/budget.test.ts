@@ -1,40 +1,42 @@
 import { describe, expect, it } from 'vitest'
 import {
+  budgetGroupCell,
   budgetMonths,
   clampTarget,
   freeBps,
   lightSummary,
   maxBpsFor,
-  newPotKey,
-  nextPotColor,
-  planEnd,
-  planFor,
-  potCell,
+  newBudgetGroupKey,
+  nextBudgetGroupColor,
   ratioOf,
   sameTargets,
   totalBps,
   trafficLight,
-  visiblePots,
+  versionEnd,
+  versionFor,
+  visibleBudgetGroups,
   type BudgetMonth,
 } from './budget'
-import { DEFAULT_POTS } from './defaults'
+import { DEFAULT_BUDGET_GROUPS } from './defaults'
 import { makeEntry } from './fixtures'
 import { projectMonths } from './projection'
-import type { BudgetPlan, Pot } from './types'
+import type { BudgetGroup, BudgetVersion } from './types'
 
-const targets = Object.fromEntries(DEFAULT_POTS.map((p) => [p.key, p.targetBps]))
+const targets = Object.fromEntries(DEFAULT_BUDGET_GROUPS.map((p) => [p.key, p.targetBps]))
 
-const pots: Pot[] = DEFAULT_POTS.map(({ key, name, color, goal }, sort) => ({
-  key,
-  name,
-  color,
-  goal,
-  sort,
-  archived: false,
-}))
+const budgetGroups: BudgetGroup[] = DEFAULT_BUDGET_GROUPS.map(
+  ({ key, name, color, goal }, sort) => ({
+    key,
+    name,
+    color,
+    goal,
+    sort,
+    archived: false,
+  }),
+)
 
-const OLD: BudgetPlan = { id: 'old', startsMonth: '2025-01', targets: { essential: 5000 } }
-const NEW: BudgetPlan = { id: 'new', startsMonth: '2026-12', targets }
+const OLD: BudgetVersion = { id: 'old', startsMonth: '2025-01', targets: { essential: 5000 } }
+const NEW: BudgetVersion = { id: 'new', startsMonth: '2026-12', targets }
 
 describe('targets', () => {
   it('sums and leaves the rest free', () => {
@@ -61,21 +63,21 @@ describe('targets', () => {
 
 describe('budget versions', () => {
   it('finds the version in force in a month, none before the first', () => {
-    expect(planFor('2024-12', [NEW, OLD])).toBeNull()
-    expect(planFor('2025-01', [NEW, OLD])?.id).toBe('old')
-    expect(planFor('2026-11', [NEW, OLD])?.id).toBe('old')
-    expect(planFor('2026-12', [NEW, OLD])?.id).toBe('new')
-    expect(planFor('2030-01', [NEW, OLD])?.id).toBe('new')
+    expect(versionFor('2024-12', [NEW, OLD])).toBeNull()
+    expect(versionFor('2025-01', [NEW, OLD])?.id).toBe('old')
+    expect(versionFor('2026-11', [NEW, OLD])?.id).toBe('old')
+    expect(versionFor('2026-12', [NEW, OLD])?.id).toBe('new')
+    expect(versionFor('2030-01', [NEW, OLD])?.id).toBe('new')
   })
 
   it('ends a version the month before the next one starts', () => {
-    expect(planEnd(OLD, [NEW, OLD])).toBe('2026-11')
-    expect(planEnd(NEW, [NEW, OLD])).toBeNull()
+    expect(versionEnd(OLD, [NEW, OLD])).toBe('2026-11')
+    expect(versionEnd(NEW, [NEW, OLD])).toBeNull()
   })
 })
 
 describe('traffic light', () => {
-  it('colors a limit pot by how far it goes over, a minimum pot by how far it falls short', () => {
+  it('colors a limit budget group by how far it goes over, a minimum budget group by how far it falls short', () => {
     expect(trafficLight('limit', 0.3, 0.33)).toBe('good')
     expect(trafficLight('limit', 0.38, 0.33)).toBe('warn')
     expect(trafficLight('limit', 0.5, 0.33)).toBe('bad')
@@ -96,22 +98,27 @@ describe('budgetMonths', () => {
       makeEntry({
         id: 'salary',
         kind: 'income',
-        pot: null,
+        budgetGroup: null,
         amountCents: 1000000,
         startMonth: '2026-11',
       }),
-      makeEntry({ id: 'rent', pot: 'essential', amountCents: -400000, startMonth: '2026-11' }),
+      makeEntry({
+        id: 'rent',
+        budgetGroup: 'essential',
+        amountCents: -400000,
+        startMonth: '2026-11',
+      }),
       makeEntry({
         id: 'voucher',
         kind: 'income',
-        pot: null,
+        budgetGroup: null,
         accountId: 'va',
         amountCents: 100000,
         startMonth: '2026-11',
       }),
       makeEntry({
         id: 'groceries',
-        pot: 'essential',
+        budgetGroup: 'essential',
         accountId: 'va',
         amountCents: -100000,
         startMonth: '2026-11',
@@ -135,26 +142,26 @@ describe('budgetMonths', () => {
 
   it('measures every account, benefit ones included', () => {
     expect(december).toMatchObject({ month: '2026-12', incomeCents: 1100000 })
-    expect(december.byPot.essential).toBe(500000)
+    expect(december.byBudgetGroup.essential).toBe(500000)
   })
 
   it('judges each month by its own version, and leaves months before the first without a light', () => {
     const essential = { key: 'essential', goal: 'limit' } as const
     // 500k of 1.1M = 45%: within the old 50%, way over the new 33%.
-    expect(potCell(essential, november)).toMatchObject({ targetBps: 5000, light: 'good' })
-    expect(potCell(essential, december)).toMatchObject({
+    expect(budgetGroupCell(essential, november)).toMatchObject({ targetBps: 5000, light: 'good' })
+    expect(budgetGroupCell(essential, december)).toMatchObject({
       targetBps: 3300,
       targetCents: 363000,
       light: 'bad',
     })
-    expect(potCell(essential, before)).toMatchObject({ targetBps: null, light: null })
-    // A pot the version leaves out has a 0% target.
-    expect(potCell({ key: 'comfort', goal: 'limit' }, november).targetBps).toBe(0)
+    expect(budgetGroupCell(essential, before)).toMatchObject({ targetBps: null, light: null })
+    // A budget group the version leaves out has a 0% target.
+    expect(budgetGroupCell({ key: 'comfort', goal: 'limit' }, november).targetBps).toBe(0)
   })
 
-  it('shows a pot that refunds took below zero as nothing spent', () => {
-    const refunded: BudgetMonth = { ...december, byPot: { essential: -5000 } }
-    expect(potCell({ key: 'essential', goal: 'limit' }, refunded)).toMatchObject({
+  it('shows a budget group that refunds took below zero as nothing spent', () => {
+    const refunded: BudgetMonth = { ...december, byBudgetGroup: { essential: -5000 } }
+    expect(budgetGroupCell({ key: 'essential', goal: 'limit' }, refunded)).toMatchObject({
       plannedCents: 0,
       ratio: 0,
       light: 'good',
@@ -162,30 +169,30 @@ describe('budgetMonths', () => {
   })
 
   it('summarizes the lights of a month', () => {
-    expect(lightSummary(pots, december)).toEqual({ good: 4, warn: 0, bad: 2 })
-    expect(lightSummary(pots, before)).toEqual({ good: 0, warn: 0, bad: 0 })
+    expect(lightSummary(budgetGroups, december)).toEqual({ good: 4, warn: 0, bad: 2 })
+    expect(lightSummary(budgetGroups, before)).toEqual({ good: 0, warn: 0, bad: 0 })
   })
 
-  it('shows archived pots only while they still have a target or spending', () => {
-    const archived = pots.map((p) =>
+  it('shows archived budget groups only while they still have a target or spending', () => {
+    const archived = budgetGroups.map((p) =>
       p.key === 'comfort' || p.key === 'essential' ? { ...p, archived: true } : p,
     )
-    const shown = visiblePots(archived, [december]).map((p) => p.key)
+    const shown = visibleBudgetGroups(archived, [december]).map((p) => p.key)
     expect(shown).toContain('essential')
     // Still has a 7% target in the new version.
     expect(shown).toContain('comfort')
-    expect(visiblePots(archived, [november]).map((p) => p.key)).not.toContain('comfort')
+    expect(visibleBudgetGroups(archived, [november]).map((p) => p.key)).not.toContain('comfort')
   })
 })
 
-describe('new pots', () => {
+describe('new budget groups', () => {
   it('takes the first unused color, cycling when all are taken', () => {
-    expect(nextPotColor(pots)).toBe('sky')
-    expect(nextPotColor([])).toBe('violet')
+    expect(nextBudgetGroupColor(budgetGroups)).toBe('sky')
+    expect(nextBudgetGroupColor([])).toBe('violet')
   })
 
   it('makes keys the database accepts', () => {
-    expect(newPotKey(() => 0.5)).toMatch(/^p_[a-z0-9]{10}$/)
-    expect(newPotKey()).toMatch(/^[a-z0-9_]{1,40}$/)
+    expect(newBudgetGroupKey(() => 0.5)).toMatch(/^p_[a-z0-9]{10}$/)
+    expect(newBudgetGroupKey()).toMatch(/^[a-z0-9_]{1,40}$/)
   })
 })

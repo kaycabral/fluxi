@@ -5,8 +5,8 @@ import type { Month } from './month'
  * {@link Month} and money as integer cents. Basis points: 10000 = 100%.
  */
 
-/** Stable id of a pot (`pots.key`): the 6 seeded pots keep their historic keys. */
-export type PotKey = string
+/** Stable id of a budget group (`budget_groups.key`): the 6 seeded budget groups keep their historic keys. */
+export type BudgetGroupKey = string
 
 export type AccountType = 'checking' | 'credit' | 'benefit' | 'investment' | 'loan'
 export type EntryKind = 'income' | 'expense' | 'transfer'
@@ -38,12 +38,12 @@ export type Category = {
   id: string
   groupName: string
   name: string
-  defaultPot: PotKey | null
+  defaultBudgetGroup: BudgetGroupKey | null
   archived: boolean
 }
 
-/** The 14 colors a pot can take (Tailwind palette names). */
-export const POT_COLORS = [
+/** The 14 colors a budget group can take (Tailwind palette names). */
+export const GROUP_COLORS = [
   'violet',
   'orange',
   'pink',
@@ -59,26 +59,26 @@ export const POT_COLORS = [
   'fuchsia',
   'slate',
 ] as const
-export type PotColor = (typeof POT_COLORS)[number]
+export type BudgetGroupColor = (typeof GROUP_COLORS)[number]
 
 /** `limit`: spend up to the target. `minimum`: put aside at least the target (investment). */
-export type PotGoal = 'limit' | 'minimum'
+export type BudgetGroupGoal = 'limit' | 'minimum'
 
-export type Pot = {
-  key: PotKey
+export type BudgetGroup = {
+  key: BudgetGroupKey
   name: string
-  color: PotColor
-  goal: PotGoal
+  color: BudgetGroupColor
+  goal: BudgetGroupGoal
   sort: number
   archived: boolean
 }
 
-/** A budget version: pot targets (bps of income) from `startsMonth` until the next plan. */
-export type BudgetPlan = {
+/** A budget version: budget group targets (bps of income) from `startsMonth` until the next version. */
+export type BudgetVersion = {
   id: string
   startsMonth: Month
-  /** Missing pot = 0%. */
-  targets: Record<PotKey, number>
+  /** Missing budget group = 0%. */
+  targets: Record<BudgetGroupKey, number>
 }
 
 export type Entry = {
@@ -95,7 +95,7 @@ export type Entry = {
   accountId: string
   toAccountId: string | null
   categoryId: string | null
-  pot: PotKey | null
+  budgetGroup: BudgetGroupKey | null
   tags: readonly string[]
   startMonth: Month
   day: number
@@ -109,7 +109,7 @@ export type Entry = {
   /**
    * Materialized from a bank transaction (`bank_entry_links`): the bank owns
    * its amount, date, account, kind, repetition and "Pago"; the user may only
-   * change description, category, pot and tags. Never set by the form.
+   * change description, category, budget group and tags. Never set by the form.
    */
   fromBank: boolean
 }
@@ -136,6 +136,6 @@ export type EntryOverride = {
   deleted: boolean
 }
 
-export function isPotColor(value: string): value is PotColor {
-  return POT_COLORS.some((color) => color === value)
+export function isBudgetGroupColor(value: string): value is BudgetGroupColor {
+  return GROUP_COLORS.some((color) => color === value)
 }

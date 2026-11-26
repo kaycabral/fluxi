@@ -19,8 +19,8 @@ const RULE: CategorizationRule = {
   maxCents: 1500,
   categoryId: 'c',
   categoryName: 'Padaria',
-  pot: 'essential',
-  potName: 'Essencial',
+  budgetGroup: 'essential',
+  budgetGroupName: 'Essencial',
 }
 
 describe('RulesSettings', () => {
@@ -34,7 +34,7 @@ describe('RulesSettings', () => {
     const onChanged = vi.fn()
     render(
       <RulesSettings
-        rules={[RULE, { ...RULE, id: 'x', minCents: 500, maxCents: 500, potName: null }]}
+        rules={[RULE, { ...RULE, id: 'x', minCents: 500, maxCents: 500, budgetGroupName: null }]}
         onChanged={onChanged}
       />,
     )

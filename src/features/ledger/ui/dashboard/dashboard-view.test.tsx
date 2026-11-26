@@ -1,5 +1,5 @@
-import { DEFAULT_POTS } from '@/features/ledger/core/defaults'
-import type { BudgetPlan } from '@/features/ledger/core/types'
+import { DEFAULT_BUDGET_GROUPS } from '@/features/ledger/core/defaults'
+import type { BudgetVersion } from '@/features/ledger/core/types'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -34,16 +34,16 @@ vi.mock('@/features/ledger/adapters/actions/entries', () => ({
 }))
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 
-const PLAN: BudgetPlan = {
+const PLAN: BudgetVersion = {
   id: '00000000-0000-4000-8000-00000000aa02',
   startsMonth: '2026-12',
-  targets: Object.fromEntries(DEFAULT_POTS.map((p) => [p.key, p.targetBps])),
+  targets: Object.fromEntries(DEFAULT_BUDGET_GROUPS.map((p) => [p.key, p.targetBps])),
 }
 
-function renderDashboard(data = sampleData(), plans: BudgetPlan[] = [PLAN]) {
+function renderDashboard(data = sampleData(), versions: BudgetVersion[] = [PLAN]) {
   return render(
     <LedgerShell refs={sampleRefs()}>
-      <DashboardView data={data} plans={plans} today="2026-12-15" />
+      <DashboardView data={data} versions={versions} today="2026-12-15" />
     </LedgerShell>,
   )
 }
@@ -69,7 +69,7 @@ describe('DashboardView', () => {
     expect(within(summary).queryByText('–')).not.toBeInTheDocument()
   })
 
-  it('shows five months of the budget, from the previous month, and the pots of this month', async () => {
+  it('shows five months of the budget, from the previous month, and the budget groups of this month', async () => {
     renderDashboard()
     expect(screen.getByRole('heading', { level: 2, name: 'Orçamento' })).toBeInTheDocument()
     expect(screen.queryByText('Semáforo do orçamento')).not.toBeInTheDocument()
@@ -96,8 +96,8 @@ describe('DashboardView', () => {
       'href',
       '/painel/orcamento',
     )
-    const pots = screen.getByRole('list', { name: 'Potes em dez/26' })
-    expect(within(pots).getByText('Essencial')).toBeInTheDocument()
+    const budgetGroups = screen.getByRole('list', { name: 'Grupos em dez/26' })
+    expect(within(budgetGroups).getByText('Essencial')).toBeInTheDocument()
     expect(screen.getByText(/: \d+ dentro, \d+ perto e \d+ fora da meta\.$/)).toBeInTheDocument()
   })
 
@@ -189,7 +189,7 @@ describe('DashboardView', () => {
     expect(screen.getByRole('img', { name: /^dez\/26: R\$/ })).toBeInTheDocument()
   })
 
-  it('fills the bar of a pot spent without a target', () => {
+  it('fills the bar of a budget group spent without a target', () => {
     renderDashboard(sampleData(), [{ ...PLAN, targets: { essential: 3300 } }])
     expect(screen.getByText(/^R\$ 7\.000,00 \/ R\$ 0,00$/)).toBeInTheDocument()
   })

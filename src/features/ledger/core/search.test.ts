@@ -20,7 +20,7 @@ import {
 } from './search'
 
 const ctx: SearchContext = {
-  pots: [
+  budgetGroups: [
     { key: 'comfort', name: 'Conforto', color: 'orange', goal: 'limit', sort: 1, archived: false },
   ],
   banks: [
@@ -45,7 +45,7 @@ const salary = makeEntry({
   amountCents: 1000000,
   accountId: 'cc',
   categoryId: 'cat-salary',
-  pot: null,
+  budgetGroup: null,
   startMonth: '2026-12',
   tags: ['trabalho'],
 })
@@ -63,7 +63,7 @@ const net = makeEntry({
   amountCents: -12000,
   accountId: 'nucc',
   categoryId: 'cat-net',
-  pot: 'comfort',
+  budgetGroup: 'comfort',
   startMonth: '2026-12',
 })
 const transfer = makeEntry({
@@ -73,7 +73,7 @@ const transfer = makeEntry({
   amountCents: -40000,
   accountId: 'cc',
   toAccountId: 'nucc',
-  pot: null,
+  budgetGroup: null,
   startMonth: '2026-12',
 })
 const loose = makeEntry({
@@ -81,7 +81,7 @@ const loose = makeEntry({
   description: 'Avulso',
   amountCents: -5000,
   accountId: 'cc',
-  pot: null,
+  budgetGroup: null,
   recurrence: 'none',
   startMonth: '2027-01',
 })
@@ -125,7 +125,9 @@ describe('remembered search query (cookie)', () => {
     })
     expect(parseSearchQuery(serializeSearchQuery(query))).toEqual(query)
     expect(
-      parseSearchQuery(JSON.stringify({ pot: 'No pe!', from: '2027-13-01', kind: 'expense' })),
+      parseSearchQuery(
+        JSON.stringify({ budgetGroup: 'No pe!', from: '2027-13-01', kind: 'expense' }),
+      ),
     ).toEqual({ ...EMPTY_SEARCH_QUERY, kind: 'expense' })
     expect(parseSearchQuery(JSON.stringify({ from: '2027-05-10', to: '2027-01-01' })).to).toBe(
       '2027-05-10',
@@ -198,7 +200,7 @@ describe('searchOccurrences', () => {
     expect(values.filter((v) => v < 0).reduce((a, b) => a + b, 0)).toBe(-(38000 * 3 + 5000))
   })
 
-  it('filters by text, kind, account, category, pot and tag', () => {
+  it('filters by text, kind, account, category, budget group and tag', () => {
     const count = (q: Partial<typeof base>) =>
       searchOccurrences(months, { ...base, ...q }, ctx).length
     expect(count({ text: 'LUZ' })).toBe(3)
@@ -207,7 +209,7 @@ describe('searchOccurrences', () => {
     expect(count({ account: 'b:btg' })).toBe(12)
     expect(count({ category: 'g:Contas' })).toBe(6)
     expect(count({ category: 'cat-net' })).toBe(3)
-    expect(count({ pot: 'comfort' })).toBe(3)
+    expect(count({ budgetGroup: 'comfort' })).toBe(3)
     expect(count({ tag: 'trabalho' })).toBe(5)
     expect(count({ from: '2027-02-01', to: '2027-02-28' })).toBe(5)
     expect(count({ from: '2027-02-01' })).toBe(5)
@@ -272,12 +274,18 @@ describe('searchOccurrences by money bucket', () => {
   const bucketMonths = projectMonths({
     entries: [
       makeEntry({ id: 'rent', description: 'Aluguel', amountCents: -200000, accountId: 'cc' }),
-      makeEntry({ id: 'voucher', kind: 'income', pot: null, accountId: 'va', amountCents: 90000 }),
+      makeEntry({
+        id: 'voucher',
+        kind: 'income',
+        budgetGroup: null,
+        accountId: 'va',
+        amountCents: 90000,
+      }),
       makeEntry({ id: 'market', description: 'Mercado', accountId: 'va', amountCents: -30000 }),
       makeEntry({
         id: 'top-up',
         kind: 'transfer',
-        pot: null,
+        budgetGroup: null,
         accountId: 'cc',
         toAccountId: 'va',
         amountCents: -10000,
@@ -344,7 +352,7 @@ describe('activeFilters', () => {
         kind: 'income',
         account: 'b:nu',
         category: 'g:Contas',
-        pot: 'comfort',
+        budgetGroup: 'comfort',
         tag: 'x',
         status: 'paid',
       },

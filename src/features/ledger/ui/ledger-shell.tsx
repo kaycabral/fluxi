@@ -2,7 +2,7 @@
 
 import type { ActionResult } from '@/features/ledger/core/action-result'
 import {
-  defaultPotOf,
+  defaultBudgetGroupOf,
   editEntryValues,
   newEntryValues,
   type EditTarget,
@@ -91,14 +91,14 @@ export function LedgerShell({ refs, children }: { refs: LedgerRefs; children: Re
             date,
             accountId: defaultAccountId,
             kind: options?.values?.kind,
-            defaultPot: defaultPotOf(refs.pots),
+            defaultBudgetGroup: defaultBudgetGroupOf(refs.budgetGroups),
           }),
           ...options?.values,
         },
       })
       setOpen(true)
     },
-    [refs.today, refs.pots, defaultAccountId],
+    [refs.today, refs.budgetGroups, defaultAccountId],
   )
 
   const openEdit = useCallback((target: EditTarget) => {

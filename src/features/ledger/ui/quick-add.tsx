@@ -1,7 +1,11 @@
 'use client'
 
 import { createEntryAction } from '@/features/ledger/adapters/actions/entries'
-import { defaultPotOf, newEntryValues, valuesToFields } from '@/features/ledger/core/entry-form'
+import {
+  defaultBudgetGroupOf,
+  newEntryValues,
+  valuesToFields,
+} from '@/features/ledger/core/entry-form'
 import { dayLongLabel } from '@/features/ledger/core/format'
 import type { EntryKind } from '@/features/ledger/core/types'
 import { Button } from '@cbrl/design'
@@ -19,7 +23,7 @@ const QUICK_KINDS: readonly EntryKind[] = ['income', 'expense']
  * Quick add on a calendar day, laid out like Google Calendar's: a big
  * description, Entrada/Saída, the date and its repetition, then amount and
  * account, each row led by its icon. "Mais opções" carries what was typed to
- * the full sheet (installments, category, pot, tags, parts, transfer).
+ * the full sheet (installments, category, budget group, tags, parts, transfer).
  */
 export function QuickAddForm({ date, onDone }: { date: string; onDone: () => void }) {
   const { refs, openNew, offerUndo } = useLedgerUi()
@@ -51,7 +55,12 @@ export function QuickAddForm({ date, onDone }: { date: string; onDone: () => voi
 
   function save() {
     const converted = valuesToFields({
-      ...newEntryValues({ date, accountId, kind, defaultPot: defaultPotOf(refs.pots) }),
+      ...newEntryValues({
+        date,
+        accountId,
+        kind,
+        defaultBudgetGroup: defaultBudgetGroupOf(refs.budgetGroups),
+      }),
       ...typed,
     })
     if (!converted.ok) {

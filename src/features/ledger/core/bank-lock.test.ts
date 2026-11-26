@@ -11,7 +11,7 @@ const fields: EntryFields = {
   accountId: entry.accountId,
   toAccountId: entry.toAccountId,
   categoryId: entry.categoryId,
-  pot: entry.pot,
+  budgetGroup: entry.budgetGroup,
   tags: [...entry.tags],
   startMonth: entry.startMonth,
   day: entry.day,
@@ -24,13 +24,13 @@ const fields: EntryFields = {
 }
 
 describe('changesBankFields', () => {
-  it('lets the user own description, category, pot and tags', () => {
+  it('lets the user own description, category, budget group and tags', () => {
     expect(
       changesBankFields(entry, {
         ...fields,
         description: 'Outra',
         categoryId: 'c1',
-        pot: 'comfort',
+        budgetGroup: 'comfort',
         tags: ['x'],
       }),
     ).toBe(false)

@@ -3,14 +3,14 @@ import 'server-only'
 import {
   accounts,
   banks,
-  budgetPlans,
-  budgetPlanTargets,
+  budgetGroups,
+  budgetGroupTargets,
+  budgetVersions,
   categories,
   entries,
   entryOverrides,
   entryParts,
   occurrencePayments,
-  pots,
 } from '@/db/schema'
 import { bankFeedAccounts } from '@/db/schema-bank-feed'
 import { addMonths, monthFromDate, monthToDate, type Month } from '@/features/ledger/core/month'
@@ -18,14 +18,14 @@ import type { OccurrencePayment } from '@/features/ledger/core/payments'
 import type {
   Account,
   Bank,
-  BudgetPlan,
+  BudgetGroup,
+  BudgetVersion,
   Category,
   Entry,
   EntryOverride,
   EntryPart,
-  Pot,
 } from '@/features/ledger/core/types'
-import { isPotColor } from '@/features/ledger/core/types'
+import { isBudgetGroupColor } from '@/features/ledger/core/types'
 import { fluxiDb } from '@/lib/db'
 import { and, asc, gte, inArray, isNotNull, isNull, lte, ne, or, sql } from 'drizzle-orm'
 import { inScope, type Scope } from './scope-filter'
@@ -44,7 +44,7 @@ export type LedgerSnapshot = {
   banks: Bank[]
   accounts: Account[]
   categories: Category[]
-  pots: Pot[]
+  budgetGroups: BudgetGroup[]
   entries: Entry[]
   parts: EntryPart[]
   overrides: EntryOverride[]
@@ -101,23 +101,23 @@ export async function listCategories(scope: Scope): Promise<Category[]> {
     id: r.id,
     groupName: r.groupName,
     name: r.name,
-    defaultPot: r.defaultPot,
+    defaultBudgetGroup: r.defaultBudgetGroup,
     archived: r.archivedAt !== null,
   }))
 }
 
-/** Every pot of `scope`, archived ones included, in the user's order. */
-export async function listPots(scope: Scope): Promise<Pot[]> {
+/** Every budget group of `scope`, archived ones included, in the user's order. */
+export async function listBudgetGroups(scope: Scope): Promise<BudgetGroup[]> {
   const rows = await db()
     .select()
-    .from(pots)
-    .where(inScope(pots, scope))
-    .orderBy(asc(pots.sort), asc(pots.createdAt))
+    .from(budgetGroups)
+    .where(inScope(budgetGroups, scope))
+    .orderBy(asc(budgetGroups.sort), asc(budgetGroups.createdAt))
   return rows.map((r) => ({
     key: r.key,
     name: r.name,
     // The column is free text; an unknown color falls back to gray.
-    color: isPotColor(r.color) ? r.color : 'slate',
+    color: isBudgetGroupColor(r.color) ? r.color : 'slate',
     goal: r.goal === 'minimum' ? 'minimum' : 'limit',
     sort: r.sort,
     archived: r.archivedAt !== null,
@@ -125,20 +125,20 @@ export async function listPots(scope: Scope): Promise<Pot[]> {
 }
 
 /** Budget versions of `scope`, oldest first, each with its targets. */
-export async function listBudgetPlans(scope: Scope): Promise<BudgetPlan[]> {
-  const [planRows, targetRows] = await Promise.all([
+export async function listBudgetVersions(scope: Scope): Promise<BudgetVersion[]> {
+  const [versionRows, targetRows] = await Promise.all([
     db()
       .select()
-      .from(budgetPlans)
-      .where(inScope(budgetPlans, scope))
-      .orderBy(asc(budgetPlans.startsMonth)),
-    db().select().from(budgetPlanTargets).where(inScope(budgetPlanTargets, scope)),
+      .from(budgetVersions)
+      .where(inScope(budgetVersions, scope))
+      .orderBy(asc(budgetVersions.startsMonth)),
+    db().select().from(budgetGroupTargets).where(inScope(budgetGroupTargets, scope)),
   ])
-  return planRows.map((plan) => ({
-    id: plan.id,
-    startsMonth: monthFromDate(plan.startsMonth),
+  return versionRows.map((version) => ({
+    id: version.id,
+    startsMonth: monthFromDate(version.startsMonth),
     targets: Object.fromEntries(
-      targetRows.filter((t) => t.planId === plan.id).map((t) => [t.potKey, t.targetBps]),
+      targetRows.filter((t) => t.versionId === version.id).map((t) => [t.budgetGroup, t.targetBps]),
     ),
   }))
 }
@@ -170,7 +170,7 @@ export async function listEntries(scope: Scope, window: MonthWindow): Promise<En
     accountId: r.accountId,
     toAccountId: r.toAccountId,
     categoryId: r.categoryId,
-    pot: r.pot,
+    budgetGroup: r.budgetGroup,
     tags: r.tags,
     startMonth: monthFromDate(r.startMonth),
     day: r.day,
@@ -291,12 +291,12 @@ export async function listConnectedNumberHints(scope: Scope): Promise<Record<str
 
 /** Everything the core needs to project `scope`'s ledger over `window`. */
 export async function loadLedger(scope: Scope, window: MonthWindow): Promise<LedgerSnapshot> {
-  const [bankRows, accountRows, categoryRows, potRows, entryRows, connectedAccountIds] =
+  const [bankRows, accountRows, categoryRows, budgetGroupRows, entryRows, connectedAccountIds] =
     await Promise.all([
       listBanks(scope),
       listAccounts(scope),
       listCategories(scope),
-      listPots(scope),
+      listBudgetGroups(scope),
       listEntries(scope, window),
       listConnectedAccountIds(scope),
     ])
@@ -310,7 +310,7 @@ export async function loadLedger(scope: Scope, window: MonthWindow): Promise<Led
     banks: bankRows,
     accounts: accountRows,
     categories: categoryRows,
-    pots: potRows,
+    budgetGroups: budgetGroupRows,
     entries: entryRows,
     parts,
     overrides,

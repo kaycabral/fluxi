@@ -2,14 +2,14 @@ import { fluxiDb, personalScope, seedUser, truncateFluxiTables } from '@/db'
 import {
   accounts,
   banks,
+  budgetGroups,
   categories,
   entries,
   entryOverrides,
   entryParts,
   importLinks,
-  pots,
 } from '@/db/schema'
-import { DEFAULT_CATEGORY_GROUPS, DEFAULT_POTS } from '@/features/ledger/core/defaults'
+import { DEFAULT_BUDGET_GROUPS, DEFAULT_CATEGORY_GROUPS } from '@/features/ledger/core/defaults'
 import { archiveSpace, createSpace, resolveScope } from '@/features/spaces/adapters/space.repo'
 import type { Scope } from '@/features/spaces/core/space'
 import { pgErrorOf } from '@cbrl/pg'
@@ -19,12 +19,12 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import {
   listAccounts,
   listBanks,
-  listBudgetPlans,
+  listBudgetGroups,
+  listBudgetVersions,
   listCategories,
   listEntries,
   listEntryOverrides,
   listEntryParts,
-  listPots,
   listTags,
   loadLedger,
 } from './ledger.repo'
@@ -128,9 +128,9 @@ afterAll(async () => {
 })
 
 describe('default seeding (auth trigger)', () => {
-  it('gives every new user the default pots, a first budget version, categories and settings', async () => {
-    await expect(listPots(biaScope)).resolves.toEqual(
-      DEFAULT_POTS.map(({ key, name, color, goal }, sort) => ({
+  it('gives every new user the default budget groups, a first budget version, categories and settings', async () => {
+    await expect(listBudgetGroups(biaScope)).resolves.toEqual(
+      DEFAULT_BUDGET_GROUPS.map(({ key, name, color, goal }, sort) => ({
         key,
         name,
         color,
@@ -139,16 +139,16 @@ describe('default seeding (auth trigger)', () => {
         archived: false,
       })),
     )
-    const plans = await listBudgetPlans(biaScope)
-    expect(plans).toHaveLength(1)
-    expect(plans[0]?.targets).toEqual(
-      Object.fromEntries(DEFAULT_POTS.map((p) => [p.key, p.targetBps])),
+    const versions = await listBudgetVersions(biaScope)
+    expect(versions).toHaveLength(1)
+    expect(versions[0]?.targets).toEqual(
+      Object.fromEntries(DEFAULT_BUDGET_GROUPS.map((p) => [p.key, p.targetBps])),
     )
     const expected = DEFAULT_CATEGORY_GROUPS.flatMap((g) =>
       g.names.map((name) => ({
         groupName: g.group,
         name,
-        defaultPot: g.defaultPot,
+        defaultBudgetGroup: g.defaultBudgetGroup,
         archived: false,
       })),
     )
@@ -159,8 +159,8 @@ describe('default seeding (auth trigger)', () => {
   it('is idempotent and per user', async () => {
     await db().execute(sql`select public.seed_space_defaults(${biaScope.spaceId}::uuid)`)
     await db().execute(sql`select public.ensure_personal_space(${BIA}::uuid)`)
-    await expect(listPots(biaScope)).resolves.toHaveLength(DEFAULT_POTS.length)
-    await expect(listBudgetPlans(biaScope)).resolves.toHaveLength(1)
+    await expect(listBudgetGroups(biaScope)).resolves.toHaveLength(DEFAULT_BUDGET_GROUPS.length)
+    await expect(listBudgetVersions(biaScope)).resolves.toHaveLength(1)
     const [ana, bia] = await Promise.all([listCategories(anaScope), listCategories(biaScope)])
     expect(bia).toHaveLength(ana.length)
     expect(new Set([...ana, ...bia].map((c) => c.id)).size).toBe(ana.length * 2)
@@ -280,7 +280,7 @@ describe('user isolation', () => {
     await expect(loadLedger(anaScope, WINDOW)).resolves.toMatchObject({
       entries: [],
       accounts: [],
-      pots: [],
+      budgetGroups: [],
     })
     await expect(listEntries(biaScope, WINDOW)).resolves.toHaveLength(2)
   })
@@ -295,8 +295,8 @@ describe('space isolation', () => {
   })
 
   it('seeds a new space with its own defaults', async () => {
-    await expect(listPots(work)).resolves.toHaveLength(DEFAULT_POTS.length)
-    await expect(listBudgetPlans(work)).resolves.toHaveLength(1)
+    await expect(listBudgetGroups(work)).resolves.toHaveLength(DEFAULT_BUDGET_GROUPS.length)
+    await expect(listBudgetVersions(work)).resolves.toHaveLength(1)
     const [personal, business] = await Promise.all([listCategories(anaScope), listCategories(work)])
     expect(business).toHaveLength(personal.length)
     expect(business.some((c) => personal.some((p) => p.id === c.id))).toBe(false)
@@ -349,14 +349,14 @@ describe('space isolation', () => {
     )
     expect(categoryRef.constraint).toBe('entries_category_fk')
     await db()
-      .insert(pots)
+      .insert(budgetGroups)
       .values({ ...anaScope, key: 'p_personal', name: 'Só pessoal', color: 'slate' })
-    const pot = await rejection(
+    const budgetGroup = await rejection(
       db()
         .insert(entries)
-        .values({ ...base, pot: 'p_personal' }),
+        .values({ ...base, budgetGroup: 'p_personal' }),
     )
-    expect(pot.constraint).toBe('entries_pot_fk')
+    expect(budgetGroup.constraint).toBe('entries_budget_group_fk')
     const part = await rejection(
       db()
         .insert(entryParts)
@@ -402,7 +402,7 @@ describe('loading a window', () => {
       accountId: ana.checkingId,
       toAccountId: null,
       categoryId: null,
-      pot: null,
+      budgetGroup: null,
       tags: ['trabalho'],
       startMonth: '2026-12',
       day: 5,
@@ -524,14 +524,14 @@ describe('check constraints', () => {
       'entries_transfer_fields',
     ],
     [
-      'transfer with a pot',
-      { kind: 'transfer', recurrence: 'none', toAccount: true, pot: 'essential' },
-      'entries_pot_expense_only',
+      'transfer with a budget group',
+      { kind: 'transfer', recurrence: 'none', toAccount: true, budgetGroup: 'essential' },
+      'entries_budget_group_expense_only',
     ],
     [
-      'income with a pot',
-      { kind: 'income', recurrence: 'none', pot: 'essential' },
-      'entries_pot_expense_only',
+      'income with a budget group',
+      { kind: 'income', recurrence: 'none', budgetGroup: 'essential' },
+      'entries_budget_group_expense_only',
     ],
     [
       'installments without count',
@@ -588,7 +588,7 @@ describe('check constraints', () => {
     expect(error.constraint).toBe('entries_transfer_fields')
   })
 
-  it('rejects invalid parts, overrides, pots and import links', async () => {
+  it('rejects invalid parts, overrides, budget groups and import links', async () => {
     const part = await rejection(
       db()
         .insert(entryParts)
@@ -601,10 +601,10 @@ describe('check constraints', () => {
         .values({ ...anaScope, entryId: ana.entryId, month: '2027-02-01', amountCents: 0 }),
     )
     expect(override.constraint).toBe('entry_overrides_amount_nonzero')
-    const pot = await rejection(
-      db().execute(sql`update budget_plan_targets set target_bps = 10001 where user_id = ${ANA}`),
+    const budgetGroup = await rejection(
+      db().execute(sql`update budget_group_targets set target_bps = 10001 where user_id = ${ANA}`),
     )
-    expect(pot.constraint).toBe('budget_plan_targets_bps_range')
+    expect(budgetGroup.constraint).toBe('budget_group_targets_bps_range')
     const link = await rejection(
       db()
         .insert(importLinks)

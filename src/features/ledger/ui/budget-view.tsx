@@ -1,27 +1,27 @@
 'use client'
 
 import type { Month } from '@/features/ledger/core/month'
-import type { BudgetPlan } from '@/features/ledger/core/types'
+import type { BudgetVersion } from '@/features/ledger/core/types'
 import type { LedgerData } from '@/features/ledger/core/view'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, Typography } from '@cbrl/design'
-import { PotsCard } from './budget/pots-card'
+import { BudgetGroupsCard } from './budget/groups-card'
 import { TrafficLight, useBudgetMonth } from './budget/traffic-light'
 
 /**
- * "Orçamento": the pots and their targets per budget version, and the monthly
+ * "Orçamento": the budget groups and their targets per budget version, and the monthly
  * traffic light (12 months, walked with arrows).
  */
 export function BudgetView({
   data,
-  plans,
+  versions,
   today,
 }: {
   data: LedgerData
-  plans: readonly BudgetPlan[]
+  versions: readonly BudgetVersion[]
   /** Current month. */
   today: Month
 }) {
-  const current = useBudgetMonth(data, plans, today)
+  const current = useBudgetMonth(data, versions, today)
 
   return (
     <div className="grid gap-4">
@@ -29,7 +29,12 @@ export function BudgetView({
         Orçamento
       </Typography>
       <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
-        <PotsCard pots={data.pots} plans={plans} today={today} current={current} />
+        <BudgetGroupsCard
+          budgetGroups={data.budgetGroups}
+          versions={versions}
+          today={today}
+          current={current}
+        />
         <Card className="min-w-0">
           <CardHeader>
             <CardTitle asChild>
@@ -41,7 +46,7 @@ export function BudgetView({
             </CardDescription>
           </CardHeader>
           <CardContent className="min-w-0">
-            <TrafficLight data={data} plans={plans} today={today} span={12} />
+            <TrafficLight data={data} versions={versions} today={today} span={12} />
           </CardContent>
         </Card>
       </div>

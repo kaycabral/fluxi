@@ -82,7 +82,7 @@ describe('undo actions', () => {
         accountId: '22222222-2222-4222-8222-222222222222',
         toAccountId: null,
         categoryId: null,
-        pot: 'essential',
+        budgetGroup: 'essential',
         tags: [],
         startMonth: '2026-12',
         day: 10,

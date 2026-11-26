@@ -203,7 +203,7 @@ describe('applyScopedEdit: future', () => {
   it('keeps the next-month part of the last old occurrence after a split', () => {
     const salary = makeEntry({
       kind: 'income',
-      pot: null,
+      budgetGroup: null,
       amountCents: 1000,
       startMonth: '2026-12',
     })
@@ -244,7 +244,7 @@ describe('applyScopedEdit: guards', () => {
 describe('applyScopedEdit: new split', () => {
   const salary = makeEntry({
     kind: 'income',
-    pot: null,
+    budgetGroup: null,
     amountCents: 1000,
     day: 30,
     startMonth: '2026-01',

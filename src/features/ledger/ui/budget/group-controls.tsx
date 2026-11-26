@@ -1,13 +1,22 @@
 'use client'
 
 import {
-  createPotAction,
-  removePotAction,
-  updatePotAction,
+  createBudgetGroupAction,
+  removeBudgetGroupAction,
+  updateBudgetGroupAction,
 } from '@/features/ledger/adapters/actions/budget'
-import { nextPotColor } from '@/features/ledger/core/budget'
-import { POT_COLOR_LABELS, POT_DOT_CLASSES, POT_GOAL_LABELS } from '@/features/ledger/core/labels'
-import { POT_COLORS, type Pot, type PotColor, type PotGoal } from '@/features/ledger/core/types'
+import { nextBudgetGroupColor } from '@/features/ledger/core/budget'
+import {
+  GROUP_COLOR_LABELS,
+  GROUP_DOT_CLASSES,
+  GROUP_GOAL_LABELS,
+} from '@/features/ledger/core/labels'
+import {
+  GROUP_COLORS,
+  type BudgetGroup,
+  type BudgetGroupColor,
+  type BudgetGroupGoal,
+} from '@/features/ledger/core/types'
 import {
   Button,
   cn,
@@ -29,44 +38,45 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { focusOnMount, useAction } from './shared'
 
-/** Inline controls of one pot in "Potes da renda": color, name, menu, and the new-pot row. */
+/** Inline controls of one budget group in "Grupos do orçamento": color, name, menu, and the new-group row. */
 
-export function ColorPicker({ pot }: { pot: Pot }) {
+export function ColorPicker({ budgetGroup }: { budgetGroup: BudgetGroup }) {
   const [open, setOpen] = useState(false)
   const [, run] = useAction()
-  const pick = (color: PotColor) => {
+  const pick = (color: BudgetGroupColor) => {
     setOpen(false)
-    if (color !== pot.color) run(() => updatePotAction({ key: pot.key, color }))
+    if (color !== budgetGroup.color)
+      run(() => updateBudgetGroupAction({ key: budgetGroup.key, color }))
   }
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
           type="button"
-          aria-label={`Cor do pote ${pot.name}`}
+          aria-label={`Cor do grupo ${budgetGroup.name}`}
           className={cn(
             'focus-visible:ring-ring size-3.5 shrink-0 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
-            POT_DOT_CLASSES[pot.color],
+            GROUP_DOT_CLASSES[budgetGroup.color],
           )}
         />
       </PopoverTrigger>
       <PopoverContent className="w-auto p-2" align="start">
         <div className="grid grid-cols-7 gap-1.5" role="radiogroup" aria-label="Cor">
-          {POT_COLORS.map((color) => (
+          {GROUP_COLORS.map((color) => (
             <button
               key={color}
               type="button"
               role="radio"
-              aria-checked={color === pot.color}
-              aria-label={POT_COLOR_LABELS[color]}
-              title={POT_COLOR_LABELS[color]}
+              aria-checked={color === budgetGroup.color}
+              aria-label={GROUP_COLOR_LABELS[color]}
+              title={GROUP_COLOR_LABELS[color]}
               onClick={() => pick(color)}
               className={cn(
                 'focus-visible:ring-ring flex size-6 items-center justify-center rounded-md text-white outline-none focus-visible:ring-2',
-                POT_DOT_CLASSES[color],
+                GROUP_DOT_CLASSES[color],
               )}
             >
-              {color === pot.color && <Check className="size-3.5" />}
+              {color === budgetGroup.color && <Check className="size-3.5" />}
             </button>
           ))}
         </div>
@@ -75,28 +85,28 @@ export function ColorPicker({ pot }: { pot: Pot }) {
   )
 }
 
-/** Pot name that turns into an input to rename (Enter saves, Esc cancels). */
-export function PotName({
-  pot,
+/** Budget group name that turns into an input to rename (Enter saves, Esc cancels). */
+export function BudgetGroupName({
+  budgetGroup,
   editing,
   onEditingChange,
   htmlFor,
 }: {
-  pot: Pot
+  budgetGroup: BudgetGroup
   editing: boolean
   onEditingChange: (editing: boolean) => void
   htmlFor: string
 }) {
-  const [name, setName] = useState(pot.name)
+  const [name, setName] = useState(budgetGroup.name)
   const [pending, run] = useAction()
   const save = () => {
     const trimmed = name.trim()
     onEditingChange(false)
-    if (trimmed === '' || trimmed === pot.name) {
-      setName(pot.name)
+    if (trimmed === '' || trimmed === budgetGroup.name) {
+      setName(budgetGroup.name)
       return
     }
-    run(() => updatePotAction({ key: pot.key, name: trimmed }))
+    run(() => updateBudgetGroupAction({ key: budgetGroup.key, name: trimmed }))
   }
   if (editing) {
     return (
@@ -104,14 +114,14 @@ export function PotName({
         ref={focusOnMount}
         value={name}
         maxLength={40}
-        aria-label="Nome do pote"
+        aria-label="Nome do grupo"
         className="h-7 min-w-0 px-2 text-sm"
         onChange={(e) => setName(e.target.value)}
         onBlur={save}
         onKeyDown={(e) => {
           if (e.key === 'Enter') save()
           if (e.key === 'Escape') {
-            setName(pot.name)
+            setName(budgetGroup.name)
             onEditingChange(false)
           }
         }}
@@ -124,22 +134,30 @@ export function PotName({
       className="min-w-0 truncate text-sm"
       onDoubleClick={() => onEditingChange(true)}
     >
-      {pending ? name : pot.name}
-      {pot.archived && <span className="text-muted-foreground ml-1 text-xs">(arquivado)</span>}
+      {pending ? name : budgetGroup.name}
+      {budgetGroup.archived && (
+        <span className="text-muted-foreground ml-1 text-xs">(arquivado)</span>
+      )}
     </label>
   )
 }
 
-export function PotMenu({ pot, onRename }: { pot: Pot; onRename: () => void }) {
+export function BudgetGroupMenu({
+  budgetGroup,
+  onRename,
+}: {
+  budgetGroup: BudgetGroup
+  onRename: () => void
+}) {
   const [, run] = useAction()
   const remove = () =>
     run(async () => {
-      const result = await removePotAction(pot.key)
+      const result = await removeBudgetGroupAction(budgetGroup.key)
       if (result.ok) {
         toast.success(
           result.archived === true
-            ? `"${pot.name}" foi arquivado: ele tem transações, então continua no histórico.`
-            : `"${pot.name}" excluído.`,
+            ? `"${budgetGroup.name}" foi arquivado: ele tem transações, então continua no histórico.`
+            : `"${budgetGroup.name}" excluído.`,
         )
       }
       return result
@@ -147,7 +165,7 @@ export function PotMenu({ pot, onRename }: { pot: Pot; onRename: () => void }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon-sm" aria-label={`Ações do pote ${pot.name}`}>
+        <Button variant="ghost" size="icon-sm" aria-label={`Ações do grupo ${budgetGroup.name}`}>
           <MoreHorizontal />
         </Button>
       </DropdownMenuTrigger>
@@ -160,24 +178,29 @@ export function PotMenu({ pot, onRename }: { pot: Pot; onRename: () => void }) {
           Como medir
         </DropdownMenuLabel>
         <DropdownMenuRadioGroup
-          value={pot.goal}
+          value={budgetGroup.goal}
           onValueChange={(goal) =>
-            goal !== pot.goal &&
+            goal !== budgetGroup.goal &&
             run(() =>
-              updatePotAction({ key: pot.key, goal: goal === 'minimum' ? 'minimum' : 'limit' }),
+              updateBudgetGroupAction({
+                key: budgetGroup.key,
+                goal: goal === 'minimum' ? 'minimum' : 'limit',
+              }),
             )
           }
         >
-          {(['limit', 'minimum'] as const satisfies readonly PotGoal[]).map((goal) => (
+          {(['limit', 'minimum'] as const satisfies readonly BudgetGroupGoal[]).map((goal) => (
             <DropdownMenuRadioItem key={goal} value={goal}>
-              {POT_GOAL_LABELS[goal]}
+              {GROUP_GOAL_LABELS[goal]}
             </DropdownMenuRadioItem>
           ))}
         </DropdownMenuRadioGroup>
         <DropdownMenuSeparator />
-        {pot.archived ? (
+        {budgetGroup.archived ? (
           <DropdownMenuItem
-            onSelect={() => run(() => updatePotAction({ key: pot.key, archived: false }))}
+            onSelect={() =>
+              run(() => updateBudgetGroupAction({ key: budgetGroup.key, archived: false }))
+            }
           >
             <RotateCcw /> Restaurar
           </DropdownMenuItem>
@@ -191,15 +214,21 @@ export function PotMenu({ pot, onRename }: { pot: Pot; onRename: () => void }) {
   )
 }
 
-export function NewPotRow({ pots, onCancel }: { pots: readonly Pot[]; onCancel: () => void }) {
+export function NewBudgetGroupRow({
+  budgetGroups,
+  onCancel,
+}: {
+  budgetGroups: readonly BudgetGroup[]
+  onCancel: () => void
+}) {
   const [name, setName] = useState('')
   const [pending, run] = useAction()
   const create = () => {
     const trimmed = name.trim()
     if (trimmed === '') return
     run(
-      () => createPotAction({ name: trimmed, color: nextPotColor(pots) }),
-      `Pote "${trimmed}" criado. Dê a ele uma fatia da renda e salve as metas.`,
+      () => createBudgetGroupAction({ name: trimmed, color: nextBudgetGroupColor(budgetGroups) }),
+      `Grupo "${trimmed}" criado. Dê a ele uma fatia da renda e salve as metas.`,
       onCancel,
     )
   }
@@ -215,8 +244,8 @@ export function NewPotRow({ pots, onCancel }: { pots: readonly Pot[]; onCancel: 
         ref={focusOnMount}
         value={name}
         maxLength={40}
-        placeholder="Nome do pote (ex.: Viagens)"
-        aria-label="Nome do novo pote"
+        placeholder="Nome do grupo (ex.: Viagens)"
+        aria-label="Nome do novo grupo"
         className="h-8"
         onChange={(e) => setName(e.target.value)}
         onKeyDown={(e) => e.key === 'Escape' && onCancel()}

@@ -42,7 +42,7 @@ export async function ensurePersonalSpace(userId: string): Promise<string> {
   return (await personalScope(db(), userId)).spaceId
 }
 
-/** Create a business space and seed its defaults (pots, plan, categories, settings) atomically. */
+/** Create a business space and seed its defaults (budget groups, budget version, categories, settings) atomically. */
 export async function createSpace(
   userId: string,
   input: CreateSpaceInput & { id: string },

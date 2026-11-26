@@ -2,9 +2,9 @@
 
 import { bankFilter } from '@/features/ledger/core/account-filter'
 import { monthLabel } from '@/features/ledger/core/format'
-import { POT_DOT_CLASSES } from '@/features/ledger/core/labels'
+import { GROUP_DOT_CLASSES } from '@/features/ledger/core/labels'
 import type { Month } from '@/features/ledger/core/month'
-import type { Account, Bank, Category, Pot } from '@/features/ledger/core/types'
+import type { Account, Bank, BudgetGroup, Category } from '@/features/ledger/core/types'
 import {
   cn,
   Select,
@@ -168,16 +168,16 @@ export function MonthSelect({ months, ...props }: BaseProps & { months: readonly
 }
 
 /**
- * Pot picker: the active pots in the user's order, plus the current value
- * when it points at an archived pot (so an old entry keeps showing its pot).
+ * Budget group picker: the active budget groups in the user's order, plus the current value
+ * when it points at an archived budget group (so an old entry keeps showing its budget group).
  */
-export function PotSelect({
-  pots,
+export function BudgetGroupSelect({
+  budgetGroups,
   allLabel,
   placeholder = '–',
   ...props
-}: BaseProps & { pots: readonly Pot[]; allLabel?: string; placeholder?: string }) {
-  const options = [...pots]
+}: BaseProps & { budgetGroups: readonly BudgetGroup[]; allLabel?: string; placeholder?: string }) {
+  const options = [...budgetGroups]
     .filter((p) => !p.archived || p.key === props.value)
     .sort((a, b) => a.sort - b.sort)
   return (
@@ -197,10 +197,13 @@ export function PotSelect({
       </SelectTrigger>
       <SelectContent>
         {allLabel !== undefined && <SelectItem value={EMPTY}>{allLabel}</SelectItem>}
-        {options.map((pot) => (
-          <SelectItem key={pot.key} value={pot.key}>
-            <span className={cn('size-2.5 rounded-xs', POT_DOT_CLASSES[pot.color])} aria-hidden />
-            {pot.name}
+        {options.map((budgetGroup) => (
+          <SelectItem key={budgetGroup.key} value={budgetGroup.key}>
+            <span
+              className={cn('size-2.5 rounded-xs', GROUP_DOT_CLASSES[budgetGroup.color])}
+              aria-hidden
+            />
+            {budgetGroup.name}
           </SelectItem>
         ))}
       </SelectContent>

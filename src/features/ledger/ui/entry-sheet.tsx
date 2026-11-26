@@ -10,7 +10,7 @@ import type { ActionResult } from '@/features/ledger/core/action-result'
 import { INCOME_CATEGORY_GROUP } from '@/features/ledger/core/defaults'
 import {
   amountLabel,
-  defaultPotOf,
+  defaultBudgetGroupOf,
   deleteMonthOf,
   describeOccurrenceChange,
   installmentsHint,
@@ -44,7 +44,7 @@ import { KindToggle, PartsEditor, RefundCheckbox, TagsField, TitleInput } from '
 import { MoneyInput } from './money-input'
 import { RepeatField } from './repeat-field'
 import type { ScopeRequest } from './scope-dialog'
-import { AccountSelect, CategorySelect, PotSelect } from './selects'
+import { AccountSelect, BudgetGroupSelect, CategorySelect } from './selects'
 import { SimilarDialog, type SimilarOffer } from './similar-dialog'
 
 export type EntryFormProps = {
@@ -60,7 +60,7 @@ export type EntryFormProps = {
  * The single entry form (create / edit an occurrence / edit a whole entry),
  * laid out like Google Calendar's event page: the description as a big title
  * with Salvar beside it, the date and the repetition under it, then the
- * details card (kind, amount, accounts, category and pot, tags, parts).
+ * details card (kind, amount, accounts, category and budget group, tags, parts).
  */
 export function EntryForm({
   refs,
@@ -82,12 +82,12 @@ export function EntryForm({
   const accounts = refs.accounts.filter((a) => !a.archived || usedAccountIds.has(a.id))
   const occurrence = isOccurrenceEdit(target) && target !== null ? target.month : null
   const isTransfer = values.kind === 'transfer'
-  /** The bank owns this entry: only description, category, pot and tags stay editable. */
+  /** The bank owns this entry: only description, category, budget group and tags stay editable. */
   const locked = target?.entry.fromBank === true
 
-  /** A category's suggested pot, unless it was archived since. */
-  function activePot(key: string | null | undefined): string {
-    return refs.pots.some((p) => p.key === key && !p.archived) ? (key ?? '') : ''
+  /** A category's suggested budget group, unless it was archived since. */
+  function activeBudgetGroup(key: string | null | undefined): string {
+    return refs.budgetGroups.some((p) => p.key === key && !p.archived) ? (key ?? '') : ''
   }
 
   function changeKind(kind: EntryKind) {
@@ -96,9 +96,11 @@ export function EntryForm({
       kind,
       // A refund is an expense's; another kind takes its natural direction.
       refund: kind === values.kind ? values.refund : false,
-      pot:
+      budgetGroup:
         kind === 'expense'
-          ? values.pot || activePot(category?.defaultPot) || defaultPotOf(refs.pots)
+          ? values.budgetGroup ||
+            activeBudgetGroup(category?.defaultBudgetGroup) ||
+            defaultBudgetGroupOf(refs.budgetGroups)
           : '',
       toAccountId:
         kind === 'transfer' && values.toAccountId === ''
@@ -108,8 +110,13 @@ export function EntryForm({
   }
 
   function changeCategory(categoryId: string) {
-    const suggested = activePot(refs.categories.find((c) => c.id === categoryId)?.defaultPot)
-    set({ categoryId, pot: values.kind === 'expense' && suggested ? suggested : values.pot })
+    const suggested = activeBudgetGroup(
+      refs.categories.find((c) => c.id === categoryId)?.defaultBudgetGroup,
+    )
+    set({
+      categoryId,
+      budgetGroup: values.kind === 'expense' && suggested ? suggested : values.budgetGroup,
+    })
   }
 
   /**
@@ -163,23 +170,24 @@ export function EntryForm({
           date: values.date,
           accountId: values.accountId,
           kind: values.kind,
-          defaultPot: defaultPotOf(refs.pots),
+          defaultBudgetGroup: defaultBudgetGroupOf(refs.budgetGroups),
         }),
       )
       setEntryId(crypto.randomUUID())
     })
   }
 
-  /** After a category/pot change: the bank entries that look like this one, if any. */
+  /** After a category/budget group change: the bank entries that look like this one, if any. */
   async function similarOffer(
-    before: { id: string; categoryId: string | null; pot: string | null },
+    before: { id: string; categoryId: string | null; budgetGroup: string | null },
     fields: EntryFields,
   ): Promise<SimilarOffer | null> {
-    const changed = fields.categoryId !== before.categoryId || fields.pot !== before.pot
-    if (!changed || (fields.categoryId === null && fields.pot === null)) return null
+    const changed =
+      fields.categoryId !== before.categoryId || fields.budgetGroup !== before.budgetGroup
+    if (!changed || (fields.categoryId === null && fields.budgetGroup === null)) return null
     const found = await findSimilarAction({ entryId: before.id }).catch(() => null)
     if (found === null || !found.ok || found.data.candidates.length === 0) return null
-    return { ...found.data, categoryId: fields.categoryId, pot: fields.pot }
+    return { ...found.data, categoryId: fields.categoryId, budgetGroup: fields.budgetGroup }
   }
 
   async function remove() {
@@ -425,15 +433,15 @@ export function EntryForm({
                     onValueChange={changeCategory}
                   />
                 </div>
-                {/* Pots budget spending only: an income never has one. */}
+                {/* Budget groups budget spending only: an income never has one. */}
                 {values.kind === 'expense' && (
                   <div className="grid gap-1.5">
-                    <Label htmlFor="entry-pot">Pote</Label>
-                    <PotSelect
-                      id="entry-pot"
-                      pots={refs.pots}
-                      value={values.pot}
-                      onValueChange={(pot) => set({ pot })}
+                    <Label htmlFor="entry-budget-group">Grupo</Label>
+                    <BudgetGroupSelect
+                      id="entry-budget-group"
+                      budgetGroups={refs.budgetGroups}
+                      value={values.budgetGroup}
+                      onValueChange={(budgetGroup) => set({ budgetGroup })}
                     />
                   </div>
                 )}

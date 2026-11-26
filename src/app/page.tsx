@@ -17,7 +17,7 @@ export default async function LandingPage() {
           </p>
           <p className="text-muted-foreground max-w-[52ch]">
             Cadastre transações recorrentes, veja o saldo ao longo dos meses, acompanhe as contas a
-            pagar e divida o orçamento em potes.
+            pagar e divida o orçamento em grupos.
           </p>
         </div>
         {/* useGoogleSignIn reads useSearchParams: Suspense keeps the shell static-safe. */}

@@ -18,27 +18,27 @@ const salary = makeEntry({
   id: 'salary',
   kind: 'income',
   description: 'Salário',
-  pot: null,
+  budgetGroup: null,
   amountCents: 500000,
   day: 5,
   startMonth: '2026-11',
 })
-const rent = makeEntry({ id: 'rent', amountCents: -200000, day: 10, pot: 'essential' })
+const rent = makeEntry({ id: 'rent', amountCents: -200000, day: 10, budgetGroup: 'essential' })
 const gym = makeEntry({
   id: 'gym',
   amountCents: -13000,
   day: 5,
-  pot: 'comfort',
+  budgetGroup: 'comfort',
   accountId: 'nubank',
 })
-const misc = makeEntry({ id: 'misc', amountCents: -10000, day: 28, pot: null })
+const misc = makeEntry({ id: 'misc', amountCents: -10000, day: 28, budgetGroup: null })
 const transfer = makeEntry({
   id: 'transfer',
   kind: 'transfer',
   description: 'Para o Nubank',
   amountCents: -40000,
   day: 6,
-  pot: null,
+  budgetGroup: null,
   toAccountId: 'nubank',
 })
 
@@ -59,18 +59,23 @@ function monthOf(results: MonthResult[], month: string): MonthResult {
 }
 
 describe('projectMonths', () => {
-  it('totals income, expenses (without transfers), net and pots', () => {
+  it('totals income, expenses (without transfers), net and budget groups', () => {
     const december = monthOf(project(), '2026-12')
     expect(december.totals.incomeCents).toBe(500000)
     expect(december.totals.expenseCents).toBe(223000)
     expect(december.totals.netCents).toBe(277000)
-    expect(december.totals.byPot).toEqual({ essential: 200000, comfort: 13000 })
+    expect(december.totals.byBudgetGroup).toEqual({ essential: 200000, comfort: 13000 })
     expect(december.totals.unallocatedCents).toBe(10000)
   })
 
   it('takes refunds off the expenses and reversals off the income, never the other way', () => {
-    const refund = makeEntry({ id: 'refund', amountCents: 5000, day: 5, pot: 'comfort' })
-    const reversal = makeEntry({ id: 'reversal', kind: 'income', pot: null, amountCents: -1000 })
+    const refund = makeEntry({ id: 'refund', amountCents: 5000, day: 5, budgetGroup: 'comfort' })
+    const reversal = makeEntry({
+      id: 'reversal',
+      kind: 'income',
+      budgetGroup: null,
+      amountCents: -1000,
+    })
     const [, december] = projectMonths({
       entries: [gym, refund, reversal, salary],
       parts: [],
@@ -83,7 +88,7 @@ describe('projectMonths', () => {
       incomeCents: 499000,
       expenseCents: 8000,
       netCents: 491000,
-      byPot: { comfort: 8000 },
+      byBudgetGroup: { comfort: 8000 },
       unallocatedCents: 0,
     })
     // A refund is an inflow: same day, it lands before the outflows.
@@ -158,7 +163,7 @@ describe('projectMonths', () => {
     const split = makeEntry({
       id: 'split',
       kind: 'income',
-      pot: null,
+      budgetGroup: null,
       amountCents: 1000000,
       startMonth: '2026-12',
       endMonth: '2026-12',
@@ -186,7 +191,7 @@ describe('projectMonths with benefit accounts', () => {
   const voucher = makeEntry({
     id: 'voucher',
     kind: 'income',
-    pot: null,
+    budgetGroup: null,
     amountCents: 80000,
     day: 1,
     accountId: 'va',
@@ -195,7 +200,7 @@ describe('projectMonths with benefit accounts', () => {
     id: 'groceries',
     amountCents: -30000,
     day: 8,
-    pot: 'essential',
+    budgetGroup: 'essential',
     accountId: 'va',
   })
   const topUp = makeEntry({
@@ -203,7 +208,7 @@ describe('projectMonths with benefit accounts', () => {
     kind: 'transfer',
     amountCents: -10000,
     day: 9,
-    pot: null,
+    budgetGroup: null,
     accountId: 'checking',
     toAccountId: 'va',
   })
@@ -227,7 +232,7 @@ describe('projectMonths with benefit accounts', () => {
       expenseCents: 230000,
       netCents: 350000,
     })
-    expect(totals.byPot.essential).toBe(230000)
+    expect(totals.byBudgetGroup.essential).toBe(230000)
     expect(closingBalances).toEqual({ checking: 400000, va: 55000 })
   })
 
@@ -322,7 +327,7 @@ describe('projectMonths with bank-fed accounts', () => {
   const toNubank = makeEntry({
     id: 'to-nubank',
     kind: 'transfer',
-    pot: null,
+    budgetGroup: null,
     amountCents: -700,
     day: 3,
     toAccountId: 'nubank',
@@ -353,7 +358,7 @@ describe('projectMonths with bank-fed accounts', () => {
     const fromNubank = makeEntry({
       id: 'from-nubank',
       kind: 'transfer',
-      pot: null,
+      budgetGroup: null,
       amountCents: -900,
       day: 4,
       accountId: 'nubank',

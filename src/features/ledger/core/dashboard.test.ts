@@ -17,13 +17,13 @@ const accounts = [
 function project() {
   return projectMonths({
     entries: [
-      makeEntry({ id: 'salary', kind: 'income', pot: null, amountCents: 500000, day: 5 }),
+      makeEntry({ id: 'salary', kind: 'income', budgetGroup: null, amountCents: 500000, day: 5 }),
       makeEntry({ id: 'rent', amountCents: -400000, day: 10 }),
       makeEntry({ id: 'card', amountCents: -300000, day: 20 }),
       makeEntry({
         id: 'voucher',
         kind: 'income',
-        pot: null,
+        budgetGroup: null,
         accountId: 'va',
         amountCents: 50000,
         day: 1,
@@ -55,7 +55,9 @@ describe('balanceSnapshot', () => {
 
   it('keeps today as the lowest when nothing ahead goes below it', () => {
     const results = projectMonths({
-      entries: [makeEntry({ id: 'salary', kind: 'income', pot: null, amountCents: 1000, day: 20 })],
+      entries: [
+        makeEntry({ id: 'salary', kind: 'income', budgetGroup: null, amountCents: 1000, day: 20 }),
+      ],
       parts: [],
       overrides: [],
       accounts,
@@ -89,7 +91,7 @@ describe('monthTotalsOf', () => {
       incomeCents: 0,
       expenseCents: 0,
       netCents: 0,
-      byPot: {},
+      byBudgetGroup: {},
       unallocatedCents: 0,
     })
   })
@@ -103,7 +105,7 @@ describe('accountBalancesOn', () => {
         makeEntry({
           id: 'move',
           kind: 'transfer',
-          pot: null,
+          budgetGroup: null,
           amountCents: -1000,
           day: 5,
           toAccountId: 'va',

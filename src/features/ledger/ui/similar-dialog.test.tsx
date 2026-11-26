@@ -41,7 +41,7 @@ const candidate = (over: Partial<SimilarCandidate>): SimilarCandidate => ({
   accountId: IDS.cc,
   amountCents: -1200,
   categoryId: null,
-  pot: null,
+  budgetGroup: null,
   ...over,
 })
 
@@ -49,14 +49,14 @@ const offer = (candidates: SimilarCandidate[]): SimilarOffer => ({
   reference: { id: REF, amountCents: -1000, description: 'ATM VENEZA 01' },
   candidates,
   categoryId: IDS.gymCat,
-  pot: 'comfort',
+  budgetGroup: 'comfort',
 })
 
 const three = () =>
   offer([
     candidate({}),
     candidate({ id: BIG, amountCents: -35000, date: '2026-11-20' }),
-    candidate({ id: DONE, categoryId: IDS.powerCat, pot: 'essential' }),
+    candidate({ id: DONE, categoryId: IDS.powerCat, budgetGroup: 'essential' }),
   ])
 
 beforeEach(() => {
@@ -83,7 +83,7 @@ describe('SimilarDialog', () => {
     expect(actions.categorizeEntriesAction).toHaveBeenCalledWith({
       entryIds: [REF, SMALL],
       categoryId: IDS.gymCat,
-      pot: 'comfort',
+      budgetGroup: 'comfort',
       ruleFromEntryId: REF,
     })
     await waitFor(() => expect(onDone).toHaveBeenCalledWith(1))

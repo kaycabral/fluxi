@@ -184,7 +184,7 @@ describe('SearchView', () => {
       await userEvent.click(await screen.findByRole('option', { name: option }))
     }
     await pick('Tipo', 'Saídas')
-    await pick('Pote', 'Conforto')
+    await pick('Grupo', 'Conforto')
     await pick('Tag', '#casa')
     await pick('Categoria', 'Contas (todas)')
     await pick('Banco ou conta', 'Nubank (todas)')
@@ -192,7 +192,7 @@ describe('SearchView', () => {
     await pick('Dinheiro', 'Disponível')
     expect(remembered()).toMatchObject({
       kind: 'expense',
-      pot: 'comfort',
+      budgetGroup: 'comfort',
       tag: 'casa',
       category: 'g:Contas',
       account: `b:${IDS.nu}`,
@@ -201,12 +201,12 @@ describe('SearchView', () => {
     })
   })
 
-  it('goes back to every pot with Todos', async () => {
-    renderSearch({ pot: 'comfort' })
+  it('goes back to every budget group with Todos', async () => {
+    renderSearch({ budgetGroup: 'comfort' })
     await openFilters()
-    await userEvent.click(screen.getByLabelText('Pote'))
+    await userEvent.click(screen.getByLabelText('Grupo'))
     await userEvent.click(await screen.findByRole('option', { name: 'Todos' }))
-    expect(remembered().pot).toBe('')
+    expect(remembered().budgetGroup).toBe('')
   })
 
   it('counts the filters in use on the button', () => {
@@ -266,7 +266,7 @@ describe('SearchView', () => {
   })
 
   it('resets the filters from the popover', async () => {
-    renderSearch({ pot: 'comfort' })
+    renderSearch({ budgetGroup: 'comfort' })
     await openFilters()
     const clear = screen.getAllByRole('button', { name: 'Limpar filtros' }).at(-1)
     await userEvent.click(clear ?? document.body)

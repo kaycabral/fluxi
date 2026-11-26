@@ -2,7 +2,7 @@
 
 import { accountLabel } from '@/features/ledger/core/account-filter'
 import { shortDate } from '@/features/ledger/core/format'
-import { paidLabel, potDot, RECURRENCE_LABELS } from '@/features/ledger/core/labels'
+import { budgetGroupDot, paidLabel, RECURRENCE_LABELS } from '@/features/ledger/core/labels'
 import { paymentFor } from '@/features/ledger/core/payments'
 import {
   activeFilters,
@@ -58,7 +58,7 @@ import { BankMark } from './bank-mark'
 import { useLedgerUi } from './ledger-shell'
 import { Money } from './money'
 import { SelectionBar, useEntrySelection } from './selection-bar'
-import { AccountSelect, CategorySelect, OptionSelect, PotSelect } from './selects'
+import { AccountSelect, BudgetGroupSelect, CategorySelect, OptionSelect } from './selects'
 
 const PAGE_SIZE = 50
 
@@ -147,7 +147,7 @@ export function SearchView({ data, initialQuery, today }: Props) {
       accounts: data.accounts,
       banks: data.banks,
       categories: data.categories,
-      pots: data.pots,
+      budgetGroups: data.budgetGroups,
       payments: data.payments,
     }),
     [data],
@@ -281,7 +281,10 @@ export function SearchView({ data, initialQuery, today }: Props) {
             ) : (
               <span
                 aria-hidden
-                className={cn('size-2.5 shrink-0 rounded-xs', potDot(entry.pot, data.pots))}
+                className={cn(
+                  'size-2.5 shrink-0 rounded-xs',
+                  budgetGroupDot(entry.budgetGroup, data.budgetGroups),
+                )}
               />
             ),
             title: entry.description,
@@ -320,7 +323,7 @@ export function SearchView({ data, initialQuery, today }: Props) {
         <SelectionBar
           entryIds={[...selected]}
           categories={data.categories}
-          pots={data.pots}
+          budgetGroups={data.budgetGroups}
           onClear={clearSelected}
         />
       )}
@@ -494,13 +497,13 @@ function FiltersPopover({
           </Field>
           <div className="grid grid-cols-2 gap-3">
             <Field>
-              <FieldLabel htmlFor="q-pot">Pote</FieldLabel>
-              <PotSelect
-                id="q-pot"
+              <FieldLabel htmlFor="q-budget-group">Grupo</FieldLabel>
+              <BudgetGroupSelect
+                id="q-budget-group"
                 allLabel="Todos"
-                value={query.pot}
-                pots={data.pots}
-                onValueChange={(pot) => onChange({ pot })}
+                value={query.budgetGroup}
+                budgetGroups={data.budgetGroups}
+                onValueChange={(budgetGroup) => onChange({ budgetGroup })}
               />
             </Field>
             <Field>

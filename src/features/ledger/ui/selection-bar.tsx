@@ -1,11 +1,11 @@
 'use client'
 
 import { categorizeEntriesAction } from '@/features/ledger/adapters/actions/categorize'
-import type { Category, Pot } from '@/features/ledger/core/types'
+import type { BudgetGroup, Category } from '@/features/ledger/core/types'
 import { Button } from '@cbrl/design'
 import { Loader2, X } from 'lucide-react'
 import { useState, useTransition } from 'react'
-import { CategorySelect, PotSelect } from './selects'
+import { BudgetGroupSelect, CategorySelect } from './selects'
 
 /** Selection mode ("Selecionar"): rows toggle instead of opening; ids of the entries. */
 export function useEntrySelection() {
@@ -28,25 +28,25 @@ export function useEntrySelection() {
 
 /**
  * The bar under "Transações" while entries are selected: set the category or
- * the pot of all of them at once (only the user's fields: bank entries keep
- * amount, date and account; transfers get neither, incomes no pot).
+ * the budget group of all of them at once (only the user's fields: bank entries keep
+ * amount, date and account; transfers get neither, incomes no budget group).
  */
 export function SelectionBar({
   entryIds,
   categories,
-  pots,
+  budgetGroups,
   onClear,
 }: {
   entryIds: readonly string[]
   categories: readonly Category[]
-  pots: readonly Pot[]
+  budgetGroups: readonly BudgetGroup[]
   onClear: () => void
 }) {
   const [status, setStatus] = useState<{ error: boolean; text: string } | null>(null)
   const [pending, startTransition] = useTransition()
   const count = entryIds.length
 
-  const apply = (patch: { categoryId: string } | { pot: string }, what: string) =>
+  const apply = (patch: { categoryId: string } | { budgetGroup: string }, what: string) =>
     startTransition(async () => {
       const result = await categorizeEntriesAction({ entryIds, ...patch })
       setStatus(
@@ -78,15 +78,15 @@ export function SelectionBar({
           if (categoryId !== '') apply({ categoryId }, 'Categoria')
         }}
       />
-      <PotSelect
-        aria-label="Pote da seleção"
+      <BudgetGroupSelect
+        aria-label="Grupo da seleção"
         className="w-36"
-        placeholder="Pote"
-        pots={pots}
+        placeholder="Grupo"
+        budgetGroups={budgetGroups}
         value=""
         disabled={pending}
-        onValueChange={(pot) => {
-          if (pot !== '') apply({ pot }, 'Pote')
+        onValueChange={(budgetGroup) => {
+          if (budgetGroup !== '') apply({ budgetGroup }, 'Grupo')
         }}
       />
       {pending && <Loader2 className="text-muted-foreground size-4 animate-spin" />}

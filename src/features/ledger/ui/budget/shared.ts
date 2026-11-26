@@ -1,16 +1,16 @@
 import type { ActionResult } from '@/features/ledger/core/action-result'
-import { planEnd } from '@/features/ledger/core/budget'
+import { versionEnd } from '@/features/ledger/core/budget'
 import { monthLabel } from '@/features/ledger/core/format'
-import type { BudgetPlan } from '@/features/ledger/core/types'
+import type { BudgetVersion } from '@/features/ledger/core/types'
 import { useTransition } from 'react'
 import { toast } from 'sonner'
 
 /** "dez/2026 em diante" or "jan/2025 – nov/2026". */
-export function planLabel(plan: BudgetPlan, plans: readonly BudgetPlan[]): string {
-  const end = planEnd(plan, plans)
+export function versionLabel(version: BudgetVersion, versions: readonly BudgetVersion[]): string {
+  const end = versionEnd(version, versions)
   return end === null
-    ? `${monthLabel(plan.startsMonth)} em diante`
-    : `${monthLabel(plan.startsMonth)} – ${monthLabel(end)}`
+    ? `${monthLabel(version.startsMonth)} em diante`
+    : `${monthLabel(version.startsMonth)} – ${monthLabel(end)}`
 }
 
 /** Runs a server action in a transition, toasting its error (or `success`). */

@@ -1,4 +1,4 @@
-import type { PotColor, PotGoal, PotKey } from './types'
+import type { BudgetGroupColor, BudgetGroupGoal, BudgetGroupKey } from './types'
 
 /**
  * Defaults every new space starts with. The database seeds them with
@@ -8,11 +8,11 @@ import type { PotColor, PotGoal, PotKey } from './types'
  * equal these constants, so a change here needs a new migration that replaces
  * that function.
  */
-export const DEFAULT_POTS: readonly {
-  key: PotKey
+export const DEFAULT_BUDGET_GROUPS: readonly {
+  key: BudgetGroupKey
   name: string
-  color: PotColor
-  goal: PotGoal
+  color: BudgetGroupColor
+  goal: BudgetGroupGoal
   targetBps: number
 }[] = [
   { key: 'essential', name: 'Essencial', color: 'violet', goal: 'limit', targetBps: 3300 },
@@ -25,7 +25,7 @@ export const DEFAULT_POTS: readonly {
 
 export type DefaultCategoryGroup = {
   group: string
-  defaultPot: PotKey | null
+  defaultBudgetGroup: BudgetGroupKey | null
   names: readonly string[]
 }
 
@@ -35,7 +35,7 @@ export const INCOME_CATEGORY_GROUP = 'Renda'
 export const DEFAULT_CATEGORY_GROUPS: readonly DefaultCategoryGroup[] = [
   {
     group: INCOME_CATEGORY_GROUP,
-    defaultPot: null,
+    defaultBudgetGroup: null,
     names: [
       'Salário',
       'Décimo terceiro',
@@ -51,7 +51,7 @@ export const DEFAULT_CATEGORY_GROUPS: readonly DefaultCategoryGroup[] = [
   },
   {
     group: 'Moradia',
-    defaultPot: 'essential',
+    defaultBudgetGroup: 'essential',
     names: [
       'Pagamento de aluguel',
       'Condomínio',
@@ -62,17 +62,17 @@ export const DEFAULT_CATEGORY_GROUPS: readonly DefaultCategoryGroup[] = [
   },
   {
     group: 'Empréstimos',
-    defaultPot: 'essential',
+    defaultBudgetGroup: 'essential',
     names: ['Financiamento de imóvel', 'Financiamento de veículo', 'Outros empréstimos'],
   },
   {
     group: 'Mercado',
-    defaultPot: 'essential',
+    defaultBudgetGroup: 'essential',
     names: ['Supermercado e mercearia', 'Padaria', 'Feira livre', 'Outros gastos com mercado'],
   },
   {
     group: 'Contas',
-    defaultPot: 'essential',
+    defaultBudgetGroup: 'essential',
     names: [
       'Energia elétrica',
       'Água e esgoto',
@@ -85,17 +85,17 @@ export const DEFAULT_CATEGORY_GROUPS: readonly DefaultCategoryGroup[] = [
   },
   {
     group: 'Saúde',
-    defaultPot: 'essential',
+    defaultBudgetGroup: 'essential',
     names: ['Farmácia', 'Médico', 'Dentista', 'Psicólogo'],
   },
   {
     group: 'Seguros',
-    defaultPot: 'essential',
+    defaultBudgetGroup: 'essential',
     names: ['Plano de saúde', 'Seguro de automóvel', 'Seguro de vida'],
   },
   {
     group: 'Transporte',
-    defaultPot: 'essential',
+    defaultBudgetGroup: 'essential',
     names: [
       'Combustível',
       'Transporte por aplicativo',
@@ -106,27 +106,27 @@ export const DEFAULT_CATEGORY_GROUPS: readonly DefaultCategoryGroup[] = [
   },
   {
     group: 'Impostos',
-    defaultPot: 'essential',
+    defaultBudgetGroup: 'essential',
     names: ['Imposto de renda', 'Outros impostos'],
   },
   {
     group: 'Comida e bebida',
-    defaultPot: 'guilt_free',
+    defaultBudgetGroup: 'guilt_free',
     names: ['Restaurantes', 'Entrega', 'Cafeteria', 'Bares e álcool'],
   },
   {
     group: 'Entretenimento',
-    defaultPot: 'guilt_free',
+    defaultBudgetGroup: 'guilt_free',
     names: ['Cinema', 'Ingressos e shows', 'Associações e clubes', 'Outros entretenimentos'],
   },
   {
     group: 'Viagem',
-    defaultPot: 'guilt_free',
+    defaultBudgetGroup: 'guilt_free',
     names: ['Hospedagem', 'Passagem aérea e taxas', 'Outros gastos com viagem'],
   },
   {
     group: 'Compras',
-    defaultPot: 'comfort',
+    defaultBudgetGroup: 'comfort',
     names: [
       'Vestuário e acessórios',
       'Eletrônicos',
@@ -137,32 +137,32 @@ export const DEFAULT_CATEGORY_GROUPS: readonly DefaultCategoryGroup[] = [
   },
   {
     group: 'Esportes',
-    defaultPot: 'comfort',
+    defaultBudgetGroup: 'comfort',
     names: ['Academia', 'Outros esportes'],
   },
   {
     group: 'Cuidados pessoais',
-    defaultPot: 'comfort',
+    defaultBudgetGroup: 'comfort',
     names: ['Salão ou barbearia', 'Outros cuidados pessoais'],
   },
   {
     group: 'Educação',
-    defaultPot: 'education',
+    defaultBudgetGroup: 'education',
     names: ['Cursos de idiomas', 'Mensalidade escolar', 'Outros gastos com educação'],
   },
   {
     group: 'Investimentos',
-    defaultPot: 'investment',
+    defaultBudgetGroup: 'investment',
     names: ['Renda fixa', 'Renda variável', 'Previdência privada', 'Tesouro direto'],
   },
   {
     group: 'Gastos diversos',
-    defaultPot: 'variable',
+    defaultBudgetGroup: 'variable',
     names: ['Cartão de crédito', 'Boleto', 'Outros gastos'],
   },
   {
     group: 'Animais de estimação',
-    defaultPot: 'variable',
+    defaultBudgetGroup: 'variable',
     names: ['Petshop', 'Veterinário'],
   },
 ]

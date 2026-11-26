@@ -68,7 +68,7 @@ export async function switchSpaceAction(input: unknown): Promise<ActionResult> {
   return refreshed()
 }
 
-/** Create a business space (seeded with the default pots, plan and categories) and switch to it. */
+/** Create a business space (seeded with the default budget groups, budget version and categories) and switch to it. */
 export async function createSpaceAction(input: unknown): Promise<ActionResult> {
   const user = await getServerUser()
   if (!user) return { ok: false, error: SESSION_EXPIRED }

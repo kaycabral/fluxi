@@ -1,5 +1,5 @@
 import { fluxiDb, personalScope, seedUser, truncateFluxiTables } from '@/db'
-import { accounts, banks, categories, entries, pots } from '@/db/schema'
+import { accounts, banks, budgetGroups, categories, entries } from '@/db/schema'
 import { bankEntryLinks, categorizationRules } from '@/db/schema-bank-feed'
 import type { Scope } from '@/features/spaces/core/space'
 import { eq } from 'drizzle-orm'
@@ -103,7 +103,7 @@ describe('findSimilarBankEntries', () => {
 })
 
 describe('categorizeEntries', () => {
-  it('sets only category and pot, never on transfers, pot only on expenses', async () => {
+  it('sets only category and budget group, never on transfers, budget group only on expenses', async () => {
     const out = await entry(ana, 'A', -1000)
     const manual = await entry(ana, 'B', -2000, { fromBank: false })
     const income = await entry(ana, 'C', 3000)
@@ -111,38 +111,43 @@ describe('categorizeEntries', () => {
     const result = await categorizeEntries(ana, {
       entryIds: [out, manual, income, transfer],
       categoryId: bakery,
-      pot: 'essential',
+      budgetGroup: 'essential',
     })
     expect(result).toEqual({ ok: true })
     expect(await rowOf(out)).toMatchObject({
       categoryId: bakery,
-      pot: 'essential',
+      budgetGroup: 'essential',
       amountCents: -1000,
     })
-    expect(await rowOf(manual)).toMatchObject({ categoryId: bakery, pot: 'essential' })
-    expect(await rowOf(income)).toMatchObject({ categoryId: bakery, pot: null })
-    expect(await rowOf(transfer)).toMatchObject({ categoryId: null, pot: null })
+    expect(await rowOf(manual)).toMatchObject({ categoryId: bakery, budgetGroup: 'essential' })
+    expect(await rowOf(income)).toMatchObject({ categoryId: bakery, budgetGroup: null })
+    expect(await rowOf(transfer)).toMatchObject({ categoryId: null, budgetGroup: null })
 
-    // Only the pot: the category stays.
-    await categorizeEntries(ana, { entryIds: [out], pot: 'comfort' })
-    expect(await rowOf(out)).toMatchObject({ categoryId: bakery, pot: 'comfort' })
+    // Only the budget group: the category stays.
+    await categorizeEntries(ana, { entryIds: [out], budgetGroup: 'comfort' })
+    expect(await rowOf(out)).toMatchObject({ categoryId: bakery, budgetGroup: 'comfort' })
   })
 
-  it('refuses entries, categories and pots of another space', async () => {
+  it('refuses entries, categories and budget groups of another space', async () => {
     const own = await entry(ana, 'A', -1000)
     const biaAccount = await seedAccount(bia, 'Bia')
     const theirs = await entry(bia, 'B', -1000, { account: biaAccount })
-    expect(await categorizeEntries(ana, { entryIds: [own, theirs], pot: 'essential' })).toEqual({
+    expect(
+      await categorizeEntries(ana, { entryIds: [own, theirs], budgetGroup: 'essential' }),
+    ).toEqual({
       ok: false,
       reason: 'not_found',
     })
-    expect(await rowOf(own)).toMatchObject({ pot: null })
+    expect(await rowOf(own)).toMatchObject({ budgetGroup: null })
     expect(await categorizeEntries(bia, { entryIds: [theirs], categoryId: bakery })).toEqual({
       ok: false,
       reason: 'invalid_reference',
     })
-    await db().update(pots).set({ archivedAt: new Date() }).where(eq(pots.key, 'comfort'))
-    expect(await categorizeEntries(ana, { entryIds: [own], pot: 'comfort' })).toEqual({
+    await db()
+      .update(budgetGroups)
+      .set({ archivedAt: new Date() })
+      .where(eq(budgetGroups.key, 'comfort'))
+    expect(await categorizeEntries(ana, { entryIds: [own], budgetGroup: 'comfort' })).toEqual({
       ok: false,
       reason: 'invalid_reference',
     })
@@ -155,7 +160,7 @@ describe('categorizeEntries', () => {
     await categorizeEntries(ana, {
       entryIds: [a, b],
       categoryId: bakery,
-      pot: 'essential',
+      budgetGroup: 'essential',
       ruleFromEntryId: source,
     })
     const rules = await listRules(ana)
@@ -165,7 +170,7 @@ describe('categorizeEntries', () => {
         minCents: 800,
         maxCents: 1500,
         categoryId: bakery,
-        pot: 'essential',
+        budgetGroup: 'essential',
       },
     ])
     expect(await listRules(bia)).toEqual([])

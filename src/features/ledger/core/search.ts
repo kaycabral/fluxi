@@ -1,12 +1,12 @@
 import { z } from 'zod'
 import { accountIdsOf, accountLabel, bankIdOf, entryMatchesAccounts } from './account-filter'
 import { accountIdsInBucket, type MoneyBucket } from './bucket'
-import { potName } from './labels'
+import { budgetGroupName } from './labels'
 import { addMonths, type Month } from './month'
 import { installmentCount, type Landing } from './occurrence'
 import { paymentFor, type OccurrencePayment } from './payments'
 import { effectOn, type MonthResult } from './projection'
-import type { Account, Bank, Category, Entry, Pot, PotKey } from './types'
+import type { Account, Bank, BudgetGroup, BudgetGroupKey, Category, Entry } from './types'
 
 /**
  * "Transações": search over OCCURRENCES (landings), newest first, with a
@@ -55,8 +55,8 @@ export type SearchQuery = {
   account: string
   /** Empty, `g:<group name>` or a category id. */
   category: string
-  /** Pot key; `''` = any pot. */
-  pot: PotKey
+  /** Budget group key; `''` = any budget group. */
+  budgetGroup: BudgetGroupKey
   tag: string
   status: StatusFilter
   money: MoneyFilter
@@ -71,7 +71,7 @@ export const EMPTY_SEARCH_QUERY: SearchQuery = {
   kind: '',
   account: '',
   category: '',
-  pot: '',
+  budgetGroup: '',
   tag: '',
   status: '',
   money: '',
@@ -94,7 +94,7 @@ const searchQuerySchema = z.object({
   kind: z.enum(['', 'income', 'expense', 'transfer']).catch(''),
   account: z.string().max(80).catch(''),
   category: z.string().max(120).catch(''),
-  pot: z.union([z.literal(''), z.string().regex(/^[a-z0-9_]{1,40}$/)]).catch(''),
+  budgetGroup: z.union([z.literal(''), z.string().regex(/^[a-z0-9_]{1,40}$/)]).catch(''),
   tag: z.string().max(40).catch(''),
   status: z.enum(['', 'paid', 'unpaid']).catch(''),
   money: z.enum(['', 'available', 'benefit']).catch(''),
@@ -126,7 +126,7 @@ export function serializeSearchQuery(query: SearchQuery): string {
     'kind',
     'account',
     'category',
-    'pot',
+    'budgetGroup',
     'tag',
     'status',
     'money',
@@ -178,8 +178,8 @@ export type SearchContext = {
   accounts: readonly Pick<Account, 'id' | 'bankId' | 'name' | 'type'>[]
   banks: readonly Pick<Bank, 'id' | 'name'>[]
   categories: readonly Pick<Category, 'id' | 'groupName' | 'name'>[]
-  /** Names the pot chip (unknown keys show `–`). */
-  pots?: readonly Pot[]
+  /** Names the budget group chip (unknown keys show `–`). */
+  budgetGroups?: readonly BudgetGroup[]
   /** Needed by the status filter (none = nothing paid). */
   payments?: readonly OccurrencePayment[]
 }
@@ -223,7 +223,7 @@ function matches(
     (query.kind === '' || entry.kind === query.kind) &&
     entryMatchesAccounts(entry, ids) &&
     matchesCategory(entry.categoryId, query.category, ctx) &&
-    (query.pot === '' || entry.pot === query.pot) &&
+    (query.budgetGroup === '' || entry.budgetGroup === query.budgetGroup) &&
     (query.tag === '' || entry.tags.includes(query.tag)) &&
     matchesStatus(landing, query.status, ctx)
   )
@@ -311,7 +311,7 @@ export type ActiveFilter = {
     | 'kind'
     | 'account'
     | 'category'
-    | 'pot'
+    | 'budgetGroup'
     | 'tag'
     | 'status'
     | 'money'
@@ -361,7 +361,11 @@ export function activeFilters(query: SearchQuery, ctx: SearchContext): ActiveFil
         : (categoryOf(query.category, ctx)?.name ?? '–'),
     })
   }
-  if (query.pot !== '') out.push({ key: 'pot', label: potName(query.pot, ctx.pots ?? []) })
+  if (query.budgetGroup !== '')
+    out.push({
+      key: 'budgetGroup',
+      label: budgetGroupName(query.budgetGroup, ctx.budgetGroups ?? []),
+    })
   if (query.tag !== '') out.push({ key: 'tag', label: `#${query.tag}` })
   if (query.status !== '') out.push({ key: 'status', label: STATUS_LABELS[query.status] })
   if (query.money !== '') out.push({ key: 'money', label: MONEY_LABELS[query.money] })

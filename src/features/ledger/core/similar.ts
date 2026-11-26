@@ -43,7 +43,7 @@ export type SimilarCandidate = {
   accountId: string
   amountCents: number
   categoryId: string | null
-  pot: string | null
+  budgetGroup: string | null
 }
 
 /** The reference entry and the bank entries that look like it. */
@@ -54,14 +54,14 @@ export type SimilarResult = {
 
 /**
  * Preselected: a similar amount AND nothing classified yet. A candidate that
- * already has a category or pot is never overwritten unless the user checks
+ * already has a category or budget group is never overwritten unless the user checks
  * it; a far amount (the supermarket among the bakery's coffees) neither.
  */
 export function isPreselected(referenceCents: number, candidate: SimilarCandidate): boolean {
   return (
     isSimilarAmount(referenceCents, candidate.amountCents) &&
     candidate.categoryId === null &&
-    candidate.pot === null
+    candidate.budgetGroup === null
   )
 }
 
@@ -80,6 +80,6 @@ export type CategorizationRule = {
   maxCents: number
   categoryId: string | null
   categoryName: string | null
-  pot: string | null
-  potName: string | null
+  budgetGroup: string | null
+  budgetGroupName: string | null
 }

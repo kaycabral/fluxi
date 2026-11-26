@@ -1,25 +1,25 @@
 'use client'
 
 import {
-  deleteBudgetPlanAction,
-  saveBudgetPlanAction,
-  updatePotAction,
+  deleteBudgetVersionAction,
+  saveBudgetVersionAction,
+  updateBudgetGroupAction,
 } from '@/features/ledger/adapters/actions/budget'
 import {
+  budgetGroupCell,
   clampTarget,
   freeBps,
   maxBpsFor,
-  planFor,
-  potCell,
   sameTargets,
-  sortPlans,
+  sortVersions,
+  versionFor,
   type BudgetMonth,
   type Targets,
 } from '@/features/ledger/core/budget'
 import { formatMoney, formatPercent, monthLabel } from '@/features/ledger/core/format'
-import { POT_DOT_CLASSES } from '@/features/ledger/core/labels'
+import { GROUP_DOT_CLASSES } from '@/features/ledger/core/labels'
 import type { Month } from '@/features/ledger/core/month'
-import type { BudgetPlan, Pot } from '@/features/ledger/core/types'
+import type { BudgetGroup, BudgetVersion } from '@/features/ledger/core/types'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -60,40 +60,40 @@ import {
   Trash2,
 } from 'lucide-react'
 import { useState } from 'react'
-import { PlanStartDialog } from './plan-start-dialog'
-import { ColorPicker, NewPotRow, PotMenu, PotName } from './pot-controls'
-import { planLabel, useAction } from './shared'
+import { BudgetGroupMenu, BudgetGroupName, ColorPicker, NewBudgetGroupRow } from './group-controls'
+import { useAction, versionLabel } from './shared'
+import { VersionStartDialog } from './version-start-dialog'
 
 /**
- * "Potes da renda": the targets of one budget version (sliders that never
- * pass 100%) and the pots themselves, edited in place: color, name (double
- * click or menu), how they are measured, delete/archive and new pots.
+ * "Grupos do orçamento": the targets of one budget version (sliders that never
+ * pass 100%) and the budget groups themselves, edited in place: color, name (double
+ * click or menu), how they are measured, delete/archive and new budget groups.
  */
-export function PotsCard({
-  pots,
-  plans,
+export function BudgetGroupsCard({
+  budgetGroups,
+  versions,
   today,
   current,
 }: {
-  pots: readonly Pot[]
-  plans: readonly BudgetPlan[]
+  budgetGroups: readonly BudgetGroup[]
+  versions: readonly BudgetVersion[]
   today: Month
   /** Budget numbers of the current month (planned and the target in reais). */
   current: BudgetMonth
 }) {
-  const sorted = sortPlans(plans)
-  const inForce = planFor(today, sorted) ?? sorted.at(-1)
+  const sorted = sortVersions(versions)
+  const inForce = versionFor(today, sorted) ?? sorted.at(-1)
   const [selectedStart, setSelectedStart] = useState(inForce?.startsMonth)
-  const plan = sorted.find((p) => p.startsMonth === selectedStart) ?? inForce
-  if (plan === undefined || inForce === undefined) return null
+  const version = sorted.find((p) => p.startsMonth === selectedStart) ?? inForce
+  if (version === undefined || inForce === undefined) return null
   // A new key (another version, or its targets saved) starts the editor over from the saved targets.
   return (
-    <PlanEditor
-      key={`${plan.id}:${JSON.stringify(plan.targets)}`}
-      pots={pots}
-      plan={plan}
-      plans={sorted}
-      isCurrent={plan.id === inForce.id}
+    <VersionEditor
+      key={`${version.id}:${JSON.stringify(version.targets)}`}
+      budgetGroups={budgetGroups}
+      version={version}
+      versions={sorted}
+      isCurrent={version.id === inForce.id}
       today={today}
       current={current}
       onSelect={setSelectedStart}
@@ -103,24 +103,24 @@ export function PotsCard({
 
 type Confirm = { title: string; description: string; action: string; onConfirm: () => void }
 
-function PlanEditor({
-  pots,
-  plan,
-  plans: sorted,
+function VersionEditor({
+  budgetGroups,
+  version,
+  versions: sorted,
   isCurrent,
   today,
   current,
   onSelect,
 }: {
-  pots: readonly Pot[]
-  plan: BudgetPlan
-  plans: readonly BudgetPlan[]
+  budgetGroups: readonly BudgetGroup[]
+  version: BudgetVersion
+  versions: readonly BudgetVersion[]
   isCurrent: boolean
   today: Month
   current: BudgetMonth
   onSelect: (startsMonth: Month | undefined) => void
 }) {
-  const [targets, setTargets] = useState<Targets>(plan.targets)
+  const [targets, setTargets] = useState<Targets>(version.targets)
   const [renaming, setRenaming] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
   const [dialog, setDialog] = useState<'create' | 'move' | null>(null)
@@ -128,8 +128,8 @@ function PlanEditor({
   const [pending, run] = useAction()
 
   const free = freeBps(targets)
-  const dirty = !sameTargets(targets, plan.targets)
-  const ordered = [...pots].sort((a, b) => a.sort - b.sort)
+  const dirty = !sameTargets(targets, version.targets)
+  const ordered = [...budgetGroups].sort((a, b) => a.sort - b.sort)
   const shown = ordered.filter((p) => !p.archived || (targets[p.key] ?? 0) > 0)
   const archived = ordered.filter((p) => p.archived && (targets[p.key] ?? 0) === 0)
 
@@ -137,14 +137,14 @@ function PlanEditor({
     <Card>
       <CardHeader>
         <CardTitle asChild>
-          <h2>Potes da renda</h2>
+          <h2>Grupos do orçamento</h2>
         </CardTitle>
         <CardDescription>
-          Cada pote recebe uma fatia da renda do mês. A soma não passa de 100%.
+          Cada grupo recebe uma fatia da renda do mês. A soma não passa de 100%.
         </CardDescription>
         <CardAction className="flex items-center gap-1">
           <Select
-            value={plan.startsMonth}
+            value={version.startsMonth}
             onValueChange={(m) => {
               if (!dirty) onSelect(m)
               else
@@ -162,7 +162,7 @@ function PlanEditor({
             <SelectContent align="end">
               {[...sorted].reverse().map((p) => (
                 <SelectItem key={p.id} value={p.startsMonth}>
-                  {planLabel(p, sorted)}
+                  {versionLabel(p, sorted)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -186,13 +186,13 @@ function PlanEditor({
                 disabled={sorted.length <= 1}
                 onSelect={() =>
                   setConfirm({
-                    title: `Excluir a versão ${planLabel(plan, sorted)}?`,
+                    title: `Excluir a versão ${versionLabel(version, sorted)}?`,
                     description:
                       'Os meses dela passam a ser medidos pela versão anterior (ou ficam sem meta, se não houver).',
                     action: 'Excluir versão',
                     onConfirm: () =>
                       run(
-                        () => deleteBudgetPlanAction(plan.id),
+                        () => deleteBudgetVersionAction(version.id),
                         'Versão excluída.',
                         () => onSelect(undefined),
                       ),
@@ -209,7 +209,7 @@ function PlanEditor({
       <CardContent className="grid gap-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-muted-foreground text-xs">
-            {isCurrent ? 'Versão em vigor' : 'Versão'} de {planLabel(plan, sorted)}
+            {isCurrent ? 'Versão em vigor' : 'Versão'} de {versionLabel(version, sorted)}
           </p>
           <Badge
             variant="secondary"
@@ -225,31 +225,31 @@ function PlanEditor({
         </div>
 
         <div className="bg-muted flex h-3 overflow-hidden rounded-full" aria-hidden>
-          {shown.map((pot) => (
+          {shown.map((budgetGroup) => (
             <span
-              key={pot.key}
-              className={cn('transition-[width]', POT_DOT_CLASSES[pot.color])}
-              style={{ width: `${(targets[pot.key] ?? 0) / 100}%` }}
+              key={budgetGroup.key}
+              className={cn('transition-[width]', GROUP_DOT_CLASSES[budgetGroup.color])}
+              style={{ width: `${(targets[budgetGroup.key] ?? 0) / 100}%` }}
             />
           ))}
         </div>
 
         <ul className="grid gap-3">
-          {shown.map((pot) => {
-            const bps = targets[pot.key] ?? 0
-            const id = `pot-${pot.key}`
-            const cell = potCell(pot, current)
+          {shown.map((budgetGroup) => {
+            const bps = targets[budgetGroup.key] ?? 0
+            const id = `budget-group-${budgetGroup.key}`
+            const cell = budgetGroupCell(budgetGroup, current)
             const income = current.incomeCents
             return (
-              <li key={pot.key} className="grid gap-1">
+              <li key={budgetGroup.key} className="grid gap-1">
                 <div className="grid grid-cols-[minmax(0,8rem)_1fr_3.25rem_2rem] items-center gap-2 sm:grid-cols-[minmax(0,10rem)_1fr_3.5rem_2rem] sm:gap-3">
                   <div className="flex min-w-0 items-center gap-2">
-                    <ColorPicker pot={pot} />
-                    <PotName
-                      pot={pot}
+                    <ColorPicker budgetGroup={budgetGroup} />
+                    <BudgetGroupName
+                      budgetGroup={budgetGroup}
                       htmlFor={id}
-                      editing={renaming === pot.key}
-                      onEditingChange={(on) => setRenaming(on ? pot.key : null)}
+                      editing={renaming === budgetGroup.key}
+                      onEditingChange={(on) => setRenaming(on ? budgetGroup.key : null)}
                     />
                   </div>
                   <input
@@ -262,20 +262,25 @@ function PlanEditor({
                     aria-valuetext={formatPercent(bps / 10000)}
                     className="accent-primary w-full"
                     onChange={(e) =>
-                      setTargets((t) => clampTarget(t, pot.key, Number(e.target.value) * 100))
+                      setTargets((t) =>
+                        clampTarget(t, budgetGroup.key, Number(e.target.value) * 100),
+                      )
                     }
                   />
                   <span className="text-right font-mono text-sm tabular-nums">
                     {formatPercent(bps / 10000)}
                   </span>
-                  <PotMenu pot={pot} onRename={() => setRenaming(pot.key)} />
+                  <BudgetGroupMenu
+                    budgetGroup={budgetGroup}
+                    onRename={() => setRenaming(budgetGroup.key)}
+                  />
                 </div>
                 <p className="text-muted-foreground pl-5.5 text-xs">
-                  {pot.goal === 'minimum' ? 'guardar ao menos' : 'até'}{' '}
+                  {budgetGroup.goal === 'minimum' ? 'guardar ao menos' : 'até'}{' '}
                   {formatMoney(Math.round((income * bps) / 10000))} · planejado em{' '}
                   {monthLabel(current.month)} {formatMoney(cell.plannedCents)} (
                   {formatPercent(cell.ratio)}) · até{' '}
-                  {formatPercent(maxBpsFor(targets, pot.key) / 10000)}
+                  {formatPercent(maxBpsFor(targets, budgetGroup.key) / 10000)}
                 </p>
               </li>
             )
@@ -283,7 +288,7 @@ function PlanEditor({
         </ul>
 
         {adding ? (
-          <NewPotRow pots={pots} onCancel={() => setAdding(false)} />
+          <NewBudgetGroupRow budgetGroups={budgetGroups} onCancel={() => setAdding(false)} />
         ) : (
           <Button
             variant="ghost"
@@ -291,7 +296,7 @@ function PlanEditor({
             className="justify-self-start"
             onClick={() => setAdding(true)}
           >
-            <Plus /> Novo pote
+            <Plus /> Novo grupo
           </Button>
         )}
 
@@ -301,16 +306,20 @@ function PlanEditor({
               Arquivados ({archived.length})
             </summary>
             <ul className="mt-2 grid gap-1">
-              {archived.map((pot) => (
-                <li key={pot.key} className="flex items-center justify-between gap-2">
+              {archived.map((budgetGroup) => (
+                <li key={budgetGroup.key} className="flex items-center justify-between gap-2">
                   <span className="flex items-center gap-2">
-                    <span className={cn('size-2.5 rounded-xs', POT_DOT_CLASSES[pot.color])} />
-                    {pot.name}
+                    <span
+                      className={cn('size-2.5 rounded-xs', GROUP_DOT_CLASSES[budgetGroup.color])}
+                    />
+                    {budgetGroup.name}
                   </span>
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => run(() => updatePotAction({ key: pot.key, archived: false }))}
+                    onClick={() =>
+                      run(() => updateBudgetGroupAction({ key: budgetGroup.key, archived: false }))
+                    }
                   >
                     <RotateCcw /> Restaurar
                   </Button>
@@ -323,7 +332,7 @@ function PlanEditor({
 
       <CardFooter className="justify-end gap-2">
         {dirty && (
-          <Button variant="ghost" onClick={() => setTargets(plan.targets)} disabled={pending}>
+          <Button variant="ghost" onClick={() => setTargets(version.targets)} disabled={pending}>
             Desfazer
           </Button>
         )}
@@ -331,7 +340,12 @@ function PlanEditor({
           disabled={!dirty || pending}
           onClick={() =>
             run(
-              () => saveBudgetPlanAction({ id: plan.id, startsMonth: plan.startsMonth, targets }),
+              () =>
+                saveBudgetVersionAction({
+                  id: version.id,
+                  startsMonth: version.startsMonth,
+                  targets,
+                }),
               'Metas salvas.',
             )
           }
@@ -342,13 +356,13 @@ function PlanEditor({
       </CardFooter>
 
       {dialog !== null && (
-        <PlanStartDialog
+        <VersionStartDialog
           key={dialog}
           open
           onOpenChange={(open) => !open && setDialog(null)}
           mode={dialog}
-          plan={plan}
-          plans={sorted}
+          version={version}
+          versions={sorted}
           today={today}
           targets={targets}
           onSaved={onSelect}

@@ -240,7 +240,7 @@ async function writeCategories(tx: Tx, scope: Scope, plan: ImportPlan, prior: Ma
         ...owned(scope),
         groupName: category.groupName,
         name: category.name,
-        defaultPot: category.defaultPot,
+        defaultBudgetGroup: category.defaultBudgetGroup,
         sort: 1000,
       })
     }
@@ -269,7 +269,7 @@ async function writeLedger(tx: Tx, scope: Scope, plan: ImportPlan, maps: IdMaps)
     accountId: maps.account.get(e.accountId) ?? '',
     toAccountId: e.toAccountId === null ? null : (maps.account.get(e.toAccountId) ?? ''),
     categoryId: e.categoryKey === null ? null : (maps.category.get(e.categoryKey) ?? null),
-    pot: e.pot,
+    budgetGroup: e.budgetGroup,
     tags: [...e.tags],
     startMonth: monthToDate(e.startMonth),
     day: e.day,

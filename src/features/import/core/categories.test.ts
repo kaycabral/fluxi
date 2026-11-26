@@ -1,35 +1,35 @@
 import { describe, expect, it } from 'vitest'
 import {
+  budgetGroupOfEntry,
+  budgetGroupOfType,
   categoryKey,
   categoryKeyOf,
   planCategories,
-  potOfEntry,
-  potOfType,
   UNGROUPED,
 } from './categories'
 import { item } from './fixtures'
 import { groupIntoEntries } from './grouping'
 
-describe('potOfType', () => {
+describe('budgetGroupOfType', () => {
   it('maps every Notion type and nothing else', () => {
     expect(
       ['Essential', 'Comfort', 'Guilt Free', 'Educacional', 'Variable', 'Investment'].map(
-        potOfType,
+        budgetGroupOfType,
       ),
     ).toEqual(['essential', 'comfort', 'guilt_free', 'education', 'variable', 'investment'])
-    expect(potOfType(null)).toBeNull()
-    expect(potOfType('Other')).toBeNull()
+    expect(budgetGroupOfType(null)).toBeNull()
+    expect(budgetGroupOfType('Other')).toBeNull()
   })
 
-  it('gives a pot to expenses only', () => {
-    expect(potOfEntry({ kind: 'expense', type: 'Comfort' })).toBe('comfort')
-    expect(potOfEntry({ kind: 'income', type: 'Comfort' })).toBeNull()
-    expect(potOfEntry({ kind: 'transfer', type: 'Comfort' })).toBeNull()
+  it('gives a budget group to expenses only', () => {
+    expect(budgetGroupOfEntry({ kind: 'expense', type: 'Comfort' })).toBe('comfort')
+    expect(budgetGroupOfEntry({ kind: 'income', type: 'Comfort' })).toBeNull()
+    expect(budgetGroupOfEntry({ kind: 'transfer', type: 'Comfort' })).toBeNull()
   })
 })
 
 describe('planCategories', () => {
-  it('keys categories by group and name with the pot most used among expense occurrences', () => {
+  it('keys categories by group and name with the budget group most used among expense occurrences', () => {
     const { entries } = groupIntoEntries([
       item({ month: '2026-01', type: 'Variable', descriptionKey: 'a' }),
       item({ month: '2026-01', type: 'Essential', descriptionKey: 'b' }),
@@ -49,19 +49,19 @@ describe('planCategories', () => {
         key: categoryKey('Moradia', 'Pagamento de aluguel'),
         groupName: 'Moradia',
         name: 'Pagamento de aluguel',
-        defaultPot: 'essential',
+        defaultBudgetGroup: 'essential',
       },
       {
         key: categoryKey('Renda', 'Salário'),
         groupName: 'Renda',
         name: 'Salário',
-        defaultPot: null,
+        defaultBudgetGroup: null,
       },
       {
         key: categoryKey(UNGROUPED, 'Solta'),
         groupName: UNGROUPED,
         name: 'Solta',
-        defaultPot: 'essential',
+        defaultBudgetGroup: 'essential',
       },
     ])
   })

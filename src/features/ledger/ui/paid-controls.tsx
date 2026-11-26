@@ -1,6 +1,5 @@
 'use client'
 
-import { ButtonGroup } from '@/components/button-group'
 import { markPaidAction, unmarkPaidAction } from '@/features/ledger/adapters/actions/payments'
 import type { ActionResult } from '@/features/ledger/core/action-result'
 import { paidLabel } from '@/features/ledger/core/labels'
@@ -9,6 +8,7 @@ import { dayMonth, payControlLabel, payShortcuts } from '@/features/ledger/core/
 import { landingDate, paymentKeyOf } from '@/features/ledger/core/payments'
 import {
   Button,
+  ButtonGroup,
   Calendar,
   Checkbox,
   DropdownMenu,

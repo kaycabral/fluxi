@@ -4,34 +4,6 @@
   --font-sans: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
 }
 
-/*
- * Floating surfaces read as lifted off the page, like Google Calendar's
- * popups: a deep elevation shadow and, in dark mode (where shadows barely
- * show), a lighter surface than the cards they float over. The design system
- * paints `--popover` the same as `--card`, so a popup over the calendar was
- * indistinguishable from it.
- */
-@theme {
-  --shadow-popup:
-    0 24px 38px 3px rgb(0 0 0 / 0.14), 0 9px 46px 8px rgb(0 0 0 / 0.12),
-    0 11px 15px -7px rgb(0 0 0 / 0.2);
-}
-
-.dark {
-  --popover: oklch(0.24 0 0);
-}
-
-/*
- * Light mode, like shadcn's own site: the page (and the sidebar around it) is
- * a soft gray so white cards and popups stand out from it. The design system
- * paints `--background` and `--card` the same white, so cards blended into
- * the page; dark mode already separates them. TODO: move to `@cbrl/design`.
- */
-:root:not(.dark) {
-  --background: oklch(0.97 0 0);
-  --sidebar: oklch(0.97 0 0);
-}
-
 html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

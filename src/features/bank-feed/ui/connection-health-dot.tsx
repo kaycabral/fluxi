@@ -1,10 +1,16 @@
 'use client'
 
-import { StatusDot, type StatusDotTone } from '@/components/status-dot'
 import type { ConnectionHealth, HealthLevel } from '@/features/bank-feed/core/health'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@cbrl/design'
+import {
+  StatusDot,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+  type StatusDotProps,
+} from '@cbrl/design'
 
-const TONE: Record<HealthLevel, StatusDotTone> = {
+const TONE: Record<HealthLevel, NonNullable<StatusDotProps['tone']>> = {
   ok: 'success',
   warn: 'warning',
   error: 'destructive',
@@ -35,12 +41,7 @@ export function ConnectionHealthDot({ health }: { health: ConnectionHealth }) {
             data-level={health.level}
             className="focus-visible:ring-ring inline-flex size-4 shrink-0 cursor-default items-center justify-center rounded-full outline-none focus-visible:ring-2"
           >
-            <StatusDot
-              tone={TONE[health.level]}
-              pulse={health.inProgress}
-              label={health.reason}
-              aria-hidden
-            />
+            <StatusDot tone={TONE[health.level]} pulse={health.inProgress} />
           </button>
         </TooltipTrigger>
         <TooltipContent className="grid gap-0.5">

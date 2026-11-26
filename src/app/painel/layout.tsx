@@ -36,7 +36,7 @@ export default async function PainelLayout({ children }: { children: React.React
   const loaded = scope.ok ? await loadRefs(scope.data, today) : { ok: false as const }
   const refs: LedgerRefs = loaded.ok
     ? loaded.data
-    : { banks: [], accounts: [], categories: [], pots: [], tags: [], today }
+    : { banks: [], accounts: [], categories: [], budgetGroups: [], tags: [], today }
 
   return <LedgerShell refs={refs}>{scope.ok ? children : <Unavailable />}</LedgerShell>
 }

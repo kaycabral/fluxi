@@ -54,7 +54,7 @@ export function RulesSettings({
               <p className="truncate font-medium">“{rule.pattern}”</p>
               <p className="text-muted-foreground truncate text-xs">
                 {rangeLabel(rule)} →{' '}
-                {[rule.categoryName, rule.potName].filter(Boolean).join(' · ') || '—'}
+                {[rule.categoryName, rule.budgetGroupName].filter(Boolean).join(' · ') || '—'}
               </p>
             </div>
             <Button

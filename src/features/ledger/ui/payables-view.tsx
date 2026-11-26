@@ -2,7 +2,7 @@
 
 import { accountLabel } from '@/features/ledger/core/account-filter'
 import { formatMoney, shortDate } from '@/features/ledger/core/format'
-import { potTint } from '@/features/ledger/core/labels'
+import { budgetGroupTint } from '@/features/ledger/core/labels'
 import type { Month } from '@/features/ledger/core/month'
 import { groupPayables, type PayableGroup } from '@/features/ledger/core/payments'
 import {
@@ -83,8 +83,8 @@ function GroupCard({ group, data }: { group: PayableGroup; data: LedgerData }) {
               return (
                 <TableRow
                   key={`${entry.id}-${landing.competence}-${landing.part?.id ?? 'whole'}-${index}`}
-                  data-pot={entry.pot ?? undefined}
-                  className={potTint(entry.pot, data.pots)}
+                  data-budget-group={entry.budgetGroup ?? undefined}
+                  className={budgetGroupTint(entry.budgetGroup, data.budgetGroups)}
                 >
                   <TableCell
                     className={cn('font-mono', status === 'overdue' && 'text-destructive')}

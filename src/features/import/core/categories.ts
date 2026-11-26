@@ -1,8 +1,8 @@
-import type { PotKey } from '@/features/ledger/core/types'
+import type { BudgetGroupKey } from '@/features/ledger/core/types'
 import { mode, type PlannedEntry } from './grouping'
 
-/** Notion `Type` → budget pot (expenses only; anything else → no pot). */
-const POT_OF_TYPE: Readonly<Record<string, PotKey>> = {
+/** Notion `Type` → budget group (expenses only; anything else → no budget group). */
+const GROUP_OF_TYPE: Readonly<Record<string, BudgetGroupKey>> = {
   Essential: 'essential',
   Comfort: 'comfort',
   'Guilt Free': 'guilt_free',
@@ -11,13 +11,15 @@ const POT_OF_TYPE: Readonly<Record<string, PotKey>> = {
   Investment: 'investment',
 }
 
-export function potOfType(type: string | null): PotKey | null {
-  return type === null ? null : (POT_OF_TYPE[type] ?? null)
+export function budgetGroupOfType(type: string | null): BudgetGroupKey | null {
+  return type === null ? null : (GROUP_OF_TYPE[type] ?? null)
 }
 
-/** Pot of a planned entry: only expenses carry one. */
-export function potOfEntry(entry: Pick<PlannedEntry, 'kind' | 'type'>): PotKey | null {
-  return entry.kind === 'expense' ? potOfType(entry.type) : null
+/** Budget group of a planned entry: only expenses carry one. */
+export function budgetGroupOfEntry(
+  entry: Pick<PlannedEntry, 'kind' | 'type'>,
+): BudgetGroupKey | null {
+  return entry.kind === 'expense' ? budgetGroupOfType(entry.type) : null
 }
 
 export const UNGROUPED = 'Sem grupo'
@@ -27,8 +29,8 @@ export type PlannedCategory = {
   key: string
   groupName: string
   name: string
-  /** The pot most used with it among expense occurrences (null if none). */
-  defaultPot: PotKey | null
+  /** The budget group most used with it among expense occurrences (null if none). */
+  defaultBudgetGroup: BudgetGroupKey | null
 }
 
 export const categoryKey = (groupName: string, name: string) => `${groupName}\u0000${name}`
@@ -39,25 +41,28 @@ export function categoryKeyOf(entry: PlannedEntry): string | null {
   return categoryKey(entry.group ?? UNGROUPED, entry.subCategory)
 }
 
-/** Every category the entries use, in first-use order, with its default pot. */
+/** Every category the entries use, in first-use order, with its default budget group. */
 export function planCategories(entries: readonly PlannedEntry[]): PlannedCategory[] {
-  const pots = new Map<string, { groupName: string; name: string; pots: PotKey[] }>()
+  const budgetGroups = new Map<
+    string,
+    { groupName: string; name: string; budgetGroups: BudgetGroupKey[] }
+  >()
   for (const entry of entries) {
     const key = categoryKeyOf(entry)
     if (key === null || entry.subCategory === null) continue
-    const slot = pots.get(key) ?? {
+    const slot = budgetGroups.get(key) ?? {
       groupName: entry.group ?? UNGROUPED,
       name: entry.subCategory,
-      pots: [],
+      budgetGroups: [],
     }
-    pots.set(key, slot)
-    const pot = potOfEntry(entry)
-    if (pot !== null) slot.pots.push(...entry.occurrences.map(() => pot))
+    budgetGroups.set(key, slot)
+    const budgetGroup = budgetGroupOfEntry(entry)
+    if (budgetGroup !== null) slot.budgetGroups.push(...entry.occurrences.map(() => budgetGroup))
   }
-  return [...pots.entries()].map(([key, slot]) => ({
+  return [...budgetGroups.entries()].map(([key, slot]) => ({
     key,
     groupName: slot.groupName,
     name: slot.name,
-    defaultPot: mode(slot.pots) ?? null,
+    defaultBudgetGroup: mode(slot.budgetGroups) ?? null,
   }))
 }

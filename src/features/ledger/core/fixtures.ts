@@ -10,7 +10,7 @@ export function makeEntry(overrides: Partial<Entry> = {}): Entry {
     accountId: 'checking',
     toAccountId: null,
     categoryId: null,
-    pot: 'essential',
+    budgetGroup: 'essential',
     tags: [],
     startMonth: '2026-09',
     day: 15,

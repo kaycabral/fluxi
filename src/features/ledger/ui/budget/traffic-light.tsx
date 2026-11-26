@@ -1,18 +1,18 @@
 'use client'
 
 import {
+  budgetGroupCell,
   budgetMonths,
-  planFor,
-  potCell,
-  visiblePots,
+  versionFor,
+  visibleBudgetGroups,
+  type BudgetGroupCell,
   type BudgetMonth,
   type Light,
-  type PotCell,
 } from '@/features/ledger/core/budget'
 import { formatMoney, formatPercent, monthLabel } from '@/features/ledger/core/format'
-import { POT_DOT_CLASSES } from '@/features/ledger/core/labels'
+import { GROUP_DOT_CLASSES } from '@/features/ledger/core/labels'
 import { addMonths, monthRange, type Month } from '@/features/ledger/core/month'
-import type { BudgetPlan, Pot } from '@/features/ledger/core/types'
+import type { BudgetGroup, BudgetVersion } from '@/features/ledger/core/types'
 import { projectWindow, type LedgerData } from '@/features/ledger/core/view'
 import {
   Button,
@@ -43,7 +43,7 @@ export const LIGHT_LABELS: Record<Light, string> = {
   bad: 'fora da meta',
 }
 
-const NO_PLAN_CLASS = 'bg-muted text-muted-foreground'
+const NO_VERSION_CLASS = 'bg-muted text-muted-foreground'
 
 const LEGEND: Record<Light, string> = {
   good: 'Dentro da meta',
@@ -56,44 +56,47 @@ export function defaultFirstMonth(today: Month, span: number, before = span - 3)
   return addMonths(today, -before)
 }
 
-/** Budget months (income, spending per pot, version in force) over `[from, to]`. */
+/** Budget months (income, spending per budget group, version in force) over `[from, to]`. */
 export function useBudgetMonths(
   data: LedgerData,
-  plans: readonly BudgetPlan[],
+  versions: readonly BudgetVersion[],
   from: Month,
   to: Month,
 ): BudgetMonth[] {
-  return useMemo(() => budgetMonths(projectWindow(data, from, to), plans), [data, plans, from, to])
+  return useMemo(
+    () => budgetMonths(projectWindow(data, from, to), versions),
+    [data, versions, from, to],
+  )
 }
 
 /** Budget numbers of one month (no spending and no income when nothing lands there). */
 export function useBudgetMonth(
   data: LedgerData,
-  plans: readonly BudgetPlan[],
+  versions: readonly BudgetVersion[],
   month: Month,
 ): BudgetMonth {
-  const [found] = useBudgetMonths(data, plans, month, month)
-  return found ?? { month, incomeCents: 0, byPot: {}, plan: planFor(month, plans) }
+  const [found] = useBudgetMonths(data, versions, month, month)
+  return found ?? { month, incomeCents: 0, byBudgetGroup: {}, version: versionFor(month, versions) }
 }
 
-function cellTitle(pot: Pot, month: BudgetMonth, cell: PotCell): string {
+function cellTitle(budgetGroup: BudgetGroup, month: BudgetMonth, cell: BudgetGroupCell): string {
   const planned = `${formatMoney(cell.plannedCents)} planejado (${formatPercent(cell.ratio)} da renda)`
   if (cell.targetBps === null || cell.light === null) {
-    return `${pot.name} em ${monthLabel(month.month)}: ${planned}. Sem meta: mês antes da primeira versão do orçamento.`
+    return `${budgetGroup.name} em ${monthLabel(month.month)}: ${planned}. Sem meta: mês antes da primeira versão do orçamento.`
   }
-  const target = `meta ${pot.goal === 'minimum' ? 'mínima ' : ''}${formatPercent(cell.targetBps / 10000)} (${formatMoney(cell.targetCents ?? 0)})`
-  return `${pot.name} em ${monthLabel(month.month)}: ${planned}, ${target}. ${LIGHT_LABELS[cell.light]}.`
+  const target = `meta ${budgetGroup.goal === 'minimum' ? 'mínima ' : ''}${formatPercent(cell.targetBps / 10000)} (${formatMoney(cell.targetCents ?? 0)})`
+  return `${budgetGroup.name} em ${monthLabel(month.month)}: ${planned}, ${target}. ${LIGHT_LABELS[cell.light]}.`
 }
 
 /**
- * "Semáforo mensal": each pot's planned share of the month's income against
+ * "Semáforo mensal": each budget group's planned share of the month's income against
  * the budget version in force that month (so changing the proportions never
  * repaints earlier months). Arrows walk the months; the current month is
  * highlighted and the month a new version starts is marked.
  */
 export function TrafficLight({
   data,
-  plans,
+  versions,
   today,
   span,
   before,
@@ -101,7 +104,7 @@ export function TrafficLight({
   className,
 }: {
   data: LedgerData
-  plans: readonly BudgetPlan[]
+  versions: readonly BudgetVersion[]
   /** Current month. */
   today: Month
   /** How many months the window shows. */
@@ -115,9 +118,9 @@ export function TrafficLight({
   const initial = defaultFirstMonth(today, span, before)
   const [first, setFirst] = useState(initial)
   const last = addMonths(first, span - 1)
-  const months = useBudgetMonths(data, plans, first, last)
-  const pots = visiblePots(data.pots, months)
-  const planStarts = new Set(plans.map((p) => p.startsMonth))
+  const months = useBudgetMonths(data, versions, first, last)
+  const budgetGroups = visibleBudgetGroups(data.budgetGroups, months)
+  const versionStarts = new Set(versions.map((p) => p.startsMonth))
   const range = monthRange(first, last)
 
   return (
@@ -160,18 +163,18 @@ export function TrafficLight({
         <Table className="text-sm">
           <TableHeader>
             <TableRow>
-              <TableHead className="bg-card sticky left-0 z-10">Pote</TableHead>
+              <TableHead className="bg-card sticky left-0 z-10">Grupo</TableHead>
               {range.map((m) => (
                 <TableHead
                   key={m}
                   className={cn(
                     'text-right whitespace-nowrap',
                     m === today && 'bg-muted/60 text-foreground font-semibold',
-                    planStarts.has(m) && 'border-primary/60 border-l-2',
+                    versionStarts.has(m) && 'border-primary/60 border-l-2',
                   )}
                   aria-current={m === today ? 'date' : undefined}
                 >
-                  {planStarts.has(m) ? (
+                  {versionStarts.has(m) ? (
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <span className="cursor-help underline decoration-dotted underline-offset-4">
@@ -196,37 +199,40 @@ export function TrafficLight({
                   className={cn(
                     'text-right font-mono text-xs whitespace-nowrap tabular-nums',
                     m.month === today && 'bg-muted/60',
-                    planStarts.has(m.month) && 'border-primary/60 border-l-2',
+                    versionStarts.has(m.month) && 'border-primary/60 border-l-2',
                   )}
                 >
                   {formatMoney(m.incomeCents)}
                 </TableCell>
               ))}
             </TableRow>
-            {pots.map((pot) => (
-              <TableRow key={pot.key}>
+            {budgetGroups.map((budgetGroup) => (
+              <TableRow key={budgetGroup.key}>
                 <TableCell className="bg-card sticky left-0 z-10 whitespace-nowrap">
                   <span className="flex items-center gap-2">
                     <span
-                      className={cn('size-2.5 shrink-0 rounded-xs', POT_DOT_CLASSES[pot.color])}
+                      className={cn(
+                        'size-2.5 shrink-0 rounded-xs',
+                        GROUP_DOT_CLASSES[budgetGroup.color],
+                      )}
                       aria-hidden
                     />
-                    {pot.name}
-                    {pot.archived && (
+                    {budgetGroup.name}
+                    {budgetGroup.archived && (
                       <span className="text-muted-foreground text-xs">(arquivado)</span>
                     )}
                   </span>
                 </TableCell>
                 {months.map((m) => {
-                  const cell = potCell(pot, m)
-                  const label = cellTitle(pot, m, cell)
+                  const cell = budgetGroupCell(budgetGroup, m)
+                  const label = cellTitle(budgetGroup, m, cell)
                   return (
                     <TableCell
                       key={m.month}
                       className={cn(
                         'px-1 text-right',
                         m.month === today && 'bg-muted/60',
-                        planStarts.has(m.month) && 'border-primary/60 border-l-2',
+                        versionStarts.has(m.month) && 'border-primary/60 border-l-2',
                       )}
                     >
                       <Tooltip>
@@ -236,7 +242,7 @@ export function TrafficLight({
                             aria-label={label}
                             className={cn(
                               'focus-visible:ring-ring inline-block cursor-default rounded-full px-2 py-0.5 font-mono text-xs tabular-nums outline-none focus-visible:ring-2',
-                              cell.light === null ? NO_PLAN_CLASS : LIGHT_CLASSES[cell.light],
+                              cell.light === null ? NO_VERSION_CLASS : LIGHT_CLASSES[cell.light],
                             )}
                           >
                             {formatPercent(cell.ratio)}
@@ -261,7 +267,7 @@ export function TrafficLight({
               </li>
             ))}
             <li className="flex items-center gap-1.5">
-              <span className={cn('size-2.5 rounded-full', NO_PLAN_CLASS)} aria-hidden />
+              <span className={cn('size-2.5 rounded-full', NO_VERSION_CLASS)} aria-hidden />
               Sem meta no mês
             </li>
           </ul>

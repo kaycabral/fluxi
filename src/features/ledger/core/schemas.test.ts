@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_POTS } from './defaults'
+import { DEFAULT_BUDGET_GROUPS } from './defaults'
 import {
+  budgetGroupTargetsSchema,
   categorizeEntriesSchema,
   entryFieldsSchema,
   firstIssue,
   isoDaySchema,
-  potTargetsSchema,
   type EntryFields,
 } from './schemas'
 
@@ -20,7 +20,7 @@ const valid: EntryFields = {
   accountId: ACC,
   toAccountId: null,
   categoryId: CAT,
-  pot: 'essential',
+  budgetGroup: 'essential',
   tags: [],
   startMonth: '2026-12',
   day: 15,
@@ -43,14 +43,14 @@ describe('entryFieldsSchema', () => {
   })
 
   it('mirrors the database checks', () => {
-    expect(issue({ kind: 'transfer', categoryId: null, pot: null, toAccountId: ACC })).toBe(
+    expect(issue({ kind: 'transfer', categoryId: null, budgetGroup: null, toAccountId: ACC })).toBe(
       'Escolha uma conta diferente da origem.',
     )
-    expect(issue({ kind: 'transfer', pot: null, toAccountId: ACC2 })).toBe(
+    expect(issue({ kind: 'transfer', budgetGroup: null, toAccountId: ACC2 })).toBe(
       'Transferência não tem categoria.',
     )
     expect(issue({ toAccountId: ACC2 })).toBe('Só transferências têm conta de destino.')
-    expect(issue({ kind: 'income' })).toBe('Só saídas vão para um pote.')
+    expect(issue({ kind: 'income' })).toBe('Só saídas vão para um grupo.')
     expect(issue({ recurrence: 'installments' })).toBe('Informe as parcelas.')
     expect(issue({ recurrence: 'none', endMonth: '2027-01' })).toBe(
       'Só repetições mensais ou anuais têm data final.',
@@ -64,25 +64,31 @@ describe('entryFieldsSchema', () => {
     expect(issue({ amountCents: -100_000_000_001 })).toBe('Valor alto demais.')
     expect(issue({ amountCents: 26000 })).toBeNull()
     expect(
-      issue({ kind: 'transfer', toAccountId: ACC2, categoryId: null, pot: null, amountCents: 100 }),
+      issue({
+        kind: 'transfer',
+        toAccountId: ACC2,
+        categoryId: null,
+        budgetGroup: null,
+        amountCents: 100,
+      }),
     ).toBe('Transferência sai da conta de origem (valor negativo).')
     expect(issue({ day: 32 })).toBe('Dia inválido.')
     expect(issue({ startMonth: '2026-13' })).toBe('Mês inválido.')
   })
 })
 
-describe('potTargetsSchema', () => {
-  const targets = Object.fromEntries(DEFAULT_POTS.map((p) => [p.key, p.targetBps]))
+describe('budgetGroupTargetsSchema', () => {
+  const targets = Object.fromEntries(DEFAULT_BUDGET_GROUPS.map((p) => [p.key, p.targetBps]))
 
   it('accepts targets summing to at most 100%', () => {
-    expect(potTargetsSchema.safeParse(targets).success).toBe(true)
+    expect(budgetGroupTargetsSchema.safeParse(targets).success).toBe(true)
   })
 
   it('refuses a sum above 100%', () => {
-    const result = potTargetsSchema.safeParse({ ...targets, comfort: 1800 })
+    const result = budgetGroupTargetsSchema.safeParse({ ...targets, comfort: 1800 })
     expect(result.success).toBe(false)
     if (!result.success)
-      expect(firstIssue(result.error)).toBe('A soma dos potes não pode passar de 100%.')
+      expect(firstIssue(result.error)).toBe('A soma dos grupos não pode passar de 100%.')
   })
 })
 
@@ -103,7 +109,7 @@ describe('entryFieldsSchema · repetition rule', () => {
     accountId: '00000000-0000-4000-8000-0000000000a1',
     toAccountId: null,
     categoryId: null,
-    pot: null,
+    budgetGroup: null,
     tags: [],
     startMonth: '2026-12',
     day: 10,
@@ -137,16 +143,16 @@ describe('entryFieldsSchema · repetition rule', () => {
 
 describe('categorizeEntriesSchema', () => {
   const id = '00000000-0000-4000-8000-000000000001'
-  it('needs a category or a pot, and at least one entry', () => {
-    expect(categorizeEntriesSchema.safeParse({ entryIds: [id], pot: 'essential' }).success).toBe(
-      true,
-    )
+  it('needs a category or a budget group, and at least one entry', () => {
+    expect(
+      categorizeEntriesSchema.safeParse({ entryIds: [id], budgetGroup: 'essential' }).success,
+    ).toBe(true)
     expect(categorizeEntriesSchema.safeParse({ entryIds: [id], categoryId: null }).success).toBe(
       true,
     )
     expect(categorizeEntriesSchema.safeParse({ entryIds: [id] }).success).toBe(false)
-    expect(categorizeEntriesSchema.safeParse({ entryIds: [], pot: 'essential' }).success).toBe(
-      false,
-    )
+    expect(
+      categorizeEntriesSchema.safeParse({ entryIds: [], budgetGroup: 'essential' }).success,
+    ).toBe(false)
   })
 })

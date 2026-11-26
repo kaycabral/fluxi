@@ -56,18 +56,20 @@ test.describe('dashboard and budget', () => {
     await expect(page).toHaveURL(/\/painel\/orcamento$/)
   })
 
-  test('creates a pot, a new budget version and walks the traffic light', async ({ page }) => {
+  test('creates a budget group, a new budget version and walks the traffic light', async ({
+    page,
+  }) => {
     await page.goto('/painel/orcamento')
     await expect(page.getByRole('heading', { level: 1, name: 'Orçamento' })).toBeVisible()
 
     // The first click may land before hydration: retry until the field opens.
-    const name = page.getByLabel('Nome do novo pote')
+    const name = page.getByLabel('Nome do novo grupo')
     await expect(async () => {
-      await page.getByRole('button', { name: 'Novo pote' }).click()
+      await page.getByRole('button', { name: 'Novo grupo' }).click()
       await expect(name).toBeVisible({ timeout: 1000 })
     }).toPass()
     await name.fill('Viagens E2E')
-    await page.getByLabel('Nome do novo pote').press('Enter')
+    await page.getByLabel('Nome do novo grupo').press('Enter')
     await expect(page.getByRole('slider', { name: 'Viagens E2E' })).toBeVisible()
 
     const next = addMonths(THIS_MONTH, 1)

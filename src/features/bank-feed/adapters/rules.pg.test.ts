@@ -297,7 +297,7 @@ describe('categorization rules (Postgres)', () => {
           minCents: 500,
           maxCents: 2000,
           categoryId: bakery,
-          pot: 'essential',
+          budgetGroup: 'essential',
           createdAt: new Date(Date.now() + 1000),
         },
       ])
@@ -311,14 +311,17 @@ describe('categorization rules (Postgres)', () => {
     expect(await materialize()).toMatchObject({ created: 4, categorized: 2 })
     const rows = await entriesOf(ana)
     const of = (d: string) => rows.find((e) => e.description === d)
-    expect(of('ATM VENEZA 01')).toMatchObject({ categoryId: bakery, pot: 'essential' })
-    expect(of('Atm Veneza 02')).toMatchObject({ categoryId: null, pot: null })
-    expect(of('Outra coisa')).toMatchObject({ categoryId: null, pot: null })
+    expect(of('ATM VENEZA 01')).toMatchObject({ categoryId: bakery, budgetGroup: 'essential' })
+    expect(of('Atm Veneza 02')).toMatchObject({ categoryId: null, budgetGroup: null })
+    expect(of('Outra coisa')).toMatchObject({ categoryId: null, budgetGroup: null })
 
     // Never overwrites the user.
     const c = of('ATM VENEZA 03')
     if (c === undefined) throw new Error('missing')
-    await db().update(entries).set({ categoryId: market, pot: null }).where(eq(entries.id, c.id))
+    await db()
+      .update(entries)
+      .set({ categoryId: market, budgetGroup: null })
+      .where(eq(entries.id, c.id))
     await feed(ana, checkingFeed, [
       tx('a', { description: 'ATM VENEZA 01', amountCents: -1200 }),
       tx('b', { description: 'Atm Veneza 02', amountCents: -35000 }),
@@ -328,10 +331,13 @@ describe('categorization rules (Postgres)', () => {
     ])
     expect(await materialize()).toMatchObject({ created: 1, categorized: 1 })
     const after = await entriesOf(ana)
-    expect(after.find((e) => e.id === c.id)).toMatchObject({ categoryId: market, pot: null })
+    expect(after.find((e) => e.id === c.id)).toMatchObject({
+      categoryId: market,
+      budgetGroup: null,
+    })
     expect(after.find((e) => e.description === 'ATM VENEZA 99')).toMatchObject({
       categoryId: bakery,
-      pot: 'essential',
+      budgetGroup: 'essential',
     })
   })
 

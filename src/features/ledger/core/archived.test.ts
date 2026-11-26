@@ -17,7 +17,7 @@ import { parseSearchQuery, searchOccurrences, searchTotals } from './search'
 const salary = makeEntry({
   id: 'salary',
   kind: 'income',
-  pot: null,
+  budgetGroup: null,
   amountCents: 500000,
   day: 5,
   startMonth: '2026-12',
@@ -27,14 +27,14 @@ const oldCard = makeEntry({
   id: 'old-card',
   amountCents: -30000,
   day: 8,
-  pot: 'comfort',
+  budgetGroup: 'comfort',
   accountId: 'old',
   startMonth: '2026-12',
 })
 const oldIncome = makeEntry({
   id: 'old-income',
   kind: 'income',
-  pot: null,
+  budgetGroup: null,
   amountCents: 70000,
   day: 3,
   accountId: 'old',
@@ -44,7 +44,7 @@ const oldIncome = makeEntry({
 const toOld = makeEntry({
   id: 'to-old',
   kind: 'transfer',
-  pot: null,
+  budgetGroup: null,
   amountCents: -40000,
   day: 6,
   toAccountId: 'old',
@@ -54,7 +54,7 @@ const toOld = makeEntry({
 const fromOld = makeEntry({
   id: 'from-old',
   kind: 'transfer',
-  pot: null,
+  budgetGroup: null,
   amountCents: -15000,
   day: 7,
   accountId: 'old',
@@ -95,11 +95,11 @@ describe('archived accounts', () => {
     expect(result.closingBalances).toEqual({ checking: 375000 })
   })
 
-  it('leave the month totals and the pots', () => {
+  it('leave the month totals and the budget groups', () => {
     const { totals } = december(true)
     expect(totals.incomeCents).toBe(500000)
     expect(totals.expenseCents).toBe(200000)
-    expect(totals.byPot).toEqual({ essential: 200000 })
+    expect(totals.byBudgetGroup).toEqual({ essential: 200000 })
     const [month] = budgetMonths([december(true)], [])
     expect(month?.incomeCents).toBe(500000)
   })

@@ -170,7 +170,7 @@ describe('new entry', () => {
     })
   })
 
-  it('creates a monthly expense with tags and a category-suggested pot', async () => {
+  it('creates a monthly expense with tags and a category-suggested budget group', async () => {
     renderShell()
     await userEvent.click(screen.getByRole('button', { name: 'abrir mês' }))
     const sheet = await screen.findByRole('dialog', { name: 'Nova transação' })
@@ -179,7 +179,7 @@ describe('new entry', () => {
     await userEvent.type(within(sheet).getByLabelText('Valor'), '1.234,50')
     await userEvent.type(within(sheet).getByLabelText('Descrição'), 'Academia')
     await chooseOption('Categoria', 'Academia')
-    expect(within(sheet).getByLabelText('Pote')).toHaveTextContent('Conforto')
+    expect(within(sheet).getByLabelText('Grupo')).toHaveTextContent('Conforto')
     // Custom repetition, like Google Calendar's: every 2 months on the 3rd Monday, 3 times.
     await chooseOption('Repetição', 'Personalizar…')
     const custom = await screen.findByRole('dialog', { name: 'Recorrência personalizada' })
@@ -232,7 +232,7 @@ describe('new entry', () => {
         amountCents: -123450,
         accountId: IDS.cc,
         categoryId: IDS.gymCat,
-        pot: 'comfort',
+        budgetGroup: 'comfort',
         tags: ['saúde'],
         startMonth: '2027-02',
         day: 15,
@@ -254,7 +254,7 @@ describe('new entry', () => {
     expect(within(sheet).getByRole('alert')).toHaveTextContent('Informe o valor.')
 
     await userEvent.click(within(sheet).getByRole('button', { name: 'Entrada' }))
-    expect(within(sheet).queryByLabelText('Pote')).not.toBeInTheDocument()
+    expect(within(sheet).queryByLabelText('Grupo')).not.toBeInTheDocument()
     await userEvent.type(within(sheet).getByLabelText('Valor'), '50')
     await userEvent.type(within(sheet).getByLabelText('Descrição'), 'Bônus')
     await userEvent.click(within(sheet).getByRole('button', { name: 'Salvar' }))

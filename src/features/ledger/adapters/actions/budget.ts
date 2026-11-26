@@ -1,11 +1,11 @@
 'use server'
 
 import {
-  createPot,
-  deleteBudgetPlan,
-  removePot,
-  saveBudgetPlan,
-  updatePot,
+  createBudgetGroup,
+  deleteBudgetVersion,
+  removeBudgetGroup,
+  saveBudgetVersion,
+  updateBudgetGroup,
 } from '@/features/ledger/adapters/budget.write'
 import type { WriteResult } from '@/features/ledger/adapters/write-base'
 import {
@@ -14,12 +14,12 @@ import {
   type ActionResult,
 } from '@/features/ledger/core/action-result'
 import {
-  budgetPlanSchema,
-  createPotSchema,
+  budgetGroupKeySchema,
+  budgetVersionSchema,
+  createBudgetGroupSchema,
   firstIssue,
   idSchema,
-  potKeySchema,
-  updatePotSchema,
+  updateBudgetGroupSchema,
 } from '@/features/ledger/core/schemas'
 import { getServerScope } from '@/features/spaces/adapters/scope'
 import type { Scope } from '@/features/spaces/core/space'
@@ -27,7 +27,7 @@ import { revalidatePath } from 'next/cache'
 import type { z } from 'zod'
 
 /**
- * Budget actions called from the "Potes da renda" card: inline pot CRUD and
+ * Budget actions called from the "Grupos do orçamento" card: inline budget group CRUD and
  * the budget versions. Inputs are re-validated here; `scope` always comes
  * from the session.
  */
@@ -50,34 +50,38 @@ async function run<T extends z.ZodType>(
   return write(scope, parsed.data)
 }
 
-export async function createPotAction(input: unknown): Promise<ActionResult> {
-  return run(createPotSchema, input, async (scope, data) => done(await createPot(scope, data)))
+export async function createBudgetGroupAction(input: unknown): Promise<ActionResult> {
+  return run(createBudgetGroupSchema, input, async (scope, data) =>
+    done(await createBudgetGroup(scope, data)),
+  )
 }
 
-export async function updatePotAction(input: unknown): Promise<ActionResult> {
-  return run(updatePotSchema, input, async (scope, data) => done(await updatePot(scope, data)))
+export async function updateBudgetGroupAction(input: unknown): Promise<ActionResult> {
+  return run(updateBudgetGroupSchema, input, async (scope, data) =>
+    done(await updateBudgetGroup(scope, data)),
+  )
 }
 
-/** `archived: true` when the pot had history and was archived instead of deleted. */
-export async function removePotAction(
+/** `archived: true` when the budget group had history and was archived instead of deleted. */
+export async function removeBudgetGroupAction(
   input: unknown,
 ): Promise<ActionResult & { archived?: boolean }> {
   const scope = await getServerScope()
   if (!scope) return { ok: false, error: SESSION_EXPIRED }
-  const parsed = potKeySchema.safeParse(input)
+  const parsed = budgetGroupKeySchema.safeParse(input)
   if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) }
-  const result = await removePot(scope, parsed.data)
+  const result = await removeBudgetGroup(scope, parsed.data)
   if (!result.ok) return failureResult(result.reason)
   revalidatePath('/painel', 'layout')
   return { ok: true, archived: result.outcome === 'archived' }
 }
 
-export async function saveBudgetPlanAction(input: unknown): Promise<ActionResult> {
-  return run(budgetPlanSchema, input, async (scope, data) =>
-    done(await saveBudgetPlan(scope, data)),
+export async function saveBudgetVersionAction(input: unknown): Promise<ActionResult> {
+  return run(budgetVersionSchema, input, async (scope, data) =>
+    done(await saveBudgetVersion(scope, data)),
   )
 }
 
-export async function deleteBudgetPlanAction(input: unknown): Promise<ActionResult> {
-  return run(idSchema, input, async (scope, id) => done(await deleteBudgetPlan(scope, id)))
+export async function deleteBudgetVersionAction(input: unknown): Promise<ActionResult> {
+  return run(idSchema, input, async (scope, id) => done(await deleteBudgetVersion(scope, id)))
 }

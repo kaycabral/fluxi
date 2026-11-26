@@ -1,6 +1,16 @@
 import { bucketOfType } from '@/features/ledger/core/bucket'
-import type { AccountType, Entry, EntryOverride, PotKey } from '@/features/ledger/core/types'
-import { categoryKeyOf, planCategories, potOfEntry, type PlannedCategory } from './categories'
+import type {
+  AccountType,
+  BudgetGroupKey,
+  Entry,
+  EntryOverride,
+} from '@/features/ledger/core/types'
+import {
+  budgetGroupOfEntry,
+  categoryKeyOf,
+  planCategories,
+  type PlannedCategory,
+} from './categories'
 import { groupIntoEntries, type PlannedEntry } from './grouping'
 import { toItems } from './items'
 import { dropBenefitMirrors } from './mirrors'
@@ -34,7 +44,7 @@ export type PlannedAccount = {
 }
 
 export type PlannedLedgerEntry = PlannedEntry & {
-  pot: PotKey | null
+  budgetGroup: BudgetGroupKey | null
   categoryKey: string | null
 }
 
@@ -167,7 +177,11 @@ export function buildImportPlan(
     banks,
     accounts,
     categories: planCategories(entries),
-    entries: entries.map((e) => ({ ...e, pot: potOfEntry(e), categoryKey: categoryKeyOf(e) })),
+    entries: entries.map((e) => ({
+      ...e,
+      budgetGroup: budgetGroupOfEntry(e),
+      categoryKey: categoryKeyOf(e),
+    })),
     payments: entries.flatMap(paymentsOf),
     links: entries.flatMap(linksOf),
     originals: records.map((r) => ({
@@ -201,7 +215,7 @@ export function planAsLedger(plan: ImportPlan): { entries: Entry[]; overrides: E
       accountId: e.accountId,
       toAccountId: e.toAccountId,
       categoryId: e.categoryKey,
-      pot: e.pot,
+      budgetGroup: e.budgetGroup,
       tags: e.tags,
       startMonth: e.startMonth,
       day: e.day,

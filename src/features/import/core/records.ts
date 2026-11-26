@@ -35,7 +35,7 @@ export type TxRecord = {
   /** Category group with its emoji prefix stripped (e.g. "Mercado"). */
   group: string | null
   subCategory: string | null
-  /** Raw Notion Type (e.g. "Guilt Free"); see {@link potOfType}. */
+  /** Raw Notion Type (e.g. "Guilt Free"); see {@link budgetGroupOfType}. */
   type: string | null
   tags: readonly string[]
   /** When it was actually paid/received (Notion `Date`), `YYYY-MM-DD`. */

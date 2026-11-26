@@ -11,9 +11,9 @@ export type MonthTotals = {
   expenseCents: number
   /** Income minus expenses; transfers only move money between accounts. */
   netCents: number
-  /** Expense entries per pot key (transfers never consume a pot). */
-  byPot: Record<string, number>
-  /** Expense entries without a pot. */
+  /** Expense entries per budget group key (transfers never consume a budget group). */
+  byBudgetGroup: Record<string, number>
+  /** Expense entries without a budget group. */
   unallocatedCents: number
 }
 
@@ -126,14 +126,14 @@ export function effectOn(landing: Landing, accountId: string): number {
 /**
  * Totals in magnitudes: income is the signed sum of income amounts (reversals
  * reduce it), expenses the negated sum of expense amounts (refunds reduce it
- * and may take a pot below zero; consumers clamp only when displaying).
+ * and may take a budget group below zero; consumers clamp only when displaying).
  */
 function totalsOf(landings: readonly Landing[]): MonthTotals {
   const totals: MonthTotals = {
     incomeCents: 0,
     expenseCents: 0,
     netCents: 0,
-    byPot: {},
+    byBudgetGroup: {},
     unallocatedCents: 0,
   }
   for (const { entry, amountCents } of landings) {
@@ -141,8 +141,10 @@ function totalsOf(landings: readonly Landing[]): MonthTotals {
     else if (entry.kind === 'expense') {
       const spent = -amountCents
       totals.expenseCents += spent
-      if (entry.pot === null) totals.unallocatedCents += spent
-      else totals.byPot[entry.pot] = (totals.byPot[entry.pot] ?? 0) + spent
+      if (entry.budgetGroup === null) totals.unallocatedCents += spent
+      else
+        totals.byBudgetGroup[entry.budgetGroup] =
+          (totals.byBudgetGroup[entry.budgetGroup] ?? 0) + spent
     }
   }
   totals.netCents = totals.incomeCents - totals.expenseCents

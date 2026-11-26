@@ -170,7 +170,7 @@ describe('landingsIn', () => {
   it('splits parts, carrying a next-month part into the following month', () => {
     const entry = makeEntry({
       kind: 'income',
-      pot: null,
+      budgetGroup: null,
       amountCents: 1140000,
       startMonth: '2026-12',
       endMonth: '2027-04',
@@ -210,7 +210,12 @@ describe('landingsIn', () => {
   })
 
   it('uses the competence month override for every part and skips all parts of a skipped occurrence', () => {
-    const entry = makeEntry({ kind: 'income', pot: null, amountCents: 1000, startMonth: '2026-12' })
+    const entry = makeEntry({
+      kind: 'income',
+      budgetGroup: null,
+      amountCents: 1000,
+      startMonth: '2026-12',
+    })
     const parts = salarySplit('e1')
     const overrides = [
       makeOverride({ month: '2026-12', amountCents: 2000 }),
@@ -248,7 +253,12 @@ describe('skippedLandingsIn', () => {
   })
 
   it('lands every part of a skipped split occurrence', () => {
-    const entry = makeEntry({ kind: 'income', pot: null, amountCents: 1000, startMonth: '2026-12' })
+    const entry = makeEntry({
+      kind: 'income',
+      budgetGroup: null,
+      amountCents: 1000,
+      startMonth: '2026-12',
+    })
     const overrides = [makeOverride({ month: '2027-01', skipped: true })]
     const february = skippedLandingsIn(entry, salarySplit('e1'), overrides, '2027-02')
     expect(february.map((l) => [l.part?.label, l.competence])).toEqual([['Saldo', '2027-01']])

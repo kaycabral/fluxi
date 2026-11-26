@@ -1,9 +1,9 @@
 'use client'
 
-import { saveBudgetPlanAction } from '@/features/ledger/adapters/actions/budget'
+import { saveBudgetVersionAction } from '@/features/ledger/adapters/actions/budget'
 import type { Targets } from '@/features/ledger/core/budget'
 import { addMonths, monthRange, type Month } from '@/features/ledger/core/month'
-import type { BudgetPlan } from '@/features/ledger/core/types'
+import type { BudgetVersion } from '@/features/ledger/core/types'
 import {
   Button,
   Dialog,
@@ -20,12 +20,12 @@ import { MonthSelect } from '../selects'
 import { useAction } from './shared'
 
 /** Dialog that picks the start month of a new version (or moves the current one). */
-export function PlanStartDialog({
+export function VersionStartDialog({
   open,
   onOpenChange,
   mode,
-  plan,
-  plans,
+  version,
+  versions,
   today,
   targets,
   onSaved,
@@ -33,19 +33,19 @@ export function PlanStartDialog({
   open: boolean
   onOpenChange: (open: boolean) => void
   mode: 'create' | 'move'
-  plan: BudgetPlan
-  plans: readonly BudgetPlan[]
+  version: BudgetVersion
+  versions: readonly BudgetVersion[]
   today: Month
   targets: Targets
   onSaved: (startsMonth: Month) => void
 }) {
   const taken = new Set(
-    plans.filter((p) => p.id !== plan.id || mode === 'create').map((p) => p.startsMonth),
+    versions.filter((p) => p.id !== version.id || mode === 'create').map((p) => p.startsMonth),
   )
   const options = monthRange(addMonths(today, -36), addMonths(today, 24)).filter(
     (m) => !taken.has(m),
   )
-  const fallback = mode === 'create' ? addMonths(today, 1) : plan.startsMonth
+  const fallback = mode === 'create' ? addMonths(today, 1) : version.startsMonth
   const [month, setMonth] = useState<Month>(
     options.includes(fallback) ? fallback : (options.at(-1) ?? fallback),
   )
@@ -53,8 +53,8 @@ export function PlanStartDialog({
   const save = () =>
     run(
       () =>
-        saveBudgetPlanAction({
-          id: mode === 'create' ? null : plan.id,
+        saveBudgetVersionAction({
+          id: mode === 'create' ? null : version.id,
           startsMonth: month,
           targets,
         }),
@@ -78,8 +78,8 @@ export function PlanStartDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-1.5">
-          <Label htmlFor="plan-start">Vale a partir de</Label>
-          <MonthSelect id="plan-start" months={options} value={month} onValueChange={setMonth} />
+          <Label htmlFor="version-start">Vale a partir de</Label>
+          <MonthSelect id="version-start" months={options} value={month} onValueChange={setMonth} />
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>

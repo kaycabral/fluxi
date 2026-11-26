@@ -4,7 +4,7 @@ import {
   addTag,
   amountLabel,
   DEFAULT_PARTS,
-  defaultPotOf,
+  defaultBudgetGroupOf,
   deleteMonthOf,
   describeOccurrenceChange,
   editEntryValues,
@@ -35,19 +35,28 @@ function values(overrides: Partial<EntryFormValues> = {}): EntryFormValues {
     amount: '260',
     description: 'Luz',
     categoryId: CAT,
-    pot: 'essential',
+    budgetGroup: 'essential',
     ...overrides,
   }
 }
 
 describe('newEntryValues', () => {
-  it('starts as an expense in the default pot', () => {
-    const v = newEntryValues({ date: '2026-12-10', accountId: ACC, defaultPot: 'variable' })
-    expect(v).toMatchObject({ kind: 'expense', pot: 'variable', recurrence: 'none', parts: [] })
-    expect(newEntryValues({ date: '2026-12-10', accountId: ACC }).pot).toBe('')
+  it('starts as an expense in the default budget group', () => {
+    const v = newEntryValues({ date: '2026-12-10', accountId: ACC, defaultBudgetGroup: 'variable' })
+    expect(v).toMatchObject({
+      kind: 'expense',
+      budgetGroup: 'variable',
+      recurrence: 'none',
+      parts: [],
+    })
+    expect(newEntryValues({ date: '2026-12-10', accountId: ACC }).budgetGroup).toBe('')
     expect(
-      newEntryValues({ date: '2026-12-10', accountId: ACC, kind: 'income', defaultPot: 'variable' })
-        .pot,
+      newEntryValues({
+        date: '2026-12-10',
+        accountId: ACC,
+        kind: 'income',
+        defaultBudgetGroup: 'variable',
+      }).budgetGroup,
     ).toBe('')
   })
 })
@@ -86,12 +95,20 @@ describe('signed amounts', () => {
   })
 })
 
-describe('defaultPotOf', () => {
-  const pot = (key: string, sort: number, archived = false) => ({ key, sort, archived })
-  it('prefers "Variável" while active, else the first active pot, else none', () => {
-    expect(defaultPotOf([pot('essential', 0), pot('variable', 4)])).toBe('variable')
-    expect(defaultPotOf([pot('b', 2), pot('a', 1), pot('variable', 0, true)])).toBe('a')
-    expect(defaultPotOf([pot('variable', 0, true)])).toBe('')
+describe('defaultBudgetGroupOf', () => {
+  const budgetGroup = (key: string, sort: number, archived = false) => ({ key, sort, archived })
+  it('prefers "Variável" while active, else the first active budget group, else none', () => {
+    expect(defaultBudgetGroupOf([budgetGroup('essential', 0), budgetGroup('variable', 4)])).toBe(
+      'variable',
+    )
+    expect(
+      defaultBudgetGroupOf([
+        budgetGroup('b', 2),
+        budgetGroup('a', 1),
+        budgetGroup('variable', 0, true),
+      ]),
+    ).toBe('a')
+    expect(defaultBudgetGroupOf([budgetGroup('variable', 0, true)])).toBe('')
   })
 })
 
@@ -109,7 +126,7 @@ describe('valuesToFields', () => {
         accountId: ACC,
         toAccountId: null,
         categoryId: CAT,
-        pot: 'essential',
+        budgetGroup: 'essential',
         tags: ['casa'],
         startMonth: '2026-12',
         day: 10,
@@ -128,14 +145,14 @@ describe('valuesToFields', () => {
       values({ kind: 'income', endMonth: '2027-01', toAccountId: ACC2 }),
     )
     expect(income.ok && income.fields).toMatchObject({
-      pot: null,
+      budgetGroup: null,
       endMonth: null,
       toAccountId: null,
     })
     const transfer = valuesToFields(values({ kind: 'transfer', toAccountId: ACC2 }))
     expect(transfer.ok && transfer.fields).toMatchObject({
       categoryId: null,
-      pot: null,
+      budgetGroup: null,
       toAccountId: ACC2,
     })
     const installments = valuesToFields(values({ recurrence: 'installments', installments: '12' }))
@@ -233,7 +250,7 @@ describe('editing', () => {
     const salary = makeEntry({
       id: 's',
       kind: 'income',
-      pot: null,
+      budgetGroup: null,
       recurrence: 'installments',
       installments: 3,
     })

@@ -41,20 +41,20 @@ describe('SelectionBar', () => {
       <SelectionBar
         entryIds={[]}
         categories={data.categories}
-        pots={data.pots}
+        budgetGroups={data.budgetGroups}
         onClear={vi.fn()}
       />,
     )
     expect(container).toBeEmptyDOMElement()
   })
 
-  it('sets the category or the pot of every selected entry', async () => {
+  it('sets the category or the budget group of every selected entry', async () => {
     const onClear = vi.fn()
     render(
       <SelectionBar
         entryIds={[IDS.once, IDS.power]}
         categories={data.categories}
-        pots={data.pots}
+        budgetGroups={data.budgetGroups}
         onClear={onClear}
       />,
     )
@@ -66,10 +66,13 @@ describe('SelectionBar', () => {
     })
     expect(await screen.findByText('Categoria aplicado a 2.')).toBeInTheDocument()
 
-    categorize.mockResolvedValue({ ok: false, error: 'Pote inválido.' })
-    await choose('Pote da seleção', 'Conforto')
-    expect(categorize).toHaveBeenLastCalledWith({ entryIds: [IDS.once, IDS.power], pot: 'comfort' })
-    expect(await screen.findByRole('alert')).toHaveTextContent('Pote inválido.')
+    categorize.mockResolvedValue({ ok: false, error: 'Grupo inválido.' })
+    await choose('Grupo da seleção', 'Conforto')
+    expect(categorize).toHaveBeenLastCalledWith({
+      entryIds: [IDS.once, IDS.power],
+      budgetGroup: 'comfort',
+    })
+    expect(await screen.findByRole('alert')).toHaveTextContent('Grupo inválido.')
 
     await userEvent.click(screen.getByRole('button', { name: /Limpar seleção/ }))
     expect(onClear).toHaveBeenCalled()

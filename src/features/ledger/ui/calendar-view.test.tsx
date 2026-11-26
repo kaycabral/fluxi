@@ -207,7 +207,7 @@ describe('CalendarView · event popup', () => {
     expect(details).toHaveTextContent('terça-feira, 15 de dezembro · Todo mês')
     expect(details).toHaveTextContent('-R$ 260,00')
     expect(details).toHaveTextContent('BTG · Conta')
-    expect(details).toHaveTextContent('Energia elétrica · pote Essencial')
+    expect(details).toHaveTextContent('Energia elétrica · grupo Essencial')
     expect(details).toHaveTextContent('A pagar')
     expect(details).toHaveTextContent('#casa')
     await userEvent.click(within(details).getByRole('button', { name: 'Editar transação' }))
@@ -372,7 +372,7 @@ describe('CalendarView · quick add', () => {
         startMonth: '2026-12',
         day: 10,
         recurrence: 'monthly',
-        pot: 'variable',
+        budgetGroup: 'variable',
       },
     })
     await waitFor(() =>

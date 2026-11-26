@@ -1,16 +1,16 @@
 import 'server-only'
 
 import type { Month } from '@/features/ledger/core/month'
-import type { BudgetPlan } from '@/features/ledger/core/types'
+import type { BudgetVersion } from '@/features/ledger/core/types'
 import type { LedgerData, LedgerRefs } from '@/features/ledger/core/view'
 import { readBackend, type BackendRead } from '@/lib/backend-read'
 import {
   EPOCH,
   listAccounts,
   listBanks,
-  listBudgetPlans,
+  listBudgetGroups,
+  listBudgetVersions,
   listCategories,
-  listPots,
   listTags,
   loadLedger,
   type MonthWindow,
@@ -26,14 +26,14 @@ import { type Scope } from './scope-filter'
 
 export function loadRefs(scope: Scope, today: string): Promise<BackendRead<LedgerRefs>> {
   return readBackend('ledger refs', async () => {
-    const [banks, accounts, categories, pots, tags] = await Promise.all([
+    const [banks, accounts, categories, budgetGroups, tags] = await Promise.all([
       listBanks(scope),
       listAccounts(scope),
       listCategories(scope),
-      listPots(scope),
+      listBudgetGroups(scope),
       listTags(scope),
     ])
-    return { banks, accounts, categories, pots, tags, today }
+    return { banks, accounts, categories, budgetGroups, tags, today }
   })
 }
 
@@ -58,8 +58,8 @@ export function loadLedgerData(
 }
 
 /** Budget versions of the user, oldest first. */
-export function loadBudgetPlans(scope: Scope): Promise<BackendRead<BudgetPlan[]>> {
-  return readBackend('budget plans', () => listBudgetPlans(scope))
+export function loadBudgetVersions(scope: Scope): Promise<BackendRead<BudgetVersion[]>> {
+  return readBackend('budget versions', () => listBudgetVersions(scope))
 }
 
 export type AccountsData = {

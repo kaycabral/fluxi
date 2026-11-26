@@ -55,7 +55,7 @@ describe('verifyLedger', () => {
       id: 't',
       kind: 'transfer',
       toAccountId: 'savings',
-      pot: null,
+      budgetGroup: null,
       recurrence: 'none',
       startMonth: '2026-01',
     })
@@ -63,7 +63,7 @@ describe('verifyLedger', () => {
       id: 'i',
       kind: 'income',
       amountCents: 26000,
-      pot: null,
+      budgetGroup: null,
       recurrence: 'none',
       startMonth: '2026-01',
     })

@@ -41,7 +41,7 @@ export async function findSimilarAction(input: unknown): Promise<Read<SimilarRes
     : { ok: true, data: found }
 }
 
-/** Category and/or pot on several entries (optionally recording a rule). */
+/** Category and/or budget group on several entries (optionally recording a rule). */
 export async function categorizeEntriesAction(input: unknown): Promise<ActionResult> {
   const scope = await getServerScope()
   if (!scope) return { ok: false, error: SESSION_EXPIRED }

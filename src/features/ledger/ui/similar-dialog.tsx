@@ -23,13 +23,13 @@ import { useState, useTransition } from 'react'
 export type SimilarOffer = SimilarResult & {
   /** What the user just saved on the reference entry. */
   categoryId: string | null
-  pot: string | null
+  budgetGroup: string | null
 }
 
 const dayLabel = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(2, 4)}`
 
 /**
- * "Aplicar a outras N transações parecidas?": after a category/pot change,
+ * "Aplicar a outras N transações parecidas?": after a category/budget group change,
  * the bank entries with the same normalized description, each with a
  * checkbox. Preselected only when the amount is close (½× to 2×) and nothing
  * is classified yet; an entry already classified shows what it has and only
@@ -42,7 +42,7 @@ export function SimilarDialog({
   onDone,
 }: {
   offer: SimilarOffer
-  refs: Pick<LedgerRefs, 'accounts' | 'banks' | 'categories' | 'pots'>
+  refs: Pick<LedgerRefs, 'accounts' | 'banks' | 'categories' | 'budgetGroups'>
   onDone: (applied: number) => void
 }) {
   const [checked, setChecked] = useState(
@@ -66,10 +66,10 @@ export function SimilarDialog({
       return next
     })
 
-  const current = (categoryId: string | null, pot: string | null) =>
+  const current = (categoryId: string | null, budgetGroup: string | null) =>
     [
       refs.categories.find((c) => c.id === categoryId)?.name,
-      refs.pots.find((p) => p.key === pot)?.name,
+      refs.budgetGroups.find((p) => p.key === budgetGroup)?.name,
     ]
       .filter(Boolean)
       .join(' · ')
@@ -79,7 +79,7 @@ export function SimilarDialog({
       const result = await categorizeEntriesAction({
         entryIds: [offer.reference.id, ...checked],
         categoryId: offer.categoryId,
-        pot: offer.pot,
+        budgetGroup: offer.budgetGroup,
         ...(rule ? { ruleFromEntryId: offer.reference.id } : {}),
       })
       if (!result.ok) {
@@ -111,7 +111,7 @@ export function SimilarDialog({
         <ScrollArea className="max-h-72">
           <ul className="grid gap-1 pr-3" aria-label="Transações parecidas">
             {offer.candidates.map((c) => {
-              const now = current(c.categoryId, c.pot)
+              const now = current(c.categoryId, c.budgetGroup)
               return (
                 <li key={c.id}>
                   <Label

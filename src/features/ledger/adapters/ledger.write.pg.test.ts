@@ -59,7 +59,7 @@ function expense(accountId: string, patch: Partial<EntryFields> = {}): EntryFiel
     accountId,
     toAccountId: null,
     categoryId: null,
-    pot: 'essential',
+    budgetGroup: 'essential',
     tags: ['casa'],
     startMonth: '2026-12',
     day: 10,
@@ -116,7 +116,7 @@ describe('createEntry', () => {
     const id = randomUUID()
     const fields = expense(ana.accountId, {
       kind: 'income',
-      pot: null,
+      budgetGroup: null,
       description: 'Salário',
       parts: [
         { label: 'Adiantamento', bps: 4000, day: 20, nextMonth: false },
@@ -306,7 +306,7 @@ describe('updateEntry', () => {
       expense(ana.accountId, { amountCents: -250000, startMonth: '2027-02' }),
       { month: '2027-02', scope: 'one' },
     )
-    const income = { kind: 'income' as const, pot: null, startMonth: '2027-01' }
+    const income = { kind: 'income' as const, budgetGroup: null, startMonth: '2027-01' }
     await updateEntry(anaScope, id, expense(ana.accountId, { ...income, amountCents: 200000 }), {
       month: '2027-01',
       scope: null,
@@ -320,7 +320,7 @@ describe('updateEntry', () => {
       id,
       expense(ana.accountId, {
         kind: 'transfer',
-        pot: null,
+        budgetGroup: null,
         toAccountId: ana.otherAccountId,
         amountCents: -200000,
       }),

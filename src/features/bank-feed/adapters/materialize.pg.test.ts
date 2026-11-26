@@ -169,7 +169,7 @@ describe('materialize_bank_feed (Postgres)', () => {
       ['Banco t1', 'expense', -5000, '2026-11-01', 3, 'none'],
       ['Banco t2', 'income', 250000, '2026-11-01', 5, 'none'],
     ])
-    expect(rows.every((e) => e.categoryId === null && e.pot === null)).toBe(true)
+    expect(rows.every((e) => e.categoryId === null && e.budgetGroup === null)).toBe(true)
     const paid = await db().select().from(occurrencePayments)
     expect(paid.map((p) => p.paidOn).sort()).toEqual(['2026-11-03', '2026-11-05'])
     // The Pluggy category stays on the bank transaction for later categorization.
@@ -199,7 +199,7 @@ describe('materialize_bank_feed (Postgres)', () => {
     const [entry] = await entriesOf(ana)
     await db()
       .update(entries)
-      .set({ description: 'Farmácia', pot: 'essential' })
+      .set({ description: 'Farmácia', budgetGroup: 'essential' })
       .where(eq(entries.id, entry!.id))
 
     await feed(ana, checkingFeed, [tx('t1', { date: '2026-12-02', amountCents: -6100 })])
@@ -208,7 +208,7 @@ describe('materialize_bank_feed (Postgres)', () => {
     expect(after).toMatchObject({
       id: entry!.id,
       description: 'Farmácia',
-      pot: 'essential',
+      budgetGroup: 'essential',
       amountCents: -6100,
       startMonth: '2026-12-01',
       day: 2,
@@ -230,7 +230,7 @@ describe('materialize_bank_feed (Postgres)', () => {
       accountId: checkingId,
       toAccountId: null,
       categoryId: null,
-      pot: null,
+      budgetGroup: null,
       tags: [],
       startMonth: '2026-11',
       day: 3,
@@ -266,14 +266,14 @@ describe('materialize_bank_feed (Postgres)', () => {
     const edited = await updateEntry(
       ana,
       id,
-      { ...fields, description: 'Farmácia', pot: 'essential', tags: ['saúde'] },
+      { ...fields, description: 'Farmácia', budgetGroup: 'essential', tags: ['saúde'] },
       null,
     )
     expect(edited.ok).toBe(true)
     const [after] = await entriesOf(ana)
     expect(after).toMatchObject({
       description: 'Farmácia',
-      pot: 'essential',
+      budgetGroup: 'essential',
       tags: ['saúde'],
       amountCents: -5000,
       day: 3,

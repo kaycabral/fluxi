@@ -33,11 +33,11 @@ describe('buildImportPlan', () => {
     })
   })
 
-  it('builds entries with pots for expenses only, categories and overrides', () => {
+  it('builds entries with budget groups for expenses only, categories and overrides', () => {
     const rentEntry = plan.entries.find((e) => e.description === 'Aluguel')
     expect(rentEntry).toMatchObject({
       kind: 'expense',
-      pot: 'essential',
+      budgetGroup: 'essential',
       recurrence: 'monthly',
       amountCents: -150000,
       day: 5,
@@ -50,7 +50,7 @@ describe('buildImportPlan', () => {
       { month: '2025-04', amountCents: null, day: 8, skipped: false },
     ])
     const salary = plan.entries.find((e) => e.description === 'Salário')
-    expect(salary).toMatchObject({ kind: 'income', pot: null })
+    expect(salary).toMatchObject({ kind: 'income', budgetGroup: null })
     const refund = plan.entries.find((e) => e.description === 'Estorno')
     expect(refund).toMatchObject({ kind: 'income', amountCents: 4000, categoryKey: null })
     const reserve = plan.entries.find((e) => e.description === 'Reserva')
@@ -58,12 +58,12 @@ describe('buildImportPlan', () => {
       kind: 'transfer',
       accountId: 'acc-1',
       toAccountId: 'acc-2',
-      pot: null,
+      budgetGroup: null,
       categoryKey: null,
     })
     // Signed from the source account: a transfer always leaves it.
     expect(reserve?.amountCents).toBeLessThan(0)
-    expect(plan.categories.map((c) => [c.groupName, c.name, c.defaultPot])).toEqual([
+    expect(plan.categories.map((c) => [c.groupName, c.name, c.defaultBudgetGroup])).toEqual([
       ['Moradia', 'Pagamento de aluguel', 'essential'],
       ['Transporte', 'IPVA e licenciamento', 'essential'],
       ['Renda', 'Salário', null],

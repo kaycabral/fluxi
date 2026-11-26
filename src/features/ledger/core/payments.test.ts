@@ -18,7 +18,7 @@ const rent = makeEntry({ id: 'rent', description: 'Aluguel', day: 10, amountCent
 const salary = makeEntry({
   id: 'salary',
   kind: 'income',
-  pot: null,
+  budgetGroup: null,
   description: 'Salário',
   amountCents: 1000000,
 })
@@ -71,11 +71,11 @@ describe('groupPayables', () => {
   const bills = [
     makeEntry({ id: 'late', day: 3, amountCents: -1000 }),
     makeEntry({ id: 'today', day: 24, amountCents: -2000 }),
-    makeEntry({ id: 'soon', kind: 'income', pot: null, day: 30, amountCents: 5000 }),
+    makeEntry({ id: 'soon', kind: 'income', budgetGroup: null, day: 30, amountCents: 5000 }),
     makeEntry({
       id: 'move',
       kind: 'transfer',
-      pot: null,
+      budgetGroup: null,
       toAccountId: 'savings',
       day: 28,
       amountCents: -700,

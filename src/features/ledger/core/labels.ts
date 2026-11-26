@@ -1,9 +1,17 @@
-import type { AccountType, EntryKind, Pot, PotColor, PotGoal, PotKey, Recurrence } from './types'
+import type {
+  AccountType,
+  BudgetGroup,
+  BudgetGroupColor,
+  BudgetGroupGoal,
+  BudgetGroupKey,
+  EntryKind,
+  Recurrence,
+} from './types'
 
 /** pt-BR names shown in the UI for the ledger's enums. */
 
-/** pt-BR name of each pot color (color picker). */
-export const POT_COLOR_LABELS: Record<PotColor, string> = {
+/** pt-BR name of each budget group color (color picker). */
+export const GROUP_COLOR_LABELS: Record<BudgetGroupColor, string> = {
   violet: 'Violeta',
   orange: 'Laranja',
   pink: 'Rosa',
@@ -20,8 +28,8 @@ export const POT_COLOR_LABELS: Record<PotColor, string> = {
   slate: 'Cinza',
 }
 
-/** Background class per pot color (bars, dots). Literal strings so Tailwind sees them. */
-export const POT_DOT_CLASSES: Record<PotColor, string> = {
+/** Background class per budget group color (bars, dots). Literal strings so Tailwind sees them. */
+export const GROUP_DOT_CLASSES: Record<BudgetGroupColor, string> = {
   violet: 'bg-violet-500 dark:bg-violet-400',
   orange: 'bg-orange-500 dark:bg-orange-400',
   pink: 'bg-pink-500 dark:bg-pink-400',
@@ -39,10 +47,10 @@ export const POT_DOT_CLASSES: Record<PotColor, string> = {
 }
 
 /**
- * Row tint per pot color (like a colored row in Notion): the color at low
+ * Row tint per budget group color (like a colored row in Notion): the color at low
  * opacity, so the text stays readable in both themes.
  */
-export const POT_TINT_CLASSES: Record<PotColor, string> = {
+export const GROUP_TINT_CLASSES: Record<BudgetGroupColor, string> = {
   violet: 'bg-violet-500/10 dark:bg-violet-400/15',
   orange: 'bg-orange-500/10 dark:bg-orange-400/15',
   pink: 'bg-pink-500/10 dark:bg-pink-400/15',
@@ -59,31 +67,43 @@ export const POT_TINT_CLASSES: Record<PotColor, string> = {
   slate: 'bg-slate-500/10 dark:bg-slate-400/15',
 }
 
-export const POT_GOAL_LABELS: Record<PotGoal, string> = {
+export const GROUP_GOAL_LABELS: Record<BudgetGroupGoal, string> = {
   limit: 'Limite de gasto',
   minimum: 'Meta mínima',
 }
 
-/** The pot behind a key (archived ones included), if the user has it. */
-export function potOf(key: PotKey | null, pots: readonly Pot[]): Pot | undefined {
-  return key === null ? undefined : pots.find((p) => p.key === key)
+/** The budget group behind a key (archived ones included), if the user has it. */
+export function budgetGroupOf(
+  key: BudgetGroupKey | null,
+  budgetGroups: readonly BudgetGroup[],
+): BudgetGroup | undefined {
+  return key === null ? undefined : budgetGroups.find((p) => p.key === key)
 }
 
-/** Name of a pot key, or `–` when unknown. */
-export function potName(key: PotKey | null, pots: readonly Pot[]): string {
-  return potOf(key, pots)?.name ?? '–'
+/** Name of a budget group key, or `–` when unknown. */
+export function budgetGroupName(
+  key: BudgetGroupKey | null,
+  budgetGroups: readonly BudgetGroup[],
+): string {
+  return budgetGroupOf(key, budgetGroups)?.name ?? '–'
 }
 
-/** Dot/bar class of a pot key (muted when unknown). */
-export function potDot(key: PotKey | null, pots: readonly Pot[]): string {
-  const pot = potOf(key, pots)
-  return pot === undefined ? 'bg-muted-foreground/40' : POT_DOT_CLASSES[pot.color]
+/** Dot/bar class of a budget group key (muted when unknown). */
+export function budgetGroupDot(
+  key: BudgetGroupKey | null,
+  budgetGroups: readonly BudgetGroup[],
+): string {
+  const budgetGroup = budgetGroupOf(key, budgetGroups)
+  return budgetGroup === undefined ? 'bg-muted-foreground/40' : GROUP_DOT_CLASSES[budgetGroup.color]
 }
 
-/** Row tint of an entry: its pot's, or none (income, transfers, no pot). */
-export function potTint(key: PotKey | null, pots: readonly Pot[]): string | undefined {
-  const pot = potOf(key, pots)
-  return pot === undefined ? undefined : POT_TINT_CLASSES[pot.color]
+/** Row tint of an entry: its budget group's, or none (income, transfers, no budget group). */
+export function budgetGroupTint(
+  key: BudgetGroupKey | null,
+  budgetGroups: readonly BudgetGroup[],
+): string | undefined {
+  const budgetGroup = budgetGroupOf(key, budgetGroups)
+  return budgetGroup === undefined ? undefined : GROUP_TINT_CLASSES[budgetGroup.color]
 }
 
 export const ACCOUNT_TYPE_LABELS: Record<AccountType, string> = {

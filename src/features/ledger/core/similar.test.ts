@@ -39,7 +39,7 @@ describe('isPreselected', () => {
     accountId: 'acc',
     amountCents: -1200,
     categoryId: null,
-    pot: null,
+    budgetGroup: null,
     ...over,
   })
 
@@ -47,7 +47,7 @@ describe('isPreselected', () => {
     expect(isPreselected(-1000, candidate())).toBe(true)
     expect(isPreselected(-1000, candidate({ amountCents: -35000 }))).toBe(false)
     expect(isPreselected(-1000, candidate({ categoryId: 'x' }))).toBe(false)
-    expect(isPreselected(-1000, candidate({ pot: 'essential' }))).toBe(false)
+    expect(isPreselected(-1000, candidate({ budgetGroup: 'essential' }))).toBe(false)
   })
 })
 

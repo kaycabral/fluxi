@@ -46,7 +46,7 @@ export async function readImportedLedger(db: FluxiDb, scope: Scope): Promise<Imp
       accountId: r.accountId,
       toAccountId: r.toAccountId,
       categoryId: r.categoryId,
-      pot: r.pot,
+      budgetGroup: r.budgetGroup,
       tags: r.tags,
       startMonth: monthFromDate(r.startMonth),
       day: r.day,

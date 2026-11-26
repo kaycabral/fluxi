@@ -20,7 +20,7 @@ const views = {
   loadRefs: vi.fn<() => Promise<Read<unknown>>>(),
   loadLedgerData:
     vi.fn<(scope: unknown, window: unknown, today: string) => Promise<Read<unknown>>>(),
-  loadBudgetPlans: vi.fn<(scope: unknown) => Promise<Read<unknown>>>(),
+  loadBudgetVersions: vi.fn<(scope: unknown) => Promise<Read<unknown>>>(),
   loadAccountBalances:
     vi.fn<
       (scope: unknown, first: string, later: string, today: string) => Promise<Read<unknown>>
@@ -29,7 +29,7 @@ const views = {
 vi.mock('@/features/ledger/adapters/views', () => ({
   loadRefs: () => views.loadRefs(),
   loadLedgerData: (u: unknown, w: unknown, t: string) => views.loadLedgerData(u, w, t),
-  loadBudgetPlans: (u: unknown) => views.loadBudgetPlans(u),
+  loadBudgetVersions: (u: unknown) => views.loadBudgetVersions(u),
   loadAccountBalances: (u: unknown, f: string, l: string, t: string) =>
     views.loadAccountBalances(u, f, l, t),
 }))
@@ -99,13 +99,13 @@ vi.mock('@/features/ledger/ui/accounts-view', () => ({
   AccountsView: ({ firstMonth }: { firstMonth: string }) => <p>accounts {firstMonth}</p>,
 }))
 vi.mock('@/features/ledger/ui/budget-view', () => ({
-  BudgetView: ({ plans, today }: { plans: unknown[]; today: string }) => (
-    <p>budget {`${plans.length}@${today}`}</p>
+  BudgetView: ({ versions, today }: { versions: unknown[]; today: string }) => (
+    <p>budget {`${versions.length}@${today}`}</p>
   ),
 }))
 vi.mock('@/features/ledger/ui/dashboard/dashboard-view', () => ({
-  DashboardView: ({ plans, today }: { plans: unknown[]; today: string }) => (
-    <p>dashboard {`${plans.length}@${today}`}</p>
+  DashboardView: ({ versions, today }: { versions: unknown[]; today: string }) => (
+    <p>dashboard {`${versions.length}@${today}`}</p>
   ),
 }))
 vi.mock('@/features/ledger/ui/calendar-view', () => ({
@@ -154,7 +154,7 @@ const ok = <T,>(data: T): Read<T> => ({ ok: true, data })
 beforeEach(() => {
   views.loadRefs.mockResolvedValue(ok(sampleRefs()))
   views.loadLedgerData.mockResolvedValue(ok(sampleData()))
-  views.loadBudgetPlans.mockResolvedValue(ok([{}, {}]))
+  views.loadBudgetVersions.mockResolvedValue(ok([{}, {}]))
   views.loadAccountBalances.mockResolvedValue(ok({ firstMonth: '2026-11' }))
   getServerUser.mockResolvedValue({ id: 'u1' })
   getProfile.mockResolvedValue({ id: 'u1', displayName: 'Ana', avatarUrl: null })
@@ -222,7 +222,7 @@ describe('painel pages', () => {
   it('dashboard loads the whole ledger and the budget versions with today', async () => {
     render(await DashboardPage({ searchParams: Promise.resolve({}) }))
     expect(screen.getByText('dashboard 2@2026-12-15')).toBeInTheDocument()
-    expect(views.loadBudgetPlans).toHaveBeenCalledWith(SCOPE)
+    expect(views.loadBudgetVersions).toHaveBeenCalledWith(SCOPE)
   })
 
   it('calendar reads view, date and account from the URL and loads what the view needs', async () => {

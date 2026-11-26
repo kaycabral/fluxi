@@ -1,6 +1,6 @@
 import type { ActionResult } from '@/features/ledger/core/action-result'
-import { DEFAULT_POTS } from '@/features/ledger/core/defaults'
-import type { BudgetPlan } from '@/features/ledger/core/types'
+import { DEFAULT_BUDGET_GROUPS } from '@/features/ledger/core/defaults'
+import type { BudgetVersion } from '@/features/ledger/core/types'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -8,38 +8,39 @@ import { BudgetView } from './budget-view'
 import { sampleData } from './test-fixtures'
 
 const actions = {
-  createPotAction: vi.fn<(input: unknown) => Promise<ActionResult>>(),
-  updatePotAction: vi.fn<(input: unknown) => Promise<ActionResult>>(),
-  removePotAction: vi.fn<(input: unknown) => Promise<ActionResult & { archived?: boolean }>>(),
-  saveBudgetPlanAction: vi.fn<(input: unknown) => Promise<ActionResult>>(),
-  deleteBudgetPlanAction: vi.fn<(input: unknown) => Promise<ActionResult>>(),
+  createBudgetGroupAction: vi.fn<(input: unknown) => Promise<ActionResult>>(),
+  updateBudgetGroupAction: vi.fn<(input: unknown) => Promise<ActionResult>>(),
+  removeBudgetGroupAction:
+    vi.fn<(input: unknown) => Promise<ActionResult & { archived?: boolean }>>(),
+  saveBudgetVersionAction: vi.fn<(input: unknown) => Promise<ActionResult>>(),
+  deleteBudgetVersionAction: vi.fn<(input: unknown) => Promise<ActionResult>>(),
 }
 vi.mock('@/features/ledger/adapters/actions/budget', () => ({
-  createPotAction: (i: unknown) => actions.createPotAction(i),
-  updatePotAction: (i: unknown) => actions.updatePotAction(i),
-  removePotAction: (i: unknown) => actions.removePotAction(i),
-  saveBudgetPlanAction: (i: unknown) => actions.saveBudgetPlanAction(i),
-  deleteBudgetPlanAction: (i: unknown) => actions.deleteBudgetPlanAction(i),
+  createBudgetGroupAction: (i: unknown) => actions.createBudgetGroupAction(i),
+  updateBudgetGroupAction: (i: unknown) => actions.updateBudgetGroupAction(i),
+  removeBudgetGroupAction: (i: unknown) => actions.removeBudgetGroupAction(i),
+  saveBudgetVersionAction: (i: unknown) => actions.saveBudgetVersionAction(i),
+  deleteBudgetVersionAction: (i: unknown) => actions.deleteBudgetVersionAction(i),
 }))
 const toast = { success: vi.fn<(m: string) => void>(), error: vi.fn<(m: string) => void>() }
 vi.mock('sonner', () => ({
   toast: { success: (m: string) => toast.success(m), error: (m: string) => toast.error(m) },
 }))
 
-const targets = Object.fromEntries(DEFAULT_POTS.map((p) => [p.key, p.targetBps]))
-const OLD: BudgetPlan = {
+const targets = Object.fromEntries(DEFAULT_BUDGET_GROUPS.map((p) => [p.key, p.targetBps]))
+const OLD: BudgetVersion = {
   id: '00000000-0000-4000-8000-00000000aa01',
   startsMonth: '2026-06',
   targets: { essential: 5000 },
 }
-const NEW: BudgetPlan = {
+const NEW: BudgetVersion = {
   id: '00000000-0000-4000-8000-00000000aa02',
   startsMonth: '2026-12',
   targets,
 }
 
-function renderBudget(plans: BudgetPlan[] = [OLD, NEW]) {
-  return render(<BudgetView data={sampleData()} plans={plans} today="2026-12" />)
+function renderBudget(versions: BudgetVersion[] = [OLD, NEW]) {
+  return render(<BudgetView data={sampleData()} versions={versions} today="2026-12" />)
 }
 
 beforeEach(() => {
@@ -47,7 +48,7 @@ beforeEach(() => {
 })
 afterEach(() => vi.clearAllMocks())
 
-describe('BudgetView · potes', () => {
+describe('BudgetView · grupos', () => {
   it('edits the version in force and saves its targets', async () => {
     renderBudget()
     expect(screen.getByText('10% livre para distribuir')).toBeInTheDocument()
@@ -59,8 +60,8 @@ describe('BudgetView · potes', () => {
     fireEvent.change(screen.getByLabelText('Conforto'), { target: { value: '12' } })
     expect(screen.getByText('5% livre para distribuir')).toBeInTheDocument()
     await userEvent.click(save)
-    await waitFor(() => expect(actions.saveBudgetPlanAction).toHaveBeenCalledOnce())
-    expect(actions.saveBudgetPlanAction.mock.calls[0]?.[0]).toEqual({
+    await waitFor(() => expect(actions.saveBudgetVersionAction).toHaveBeenCalledOnce())
+    expect(actions.saveBudgetVersionAction.mock.calls[0]?.[0]).toEqual({
       id: NEW.id,
       startsMonth: '2026-12',
       targets: { ...targets, comfort: 1200 },
@@ -68,38 +69,41 @@ describe('BudgetView · potes', () => {
     expect(toast.success).toHaveBeenCalledWith('Metas salvas.')
   })
 
-  it('never lets a slider pass what the other pots leave', () => {
+  it('never lets a slider pass what the other budget groups leave', () => {
     renderBudget()
     fireEvent.change(screen.getByLabelText('Conforto'), { target: { value: '90' } })
     expect(screen.getByText('100% distribuído')).toBeInTheDocument()
   })
 
-  it('creates a pot inline with the next free color', async () => {
+  it('creates a budget group inline with the next free color', async () => {
     renderBudget()
-    await userEvent.click(screen.getByRole('button', { name: 'Novo pote' }))
-    await userEvent.type(screen.getByLabelText('Nome do novo pote'), 'Viagens{Enter}')
-    await waitFor(() => expect(actions.createPotAction).toHaveBeenCalledOnce())
-    expect(actions.createPotAction).toHaveBeenCalledWith({ name: 'Viagens', color: 'sky' })
+    await userEvent.click(screen.getByRole('button', { name: 'Novo grupo' }))
+    await userEvent.type(screen.getByLabelText('Nome do novo grupo'), 'Viagens{Enter}')
+    await waitFor(() => expect(actions.createBudgetGroupAction).toHaveBeenCalledOnce())
+    expect(actions.createBudgetGroupAction).toHaveBeenCalledWith({ name: 'Viagens', color: 'sky' })
   })
 
-  it('renames a pot from its menu', async () => {
+  it('renames a budget group from its menu', async () => {
     renderBudget()
-    await userEvent.click(screen.getByRole('button', { name: 'Ações do pote Conforto' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Ações do grupo Conforto' }))
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Renomear' }))
-    const input = await screen.findByLabelText('Nome do pote')
+    const input = await screen.findByLabelText('Nome do grupo')
     await userEvent.clear(input)
     await userEvent.type(input, 'Lazer{Enter}')
     await waitFor(() =>
-      expect(actions.updatePotAction).toHaveBeenCalledWith({ key: 'comfort', name: 'Lazer' }),
+      expect(actions.updateBudgetGroupAction).toHaveBeenCalledWith({
+        key: 'comfort',
+        name: 'Lazer',
+      }),
     )
   })
 
-  it('archives instead of deleting a pot with history, and says so', async () => {
-    actions.removePotAction.mockResolvedValue({ ok: true, archived: true })
+  it('archives instead of deleting a budget group with history, and says so', async () => {
+    actions.removeBudgetGroupAction.mockResolvedValue({ ok: true, archived: true })
     renderBudget()
-    await userEvent.click(screen.getByRole('button', { name: 'Ações do pote Essencial' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Ações do grupo Essencial' }))
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Excluir' }))
-    await waitFor(() => expect(actions.removePotAction).toHaveBeenCalledWith('essential'))
+    await waitFor(() => expect(actions.removeBudgetGroupAction).toHaveBeenCalledWith('essential'))
     expect(toast.success).toHaveBeenCalledWith(expect.stringMatching(/arquivado/))
   })
 
@@ -109,8 +113,8 @@ describe('BudgetView · potes', () => {
     await userEvent.click(await screen.findByRole('menuitem', { name: /Nova versão/ }))
     const dialog = await screen.findByRole('dialog', { name: 'Nova versão do orçamento' })
     await userEvent.click(within(dialog).getByRole('button', { name: 'Criar versão' }))
-    await waitFor(() => expect(actions.saveBudgetPlanAction).toHaveBeenCalledOnce())
-    expect(actions.saveBudgetPlanAction.mock.calls[0]?.[0]).toMatchObject({
+    await waitFor(() => expect(actions.saveBudgetVersionAction).toHaveBeenCalledOnce())
+    expect(actions.saveBudgetVersionAction.mock.calls[0]?.[0]).toMatchObject({
       id: null,
       startsMonth: '2027-01',
       targets,
@@ -119,57 +123,65 @@ describe('BudgetView · potes', () => {
 })
 
 describe('BudgetView · mais ações', () => {
-  it('recolors a pot from its swatch', async () => {
+  it('recolors a budget group from its swatch', async () => {
     renderBudget()
-    await userEvent.click(screen.getByRole('button', { name: 'Cor do pote Conforto' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Cor do grupo Conforto' }))
     await userEvent.click(await screen.findByRole('radio', { name: 'Verde-água' }))
     await waitFor(() =>
-      expect(actions.updatePotAction).toHaveBeenCalledWith({ key: 'comfort', color: 'teal' }),
+      expect(actions.updateBudgetGroupAction).toHaveBeenCalledWith({
+        key: 'comfort',
+        color: 'teal',
+      }),
     )
   })
 
-  it('switches how a pot is measured', async () => {
+  it('switches how a budget group is measured', async () => {
     renderBudget()
-    await userEvent.click(screen.getByRole('button', { name: 'Ações do pote Conforto' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Ações do grupo Conforto' }))
     await userEvent.click(await screen.findByRole('menuitemradio', { name: 'Meta mínima' }))
     await waitFor(() =>
-      expect(actions.updatePotAction).toHaveBeenCalledWith({ key: 'comfort', goal: 'minimum' }),
+      expect(actions.updateBudgetGroupAction).toHaveBeenCalledWith({
+        key: 'comfort',
+        goal: 'minimum',
+      }),
     )
   })
 
   it('renames on double click and cancels with Escape', async () => {
     renderBudget()
     await userEvent.dblClick(screen.getByText('Livre', { selector: 'label' }))
-    const input = screen.getByLabelText('Nome do pote')
+    const input = screen.getByLabelText('Nome do grupo')
     await userEvent.type(input, ' extra{Escape}')
-    expect(screen.queryByLabelText('Nome do pote')).not.toBeInTheDocument()
-    expect(actions.updatePotAction).not.toHaveBeenCalled()
+    expect(screen.queryByLabelText('Nome do grupo')).not.toBeInTheDocument()
+    expect(actions.updateBudgetGroupAction).not.toHaveBeenCalled()
   })
 
-  it('deletes an unused pot, cancels a new one and reports errors', async () => {
-    actions.removePotAction.mockResolvedValue({ ok: true, archived: false })
+  it('deletes an unused budget group, cancels a new one and reports errors', async () => {
+    actions.removeBudgetGroupAction.mockResolvedValue({ ok: true, archived: false })
     renderBudget()
-    await userEvent.click(screen.getByRole('button', { name: 'Ações do pote Educação' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Ações do grupo Educação' }))
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Excluir' }))
     await waitFor(() => expect(toast.success).toHaveBeenCalledWith('"Educação" excluído.'))
 
-    await userEvent.click(screen.getByRole('button', { name: 'Novo pote' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Novo grupo' }))
     await userEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
-    expect(screen.queryByLabelText('Nome do novo pote')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Nome do novo grupo')).not.toBeInTheDocument()
 
-    actions.createPotAction.mockResolvedValue({ ok: false, error: 'Falhou.' })
-    await userEvent.click(screen.getByRole('button', { name: 'Novo pote' }))
-    await userEvent.type(screen.getByLabelText('Nome do novo pote'), 'X{Enter}')
+    actions.createBudgetGroupAction.mockResolvedValue({ ok: false, error: 'Falhou.' })
+    await userEvent.click(screen.getByRole('button', { name: 'Novo grupo' }))
+    await userEvent.type(screen.getByLabelText('Nome do novo grupo'), 'X{Enter}')
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Falhou.'))
   })
 
-  it('lists archived pots apart and restores them', async () => {
+  it('lists archived budget groups apart and restores them', async () => {
     const data = sampleData()
-    const pots = data.pots.map((p) => (p.key === 'education' ? { ...p, archived: true } : p))
+    const budgetGroups = data.budgetGroups.map((p) =>
+      p.key === 'education' ? { ...p, archived: true } : p,
+    )
     render(
       <BudgetView
-        data={{ ...data, pots }}
-        plans={[{ ...NEW, targets: { ...targets, education: 0 } }]}
+        data={{ ...data, budgetGroups }}
+        versions={[{ ...NEW, targets: { ...targets, education: 0 } }]}
         today="2026-12"
       />,
     )
@@ -177,7 +189,10 @@ describe('BudgetView · mais ações', () => {
     await userEvent.click(screen.getByText('Arquivados (1)'))
     await userEvent.click(screen.getByRole('button', { name: 'Restaurar' }))
     await waitFor(() =>
-      expect(actions.updatePotAction).toHaveBeenCalledWith({ key: 'education', archived: false }),
+      expect(actions.updateBudgetGroupAction).toHaveBeenCalledWith({
+        key: 'education',
+        archived: false,
+      }),
     )
   })
 
@@ -211,7 +226,7 @@ describe('BudgetView · mais ações', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Mudar início' })
     await userEvent.click(within(dialog).getByRole('button', { name: 'Salvar' }))
     await waitFor(() =>
-      expect(actions.saveBudgetPlanAction).toHaveBeenCalledWith({
+      expect(actions.saveBudgetVersionAction).toHaveBeenCalledWith({
         id: NEW.id,
         startsMonth: '2026-12',
         targets,
@@ -222,7 +237,7 @@ describe('BudgetView · mais ações', () => {
     await userEvent.click(await screen.findByRole('menuitem', { name: /Excluir versão/ }))
     const confirm = await screen.findByRole('alertdialog')
     await userEvent.click(within(confirm).getByRole('button', { name: 'Excluir versão' }))
-    await waitFor(() => expect(actions.deleteBudgetPlanAction).toHaveBeenCalledWith(NEW.id))
+    await waitFor(() => expect(actions.deleteBudgetVersionAction).toHaveBeenCalledWith(NEW.id))
   })
 
   it('cancels the version dialog', async () => {
@@ -232,55 +247,63 @@ describe('BudgetView · mais ações', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Nova versão do orçamento' })
     await userEvent.click(within(dialog).getByRole('button', { name: 'Cancelar' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-    expect(actions.saveBudgetPlanAction).not.toHaveBeenCalled()
+    expect(actions.saveBudgetVersionAction).not.toHaveBeenCalled()
   })
 
   it('keeps the name when the rename is left empty, and the color when the same one is picked', async () => {
     renderBudget()
     await userEvent.dblClick(screen.getByText('Livre', { selector: 'label' }))
-    await userEvent.clear(screen.getByLabelText('Nome do pote'))
+    await userEvent.clear(screen.getByLabelText('Nome do grupo'))
     await userEvent.tab()
     expect(screen.getByText('Livre', { selector: 'label' })).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Cor do pote Livre' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Cor do grupo Livre' }))
     await userEvent.click(await screen.findByRole('radio', { name: 'Rosa' }))
-    expect(actions.updatePotAction).not.toHaveBeenCalled()
+    expect(actions.updateBudgetGroupAction).not.toHaveBeenCalled()
   })
 
-  it('ignores an empty new pot and closes it with Escape', async () => {
+  it('ignores an empty new budget group and closes it with Escape', async () => {
     renderBudget()
-    await userEvent.click(screen.getByRole('button', { name: 'Novo pote' }))
-    const input = screen.getByLabelText('Nome do novo pote')
+    await userEvent.click(screen.getByRole('button', { name: 'Novo grupo' }))
+    const input = screen.getByLabelText('Nome do novo grupo')
     await userEvent.type(input, '   {Enter}')
-    expect(actions.createPotAction).not.toHaveBeenCalled()
+    expect(actions.createBudgetGroupAction).not.toHaveBeenCalled()
     await userEvent.type(input, '{Escape}')
-    expect(screen.queryByLabelText('Nome do novo pote')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Nome do novo grupo')).not.toBeInTheDocument()
   })
 
-  it('keeps an archived pot that still has a target, marked and restorable from its menu', async () => {
+  it('keeps an archived budget group that still has a target, marked and restorable from its menu', async () => {
     const data = sampleData()
-    const pots = data.pots.map((p) => (p.key === 'education' ? { ...p, archived: true } : p))
-    render(<BudgetView data={{ ...data, pots }} plans={[NEW]} today="2026-12" />)
+    const budgetGroups = data.budgetGroups.map((p) =>
+      p.key === 'education' ? { ...p, archived: true } : p,
+    )
+    render(<BudgetView data={{ ...data, budgetGroups }} versions={[NEW]} today="2026-12" />)
     expect(screen.getByText('(arquivado)', { selector: 'label span' })).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Ações do pote Educação' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Ações do grupo Educação' }))
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Restaurar' }))
     await waitFor(() =>
-      expect(actions.updatePotAction).toHaveBeenCalledWith({ key: 'education', archived: false }),
+      expect(actions.updateBudgetGroupAction).toHaveBeenCalledWith({
+        key: 'education',
+        archived: false,
+      }),
     )
   })
 
-  it('measures a minimum pot back as a spending limit', async () => {
+  it('measures a minimum budget group back as a spending limit', async () => {
     renderBudget()
     expect(screen.getByText(/^guardar ao menos R\$/)).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Ações do pote Investimento' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Ações do grupo Investimento' }))
     await userEvent.click(await screen.findByRole('menuitemradio', { name: 'Limite de gasto' }))
     await waitFor(() =>
-      expect(actions.updatePotAction).toHaveBeenCalledWith({ key: 'investment', goal: 'limit' }),
+      expect(actions.updateBudgetGroupAction).toHaveBeenCalledWith({
+        key: 'investment',
+        goal: 'limit',
+      }),
     )
   })
 
-  it('renders nothing for the pots without any version', () => {
+  it('renders nothing for the budget groups without any version', () => {
     renderBudget([])
-    expect(screen.queryByRole('heading', { name: 'Potes da renda' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Grupos do orçamento' })).not.toBeInTheDocument()
   })
 })
 

@@ -14,10 +14,10 @@ import {
   monthLabel,
 } from '@/features/ledger/core/format'
 import {
+  budgetGroupDot,
+  budgetGroupName,
+  budgetGroupTint,
   paidLabel,
-  potDot,
-  potName,
-  potTint,
   RECURRENCE_LABELS,
 } from '@/features/ledger/core/labels'
 import type { Landing } from '@/features/ledger/core/occurrence'
@@ -27,7 +27,7 @@ import {
   paymentStatus,
   type PaymentStatus,
 } from '@/features/ledger/core/payments'
-import type { Pot } from '@/features/ledger/core/types'
+import type { BudgetGroup } from '@/features/ledger/core/types'
 import { installmentLabel, targetFor, type LedgerData } from '@/features/ledger/core/view'
 import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@cbrl/design'
 import {
@@ -58,19 +58,19 @@ export function landingTitle(landing: Landing): string {
     : `${landing.entry.description} · ${landing.part.label}`
 }
 
-/** Color square/dot of an entry: its pot, green for income, blue for transfers. */
-export function entryColor(landing: Landing, pots: readonly Pot[]): string {
+/** Color square/dot of an entry: its budget group, green for income, blue for transfers. */
+export function entryColor(landing: Landing, budgetGroups: readonly BudgetGroup[]): string {
   const { entry } = landing
   if (entry.kind === 'income') return 'bg-emerald-500 dark:bg-emerald-400'
-  if (entry.kind === 'transfer' || entry.pot === null) return 'bg-sky-500 dark:bg-sky-400'
-  return potDot(entry.pot, pots)
+  if (entry.kind === 'transfer' || entry.budgetGroup === null) return 'bg-sky-500 dark:bg-sky-400'
+  return budgetGroupDot(entry.budgetGroup, budgetGroups)
 }
 
-function chipColors(landing: Landing, pots: readonly Pot[]): string | undefined {
+function chipColors(landing: Landing, budgetGroups: readonly BudgetGroup[]): string | undefined {
   const { entry } = landing
   if (entry.kind === 'income') return 'bg-emerald-500/15 text-emerald-900 dark:text-emerald-200'
   if (entry.kind === 'transfer') return 'bg-sky-500/15 text-sky-900 dark:text-sky-200'
-  return potTint(entry.pot, pots) ?? 'bg-muted'
+  return budgetGroupTint(entry.budgetGroup, budgetGroups) ?? 'bg-muted'
 }
 
 const STATUS_TITLES: Record<PaymentStatus, (amountCents: number) => string> = {
@@ -120,7 +120,7 @@ export function EventChip({
           className={cn(
             'relative flex w-full min-w-0 items-center gap-1.5 text-left',
             variant === 'chip'
-              ? cn('h-5 rounded px-1.5 text-xs leading-5', chipColors(landing, data.pots))
+              ? cn('h-5 rounded px-1.5 text-xs leading-5', chipColors(landing, data.budgetGroups))
               : 'hover:bg-muted rounded-md px-2 py-1.5 text-sm',
             movable && 'cursor-grab active:cursor-grabbing',
             status === 'paid' && 'opacity-50',
@@ -131,7 +131,10 @@ export function EventChip({
         >
           {variant === 'row' && (
             <span
-              className={cn('size-2.5 shrink-0 rounded-full', entryColor(landing, data.pots))}
+              className={cn(
+                'size-2.5 shrink-0 rounded-full',
+                entryColor(landing, data.budgetGroups),
+              )}
             />
           )}
           {status === 'paid' && (
@@ -269,7 +272,7 @@ export function EventDetails({
       </div>
       <div className="grid grid-cols-[1.25rem_1fr] items-start gap-x-4 gap-y-3 px-4">
         <span
-          className={cn('mt-2 size-3.5 rounded-sm', entryColor(landing, data.pots))}
+          className={cn('mt-2 size-3.5 rounded-sm', entryColor(landing, data.budgetGroups))}
           aria-hidden
         />
         <div className="min-w-0">
@@ -339,17 +342,20 @@ function statusLine(input: {
   }
 }
 
-/** Amount, account(s), category/pot, status and tags of the popup. */
+/** Amount, account(s), category/budget group, status and tags of the popup. */
 function detailRows(
   landing: Landing,
-  data: Pick<LedgerData, 'accounts' | 'banks' | 'categories' | 'pots'>,
+  data: Pick<LedgerData, 'accounts' | 'banks' | 'categories' | 'budgetGroups'>,
   status: Row,
 ): Row[] {
   const { entry } = landing
   const account = (id: string | null) => accountLabel(id, data.accounts, data.banks)
   const category = data.categories.find((c) => c.id === entry.categoryId)?.name
-  const pot = entry.pot === null ? undefined : `pote ${potName(entry.pot, data.pots)}`
-  const classification = [category, pot].filter((part) => part !== undefined).join(' · ')
+  const budgetGroup =
+    entry.budgetGroup === null
+      ? undefined
+      : `grupo ${budgetGroupName(entry.budgetGroup, data.budgetGroups)}`
+  const classification = [category, budgetGroup].filter((part) => part !== undefined).join(' · ')
   return [
     { icon: Banknote, label: 'Valor', text: signedAmount(landing) },
     {

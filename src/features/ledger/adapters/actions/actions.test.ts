@@ -63,7 +63,7 @@ const fields: EntryFields = {
   accountId: ACC,
   toAccountId: null,
   categoryId: null,
-  pot: 'essential',
+  budgetGroup: 'essential',
   tags: [],
   startMonth: '2026-12',
   day: 15,

@@ -93,7 +93,7 @@ export function monthTotalsOf(results: readonly MonthResult[], month: Month): Mo
       incomeCents: 0,
       expenseCents: 0,
       netCents: 0,
-      byPot: {},
+      byBudgetGroup: {},
       unallocatedCents: 0,
     }
   )

@@ -173,14 +173,14 @@ export const accounts = pgTable(
 ).enableRLS()
 
 /**
- * Spending/saving pot of the budget, created and renamed by the user. `key` is
- * the stable id entries and categories point at (the 6 seeded pots keep their
+ * Spending/saving group of the budget, created and renamed by the user. `key` is
+ * the stable id entries and categories point at (the 6 seeded budget groups keep their
  * historic keys). `goal`: `limit` = spend up to the target, `minimum` = put
- * aside at least the target (investment). Archived pots leave the pickers but
+ * aside at least the target (investment). Archived budget groups leave the pickers but
  * keep their history.
  */
-export const pots = pgTable(
-  'pots',
+export const budgetGroups = pgTable(
+  'budget_groups',
   {
     userId: ownerId(),
     spaceId: spaceIdColumn(),
@@ -194,20 +194,20 @@ export const pots = pgTable(
     updatedAt: updatedAt(),
   },
   (t) => [
-    primaryKey({ name: 'pots_pk', columns: [t.spaceId, t.key] }),
-    inSpace('pots', t),
-    check('pots_key_format', sql`${t.key} ~ '^[a-z0-9_]{1,40}$'`),
-    check('pots_name_length', sql`char_length(${t.name}) between 1 and 40`),
-    check('pots_goal_valid', sql`${t.goal} in ('limit', 'minimum')`),
+    primaryKey({ name: 'budget_groups_pk', columns: [t.spaceId, t.key] }),
+    inSpace('budget_groups', t),
+    check('budget_groups_key_format', sql`${t.key} ~ '^[a-z0-9_]{1,40}$'`),
+    check('budget_groups_name_length', sql`char_length(${t.name}) between 1 and 40`),
+    check('budget_groups_goal_valid', sql`${t.goal} in ('limit', 'minimum')`),
   ],
 ).enableRLS()
 
 /**
- * A version of the budget: the pot targets in force from `starts_month` until
- * the next plan starts. Months before the first plan have no target.
+ * A version of the budget: the budget group targets in force from `starts_month` until
+ * the next version starts. Months before the first version have no target.
  */
-export const budgetPlans = pgTable(
-  'budget_plans',
+export const budgetVersions = pgTable(
+  'budget_versions',
   {
     id: uuid('id').primaryKey().defaultRandom(),
     userId: ownerId(),
@@ -217,41 +217,41 @@ export const budgetPlans = pgTable(
     updatedAt: updatedAt(),
   },
   (t) => [
-    inSpace('budget_plans', t),
-    unique('budget_plans_id_space_id_unique').on(t.id, t.spaceId),
-    unique('budget_plans_space_starts_unique').on(t.spaceId, t.startsMonth),
-    check('budget_plans_starts_first_day', isFirstOfMonth(t.startsMonth)),
+    inSpace('budget_versions', t),
+    unique('budget_versions_id_space_id_unique').on(t.id, t.spaceId),
+    unique('budget_versions_space_starts_unique').on(t.spaceId, t.startsMonth),
+    check('budget_versions_starts_first_day', isFirstOfMonth(t.startsMonth)),
   ],
 ).enableRLS()
 
-/** Target of one pot in one plan, in basis points of the month's income (a plan sums to at most 100%). */
-export const budgetPlanTargets = pgTable(
-  'budget_plan_targets',
+/** Target of one budget group in one version, in basis points of the month's income (a version sums to at most 100%). */
+export const budgetGroupTargets = pgTable(
+  'budget_group_targets',
   {
-    planId: uuid('plan_id').notNull(),
+    versionId: uuid('version_id').notNull(),
     userId: ownerId(),
     spaceId: spaceIdColumn(),
-    potKey: text('pot_key').notNull(),
+    budgetGroup: text('budget_group').notNull(),
     targetBps: integer('target_bps').notNull(),
   },
   (t) => [
-    primaryKey({ name: 'budget_plan_targets_pk', columns: [t.planId, t.potKey] }),
+    primaryKey({ name: 'budget_group_targets_pk', columns: [t.versionId, t.budgetGroup] }),
     foreignKey({
-      name: 'budget_plan_targets_plan_fk',
-      columns: [t.planId, t.spaceId],
-      foreignColumns: [budgetPlans.id, budgetPlans.spaceId],
+      name: 'budget_group_targets_version_fk',
+      columns: [t.versionId, t.spaceId],
+      foreignColumns: [budgetVersions.id, budgetVersions.spaceId],
     }).onDelete('cascade'),
     foreignKey({
-      name: 'budget_plan_targets_pot_fk',
-      columns: [t.potKey, t.spaceId],
-      foreignColumns: [pots.key, pots.spaceId],
+      name: 'budget_group_targets_budget_group_fk',
+      columns: [t.budgetGroup, t.spaceId],
+      foreignColumns: [budgetGroups.key, budgetGroups.spaceId],
     }).onDelete('cascade'),
-    inSpace('budget_plan_targets', t),
-    check('budget_plan_targets_bps_range', sql`${t.targetBps} between 0 and 10000`),
+    inSpace('budget_group_targets', t),
+    check('budget_group_targets_bps_range', sql`${t.targetBps} between 0 and 10000`),
   ],
 ).enableRLS()
 
-/** Two-level category (group › name) with the pot it suggests for expenses. Seeded per user. */
+/** Two-level category (group › name) with the budget group it suggests for expenses. Seeded per user. */
 export const categories = pgTable(
   'categories',
   {
@@ -260,7 +260,7 @@ export const categories = pgTable(
     spaceId: spaceIdColumn(),
     groupName: text('group_name').notNull(),
     name: text('name').notNull(),
-    defaultPot: text('default_pot'),
+    defaultBudgetGroup: text('default_budget_group'),
     sort: integer('sort').notNull().default(0),
     archivedAt: archivedAt(),
     createdAt: createdAt(),
@@ -271,9 +271,9 @@ export const categories = pgTable(
     unique('categories_id_space_id_unique').on(t.id, t.spaceId),
     unique('categories_space_group_name_unique').on(t.spaceId, t.groupName, t.name),
     foreignKey({
-      name: 'categories_default_pot_fk',
-      columns: [t.defaultPot, t.spaceId],
-      foreignColumns: [pots.key, pots.spaceId],
+      name: 'categories_default_budget_group_fk',
+      columns: [t.defaultBudgetGroup, t.spaceId],
+      foreignColumns: [budgetGroups.key, budgetGroups.spaceId],
     }),
   ],
 ).enableRLS()
@@ -298,7 +298,7 @@ export const entries = pgTable(
     accountId: uuid('account_id').notNull(),
     toAccountId: uuid('to_account_id'),
     categoryId: uuid('category_id'),
-    pot: text('pot'),
+    budgetGroup: text('budget_group'),
     tags: text('tags')
       .array()
       .notNull()
@@ -333,11 +333,11 @@ export const entries = pgTable(
       foreignColumns: [categories.id, categories.spaceId],
     }),
     foreignKey({
-      name: 'entries_pot_fk',
-      columns: [t.pot, t.spaceId],
-      foreignColumns: [pots.key, pots.spaceId],
+      name: 'entries_budget_group_fk',
+      columns: [t.budgetGroup, t.spaceId],
+      foreignColumns: [budgetGroups.key, budgetGroups.spaceId],
     }),
-    index('entries_pot_idx').on(t.spaceId, t.pot),
+    index('entries_budget_group_idx').on(t.spaceId, t.budgetGroup),
     index('entries_space_id_start_month_idx').on(t.spaceId, t.startMonth),
     index('entries_account_id_idx').on(t.accountId),
     index('entries_to_account_id_idx').on(t.toAccountId),
@@ -365,10 +365,13 @@ export const entries = pgTable(
     check(
       'entries_transfer_fields',
       sql`case when ${t.kind} = 'transfer'
-        then ${t.toAccountId} is not null and ${t.toAccountId} <> ${t.accountId} and ${t.categoryId} is null and ${t.pot} is null
+        then ${t.toAccountId} is not null and ${t.toAccountId} <> ${t.accountId} and ${t.categoryId} is null and ${t.budgetGroup} is null
         else ${t.toAccountId} is null end`,
     ),
-    check('entries_pot_expense_only', sql`${t.pot} is null or ${t.kind} = 'expense'`),
+    check(
+      'entries_budget_group_expense_only',
+      sql`${t.budgetGroup} is null or ${t.kind} = 'expense'`,
+    ),
   ],
 ).enableRLS()
 

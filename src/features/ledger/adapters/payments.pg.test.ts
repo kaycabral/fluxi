@@ -48,7 +48,7 @@ function rent(accountId: string, patch: Partial<EntryFields> = {}): EntryFields 
     accountId,
     toAccountId: null,
     categoryId: null,
-    pot: 'essential',
+    budgetGroup: 'essential',
     tags: [],
     startMonth: '2026-12',
     day: 10,
@@ -203,7 +203,7 @@ describe('markOccurrencePaid / unmarkOccurrencePaid', () => {
     await createEntry(
       anaScope,
       salary,
-      rent(anaAccount, { kind: 'income', pot: null, parts: SPLIT }),
+      rent(anaAccount, { kind: 'income', budgetGroup: null, parts: SPLIT }),
     )
     const [advance, rest] = await partIds(salary)
     const paidOn = '2026-12-20'
@@ -287,7 +287,7 @@ describe('payments under scoped edits and deletes', () => {
     await createEntry(
       anaScope,
       salary,
-      rent(anaAccount, { kind: 'income', pot: null, parts: SPLIT }),
+      rent(anaAccount, { kind: 'income', budgetGroup: null, parts: SPLIT }),
     )
     const [advance, rest] = await partIds(salary)
     for (const month of ['2026-12', '2027-01']) {
@@ -309,7 +309,7 @@ describe('payments under scoped edits and deletes', () => {
       salary,
       rent(anaAccount, {
         kind: 'income',
-        pot: null,
+        budgetGroup: null,
         parts: SPLIT,
         amountCents: 300000,
         startMonth: '2027-01',

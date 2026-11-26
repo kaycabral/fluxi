@@ -1,11 +1,11 @@
-import { DEFAULT_POTS } from '@/features/ledger/core/defaults'
+import { DEFAULT_BUDGET_GROUPS } from '@/features/ledger/core/defaults'
 import { makeEntry, salarySplit } from '@/features/ledger/core/fixtures'
-import type { Pot } from '@/features/ledger/core/types'
+import type { BudgetGroup } from '@/features/ledger/core/types'
 import type { LedgerData, LedgerRefs } from '@/features/ledger/core/view'
 
-/** The 6 default pots, as the database seeds them. */
-export function samplePots(): Pot[] {
-  return DEFAULT_POTS.map(({ key, name, color, goal }, sort) => ({
+/** The 6 default budget groups, as the database seeds them. */
+export function sampleBudgetGroups(): BudgetGroup[] {
+  return DEFAULT_BUDGET_GROUPS.map(({ key, name, color, goal }, sort) => ({
     key,
     name,
     color,
@@ -79,23 +79,29 @@ export function sampleData(overrides: Partial<LedgerData> = {}): LedgerData {
       },
     ],
     categories: [
-      { id: IDS.salaryCat, groupName: 'Renda', name: 'Salário', defaultPot: null, archived: false },
+      {
+        id: IDS.salaryCat,
+        groupName: 'Renda',
+        name: 'Salário',
+        defaultBudgetGroup: null,
+        archived: false,
+      },
       {
         id: IDS.powerCat,
         groupName: 'Contas',
         name: 'Energia elétrica',
-        defaultPot: 'essential',
+        defaultBudgetGroup: 'essential',
         archived: false,
       },
       {
         id: IDS.gymCat,
         groupName: 'Esportes',
         name: 'Academia',
-        defaultPot: 'comfort',
+        defaultBudgetGroup: 'comfort',
         archived: false,
       },
     ],
-    pots: samplePots(),
+    budgetGroups: sampleBudgetGroups(),
     entries: [
       makeEntry({
         id: IDS.salary,
@@ -104,7 +110,7 @@ export function sampleData(overrides: Partial<LedgerData> = {}): LedgerData {
         amountCents: 500000,
         accountId: IDS.cc,
         categoryId: IDS.salaryCat,
-        pot: null,
+        budgetGroup: null,
         startMonth: '2026-11',
         tags: ['trabalho'],
       }),
@@ -115,7 +121,7 @@ export function sampleData(overrides: Partial<LedgerData> = {}): LedgerData {
         day: 15,
         accountId: IDS.cc,
         categoryId: IDS.powerCat,
-        pot: 'essential',
+        budgetGroup: 'essential',
         startMonth: '2026-09',
         tags: ['casa'],
       }),
@@ -125,7 +131,7 @@ export function sampleData(overrides: Partial<LedgerData> = {}): LedgerData {
         amountCents: -700000,
         day: 3,
         accountId: IDS.cc,
-        pot: 'variable',
+        budgetGroup: 'variable',
         recurrence: 'none',
         startMonth: '2026-12',
       }),
@@ -137,7 +143,7 @@ export function sampleData(overrides: Partial<LedgerData> = {}): LedgerData {
         day: 6,
         accountId: IDS.cc,
         toAccountId: IDS.nucc,
-        pot: null,
+        budgetGroup: null,
         startMonth: '2026-12',
       }),
       makeEntry({
@@ -146,7 +152,7 @@ export function sampleData(overrides: Partial<LedgerData> = {}): LedgerData {
         amountCents: -3000000,
         day: 25,
         accountId: IDS.cc,
-        pot: 'comfort',
+        budgetGroup: 'comfort',
         recurrence: 'installments',
         installments: 12,
         startMonth: '2026-12',
@@ -186,7 +192,7 @@ export function sampleDataWithBenefit(): LedgerData {
         amountCents: 80000,
         day: 1,
         accountId: IDS.va,
-        pot: null,
+        budgetGroup: null,
         startMonth: '2026-12',
       }),
       makeEntry({
@@ -195,7 +201,7 @@ export function sampleDataWithBenefit(): LedgerData {
         amountCents: -20000,
         day: 16,
         accountId: IDS.va,
-        pot: 'essential',
+        budgetGroup: 'essential',
         startMonth: '2026-12',
       }),
     ],
@@ -208,7 +214,7 @@ export function sampleRefs(overrides: Partial<LedgerRefs> = {}): LedgerRefs {
     banks: data.banks,
     accounts: data.accounts,
     categories: data.categories,
-    pots: data.pots,
+    budgetGroups: data.budgetGroups,
     tags: ['casa', 'viagem'],
     today: '2026-12-15',
     ...overrides,

@@ -35,7 +35,7 @@ function expense(patch: Partial<EntryFields> = {}): EntryFields {
     accountId,
     toAccountId: null,
     categoryId: null,
-    pot: 'essential',
+    budgetGroup: 'essential',
     tags: ['casa'],
     startMonth: '2026-12',
     day: 10,

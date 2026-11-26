@@ -4,13 +4,13 @@ import { amountFor, dayFor, installmentShares, sortParts } from './occurrence'
 import { entryFieldsSchema, firstIssue, type EntryFields } from './schemas'
 import { sameSplit, type OccurrencePatch } from './scoped-edit'
 import type {
+  BudgetGroup,
+  BudgetGroupKey,
   Entry,
   EntryKind,
   EntryOverride,
   EntryPart,
   MonthBy,
-  Pot,
-  PotKey,
   Recurrence,
 } from './types'
 
@@ -36,8 +36,8 @@ export type EntryFormValues = {
   accountId: string
   toAccountId: string
   categoryId: string
-  /** Pot key; `''` = no pot. */
-  pot: PotKey
+  /** Budget group key; `''` = no budget group. */
+  budgetGroup: BudgetGroupKey
   recurrence: Recurrence
   /** Every N months/years (custom repetition). */
   repeatEvery: number
@@ -81,11 +81,13 @@ export function signedAmountOf(kind: EntryKind, refund: boolean, magnitude: numb
 }
 
 /**
- * Pot a new expense starts in: "Variável" while it is active (the catch-all
- * pot), else the first active pot, else none.
+ * Budget group a new expense starts in: "Variável" while it is active (the catch-all
+ * budget group), else the first active budget group, else none.
  */
-export function defaultPotOf(pots: readonly Pick<Pot, 'key' | 'archived' | 'sort'>[]): PotKey {
-  const active = pots.filter((p) => !p.archived).sort((a, b) => a.sort - b.sort)
+export function defaultBudgetGroupOf(
+  budgetGroups: readonly Pick<BudgetGroup, 'key' | 'archived' | 'sort'>[],
+): BudgetGroupKey {
+  const active = budgetGroups.filter((p) => !p.archived).sort((a, b) => a.sort - b.sort)
   return (active.find((p) => p.key === 'variable') ?? active[0])?.key ?? ''
 }
 
@@ -93,8 +95,8 @@ export function newEntryValues(input: {
   date: string
   accountId: string
   kind?: EntryKind
-  /** See {@link defaultPotOf}. */
-  defaultPot?: PotKey
+  /** See {@link defaultBudgetGroupOf}. */
+  defaultBudgetGroup?: BudgetGroupKey
 }): EntryFormValues {
   return {
     kind: input.kind ?? 'expense',
@@ -105,7 +107,8 @@ export function newEntryValues(input: {
     accountId: input.accountId,
     toAccountId: '',
     categoryId: '',
-    pot: input.kind === undefined || input.kind === 'expense' ? (input.defaultPot ?? '') : '',
+    budgetGroup:
+      input.kind === undefined || input.kind === 'expense' ? (input.defaultBudgetGroup ?? '') : '',
     recurrence: 'none',
     repeatEvery: 1,
     monthBy: 'day',
@@ -158,7 +161,7 @@ export function editEntryValues(target: EditTarget): EntryFormValues {
     accountId: entry.accountId,
     toAccountId: entry.toAccountId ?? '',
     categoryId: entry.categoryId ?? '',
-    pot: entry.pot ?? '',
+    budgetGroup: entry.budgetGroup ?? '',
     recurrence: entry.recurrence,
     repeatEvery: entry.repeatEvery,
     monthBy: entry.monthBy,
@@ -218,7 +221,7 @@ export function valuesToFields(values: EntryFormValues): FieldsResult {
     accountId: values.accountId,
     toAccountId: transfer ? values.toAccountId || null : null,
     categoryId: transfer ? null : values.categoryId || null,
-    pot: values.kind === 'expense' ? values.pot || null : null,
+    budgetGroup: values.kind === 'expense' ? values.budgetGroup || null : null,
     tags: values.tags,
     startMonth: date[1] ?? '',
     day: parts[0]?.day ?? Number(date[2]),

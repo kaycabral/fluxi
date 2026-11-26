@@ -121,7 +121,7 @@ Tudo pelo Dashboard ou pelo CLI com o login do operador; nada de conexão ao ban
 
 O sync (`pluggy-sync`) chama `private.materialize_bank_feed(user, space, today)` depois de gravar o feed de cada espaço, e o app chama a mesma função ao mapear uma conta em Configurações → Conexões: cada transação de uma conta do feed **mapeada** (`bank_feed_accounts.account_id`) vira um lançamento avulso pago, ligado pela `bank_entry_links` (transferências entre contas mapeadas viram uma transferência só), e o saldo inicial das contas mapeadas é ancorado no saldo do banco. Nas contas conectadas, o planejado até hoje deixa de contar (o passado é o do banco). Nenhum dado existente é apagado. A função roda como `SECURITY DEFINER` num schema não exposto (`private`); executam só o dono (`postgres`, o papel do app) e o `fluxi_sync`.
 
-O código não usa mais `count_from_month`: o saldo de cada conta começa no `opening_balance_cents` e soma todos os lançamentos. A coluna `user_settings.count_from_month` continua no schema (marcada como obsoleta) e **só é removida num PR seguinte** (expand → contract), depois deste estar no ar.
+O código não usa mais `count_from_month`: o saldo de cada conta começa no `opening_balance_cents` e soma todos os lançamentos. A coluna `user_settings.count_from_month` foi removida na migration `0031` (contract), depois de o código sem ela estar no ar.
 
 Ordem em produção:
 

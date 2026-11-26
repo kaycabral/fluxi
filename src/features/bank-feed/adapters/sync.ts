@@ -107,7 +107,7 @@ export type AccountSummary = {
 
 export type SkippedItem = { item: number; institution: string; status: string }
 
-/** A configured item no space was chosen for yet ("Conexões bancárias"): not synced. */
+/** A configured item no space was chosen for yet ("Conexões" in the settings): not synced. */
 export type UnassignedItem = { item: number; institution: string }
 
 export type SyncSummary = {

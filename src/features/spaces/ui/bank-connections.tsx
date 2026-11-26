@@ -64,9 +64,9 @@ export function BankConnections({
       spaceId === null ? 'Conexão pausada.' : 'Espaço da conexão atualizado.',
     )
   const choose = (connection: BankConnection, name: string, value: string) => {
-    if (value === UNASSIGNED) return assign(connection.itemId, null)
     const space = options.find((s) => s.id === value)
-    if (space === undefined) return
+    // "Sem espaço" (`UNASSIGNED`) matches no space: pause, keeping the data.
+    if (space === undefined) return assign(connection.itemId, null)
     const hasData = connection.accounts.length > 0 || connection.transactionCount > 0
     if (hasData) setMove({ connection, name, space })
     else assign(connection.itemId, space.id)
@@ -129,35 +129,49 @@ export function BankConnections({
           </ul>
         )}
       </CardContent>
-      <AlertDialog open={move !== null} onOpenChange={(open) => !open && setMove(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              Mover “{move?.name}” para {move?.space.name}?
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {move === null
-                ? null
-                : `${plural(move.connection.accounts.length, 'conta', 'contas')} e ${plural(
-                    move.connection.transactionCount,
-                    'transação',
-                    'transações',
-                  )} vão para o espaço ${move.space.name}. As contas movidas ficam sem vínculo com contas do Fluxi; seus lançamentos não mudam.`}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                if (move !== null) assign(move.connection.itemId, move.space.id)
-                setMove(null)
-              }}
-            >
-              Mover
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {move !== null && (
+        <MoveDialog
+          move={move}
+          onCancel={() => setMove(null)}
+          onConfirm={() => {
+            assign(move.connection.itemId, move.space.id)
+            setMove(null)
+          }}
+        />
+      )}
     </Card>
+  )
+}
+
+/** "Mover “Nubank” para Loja?": how many accounts and transactions go along. */
+function MoveDialog({
+  move,
+  onCancel,
+  onConfirm,
+}: {
+  move: PendingMove
+  onCancel: () => void
+  onConfirm: () => void
+}) {
+  const accounts = plural(move.connection.accounts.length, 'conta', 'contas')
+  const transactions = plural(move.connection.transactionCount, 'transação', 'transações')
+  return (
+    <AlertDialog open onOpenChange={(open) => !open && onCancel()}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>
+            Mover “{move.name}” para {move.space.name}?
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            {accounts} e {transactions} vão para o espaço {move.space.name}. As contas movidas ficam
+            sem vínculo com contas do Fluxi; seus lançamentos não mudam.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          <AlertDialogAction onClick={onConfirm}>Mover</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   )
 }

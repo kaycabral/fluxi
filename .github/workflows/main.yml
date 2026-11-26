@@ -69,3 +69,28 @@ jobs:
           # it keeps the session the migrator's advisory lock needs.
           POSTGRES_URL_NON_POOLING: ${{ secrets.POSTGRES_URL_NON_POOLING }}
         run: pnpm db:migrate
+
+  # The bank sync lives in Supabase (supabase/functions/pluggy-sync), deployed
+  # only after the schema it writes is migrated. The CLI is the pinned
+  # devDependency; `--use-api` bundles server-side (no Docker). The token is a
+  # scoped PAT with `edge_functions_write` (+ `edge_functions_read`,
+  # `projects_read`), see docs/production.md. Function config (verify_jwt off,
+  # import map) comes from supabase/config.toml.
+  deploy-edge-functions:
+    name: deploy-edge-functions
+    needs: migrate-production
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: kaycabral/toolkit/.github/actions/setup@0dd0a4fa17c44d7ac401f8cc96bd0c4615cb56c1 # main
+      - name: Deploy pluggy-sync
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+        run: pnpm exec supabase functions deploy pluggy-sync --workdir . --remote="$SUPABASE_PROJECT_REF" --use-api --yes

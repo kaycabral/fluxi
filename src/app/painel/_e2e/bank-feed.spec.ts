@@ -11,19 +11,21 @@ import { monthToDate } from '@/features/ledger/core/month'
 import { addDays } from '@/features/ledger/core/payments'
 import { expect, test } from '@e2e/fixtures'
 import type { Page } from '@playwright/test'
-import { and, eq, inArray } from 'drizzle-orm'
+import { and, eq, inArray, sql } from 'drizzle-orm'
 
 /**
  * A brand-new user with a synced bank connection (synthetic feed written as
- * the sync would) maps it in Configurações → Conexões, sees the bank's
- * transactions in Lançamentos, cannot change what the bank owns, can
- * categorize; and archives an account in Configurações → Contas.
+ * the sync would) gives it a space in Configurações → Conexões: its account
+ * with movement is linked automatically (the empty one stays folded away),
+ * the bank's transactions show in Lançamentos with the "Vem do banco" mark,
+ * read-only but categorizable; "Não vincular" is respected by the next sync.
+ * Also archives an account in Configurações → Contas.
  * `E2E_SCREENSHOTS=<dir>` saves the screens for review.
  */
 
 const ITEM = 'e2e-item'
-const BANK = 'Banco Feed E2E'
-const FEED_ACCOUNT = 'Conta Corrente E2E'
+/** Synthetic institution: the connection is named after its accounts ("Feedbank"). */
+const BANK = 'Feedbank'
 const shots = process.env.E2E_SCREENSHOTS ?? null
 
 /** Saves the screen for review when `E2E_SCREENSHOTS` names a folder. */
@@ -69,7 +71,7 @@ test.describe('bank feed in the ledger', () => {
     }
   })
 
-  test('maps a bank account, shows its transactions read-only and lets them be categorized', async ({
+  test('auto-links a connection given a space, marks bank entries and respects "Não vincular"', async ({
     page,
     user,
   }) => {
@@ -77,25 +79,26 @@ test.describe('bank feed in the ledger', () => {
     const today = isoDayOf(new Date())
     await db
       .insert(bankFeedItems)
-      .values({ userId: user.id, itemId: ITEM, spaceId: user.scope.spaceId, label: BANK })
-    const feed = created(
-      await db
-        .insert(bankFeedAccounts)
-        .values({
+      .values({ userId: user.id, itemId: ITEM, spaceId: null, label: 'MeuPluggy' })
+    const feeds = await db
+      .insert(bankFeedAccounts)
+      .values(
+        [
+          { externalId: 'e2e-acc', name: `${BANK} Conta`, balanceCents: 100000 },
+          { externalId: 'e2e-empty', name: `${BANK} Reserva`, balanceCents: 0 },
+        ].map((f) => ({
+          ...f,
           ...user.scope,
           source: 'pluggy',
-          externalId: 'e2e-acc',
           itemId: ITEM,
           institution: 'MeuPluggy',
-          name: FEED_ACCOUNT,
           type: 'BANK',
           subtype: 'CHECKING_ACCOUNT',
-          balanceCents: 100000,
           syncedAt: new Date(),
-        })
-        .returning(),
-      'feed',
-    )
+        })),
+      )
+      .returning()
+    const feed = created(feeds, 'feed')
     await db.insert(bankTransactions).values(
       [
         { externalId: 't1', amountCents: -4500, description: 'Padaria Feed E2E' },
@@ -110,18 +113,41 @@ test.describe('bank feed in the ledger', () => {
       })),
     )
 
+    await page.setViewportSize({ width: 1280, height: 800 })
     await page.goto('/painel#configuracoes/conexoes')
     const settings = page.getByRole('dialog', { name: 'Conexões' })
-    await expect(settings.getByText(/Conta · saldo no banco R\$\s1\.000,00/)).toBeVisible()
-    await settings.getByRole('combobox', { name: `Conta no Fluxi de ${FEED_ACCOUNT}` }).click()
-    await page.getByRole('option', { name: 'Criar conta' }).click()
-    await expect(
-      settings.getByRole('combobox', { name: `Conta no Fluxi de ${FEED_ACCOUNT}` }),
-    ).toContainText(`${BANK} · ${FEED_ACCOUNT}`)
-    await snap(page, 'ui3-conexoes')
+    await expect(settings.getByText(BANK, { exact: true })).toBeVisible()
+    await expect(settings).not.toContainText('MeuPluggy')
+    await settings.getByRole('combobox', { name: `Espaço de ${BANK}` }).click()
+    await page.getByRole('option', { name: /Pessoal/ }).click()
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Mover' }).click()
+
+    // Linked automatically to a new "Feedbank · Conta"; the empty one is folded.
+    const accountsList = settings.getByRole('list', { name: `Contas de ${BANK}` })
+    await expect(accountsList).toContainText(`→ ${BANK} · Conta`)
+    await expect(accountsList).toContainText(/saldo no banco R\$\s1\.000,00/)
+    await expect(settings.getByRole('button', { name: '+1 conta sem movimento' })).toBeVisible()
+    await expect(settings.getByText(`${BANK} · Reserva`)).toHaveCount(0)
+    const fits = () =>
+      settings.evaluate((el) => {
+        const content = el.querySelector('[aria-label="Conexões"]') ?? el
+        return content.scrollWidth <= content.clientWidth + 1
+      })
+    expect(await fits()).toBe(true)
+    await snap(page, 'ui4-conexoes-1280')
+    await page.setViewportSize({ width: 390, height: 844 })
+    expect(await fits()).toBe(true)
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    ).toBe(true)
+    await snap(page, 'ui4-conexoes-390')
+    await page.setViewportSize({ width: 1280, height: 800 })
     await page.keyboard.press('Escape')
 
     await page.goto('/painel/lancamentos')
+    const row = page.getByRole('listitem').filter({ hasText: 'Padaria Feed E2E' })
+    await expect(row.getByRole('img', { name: 'Vem do banco' })).toBeVisible()
+    await snap(page, 'ui4-lancamentos')
     await page.getByText('Padaria Feed E2E').click()
     const sheet = page.getByRole('dialog', { name: 'Editar lançamento' })
     await expect(
@@ -130,7 +156,6 @@ test.describe('bank feed in the ledger', () => {
     await expect(sheet.getByLabel('Valor', { exact: true })).toBeDisabled()
     await expect(sheet.getByLabel('Data', { exact: true })).toBeDisabled()
     await expect(sheet.getByRole('button', { name: 'Excluir' })).toHaveCount(0)
-    await snap(page, 'ui3-bank-entry')
     await sheet.getByLabel('Categoria').click()
     await page
       .getByRole('option', { name: /Padaria/ })
@@ -145,6 +170,28 @@ test.describe('bank feed in the ledger', () => {
       .where(and(eq(entries.userId, user.id), eq(entries.description, 'Padaria Feed E2E')))
     expect(saved?.categoryId).not.toBeNull()
     expect(saved?.amountCents).toBe(-4500)
+
+    // "Não vincular" by hand: the bank entries go, and the next sync keeps it so.
+    await page.goto('about:blank')
+    await page.goto('/painel#configuracoes/conexoes')
+    const again = page.getByRole('dialog', { name: 'Conexões' })
+    const label = `${BANK} · Conta`
+    await again.getByRole('button', { name: `Trocar conta de ${label}` }).click()
+    await again.getByRole('combobox', { name: `Conta no Fluxi de ${label}` }).click()
+    await page.getByRole('option', { name: 'Não vincular' }).click()
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Desvincular' }).click()
+    await expect(again.getByText('Não vinculada: não aparece no Fluxi')).toBeVisible()
+    await db.execute(
+      sql`select private.materialize_bank_feed(${user.id}::uuid, ${user.scope.spaceId}::uuid, ${today}::date)`,
+    )
+    const [kept] = await db
+      .select({ accountId: bankFeedAccounts.accountId, source: bankFeedAccounts.mappingSource })
+      .from(bankFeedAccounts)
+      .where(eq(bankFeedAccounts.id, feed.id))
+    expect(kept).toEqual({ accountId: null, source: 'manual' })
+    await page.goto('/painel/lancamentos')
+    await expect(page.getByRole('main').first()).toBeVisible()
+    await expect(page.getByText('Padaria Feed E2E')).toHaveCount(0)
   })
 
   test('archives an account: it and its entries stop counting until unarchived', async ({

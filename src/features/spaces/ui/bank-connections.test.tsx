@@ -3,7 +3,7 @@ import type { Space } from '@/features/spaces/core/space'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { BankConnections } from './bank-connections'
+import { BankConnections, connectionName, hasMovement, type FeedAccount } from './bank-connections'
 
 const assignFeedItemAction = vi.fn<(input: unknown) => Promise<ActionResult>>()
 const mapFeedAccountAction = vi.fn<(input: unknown) => Promise<ActionResult>>()
@@ -29,6 +29,19 @@ const SHOP: Space = {
   archived: false,
 }
 
+const feedAccount = (over: Partial<FeedAccount>): FeedAccount => ({
+  id: 'f',
+  name: 'BTG Banking',
+  type: 'BANK',
+  subtype: 'CHECKING_ACCOUNT',
+  balanceCents: 0,
+  accountId: null,
+  mappingSource: null,
+  entryCount: 0,
+  transactionCount: 0,
+  ...over,
+})
+
 afterEach(() => vi.resetAllMocks())
 
 describe('BankConnections', () => {
@@ -37,15 +50,42 @@ describe('BankConnections', () => {
     expect(screen.getByText('Nenhuma conexão ainda.')).toBeInTheDocument()
   })
 
-  it('lists each connection with its accounts and the space it syncs into', () => {
+  it('names a connection after its institution, never "MeuPluggy"', () => {
+    const base = { itemId: 'i', spaceId: null, transactionCount: 0 }
+    expect(
+      connectionName(
+        {
+          ...base,
+          label: 'MeuPluggy',
+          accounts: [],
+          feedAccounts: [feedAccount({ name: 'itau' }), feedAccount({ name: 'Itaú Click' })],
+        },
+        0,
+      ),
+    ).toBe('Itaú')
+    expect(
+      connectionName({ ...base, label: 'MeuPluggy', accounts: ['BTG+'], feedAccounts: [] }, 0),
+    ).toBe('BTG Pactual')
+    expect(connectionName({ ...base, label: 'MeuPluggy', accounts: [], feedAccounts: [] }, 2)).toBe(
+      'Conexão 3',
+    )
+    expect(connectionName({ ...base, label: 'Nubank', accounts: [], feedAccounts: [] }, 0)).toBe(
+      'Nubank',
+    )
+    expect(hasMovement({ transactionCount: 0, balanceCents: 0 })).toBe(false)
+    expect(hasMovement({ transactionCount: 0, balanceCents: -1 })).toBe(true)
+    expect(hasMovement({ transactionCount: 2, balanceCents: 0 })).toBe(true)
+  })
+
+  it('lists each connection as a card with its space, without overflowing', () => {
     render(
       <BankConnections
         connections={[
           {
             itemId: 'i1',
-            label: 'Nubank',
+            label: 'MeuPluggy',
             spaceId: PERSONAL.id,
-            accounts: ['Conta', 'Cartão'],
+            accounts: ['Nubank Conta', 'Nubank Cartão'],
             transactionCount: 3,
             feedAccounts: [],
           },
@@ -61,16 +101,18 @@ describe('BankConnections', () => {
         spaces={[PERSONAL, SHOP]}
       />,
     )
-    const [first, second] = within(screen.getByRole('list', { name: 'Conexões' })).getAllByRole(
-      'listitem',
-    )
+    const list = screen.getByRole('list', { name: 'Conexões' })
+    const [first, second] = within(list).getAllByRole('listitem')
     expect(first).toHaveTextContent('Nubank')
-    expect(first).toHaveTextContent('Conta, Cartão')
-    expect(within(first!).getByRole('combobox', { name: 'Espaço de Nubank' })).toHaveTextContent(
-      'Pessoal',
-    )
+    expect(first).not.toHaveTextContent('MeuPluggy')
+    expect(first).toHaveTextContent('Nenhuma conta sincronizada ainda')
+    const space = within(first!).getByRole('combobox', { name: 'Espaço de Nubank' })
+    expect(space).toHaveTextContent('Espaço:Pessoal')
+    // The space control wraps under the name on narrow widths and never overflows.
+    expect(space).toHaveClass('w-full', 'max-w-full', 'min-w-0', 'sm:w-auto')
+    expect(first).toHaveClass('min-w-0')
     expect(second).toHaveTextContent('Conexão 2')
-    expect(second).toHaveTextContent('Nenhuma conta sincronizada')
+    expect(second).toHaveTextContent('Sem espaço: não sincroniza')
     expect(within(second!).getByRole('combobox')).toHaveTextContent('Sem espaço')
   })
 
@@ -108,7 +150,7 @@ describe('BankConnections', () => {
             itemId: 'i1',
             label: 'Nubank',
             spaceId: PERSONAL.id,
-            accounts: ['Conta', 'Cartão'],
+            accounts: ['Nubank Conta', 'Nubank Cartão'],
             transactionCount: 1,
             feedAccounts: [],
           },
@@ -136,7 +178,7 @@ describe('BankConnections', () => {
             itemId: 'i1',
             label: 'Nubank',
             spaceId: PERSONAL.id,
-            accounts: ['C'],
+            accounts: ['Nubank'],
             transactionCount: 0,
             feedAccounts: [],
           },
@@ -157,25 +199,66 @@ describe('BankConnections', () => {
     )
   })
 
+  it('folds the accounts without movement away', async () => {
+    render(
+      <BankConnections
+        connections={[
+          {
+            itemId: 'i1',
+            label: 'MeuPluggy',
+            spaceId: PERSONAL.id,
+            accounts: [],
+            transactionCount: 863,
+            feedAccounts: [
+              feedAccount({
+                id: 'a',
+                name: 'BTG Banking',
+                transactionCount: 863,
+                balanceCents: 86,
+              }),
+              feedAccount({ id: 'b', name: 'BTG Investimentos' }),
+              feedAccount({ id: 'c', name: 'BTG Pactual Digital' }),
+              feedAccount({ id: 'd', name: 'BTG+' }),
+            ],
+          },
+        ]}
+        spaces={[PERSONAL]}
+      />,
+    )
+    const active = screen.getByRole('list', { name: 'Contas de BTG Pactual' })
+    expect(within(active).getAllByRole('listitem')).toHaveLength(1)
+    expect(active).toHaveTextContent('BTG Pactual · Conta corrente')
+    expect(active).toHaveTextContent('Não vinculada')
+    expect(screen.queryByText('BTG Pactual · Investimentos')).toBeNull()
+    await userEvent.click(screen.getByRole('button', { name: '+3 contas sem movimento' }))
+    const quiet = screen.getByRole('list', { name: 'Contas sem movimento de BTG Pactual' })
+    expect(within(quiet).getAllByRole('listitem')).toHaveLength(3)
+    expect(quiet).toHaveTextContent('BTG Pactual · Investimentos')
+    await userEvent.click(screen.getByRole('button', { name: 'Esconder contas sem movimento' }))
+    expect(screen.queryByRole('list', { name: /sem movimento/ })).toBeNull()
+  })
+
   describe('Conta no Fluxi', () => {
     const FEED = '00000000-0000-4000-8000-0000000000f1'
     const CHECKING = '00000000-0000-4000-8000-0000000000a1'
+    const LABEL = 'BTG Pactual · Cartão'
     const connection = (accountId: string | null, entryCount: number) => ({
       itemId: 'i1',
-      label: 'BTG',
+      label: 'MeuPluggy',
       spaceId: PERSONAL.id,
-      accounts: ['Cartão BTG'],
+      accounts: ['BTG Cartão'],
       transactionCount: 4,
       feedAccounts: [
-        {
+        feedAccount({
           id: FEED,
-          name: 'Cartão BTG',
+          name: 'BTG Cartão',
           type: 'CREDIT',
           subtype: 'CREDIT_CARD',
           balanceCents: 30000,
           accountId,
           entryCount,
-        },
+          transactionCount: 4,
+        }),
       ],
     })
     const accounts = [
@@ -183,11 +266,15 @@ describe('BankConnections', () => {
       { id: 'card', spaceId: PERSONAL.id, bankName: 'BTG', name: 'Cartão', type: 'credit' },
       { id: 'other', spaceId: SHOP.id, bankName: 'Itaú', name: 'Cartão Loja', type: 'credit' },
     ]
+    const openPicker = async () => {
+      await userEvent.click(screen.getByRole('button', { name: `Trocar conta de ${LABEL}` }))
+      await userEvent.click(screen.getByRole('combobox', { name: `Conta no Fluxi de ${LABEL}` }))
+    }
 
-    it('lists the bank accounts with their balance and offers compatible accounts', async () => {
+    it('shows the linked account as text and offers compatible accounts on "Trocar conta"', async () => {
       mapFeedAccountAction.mockResolvedValue({ ok: true })
       const onChanged = vi.fn()
-      render(
+      const { rerender } = render(
         <BankConnections
           connections={[connection(null, 0)]}
           spaces={[PERSONAL, SHOP]}
@@ -198,7 +285,8 @@ describe('BankConnections', () => {
       expect(
         screen.getByText(/Cartão de crédito · saldo no banco -R\$\s300,00/),
       ).toBeInTheDocument()
-      await userEvent.click(screen.getByRole('combobox', { name: 'Conta no Fluxi de Cartão BTG' }))
+      expect(screen.queryByRole('combobox', { name: /Conta no Fluxi/ })).toBeNull()
+      await openPicker()
       expect(screen.queryByRole('option', { name: 'BTG · Conta' })).toBeNull()
       expect(screen.queryByRole('option', { name: 'Itaú · Cartão Loja' })).toBeNull()
       expect(screen.getByRole('option', { name: 'Criar conta' })).toBeInTheDocument()
@@ -210,6 +298,14 @@ describe('BankConnections', () => {
         }),
       )
       await waitFor(() => expect(onChanged).toHaveBeenCalled())
+      rerender(
+        <BankConnections
+          connections={[connection('card', 4)]}
+          spaces={[PERSONAL, SHOP]}
+          accounts={accounts}
+        />,
+      )
+      expect(screen.getByText('→ BTG · Cartão')).toBeInTheDocument()
     })
 
     it('asks before unmapping an account that already created entries', async () => {
@@ -221,9 +317,9 @@ describe('BankConnections', () => {
           accounts={accounts}
         />,
       )
-      await userEvent.click(screen.getByRole('combobox', { name: 'Conta no Fluxi de Cartão BTG' }))
+      await openPicker()
       await userEvent.click(screen.getByRole('option', { name: 'Não vincular' }))
-      const dialog = await screen.findByRole('alertdialog', { name: 'Desvincular “Cartão BTG”?' })
+      const dialog = await screen.findByRole('alertdialog', { name: `Desvincular “${LABEL}”?` })
       expect(
         within(dialog).getByText(/Os 4 lançamentos que vieram desta conta/),
       ).toBeInTheDocument()
@@ -246,7 +342,7 @@ describe('BankConnections', () => {
           accounts={accounts}
         />,
       )
-      await userEvent.click(screen.getByRole('combobox', { name: 'Conta no Fluxi de Cartão BTG' }))
+      await openPicker()
       await userEvent.click(screen.getByRole('option', { name: 'Criar conta' }))
       await waitFor(() =>
         expect(mapFeedAccountAction).toHaveBeenCalledWith({
@@ -270,10 +366,10 @@ describe('BankConnections', () => {
           ]}
         />,
       )
-      await userEvent.click(screen.getByRole('combobox', { name: 'Conta no Fluxi de Cartão BTG' }))
+      await openPicker()
       await userEvent.click(screen.getByRole('option', { name: 'BTG · Cartão 2' }))
       const dialog = await screen.findByRole('alertdialog', {
-        name: 'Vincular “Cartão BTG” a Cartão 2?',
+        name: `Vincular “${LABEL}” a Cartão 2?`,
       })
       expect(within(dialog).getByText(/criados de novo na conta escolhida/)).toBeInTheDocument()
       await userEvent.click(within(dialog).getByRole('button', { name: 'Cancelar' }))

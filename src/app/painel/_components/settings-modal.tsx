@@ -39,7 +39,7 @@ const SECTIONS = [
     key: 'conexoes',
     label: 'Conexões',
     description:
-      'Escolha em qual espaço entram os dados de cada conexão e a conta do Fluxi de cada conta do banco. Sem espaço, a conexão não é sincronizada.',
+      'Escolha em qual espaço entram os dados de cada conexão; as contas do banco com movimento entram no Fluxi sozinhas. Sem espaço, a conexão não é sincronizada.',
   },
 ] as const
 

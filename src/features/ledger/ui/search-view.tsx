@@ -53,6 +53,7 @@ import {
 } from '@cbrl/design'
 import { Plus, Search, SlidersHorizontal, X } from 'lucide-react'
 import { useDeferredValue, useMemo, useState } from 'react'
+import { BankMark } from './bank-mark'
 import { useLedgerUi } from './ledger-shell'
 import { Money } from './money'
 import { AccountSelect, CategorySelect, OptionSelect, PotSelect } from './selects'
@@ -277,6 +278,7 @@ export function SearchView({ data, initialQuery, today }: Props) {
               <>
                 {/* The meta column (the date) only shows from `sm` up. */}
                 <span className="sm:hidden">{date} · </span>
+                {entry.fromBank && <BankMark className="mr-1" />}
                 {[account, category].filter(Boolean).join(' · ')}
               </>
             ),

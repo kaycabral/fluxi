@@ -1,5 +1,10 @@
 'use client'
 
+import {
+  feedAccountLabel,
+  institutionColor,
+  institutionOf,
+} from '@/features/bank-feed/core/institution'
 import { compatibleTypes, ledgerBalanceOf } from '@/features/bank-feed/core/mapping'
 import { formatMoney } from '@/features/ledger/core/format'
 import { useAction } from '@/features/ledger/ui/budget/shared'
@@ -17,13 +22,16 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  Avatar,
+  AvatarFallback,
+  Button,
+  initials,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from '@cbrl/design'
-import { Landmark } from 'lucide-react'
 import { useState } from 'react'
 
 /** A bank feed account under its connection (see `FeedAccountView`). */
@@ -34,7 +42,11 @@ export type FeedAccount = {
   subtype: string
   balanceCents: number
   accountId: string | null
+  /** Who decided the mapping (`auto` / `manual`; null = nobody yet). */
+  mappingSource?: 'auto' | 'manual' | null
   entryCount: number
+  /** Bank transactions stored for it (none and a zero balance = "sem movimento"). */
+  transactionCount: number
 }
 
 /** A fluxi account the mapping picker offers (see `MappableAccount`). */
@@ -68,7 +80,7 @@ function targetOf(value: string): MapTarget {
 }
 
 /** A remap/unmap waiting for confirmation: it deletes what the feed account created. */
-type PendingMap = { feed: FeedAccount; target: MapTarget; targetName: string }
+type PendingMap = { feed: FeedAccount; label: string; target: MapTarget; targetName: string }
 
 const FEED_TYPE_LABELS: Record<string, string> = { BANK: 'Conta', CREDIT: 'Cartão de crédito' }
 
@@ -79,11 +91,33 @@ type PendingMove = { connection: BankConnection; name: string; space: Space }
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
 
+/** Something happened on it (transactions or a balance): not noise. */
+export function hasMovement(feed: Pick<FeedAccount, 'transactionCount' | 'balanceCents'>) {
+  return feed.transactionCount > 0 || feed.balanceCents !== 0
+}
+
 /**
- * "Conexões": every Open Finance connection of the user and the space its
- * data goes to. Unassigned connections are not synced. Moving a connection to
- * another space takes everything already synced from it along, so it asks
- * first (with how much moves); pausing keeps the data where it is.
+ * The name a connection shows: the institution derived from its accounts
+ * (`institutionOf`), never the proxy connector's "MeuPluggy".
+ */
+export function connectionName(connection: BankConnection, index: number): string {
+  if (connection.feedAccounts.length > 0) {
+    return institutionOf(connection.feedAccounts.map((f) => f.name))
+  }
+  if (connection.accounts.length > 0) return institutionOf(connection.accounts)
+  const label = connection.label?.trim() ?? ''
+  if (label !== '' && !/pluggy/i.test(label)) return label
+  return `Conexão ${index + 1}`
+}
+
+/**
+ * "Conexões": one card per Open Finance connection: the institution, the
+ * space its data goes to (unassigned = not synced) and its bank accounts with
+ * the Fluxi account each one feeds ("→ Itaú · Conta"); accounts without any
+ * movement are folded away. Accounts are linked automatically once the
+ * connection has a space; "Trocar conta" is the manual override. Moving a
+ * connection to another space takes everything already synced from it along,
+ * so it asks first; pausing keeps the data where it is.
  */
 export function BankConnections({
   connections,
@@ -107,10 +141,11 @@ export function BankConnections({
       target.kind === 'none' ? 'Conta desvinculada.' : 'Conta vinculada.',
       onChanged,
     )
-  const chooseAccount = (feed: FeedAccount, value: string, targetName: string) => {
+  const chooseAccount = (feed: FeedAccount, label: string, value: string, targetName: string) => {
     const target = targetOf(value)
-    if (feed.accountId !== null && feed.entryCount > 0) setRemap({ feed, target, targetName })
-    else map(feed, target)
+    if (feed.accountId !== null && feed.entryCount > 0) {
+      setRemap({ feed, label, target, targetName })
+    } else map(feed, target)
   }
   const options = switcherSpaces(spaces)
   const assign = (itemId: string, spaceId: string | null) =>
@@ -130,75 +165,28 @@ export function BankConnections({
 
   return (
     <>
-      <div>
-        {connections.length === 0 ? (
-          <p className="text-muted-foreground text-sm">Nenhuma conexão ainda.</p>
-        ) : (
-          <ul className="divide-y" aria-label="Conexões">
-            {connections.map((c, index) => {
-              const name = c.label ?? `Conexão ${index + 1}`
-              return (
-                <li key={c.itemId} className="grid gap-3 py-3">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex min-w-0 items-start gap-2">
-                      <Landmark
-                        aria-hidden
-                        className="text-muted-foreground mt-0.5 size-4 shrink-0"
-                      />
-                      <div className="min-w-0">
-                        <p className="font-medium">{name}</p>
-                        <p className="text-muted-foreground truncate text-sm">
-                          {c.accounts.length > 0
-                            ? c.accounts.join(', ')
-                            : 'Nenhuma conta sincronizada'}
-                        </p>
-                      </div>
-                    </div>
-                    <Select
-                      value={c.spaceId ?? UNASSIGNED}
-                      onValueChange={(value) => choose(c, name, value)}
-                      disabled={pending}
-                    >
-                      <SelectTrigger
-                        className="sm:w-56 sm:shrink-0"
-                        aria-label={`Espaço de ${name}`}
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={UNASSIGNED}>Sem espaço (não sincroniza)</SelectItem>
-                        {options.map((space) => (
-                          <SelectItem key={space.id} value={space.id}>
-                            {space.name}
-                            {space.kind === 'business' ? ` · ${SPACE_KIND_LABELS.business}` : ''}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  {c.spaceId !== null && c.feedAccounts.length > 0 && (
-                    <ul className="grid gap-2 pl-6" aria-label={`Contas de ${name}`}>
-                      {c.feedAccounts.map((feed) => (
-                        <FeedAccountRow
-                          key={feed.id}
-                          feed={feed}
-                          accounts={accounts.filter(
-                            (a) =>
-                              a.spaceId === c.spaceId &&
-                              compatibleTypes(feed.type).some((t) => t === a.type),
-                          )}
-                          disabled={pending}
-                          onChoose={chooseAccount}
-                        />
-                      ))}
-                    </ul>
-                  )}
-                </li>
-              )
-            })}
-          </ul>
-        )}
-      </div>
+      {connections.length === 0 ? (
+        <p className="text-muted-foreground text-sm">Nenhuma conexão ainda.</p>
+      ) : (
+        <ul className="grid min-w-0 gap-3" aria-label="Conexões">
+          {connections.map((c, index) => {
+            const name = connectionName(c, index)
+            return (
+              <li key={c.itemId} className="min-w-0 rounded-lg border p-3 sm:p-4">
+                <ConnectionCard
+                  connection={c}
+                  name={name}
+                  spaces={options}
+                  accounts={accounts}
+                  disabled={pending}
+                  onChooseSpace={(value) => choose(c, name, value)}
+                  onChooseAccount={chooseAccount}
+                />
+              </li>
+            )
+          })}
+        </ul>
+      )}
       {remap !== null && (
         <RemapDialog
           pending={remap}
@@ -223,6 +211,109 @@ export function BankConnections({
   )
 }
 
+type ChooseAccount = (feed: FeedAccount, label: string, value: string, targetName: string) => void
+
+/** A connection: header (institution + space) and its bank accounts. */
+function ConnectionCard({
+  connection: c,
+  name,
+  spaces,
+  accounts,
+  disabled,
+  onChooseSpace,
+  onChooseAccount,
+}: {
+  connection: BankConnection
+  name: string
+  spaces: readonly Space[]
+  accounts: readonly MappableAccount[]
+  disabled: boolean
+  onChooseSpace: (value: string) => void
+  onChooseAccount: ChooseAccount
+}) {
+  const [showQuiet, setShowQuiet] = useState(false)
+  const active = c.feedAccounts.filter(hasMovement)
+  const quiet = c.feedAccounts.filter((f) => !hasMovement(f))
+  const row = (feed: FeedAccount) => (
+    <FeedAccountRow
+      key={feed.id}
+      feed={feed}
+      institution={name}
+      linked={accounts.find((a) => a.id === feed.accountId) ?? null}
+      accounts={accounts.filter(
+        (a) => a.spaceId === c.spaceId && compatibleTypes(feed.type).some((t) => t === a.type),
+      )}
+      disabled={disabled}
+      onChoose={onChooseAccount}
+    />
+  )
+  let summary = 'Sem espaço: não sincroniza'
+  if (c.spaceId !== null) {
+    summary =
+      c.feedAccounts.length === 0
+        ? 'Nenhuma conta sincronizada ainda'
+        : plural(active.length, 'conta com movimento', 'contas com movimento')
+  }
+  return (
+    <div className="grid min-w-0 gap-3">
+      <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
+        <Avatar className="shrink-0">
+          <AvatarFallback className={institutionColor(name)}>{initials(name)}</AvatarFallback>
+        </Avatar>
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-medium">{name}</p>
+          <p className="text-muted-foreground truncate text-xs">{summary}</p>
+        </div>
+        <Select value={c.spaceId ?? UNASSIGNED} onValueChange={onChooseSpace} disabled={disabled}>
+          <SelectTrigger
+            size="sm"
+            className="w-full max-w-full min-w-0 sm:w-auto sm:max-w-60"
+            aria-label={`Espaço de ${name}`}
+          >
+            <span className="text-muted-foreground shrink-0">Espaço:</span>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={UNASSIGNED}>Sem espaço (não sincroniza)</SelectItem>
+            {spaces.map((space) => (
+              <SelectItem key={space.id} value={space.id}>
+                {space.name}
+                {space.kind === 'business' ? ` · ${SPACE_KIND_LABELS.business}` : ''}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      {c.spaceId !== null && active.length > 0 && (
+        <ul className="grid min-w-0 gap-3 border-t pt-3" aria-label={`Contas de ${name}`}>
+          {active.map(row)}
+        </ul>
+      )}
+      {c.spaceId !== null && quiet.length > 0 && (
+        <div className="grid min-w-0 gap-2">
+          <Button
+            type="button"
+            variant="link"
+            size="sm"
+            className="text-muted-foreground h-auto justify-self-start p-0"
+            aria-expanded={showQuiet}
+            onClick={() => setShowQuiet((v) => !v)}
+          >
+            {showQuiet
+              ? 'Esconder contas sem movimento'
+              : `+${plural(quiet.length, 'conta sem movimento', 'contas sem movimento')}`}
+          </Button>
+          {showQuiet && (
+            <ul className="grid min-w-0 gap-3" aria-label={`Contas sem movimento de ${name}`}>
+              {quiet.map(row)}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 /** "Mover “Nubank” para Loja?": how many accounts and transactions go along. */
 function MoveDialog({
   move,
@@ -243,8 +334,9 @@ function MoveDialog({
             Mover “{move.name}” para {move.space.name}?
           </AlertDialogTitle>
           <AlertDialogDescription>
-            {accounts} e {transactions} vão para o espaço {move.space.name}. As contas movidas ficam
-            sem vínculo com contas do Fluxi; seus lançamentos não mudam.
+            {accounts} e {transactions} vão para o espaço {move.space.name}. As contas movidas são
+            vinculadas de novo no espaço {move.space.name}; os lançamentos que vieram do banco
+            passam para lá.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -256,53 +348,86 @@ function MoveDialog({
   )
 }
 
-/** One bank account of a connection: its last balance and "Conta no Fluxi". */
+/**
+ * One bank account of a connection: its name, kind, bank balance and the
+ * Fluxi account it feeds ("→ Itaú · Conta"); "Trocar conta" opens the picker.
+ */
 function FeedAccountRow({
   feed,
+  institution,
+  linked,
   accounts,
   disabled,
   onChoose,
 }: {
   feed: FeedAccount
+  institution: string
+  linked: MappableAccount | null
   accounts: readonly MappableAccount[]
   disabled: boolean
-  onChoose: (feed: FeedAccount, value: string, targetName: string) => void
+  onChoose: ChooseAccount
 }) {
+  const [editing, setEditing] = useState(false)
+  const label = feedAccountLabel(institution, feed)
   const nameOf = (value: string) => {
     if (value === NOT_MAPPED) return 'nenhuma conta'
-    if (value === CREATE) return `uma conta nova “${feed.name}”`
+    if (value === CREATE) return `uma conta nova “${label}”`
     return accounts.find((a) => a.id === value)?.name ?? 'outra conta'
   }
+  let target = 'Não vinculada: não aparece no Fluxi'
+  if (linked !== null) target = `→ ${linked.bankName} · ${linked.name}`
+  else if (feed.accountId !== null) target = '→ conta arquivada'
   return (
-    <li className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-      <div className="min-w-0 text-sm">
-        <p className="truncate">{feed.name}</p>
-        <p className="text-muted-foreground text-xs">
-          {FEED_TYPE_LABELS[feed.type] ?? feed.type} · saldo no banco{' '}
-          {formatMoney(ledgerBalanceOf(feed.type, feed.balanceCents))}
-        </p>
+    <li className="grid min-w-0 gap-1 text-sm">
+      <p className="truncate font-medium" title={feed.name}>
+        {label}
+      </p>
+      <p className="text-muted-foreground text-xs">
+        {FEED_TYPE_LABELS[feed.type] ?? feed.type} · saldo no banco{' '}
+        {formatMoney(ledgerBalanceOf(feed.type, feed.balanceCents))}
+      </p>
+      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+        <span className="min-w-0 truncate">{target}</span>
+        {!editing && (
+          <Button
+            type="button"
+            variant="link"
+            size="sm"
+            className="h-auto p-0"
+            onClick={() => setEditing(true)}
+            disabled={disabled}
+            aria-label={`Trocar conta de ${label}`}
+          >
+            Trocar conta
+          </Button>
+        )}
       </div>
-      <Select
-        value={feed.accountId ?? NOT_MAPPED}
-        onValueChange={(value) => onChoose(feed, value, nameOf(value))}
-        disabled={disabled}
-      >
-        <SelectTrigger
-          className="sm:w-56 sm:shrink-0"
-          aria-label={`Conta no Fluxi de ${feed.name}`}
+      {editing && (
+        <Select
+          value={feed.accountId ?? NOT_MAPPED}
+          onValueChange={(value) => {
+            setEditing(false)
+            onChoose(feed, label, value, nameOf(value))
+          }}
+          disabled={disabled}
         >
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={NOT_MAPPED}>Não vincular</SelectItem>
-          {accounts.map((a) => (
-            <SelectItem key={a.id} value={a.id}>
-              {a.bankName} · {a.name}
-            </SelectItem>
-          ))}
-          <SelectItem value={CREATE}>Criar conta</SelectItem>
-        </SelectContent>
-      </Select>
+          <SelectTrigger
+            className="w-full max-w-full min-w-0 sm:w-72"
+            aria-label={`Conta no Fluxi de ${label}`}
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={NOT_MAPPED}>Não vincular</SelectItem>
+            {accounts.map((a) => (
+              <SelectItem key={a.id} value={a.id}>
+                {a.bankName} · {a.name}
+              </SelectItem>
+            ))}
+            <SelectItem value={CREATE}>Criar conta</SelectItem>
+          </SelectContent>
+        </Select>
+      )}
     </li>
   )
 }
@@ -325,8 +450,8 @@ function RemapDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>
             {unmap
-              ? `Desvincular “${pending.feed.name}”?`
-              : `Vincular “${pending.feed.name}” a ${pending.targetName}?`}
+              ? `Desvincular “${pending.label}”?`
+              : `Vincular “${pending.label}” a ${pending.targetName}?`}
           </AlertDialogTitle>
           <AlertDialogDescription>
             Os {entries} que vieram desta conta do banco serão apagados

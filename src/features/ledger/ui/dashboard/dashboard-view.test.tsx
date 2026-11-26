@@ -177,7 +177,6 @@ describe('DashboardView', () => {
   it('shows no bank avatars when no account counts in the balance', () => {
     const data = sampleData()
     renderDashboard({ ...data, accounts: data.accounts.map((a) => ({ ...a, archived: true })) })
-    expect(screen.getByText('Todas as contas')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /^Saldo por banco/ })).not.toBeInTheDocument()
   })
 

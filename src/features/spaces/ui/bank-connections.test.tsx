@@ -111,9 +111,9 @@ describe('BankConnections', () => {
         spaces={[PERSONAL]}
       />,
     )
-    expect(screen.getByText('Último movimento: 03/11/2026')).toBeInTheDocument()
+    expect(screen.getByText(/ · Último movimento: 03\/11\/2026$/)).toBeInTheDocument()
     expect(
-      screen.getByText('Cartão bloqueado · Sem movimento nos últimos 12 meses'),
+      screen.getByText(/ · Cartão bloqueado · Sem movimento nos últimos 12 meses$/),
     ).toBeInTheDocument()
   })
 
@@ -258,7 +258,7 @@ describe('BankConnections', () => {
     )
   })
 
-  it('folds the accounts without movement away', async () => {
+  it('lists every account, the ones without movement last and dimmed', () => {
     render(
       <BankConnections
         connections={[
@@ -284,17 +284,19 @@ describe('BankConnections', () => {
         spaces={[PERSONAL]}
       />,
     )
-    const active = screen.getByRole('list', { name: 'Contas de BTG Pactual' })
-    expect(within(active).getAllByRole('listitem')).toHaveLength(1)
-    expect(active).toHaveTextContent('BTG Pactual · Conta corrente')
-    expect(active).toHaveTextContent('Não vinculada')
-    expect(screen.queryByText('BTG Pactual · Investimentos')).toBeNull()
-    await userEvent.click(screen.getByRole('button', { name: '+3 contas sem movimento' }))
-    const quiet = screen.getByRole('list', { name: 'Contas sem movimento de BTG Pactual' })
-    expect(within(quiet).getAllByRole('listitem')).toHaveLength(3)
-    expect(quiet).toHaveTextContent('BTG Pactual · Investimentos')
-    await userEvent.click(screen.getByRole('button', { name: 'Esconder contas sem movimento' }))
-    expect(screen.queryByRole('list', { name: /sem movimento/ })).toBeNull()
+    // Every account, counted regardless of movement; the bank name is the card's only.
+    expect(screen.getByText('4 contas')).toBeInTheDocument()
+    const list = screen.getByRole('list', { name: 'Contas de BTG Pactual' })
+    const rows = within(list).getAllByRole('listitem')
+    expect(rows).toHaveLength(4)
+    expect(rows[0]).toHaveTextContent(/^Conta corrente/)
+    expect(rows[0]).toHaveTextContent('Não vinculada')
+    expect(rows[0]).not.toHaveClass('opacity-60')
+    // The ones without movement come last, dimmed.
+    expect(rows[1]).toHaveTextContent(/^Investimentos/)
+    expect(rows[1]).toHaveClass('opacity-60')
+    expect(list).not.toHaveTextContent('BTG Pactual ·')
+    expect(screen.queryByText(/sem movimento|com movimento/)).toBeNull()
   })
 
   describe('Conta no Fluxi', () => {
@@ -341,9 +343,7 @@ describe('BankConnections', () => {
           onChanged={onChanged}
         />,
       )
-      expect(
-        screen.getByText(/Cartão de crédito · saldo no banco -R\$\s300,00/),
-      ).toBeInTheDocument()
+      expect(screen.getByText(/^Saldo -R\$\s300,00 · /)).toBeInTheDocument()
       expect(screen.queryByRole('combobox', { name: /Conta no Fluxi/ })).toBeNull()
       await openPicker()
       expect(screen.queryByRole('option', { name: 'BTG · Conta' })).toBeNull()

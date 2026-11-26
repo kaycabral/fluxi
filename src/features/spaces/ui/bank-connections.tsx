@@ -1,6 +1,10 @@
 'use client'
 
-import { connectionInstitution, feedAccountLabel } from '@/features/bank-feed/core/institution'
+import {
+  connectionInstitution,
+  feedAccountLabel,
+  feedAccountShortLabel,
+} from '@/features/bank-feed/core/institution'
 import { compatibleTypes, ledgerBalanceOf } from '@/features/bank-feed/core/mapping'
 import type { CardStatus } from '@/features/bank-feed/core/pluggy'
 import { feedAccountStatusLine } from '@/features/bank-feed/core/status'
@@ -23,6 +27,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   Button,
+  cn,
   Select,
   SelectContent,
   SelectItem,
@@ -84,8 +89,6 @@ function targetOf(value: string): MapTarget {
 
 /** A remap/unmap waiting for confirmation: it deletes what the feed account created. */
 type PendingMap = { feed: FeedAccount; label: string; target: MapTarget; targetName: string }
-
-const FEED_TYPE_LABELS: Record<string, string> = { BANK: 'Conta', CREDIT: 'Cartão de crédito' }
 
 const UNASSIGNED = 'none'
 
@@ -232,13 +235,16 @@ function ConnectionCard({
   onChooseSpace: (value: string) => void
   onChooseAccount: ChooseAccount
 }) {
-  const [showQuiet, setShowQuiet] = useState(false)
-  const active = c.feedAccounts.filter(hasMovement)
-  const quiet = c.feedAccounts.filter((f) => !hasMovement(f))
+  // Every account, the ones with movement first; the rest dimmed at the end.
+  const ordered = [
+    ...c.feedAccounts.filter(hasMovement),
+    ...c.feedAccounts.filter((f) => !hasMovement(f)),
+  ]
   const row = (feed: FeedAccount) => (
     <FeedAccountRow
       key={feed.id}
       feed={feed}
+      quiet={!hasMovement(feed)}
       institution={name}
       linked={accounts.find((a) => a.id === feed.accountId) ?? null}
       accounts={accounts.filter(
@@ -253,7 +259,7 @@ function ConnectionCard({
     summary =
       c.feedAccounts.length === 0
         ? 'Nenhuma conta sincronizada ainda'
-        : plural(active.length, 'conta com movimento', 'contas com movimento')
+        : plural(c.feedAccounts.length, 'conta', 'contas')
   }
   return (
     <div className="grid min-w-0 gap-3">
@@ -283,31 +289,10 @@ function ConnectionCard({
           </SelectContent>
         </Select>
       </div>
-      {c.spaceId !== null && active.length > 0 && (
+      {c.spaceId !== null && ordered.length > 0 && (
         <ul className="grid min-w-0 gap-3 border-t pt-3" aria-label={`Contas de ${name}`}>
-          {active.map(row)}
+          {ordered.map(row)}
         </ul>
-      )}
-      {c.spaceId !== null && quiet.length > 0 && (
-        <div className="grid min-w-0 gap-2">
-          <Button
-            type="button"
-            variant="link"
-            size="sm"
-            className="text-muted-foreground h-auto justify-self-start p-0"
-            aria-expanded={showQuiet}
-            onClick={() => setShowQuiet((v) => !v)}
-          >
-            {showQuiet
-              ? 'Esconder contas sem movimento'
-              : `+${plural(quiet.length, 'conta sem movimento', 'contas sem movimento')}`}
-          </Button>
-          {showQuiet && (
-            <ul className="grid min-w-0 gap-3" aria-label={`Contas sem movimento de ${name}`}>
-              {quiet.map(row)}
-            </ul>
-          )}
-        </div>
       )}
     </div>
   )
@@ -353,6 +338,7 @@ function MoveDialog({
  */
 function FeedAccountRow({
   feed,
+  quiet,
   institution,
   linked,
   accounts,
@@ -360,6 +346,8 @@ function FeedAccountRow({
   onChoose,
 }: {
   feed: FeedAccount
+  /** No movement at all: dimmed. */
+  quiet: boolean
   institution: string
   linked: MappableAccount | null
   accounts: readonly MappableAccount[]
@@ -377,18 +365,15 @@ function FeedAccountRow({
   if (linked !== null) target = `→ ${linked.bankName} · ${linked.name}`
   else if (feed.accountId !== null) target = '→ conta arquivada'
   return (
-    <li className="grid min-w-0 gap-1 text-sm">
+    <li className={cn('grid min-w-0 gap-1 text-sm', quiet && 'opacity-60')}>
       <p className="truncate font-medium" title={feed.name}>
-        {label}
+        {feedAccountShortLabel(institution, feed)}
         {feed.numberHint ? (
           <span className="text-muted-foreground font-normal"> ••{feed.numberHint}</span>
         ) : null}
       </p>
       <p className="text-muted-foreground text-xs">
-        {FEED_TYPE_LABELS[feed.type] ?? feed.type} · saldo no banco{' '}
-        {formatMoney(ledgerBalanceOf(feed.type, feed.balanceCents))}
-      </p>
-      <p className="text-muted-foreground text-xs">
+        Saldo {formatMoney(ledgerBalanceOf(feed.type, feed.balanceCents))} ·{' '}
         {feedAccountStatusLine({
           lastMovement: feed.lastMovement ?? null,
           cardStatus: feed.cardStatus ?? null,

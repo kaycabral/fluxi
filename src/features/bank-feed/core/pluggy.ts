@@ -3,8 +3,9 @@ import { z } from 'zod'
 /**
  * Pure mapping of Pluggy API payloads (accounts-list, transactions-list-by-
  * cursor, items-retrieve) onto bank-feed rows. Only the fields the feed keeps
- * are parsed: counterparty documents (`paymentData`), account numbers and owner
- * tax ids never leave this module.
+ * are parsed: counterparty documents (`paymentData`) and owner tax ids never
+ * leave this module; of the account number only the last 4 digits do
+ * ({@link numberHintOf}).
  */
 
 export const PLUGGY_SOURCE = 'pluggy'
@@ -27,6 +28,8 @@ export const pluggyAccountSchema = z.object({
   subtype: z.string(),
   name: z.string(),
   marketingName: z.string().nullish(),
+  /** Bank account `agency/number-digit`, or a card's masked last digits. Only a hint is kept. */
+  number: z.string().nullish(),
   balance: z.number(),
   currencyCode: z.string(),
 })
@@ -93,6 +96,21 @@ export type FeedAccountRow = {
   type: string
   subtype: string
   balanceCents: number
+  /** Last 4 digits of the account / card number, to tell accounts apart ("••4821"). */
+  numberHint: string | null
+}
+
+/**
+ * The last 4 digits of a Pluggy account `number`, never more. A bank account
+ * comes as `agency/number-digit` (the agency is dropped, the check digit
+ * counts as the last digit, separators are ignored); a card is already masked
+ * to its last digits. Fewer than 4 digits → null.
+ */
+export function numberHintOf(number: string | null | undefined): string | null {
+  if (!number) return null
+  const account = number.slice(number.lastIndexOf('/') + 1)
+  const digits = account.replace(/\D/g, '')
+  return digits.length >= 4 ? digits.slice(-4) : null
 }
 
 export function toFeedAccount(account: PluggyAccount, institution: string): FeedAccountRow {
@@ -106,6 +124,7 @@ export function toFeedAccount(account: PluggyAccount, institution: string): Feed
     type: account.type,
     subtype: account.subtype,
     balanceCents: sign * toCents(account.balance),
+    numberHint: numberHintOf(account.number),
   }
 }
 

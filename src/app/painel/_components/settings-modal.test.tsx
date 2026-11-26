@@ -1,5 +1,6 @@
 import type { AccountsData } from '@/features/ledger/adapters/actions/accounts'
 import type { ActionResult } from '@/features/ledger/core/action-result'
+import type { CategorizationRule } from '@/features/ledger/core/similar'
 import type { ConnectionsData } from '@/features/spaces/adapters/actions/spaces'
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -9,6 +10,12 @@ import { SettingsModal, settingsHash } from './settings-modal'
 type Loaded = { ok: true; data: ConnectionsData } | { ok: false; error: string }
 const loadConnectionsAction = vi.fn<() => Promise<Loaded>>()
 const assignFeedItemAction = vi.fn<(input: unknown) => Promise<ActionResult>>()
+type RulesLoaded = { ok: true; data: CategorizationRule[] } | { ok: false; error: string }
+const loadRulesAction = vi.fn<() => Promise<RulesLoaded>>()
+vi.mock('@/features/ledger/adapters/actions/categorize', () => ({
+  loadRulesAction: () => loadRulesAction(),
+  deleteRuleAction: vi.fn(),
+}))
 vi.mock('@/features/spaces/adapters/actions/spaces', () => ({
   loadConnectionsAction: () => loadConnectionsAction(),
   assignFeedItemAction: (i: unknown) => assignFeedItemAction(i),
@@ -195,5 +202,33 @@ describe('SettingsModal', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Contas' })
     expect(await within(dialog).findByText('Não foi possível carregar as contas.')).toBeVisible()
     expect(within(dialog).getByRole('button', { name: 'Tentar de novo' })).toBeVisible()
+  })
+
+  it('lists the rules of the space', async () => {
+    loadRulesAction.mockResolvedValue({
+      ok: true,
+      data: [
+        {
+          id: 'r1',
+          pattern: 'atm veneza',
+          minCents: 800,
+          maxCents: 1500,
+          categoryId: 'c1',
+          categoryName: 'Padaria',
+          pot: null,
+          potName: null,
+        },
+      ],
+    })
+    openAt(settingsHash('regras'))
+    const dialog = await screen.findByRole('dialog', { name: 'Regras' })
+    expect(await within(dialog).findByText('“atm veneza”')).toBeVisible()
+  })
+
+  it('offers to retry when the rules cannot be loaded', async () => {
+    loadRulesAction.mockRejectedValue(new Error('down'))
+    openAt(settingsHash('regras'))
+    const dialog = await screen.findByRole('dialog', { name: 'Regras' })
+    expect(await within(dialog).findByText('Não foi possível carregar as regras.')).toBeVisible()
   })
 })

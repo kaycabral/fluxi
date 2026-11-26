@@ -1,5 +1,6 @@
 'use client'
 
+import { findSimilarAction } from '@/features/ledger/adapters/actions/categorize'
 import {
   createEntryAction,
   deleteEntryAction,
@@ -44,6 +45,7 @@ import { MoneyInput } from './money-input'
 import { RepeatField } from './repeat-field'
 import type { ScopeRequest } from './scope-dialog'
 import { AccountSelect, CategorySelect, PotSelect } from './selects'
+import { SimilarDialog, type SimilarOffer } from './similar-dialog'
 
 export type EntryFormProps = {
   refs: LedgerRefs
@@ -73,6 +75,7 @@ export function EntryForm({
   const [entryId, setEntryId] = useState(() => crypto.randomUUID())
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
+  const [similar, setSimilar] = useState<SimilarOffer | null>(null)
   const set = (patch: Partial<EntryFormValues>) => setValues((v) => ({ ...v, ...patch }))
 
   const usedAccountIds = new Set([target?.entry.accountId, target?.entry.toAccountId])
@@ -150,6 +153,10 @@ export function EntryForm({
         return
       }
       offerUndo(result, 'Lançamento salvo.')
+      if (target !== null) {
+        const offer = await similarOffer(target.entry, converted.fields)
+        if (offer !== null) return setSimilar(offer)
+      }
       if (!again) return onDone()
       setValues(
         newEntryValues({
@@ -161,6 +168,18 @@ export function EntryForm({
       )
       setEntryId(crypto.randomUUID())
     })
+  }
+
+  /** After a category/pot change: the bank entries that look like this one, if any. */
+  async function similarOffer(
+    before: { id: string; categoryId: string | null; pot: string | null },
+    fields: EntryFields,
+  ): Promise<SimilarOffer | null> {
+    const changed = fields.categoryId !== before.categoryId || fields.pot !== before.pot
+    if (!changed || (fields.categoryId === null && fields.pot === null)) return null
+    const found = await findSimilarAction({ entryId: before.id }).catch(() => null)
+    if (found === null || !found.ok || found.data.candidates.length === 0) return null
+    return { ...found.data, categoryId: fields.categoryId, pot: fields.pot }
   }
 
   async function remove() {
@@ -209,6 +228,16 @@ export function EntryForm({
         {target === null ? 'Novo lançamento' : 'Editar lançamento'}
       </DialogTitle>
       <DialogDescription className="sr-only">Preencha os dados do lançamento.</DialogDescription>
+      {similar !== null && (
+        <SimilarDialog
+          offer={similar}
+          refs={refs}
+          onDone={() => {
+            setSimilar(null)
+            onDone()
+          }}
+        />
+      )}
 
       <div className="flex items-start gap-2 px-3 pt-3 md:gap-4 md:px-6 md:pt-4">
         <Button

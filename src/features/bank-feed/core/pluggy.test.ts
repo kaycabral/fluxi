@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   coveredFrom,
   itemReadiness,
+  numberHintOf,
   parsePluggyConfig,
   pluggyTransactionSchema,
   toFeedAccount,
@@ -144,5 +145,39 @@ describe('coveredFrom', () => {
   it('starts 360 days before today, across years', () => {
     expect(coveredFrom('2026-11-25')).toBe('2025-11-30')
     expect(coveredFrom('2026-01-10')).toBe('2025-01-15')
+  })
+})
+
+describe('numberHintOf', () => {
+  it.each([
+    ['0001/12345-0', '3450'],
+    ['0001/1234821', '4821'],
+    ['12.345-6', '3456'],
+    ['4821', '4821'],
+    ['XXXX XXXX XXXX 4821', '4821'],
+    ['123', null],
+    ['', null],
+    [null, null],
+    [undefined, null],
+  ])('%s → %s', (number, hint) => {
+    expect(numberHintOf(number)).toBe(hint)
+  })
+
+  it('is what toFeedAccount keeps, never the full number', () => {
+    const account = toFeedAccount(
+      {
+        id: 'a',
+        itemId: 'i',
+        type: 'BANK',
+        subtype: 'CHECKING_ACCOUNT',
+        name: 'Conta',
+        number: '0001/9876543-2',
+        balance: 1,
+        currencyCode: 'BRL',
+      },
+      'Banco X',
+    )
+    expect(account.numberHint).toBe('5432')
+    expect(JSON.stringify(account)).not.toContain('9876543')
   })
 })

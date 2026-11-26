@@ -389,7 +389,8 @@ authorization_url_path = "/oauth/consent"
 allow_dynamic_registration = false
 
 [edge_runtime]
-enabled = false
+# On for the `pluggy-sync` function (supabase/functions); `pnpm db:start` keeps it.
+enabled = true
 # Supported request policies: `oneshot`, `per_worker`.
 # `per_worker` (default) — enables hot reload during local development.
 # `oneshot` — fallback mode if hot reload causes issues (e.g. in large repos or with symlinks).
@@ -401,6 +402,15 @@ deno_version = 2
 
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
+
+# The daily bank sync, called by pg_cron/pg_net (no user JWT). The platform JWT
+# check is off; the function itself rejects any request without the dedicated
+# `x-fluxi-sync-token` (constant-time compare) with 401. The import map is the
+# function's deno.json (exact npm versions, same as package.json).
+[functions.pluggy-sync]
+enabled = true
+verify_jwt = false
+import_map = "./functions/pluggy-sync/deno.json"
 
 [analytics]
 enabled = false

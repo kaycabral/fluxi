@@ -1,15 +1,23 @@
 import { fluxiDb, seedUser, truncateFluxiTables } from '@/db'
 import { accounts, bankFeedAccounts, bankTransactions, banks } from '@/db/schema'
 import type { FeedAccountRow, FeedTransactionRow } from '@/features/bank-feed/core/pluggy'
+import { requireEnv } from '@cbrl/env'
 import { eq } from 'drizzle-orm'
-import { afterAll, beforeEach, describe, expect, it } from 'vitest'
+import postgres from 'postgres'
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { syncFeedAccount } from './feed.write'
 
 const ANA = '11111111-1111-4111-8111-111111111111'
 const BIA = '22222222-2222-4222-8222-222222222222'
 const db = () => fluxiDb.db()
+/**
+ * The writer runs exactly as in the Edge Function: postgres.js, no prepared
+ * statements, as the least-privileged `fluxi_sync` role (one connection, so
+ * `set role` covers every statement of the suite).
+ */
+const asSync = postgres(requireEnv('POSTGRES_URL'), { prepare: false, max: 1 })
 const sync = (userId: string, acc: FeedAccountRow, transactions: FeedTransactionRow[]) =>
-  syncFeedAccount(db(), userId, {
+  syncFeedAccount(asSync, userId, {
     source: 'pluggy',
     account: acc,
     transactions,
@@ -39,6 +47,9 @@ const tx = (externalId: string, over: Partial<FeedTransactionRow> = {}): FeedTra
 })
 
 describe('bank feed sync (Postgres)', () => {
+  beforeAll(async () => {
+    await asSync`set role fluxi_sync`
+  })
   beforeEach(async () => {
     await truncateFluxiTables(db())
     await seedUser(db(), { id: ANA, email: 'ana@example.test' })
@@ -46,6 +57,29 @@ describe('bank feed sync (Postgres)', () => {
   })
   afterAll(async () => {
     await truncateFluxiTables(db())
+    await asSync.end()
+  })
+
+  it('fluxi_sync only reaches the feed tables', async () => {
+    const [who] = await asSync<{ role: string }[]>`select current_user as role`
+    expect(who?.role).toBe('fluxi_sync')
+    await expect(asSync`select 1 from entries limit 1`).rejects.toThrow(/permission denied/)
+    await expect(asSync`select 1 from profiles limit 1`).rejects.toThrow(/permission denied/)
+    await expect(asSync`select 1 from auth.users limit 1`).rejects.toThrow(/permission denied/)
+    await expect(asSync`delete from accounts`).rejects.toThrow(/permission denied/)
+    expect(await asSync`select 1 from bank_transactions`).toHaveLength(0)
+  })
+
+  it('stays invisible to the API roles (RLS without policies for them)', async () => {
+    await sync(ANA, account, [tx('a')])
+    const asApi = postgres(requireEnv('POSTGRES_URL'), { prepare: false, max: 1 })
+    try {
+      await asApi`set role authenticated`
+      expect(await asApi`select 1 from bank_transactions`).toHaveLength(0)
+      expect(await asApi`select 1 from bank_feed_accounts`).toHaveLength(0)
+    } finally {
+      await asApi.end()
+    }
   })
 
   it('upserts by external id, removes what disappeared and keeps users apart', async () => {

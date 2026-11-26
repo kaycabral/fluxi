@@ -41,6 +41,8 @@ export type FeedAccount = {
   type: string
   subtype: string
   balanceCents: number
+  /** Last 4 digits of the bank account / card. */
+  numberHint?: string | null
   accountId: string | null
   /** Who decided the mapping (`auto` / `manual`; null = nobody yet). */
   mappingSource?: 'auto' | 'manual' | null
@@ -381,6 +383,9 @@ function FeedAccountRow({
     <li className="grid min-w-0 gap-1 text-sm">
       <p className="truncate font-medium" title={feed.name}>
         {label}
+        {feed.numberHint ? (
+          <span className="text-muted-foreground font-normal"> ••{feed.numberHint}</span>
+        ) : null}
       </p>
       <p className="text-muted-foreground text-xs">
         {FEED_TYPE_LABELS[feed.type] ?? feed.type} · saldo no banco{' '}

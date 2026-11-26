@@ -116,6 +116,25 @@ describe('BankConnections', () => {
     expect(within(second!).getByRole('combobox')).toHaveTextContent('Sem espaço')
   })
 
+  it('tells accounts apart by the last 4 digits', () => {
+    render(
+      <BankConnections
+        connections={[
+          {
+            itemId: 'i1',
+            label: 'BTG',
+            spaceId: PERSONAL.id,
+            accounts: [],
+            transactionCount: 2,
+            feedAccounts: [feedAccount({ transactionCount: 2, numberHint: '1234' })],
+          },
+        ]}
+        spaces={[PERSONAL]}
+      />,
+    )
+    expect(screen.getByText('••1234', { exact: false })).toBeInTheDocument()
+  })
+
   it('assigns a connection to another space', async () => {
     assignFeedItemAction.mockResolvedValue({ ok: true })
     render(

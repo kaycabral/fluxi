@@ -4,6 +4,7 @@ import {
   listAccounts,
   listBanks,
   listConnectedAccountIds,
+  listConnectedNumberHints,
 } from '@/features/ledger/adapters/ledger.repo'
 import {
   createAccount,
@@ -111,6 +112,8 @@ export type ManagedAccount = {
   balanceCents: number
   /** A bank feed is mapped to it (archiving is refused until unmapped). */
   connected: boolean
+  /** Last 4 digits of the bank accounts / cards mapped onto it ("vinculada a ••4821"). */
+  numberHints?: string[]
 }
 
 export type AccountsData = { banks: Bank[]; accounts: ManagedAccount[] }
@@ -123,10 +126,11 @@ export async function loadAccountsAction(): Promise<
   if (!scope) return { ok: false, error: SESSION_EXPIRED }
   const today = isoDayOf(new Date())
   const month = today.slice(0, 7)
-  const [banks, list, connected, projection] = await Promise.all([
+  const [banks, list, connected, hints, projection] = await Promise.all([
     listBanks(scope),
     listAccounts(scope),
     listConnectedAccountIds(scope),
+    listConnectedNumberHints(scope),
     projectLedger(scope, { from: month, to: month }, today),
   ])
   const current = projection.months[0]
@@ -143,6 +147,7 @@ export async function loadAccountsAction(): Promise<
         archived: a.archived,
         balanceCents: a.archived ? 0 : (balances[a.id] ?? a.openingBalanceCents),
         connected: connected.includes(a.id),
+        numberHints: hints[a.id] ?? [],
       })),
     },
   }

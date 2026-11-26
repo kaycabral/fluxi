@@ -106,6 +106,8 @@ export type FeedAccountView = {
   subtype: string
   /** Last balance the bank reported (a card's open bill, positive = owed). */
   balanceCents: number
+  /** Last 4 digits of the bank account / card ("••4821"). */
+  numberHint: string | null
   accountId: string | null
   /** Who decided the mapping (`auto` / `manual`; null = nobody yet). */
   mappingSource: 'auto' | 'manual' | null
@@ -176,6 +178,7 @@ export async function listFeedItems(userId: string): Promise<FeedItem[]> {
       type: bankFeedAccounts.type,
       subtype: bankFeedAccounts.subtype,
       balanceCents: bankFeedAccounts.balanceCents,
+      numberHint: bankFeedAccounts.numberHint,
       accountId: bankFeedAccounts.accountId,
       mappingSource: bankFeedAccounts.mappingSource,
       transactionCount: sql<number>`(

@@ -200,6 +200,9 @@ function AccountRow({
           <span className={cn(account.balanceCents < 0 && 'text-destructive')}>
             {formatMoney(account.balanceCents)}
           </span>
+          {account.connected && (account.numberHints?.length ?? 0) > 0 && (
+            <> · vinculada a {account.numberHints?.map((h) => `••${h}`).join(', ')}</>
+          )}
         </p>
       </div>
       <div className="flex gap-1">

@@ -269,6 +269,26 @@ export async function listConnectedAccountIds(scope: Scope): Promise<string[]> {
   return rows.flatMap((r) => (r.accountId === null ? [] : [r.accountId])).sort()
 }
 
+/** Last 4 digits of the bank accounts / cards mapped onto each account of `scope`. */
+export async function listConnectedNumberHints(scope: Scope): Promise<Record<string, string[]>> {
+  const rows = await db()
+    .select({ accountId: bankFeedAccounts.accountId, hint: bankFeedAccounts.numberHint })
+    .from(bankFeedAccounts)
+    .where(
+      and(
+        inScope(bankFeedAccounts, scope),
+        isNotNull(bankFeedAccounts.accountId),
+        isNotNull(bankFeedAccounts.numberHint),
+      ),
+    )
+  const hints: Record<string, string[]> = {}
+  for (const { accountId, hint } of rows) {
+    if (accountId === null || hint === null) continue
+    hints[accountId] = [...(hints[accountId] ?? []), hint].sort()
+  }
+  return hints
+}
+
 /** Everything the core needs to project `scope`'s ledger over `window`. */
 export async function loadLedger(scope: Scope, window: MonthWindow): Promise<LedgerSnapshot> {
   const [bankRows, accountRows, categoryRows, potRows, entryRows, connectedAccountIds] =

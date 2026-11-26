@@ -56,6 +56,21 @@ export const bankFeedItems = pgTable(
     spaceSource: text('space_source'),
     /** Name offered for a new space ("Criar espaço …") while an unknown company's connection waits for one. */
     suggestedSpaceName: text('suggested_space_name'),
+    /**
+     * Connection health as Pluggy last reported it (`items-retrieve`), recorded
+     * by the sync for every configured item, synced or not. Only codes and
+     * dates: never the error message (it may carry the institution's text).
+     */
+    itemStatus: text('item_status'),
+    executionStatus: text('execution_status'),
+    errorCode: text('error_code'),
+    lastUpdatedAt: timestamp('last_updated_at', { withTimezone: true }),
+    nextSyncAt: timestamp('next_sync_at', { withTimezone: true }),
+    consentExpiresAt: timestamp('consent_expires_at', { withTimezone: true }),
+    /** `connector.health.status`: `ONLINE`, `UNSTABLE` or `OFFLINE`. */
+    institutionHealth: text('institution_health'),
+    /** When our sync last read the item (null = never). */
+    checkedAt: timestamp('checked_at', { withTimezone: true }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -70,6 +85,14 @@ export const bankFeedItems = pgTable(
       'bank_feed_items_suggestion',
       sql`${t.suggestedSpaceName} is null or (${t.spaceId} is null and char_length(${t.suggestedSpaceName}) between 1 and 40)`,
     ),
+    check(
+      'bank_feed_items_status_codes',
+      sql`(${t.itemStatus} is null or char_length(${t.itemStatus}) <= 40)
+        and (${t.executionStatus} is null or char_length(${t.executionStatus}) <= 60)
+        and (${t.errorCode} is null or char_length(${t.errorCode}) <= 60)
+        and (${t.institutionHealth} is null or char_length(${t.institutionHealth}) <= 20)`,
+    ),
+    check('bank_feed_items_checked', sql`${t.itemStatus} is null or ${t.checkedAt} is not null`),
     foreignKey({
       name: 'bank_feed_items_space_fk',
       columns: [t.spaceId, t.userId],

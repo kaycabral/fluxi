@@ -2,7 +2,7 @@ import type { BudgetGroupColor, BudgetGroupGoal, BudgetGroupKey } from './types'
 
 /**
  * Defaults every new space starts with. The database seeds them with
- * `public.seed_space_defaults` (migration `0017_spaces_seed`), called by the
+ * `public.seed_space_defaults` (latest version: migration `0027_space_icon_and_defaults`), called by the
  * `on_auth_user_created` trigger for the personal space and by the app for
  * every space the user creates; the Postgres suite asserts the seeded rows
  * equal these constants, so a change here needs a new migration that replaces
@@ -15,12 +15,11 @@ export const DEFAULT_BUDGET_GROUPS: readonly {
   goal: BudgetGroupGoal
   targetBps: number
 }[] = [
-  { key: 'essential', name: 'Essencial', color: 'violet', goal: 'limit', targetBps: 3300 },
-  { key: 'comfort', name: 'Conforto', color: 'orange', goal: 'limit', targetBps: 700 },
-  { key: 'guilt_free', name: 'Livre', color: 'pink', goal: 'limit', targetBps: 700 },
-  { key: 'education', name: 'Educação', color: 'emerald', goal: 'limit', targetBps: 300 },
-  { key: 'variable', name: 'Variável', color: 'yellow', goal: 'limit', targetBps: 800 },
-  { key: 'investment', name: 'Investimento', color: 'blue', goal: 'minimum', targetBps: 3200 },
+  { key: 'essential', name: 'Essencial', color: 'violet', goal: 'limit', targetBps: 5000 },
+  { key: 'comfort', name: 'Conforto', color: 'orange', goal: 'limit', targetBps: 1000 },
+  { key: 'guilt_free', name: 'Livre', color: 'pink', goal: 'limit', targetBps: 1000 },
+  { key: 'education', name: 'Educação', color: 'emerald', goal: 'limit', targetBps: 500 },
+  { key: 'investment', name: 'Investimento', color: 'blue', goal: 'minimum', targetBps: 2500 },
 ]
 
 export type DefaultCategoryGroup = {
@@ -156,13 +155,15 @@ export const DEFAULT_CATEGORY_GROUPS: readonly DefaultCategoryGroup[] = [
     names: ['Renda fixa', 'Renda variável', 'Previdência privada', 'Tesouro direto'],
   },
   {
+    // Bills paid by card or boleto: obligations until categorized better.
     group: 'Gastos diversos',
-    defaultBudgetGroup: 'variable',
+    defaultBudgetGroup: 'essential',
     names: ['Cartão de crédito', 'Boleto', 'Outros gastos'],
   },
   {
+    // Food and vet of a dependent, like the household's own.
     group: 'Animais de estimação',
-    defaultBudgetGroup: 'variable',
+    defaultBudgetGroup: 'essential',
     names: ['Petshop', 'Veterinário'],
   },
 ]

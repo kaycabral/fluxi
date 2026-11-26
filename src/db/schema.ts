@@ -85,7 +85,11 @@ export const spaces = pgTable(
     id: uuid('id').primaryKey().defaultRandom(),
     userId: ownerId(),
     name: text('name').notNull(),
+    // `personal` = the user's default space (never archived); `business` = any
+    // other space, whatever the user named it (the kind is never shown).
     kind: spaceKind('kind').notNull(),
+    /** Icon key (`SPACE_ICONS` in `features/spaces/core/space.ts`). */
+    icon: text('icon').notNull().default('user'),
     sort: integer('sort').notNull().default(0),
     archivedAt: archivedAt(),
     createdAt: createdAt(),
@@ -97,6 +101,10 @@ export const spaces = pgTable(
       .on(t.userId)
       .where(sql`${t.kind} = 'personal'`),
     check('spaces_name_length', sql`char_length(${t.name}) between 1 and 40`),
+    check(
+      'spaces_icon_valid',
+      sql`${t.icon} in ('user', 'house', 'briefcase', 'store', 'building-2', 'laptop', 'heart', 'graduation-cap', 'plane', 'piggy-bank')`,
+    ),
     check('spaces_personal_active', sql`${t.kind} <> 'personal' or ${t.archivedAt} is null`),
   ],
 ).enableRLS()

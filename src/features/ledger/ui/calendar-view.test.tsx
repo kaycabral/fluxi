@@ -376,7 +376,7 @@ describe('CalendarView · quick add', () => {
         startMonth: '2026-12',
         day: 10,
         recurrence: 'monthly',
-        budgetGroup: 'variable',
+        budgetGroup: 'essential',
       },
     })
     await waitFor(() =>

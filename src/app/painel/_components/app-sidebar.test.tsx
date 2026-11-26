@@ -45,8 +45,14 @@ vi.mock('@/features/spaces/adapters/actions/spaces', () => ({
   loadConnectionsAction: () => Promise.resolve({ ok: true, data: { connections: [], spaces: [] } }),
 }))
 
-const PERSONAL = { id: 's1', name: 'Pessoal', kind: 'personal', archived: false } as const
-const WORK = { id: 's2', name: 'Loja', kind: 'business', archived: false } as const
+const PERSONAL = {
+  id: 's1',
+  name: 'Pessoal',
+  kind: 'personal',
+  icon: 'user',
+  archived: false,
+} as const
+const WORK = { id: 's2', name: 'Loja', kind: 'business', icon: 'store', archived: false } as const
 
 function renderSidebar(legacyScreens = true, defaultOpen = true, current: Space | null = PERSONAL) {
   return render(
@@ -95,7 +101,15 @@ describe('AppSidebar', () => {
       within(menu)
         .getAllByRole('menuitem')
         .map((i) => i.textContent?.trim()),
-    ).toEqual(['Pessoal', 'LojaEmpresa', 'Novo espaço…', 'Configurações', 'Telas antigas', 'Sair'])
+    ).toEqual([
+      'Pessoal',
+      'Loja',
+      'Novo espaço…',
+      'Editar espaço…',
+      'Configurações',
+      'Telas antigas',
+      'Sair',
+    ])
     expect(within(menu).getByRole('menuitem', { name: 'Configurações' })).toHaveAttribute(
       'href',
       '#configuracoes/conexoes',
@@ -123,7 +137,7 @@ describe('AppSidebar', () => {
     const trigger = screen.getByRole('button', {
       name: 'Espaço: Loja. Trocar de espaço e abrir a conta',
     })
-    expect(trigger).toHaveTextContent('LojaEmpresaAna Souza')
+    expect(trigger).toHaveTextContent('LojaAna Souza')
     expect(screen.getByRole('banner')).not.toHaveTextContent('Loja')
   })
 

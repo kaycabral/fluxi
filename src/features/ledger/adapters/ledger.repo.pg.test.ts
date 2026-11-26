@@ -291,15 +291,33 @@ describe('space isolation', () => {
 
   beforeEach(async () => {
     work = { userId: ANA, spaceId: randomUUID() }
-    await createSpace(ANA, { id: work.spaceId, name: 'Empresa', kind: 'business' })
+    await createSpace(ANA, { id: work.spaceId, name: 'Empresa' })
   })
 
   it('seeds a new space with its own defaults', async () => {
-    await expect(listBudgetGroups(work)).resolves.toHaveLength(DEFAULT_BUDGET_GROUPS.length)
-    await expect(listBudgetVersions(work)).resolves.toHaveLength(1)
+    const groups = await listBudgetGroups(work)
+    expect(groups.map((g) => [g.name, g.goal])).toEqual([
+      ['Essencial', 'limit'],
+      ['Conforto', 'limit'],
+      ['Livre', 'limit'],
+      ['Educação', 'limit'],
+      ['Investimento', 'minimum'],
+    ])
+    const versions = await listBudgetVersions(work)
+    expect(versions).toHaveLength(1)
+    expect(versions[0]?.targets).toEqual({
+      essential: 5000,
+      comfort: 1000,
+      guilt_free: 1000,
+      education: 500,
+      investment: 2500,
+    })
     const [personal, business] = await Promise.all([listCategories(anaScope), listCategories(work)])
     expect(business).toHaveLength(personal.length)
     expect(business.some((c) => personal.some((p) => p.id === c.id))).toBe(false)
+    // No "Variável" any more: its former categories default to "Essencial".
+    expect(business.find((c) => c.name === 'Petshop')?.defaultBudgetGroup).toBe('essential')
+    expect(business.find((c) => c.name === 'Boleto')?.defaultBudgetGroup).toBe('essential')
   })
 
   it('never returns another space’s rows, and the other space never sees them', async () => {

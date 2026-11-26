@@ -9,7 +9,8 @@ import {
   assignFeedItemAction,
   mapFeedAccountAction,
 } from '@/features/spaces/adapters/actions/spaces'
-import { SPACE_KIND_LABELS, switcherSpaces, type Space } from '@/features/spaces/core/space'
+import { switcherSpaces, type Space } from '@/features/spaces/core/space'
+import { SpaceIcon } from '@/features/spaces/ui/space-icon'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -271,8 +272,8 @@ function ConnectionCard({
             <SelectItem value={UNASSIGNED}>Sem espaço (não sincroniza)</SelectItem>
             {spaces.map((space) => (
               <SelectItem key={space.id} value={space.id}>
+                <SpaceIcon icon={space.icon} />
                 {space.name}
-                {space.kind === 'business' ? ` · ${SPACE_KIND_LABELS.business}` : ''}
               </SelectItem>
             ))}
           </SelectContent>

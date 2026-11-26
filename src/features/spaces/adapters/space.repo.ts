@@ -4,10 +4,14 @@ import { personalScope } from '@/db/queries/spaces'
 import { accounts, banks, spaces } from '@/db/schema'
 import { bankFeedAccounts, bankFeedItems, bankTransactions } from '@/db/schema-bank-feed'
 import {
+  DEFAULT_SPACE_ICON,
+  isSpaceIcon,
   pickActiveSpace,
   type CreateSpaceInput,
   type Scope,
   type Space,
+  type SpaceIconKey,
+  type UpdateSpaceInput,
 } from '@/features/spaces/core/space'
 import { fluxiDb } from '@/lib/db'
 import { and, asc, count, eq, isNull, ne, sql } from 'drizzle-orm'
@@ -30,8 +34,14 @@ export async function listSpaces(userId: string): Promise<Space[]> {
     id: r.id,
     name: r.name,
     kind: r.kind,
+    // The check constraint only admits known keys; a stray one falls back to the default look.
+    icon: isSpaceIcon(r.icon) ? r.icon : fallbackIcon(r.kind),
     archived: r.archivedAt !== null,
   }))
+}
+
+function fallbackIcon(kind: Space['kind']): SpaceIconKey {
+  return kind === 'personal' ? 'user' : DEFAULT_SPACE_ICON
 }
 
 /**
@@ -42,10 +52,10 @@ export async function ensurePersonalSpace(userId: string): Promise<string> {
   return (await personalScope(db(), userId)).spaceId
 }
 
-/** Create a business space and seed its defaults (budget groups, budget version, categories, settings) atomically. */
+/** Create a (non-personal) space and seed its defaults (budget groups, budget version, categories, settings) atomically. */
 export async function createSpace(
   userId: string,
-  input: CreateSpaceInput & { id: string },
+  input: Pick<CreateSpaceInput, 'name'> & { id: string; icon?: SpaceIconKey },
 ): Promise<void> {
   await db().transaction(async (tx) => {
     const inserted = await tx
@@ -54,7 +64,8 @@ export async function createSpace(
         id: input.id,
         userId,
         name: input.name,
-        kind: input.kind,
+        kind: 'business',
+        icon: input.icon ?? DEFAULT_SPACE_ICON,
         sort: sql`(select coalesce(max(${spaces.sort}) + 1, 1) from ${spaces} where ${spaces.userId} = ${userId})`,
       })
       .onConflictDoNothing({ target: spaces.id })
@@ -65,11 +76,14 @@ export async function createSpace(
   })
 }
 
-/** Rename one of the user's spaces. */
-export async function renameSpace(userId: string, spaceId: string, name: string): Promise<boolean> {
+/** Rename one of the user's spaces and change its icon (the personal one included). */
+export async function updateSpace(
+  userId: string,
+  { id: spaceId, name, icon }: UpdateSpaceInput,
+): Promise<boolean> {
   const rows = await db()
     .update(spaces)
-    .set({ name, updatedAt: sql`now()` })
+    .set({ name, icon, updatedAt: sql`now()` })
     .where(and(eq(spaces.id, spaceId), eq(spaces.userId, userId)))
     .returning({ id: spaces.id })
   return rows.length > 0

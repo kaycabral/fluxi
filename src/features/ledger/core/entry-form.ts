@@ -81,8 +81,8 @@ export function signedAmountOf(kind: EntryKind, refund: boolean, magnitude: numb
 }
 
 /**
- * Budget group a new expense starts in: "Variável" while it is active (the catch-all
- * budget group), else the first active budget group, else none.
+ * Budget group a new expense starts in: "Variável" while it is active (spaces
+ * seeded before it left the defaults), else the first active one, else none.
  */
 export function defaultBudgetGroupOf(
   budgetGroups: readonly Pick<BudgetGroup, 'key' | 'archived' | 'sort'>[],

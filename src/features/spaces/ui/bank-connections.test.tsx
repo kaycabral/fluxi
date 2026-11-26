@@ -20,12 +20,14 @@ const PERSONAL: Space = {
   id: '00000000-0000-4000-8000-000000000001',
   name: 'Pessoal',
   kind: 'personal',
+  icon: 'user',
   archived: false,
 }
 const SHOP: Space = {
   id: '00000000-0000-4000-8000-000000000002',
   name: 'Loja',
   kind: 'business',
+  icon: 'store',
   archived: false,
 }
 
@@ -153,7 +155,7 @@ describe('BankConnections', () => {
       />,
     )
     await userEvent.click(screen.getByRole('combobox', { name: 'Espaço de Nubank' }))
-    await userEvent.click(await screen.findByRole('option', { name: 'Loja · Empresa' }))
+    await userEvent.click(await screen.findByRole('option', { name: 'Loja' }))
     await waitFor(() =>
       expect(assignFeedItemAction).toHaveBeenCalledWith({ itemId: 'i1', spaceId: SHOP.id }),
     )
@@ -178,7 +180,7 @@ describe('BankConnections', () => {
       />,
     )
     await userEvent.click(screen.getByRole('combobox', { name: 'Espaço de Nubank' }))
-    await userEvent.click(await screen.findByRole('option', { name: 'Loja · Empresa' }))
+    await userEvent.click(await screen.findByRole('option', { name: 'Loja' }))
     const dialog = await screen.findByRole('alertdialog', { name: 'Mover “Nubank” para Loja?' })
     expect(dialog).toHaveTextContent('2 contas e 1 transação vão para o espaço Loja.')
     expect(assignFeedItemAction).not.toHaveBeenCalled()
@@ -206,7 +208,7 @@ describe('BankConnections', () => {
       />,
     )
     await userEvent.click(screen.getByRole('combobox', { name: 'Espaço de Nubank' }))
-    await userEvent.click(await screen.findByRole('option', { name: 'Loja · Empresa' }))
+    await userEvent.click(await screen.findByRole('option', { name: 'Loja' }))
     await userEvent.click(await screen.findByRole('button', { name: 'Cancelar' }))
     expect(assignFeedItemAction).not.toHaveBeenCalled()
     await userEvent.click(screen.getByRole('combobox', { name: 'Espaço de Nubank' }))

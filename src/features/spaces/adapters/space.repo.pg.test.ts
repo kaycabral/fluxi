@@ -9,7 +9,7 @@ import {
 import type { Scope } from '@/features/spaces/core/space'
 import { and, eq } from 'drizzle-orm'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
-import { assignFeedItem, listFeedItems } from './space.repo'
+import { assignFeedItem, createSpace, listFeedItems, listSpaces, updateSpace } from './space.repo'
 
 const ANA = '11111111-1111-4111-8111-111111111111'
 const BIA = '22222222-2222-4222-8222-222222222222'
@@ -216,5 +216,49 @@ describe('assignFeedItem (Postgres)', () => {
     expect(await assignFeedItem(ANA, 'item-1', null, TODAY)).toBe(true)
     expect((await feedRows(ANA)).map((f) => f.spaceId)).toEqual([ana.spaceId])
     expect(await txRows(ANA)).toHaveLength(1)
+  })
+})
+
+describe('space name and icon (Postgres)', () => {
+  beforeEach(async () => {
+    await truncateFluxiTables(db())
+    await seedUser(db(), { id: ANA, email: 'ana@example.test' })
+    await seedUser(db(), { id: BIA, email: 'bia@example.test' })
+    ana = await personalScope(db(), ANA)
+    bia = await personalScope(db(), BIA)
+  })
+
+  it('gives the personal space a person and a created one the chosen icon (briefcase by default)', async () => {
+    await createSpace(ANA, { id: '33333333-3333-4333-8333-333333333333', name: 'Freela' })
+    await createSpace(ANA, {
+      id: '44444444-4444-4444-8444-444444444444',
+      name: 'Casa',
+      icon: 'house',
+    })
+    const rows = await listSpaces(ANA)
+    expect(rows.map((s) => [s.name, s.kind, s.icon])).toEqual([
+      ['Pessoal', 'personal', 'user'],
+      ['Freela', 'business', 'briefcase'],
+      ['Casa', 'business', 'house'],
+    ])
+  })
+
+  it('renames the personal space and changes its icon, only for its owner', async () => {
+    await expect(updateSpace(BIA, { id: ana.spaceId, name: 'Hack', icon: 'plane' })).resolves.toBe(
+      false,
+    )
+    await expect(updateSpace(ANA, { id: ana.spaceId, name: 'Casa', icon: 'house' })).resolves.toBe(
+      true,
+    )
+    const [personal] = await listSpaces(ANA)
+    expect(personal).toMatchObject({ name: 'Casa', icon: 'house', kind: 'personal' })
+    const [biaSpace] = await listSpaces(BIA)
+    expect(biaSpace).toMatchObject({ name: 'Pessoal', icon: 'user' })
+  })
+
+  it('refuses an unknown icon key', async () => {
+    await expect(
+      db().update(spaces).set({ icon: 'rocket' }).where(eq(spaces.id, ana.spaceId)),
+    ).rejects.toThrow()
   })
 })

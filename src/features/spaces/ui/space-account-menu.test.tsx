@@ -1,7 +1,7 @@
 import type { ActionResult } from '@/features/ledger/core/action-result'
 import type { Space } from '@/features/spaces/core/space'
 import { DropdownMenuItem, SidebarProvider } from '@cbrl/design'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { SpaceAccountMenu } from './space-account-menu'
@@ -10,11 +10,13 @@ const actions = {
   switchSpaceAction: vi.fn<(input: unknown) => Promise<ActionResult>>(),
   createSpaceAction: vi.fn<(input: unknown) => Promise<ActionResult>>(),
   archiveSpaceAction: vi.fn<(input: unknown) => Promise<ActionResult>>(),
+  updateSpaceAction: vi.fn<(input: unknown) => Promise<ActionResult>>(),
 }
 vi.mock('@/features/spaces/adapters/actions/spaces', () => ({
   switchSpaceAction: (i: unknown) => actions.switchSpaceAction(i),
   createSpaceAction: (i: unknown) => actions.createSpaceAction(i),
   archiveSpaceAction: (i: unknown) => actions.archiveSpaceAction(i),
+  updateSpaceAction: (i: unknown) => actions.updateSpaceAction(i),
 }))
 const toast = { success: vi.fn<(m: string) => void>(), error: vi.fn<(m: string) => void>() }
 vi.mock('sonner', () => ({
@@ -25,12 +27,14 @@ const PERSONAL: Space = {
   id: '00000000-0000-4000-8000-000000000001',
   name: 'Pessoal',
   kind: 'personal',
+  icon: 'user',
   archived: false,
 }
 const SHOP: Space = {
   id: '00000000-0000-4000-8000-000000000002',
   name: 'Loja',
   kind: 'business',
+  icon: 'store',
   archived: false,
 }
 const OLD: Space = {
@@ -75,18 +79,23 @@ describe('SpaceAccountMenu', () => {
     expect(screen.getByRole('button', { name: 'Conta' })).toHaveTextContent('ContaFluxi')
   })
 
-  it('makes the current space unmistakable on the trigger', async () => {
+  it('shows the current space by its icon and name, never a kind badge', async () => {
     await openMenu(SHOP)
-    expect(
-      screen.getByRole('button', { name: 'Espaço: Loja. Trocar de espaço e abrir a conta' }),
-    ).toHaveTextContent('LojaEmpresaana@example.test')
+    const trigger = screen.getByRole('button', {
+      name: 'Espaço: Loja. Trocar de espaço e abrir a conta',
+    })
+    expect(trigger).toHaveTextContent('Lojaana@example.test')
+    expect(within(trigger).getByRole('img', { name: 'Ícone: Loja' })).toBeInTheDocument()
+    expect(screen.queryByText('Empresa')).not.toBeInTheDocument()
   })
 
   it('lists the active spaces, personal first, and switches to another one', async () => {
     actions.switchSpaceAction.mockResolvedValue({ ok: true })
     await openMenu(PERSONAL)
     const items = screen.getAllByRole('menuitem').map((i) => i.textContent?.trim())
-    expect(items).toEqual(['Pessoal', 'LojaEmpresa', 'Novo espaço…', 'Sair'])
+    expect(items).toEqual(['Pessoal', 'Loja', 'Novo espaço…', 'Editar espaço…', 'Sair'])
+    const shop = screen.getByRole('menuitem', { name: /Loja/ })
+    expect(within(shop).getByRole('img', { name: 'Ícone: Loja' })).toBeInTheDocument()
     expect(screen.getByLabelText('atual')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('menuitem', { name: /Loja/ }))
     await waitFor(() => expect(actions.switchSpaceAction).toHaveBeenCalledWith(SHOP.id))
@@ -98,24 +107,47 @@ describe('SpaceAccountMenu', () => {
     expect(actions.switchSpaceAction).not.toHaveBeenCalled()
   })
 
-  it('creates a business space from "Novo espaço…"', async () => {
+  it('creates a space with any name and the chosen icon from "Novo espaço…"', async () => {
     actions.createSpaceAction.mockResolvedValue({ ok: true })
     await openMenu(PERSONAL)
     await userEvent.click(screen.getByRole('menuitem', { name: 'Novo espaço…' }))
     const dialog = await screen.findByRole('dialog', { name: 'Novo espaço' })
-    expect(dialog).toHaveTextContent('Empresa')
-    await userEvent.type(screen.getByLabelText('Nome'), 'Minha empresa')
+    expect(dialog).not.toHaveTextContent('Tipo')
+    const icons = screen.getAllByRole('radio')
+    expect(icons).toHaveLength(10)
+    expect(screen.getByRole('radio', { name: 'Trabalho' })).toHaveAttribute('aria-checked', 'true')
+    await userEvent.type(screen.getByLabelText('Nome'), 'Freela')
+    await userEvent.click(screen.getByRole('radio', { name: 'Freela' }))
     await userEvent.click(screen.getByRole('button', { name: 'Criar espaço' }))
     await waitFor(() =>
-      expect(actions.createSpaceAction).toHaveBeenCalledWith({
-        name: 'Minha empresa',
-        kind: 'business',
-      }),
+      expect(actions.createSpaceAction).toHaveBeenCalledWith({ name: 'Freela', icon: 'laptop' }),
     )
     expect(toast.success).toHaveBeenCalledWith('Espaço criado.')
   })
 
-  it('archives the current business space after confirming, never the personal one', async () => {
+  it('renames the personal space and changes its icon, but never offers to archive it', async () => {
+    actions.updateSpaceAction.mockResolvedValue({ ok: true })
+    await openMenu(PERSONAL)
+    expect(screen.queryByRole('menuitem', { name: /Arquivar/ })).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Editar espaço…' }))
+    await screen.findByRole('dialog', { name: 'Editar espaço' })
+    expect(screen.getByRole('radio', { name: 'Pessoa' })).toHaveAttribute('aria-checked', 'true')
+    const name = screen.getByLabelText('Nome')
+    await userEvent.clear(name)
+    await userEvent.type(name, 'Casa')
+    await userEvent.click(screen.getByRole('radio', { name: 'Casa' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Salvar' }))
+    await waitFor(() =>
+      expect(actions.updateSpaceAction).toHaveBeenCalledWith({
+        id: PERSONAL.id,
+        name: 'Casa',
+        icon: 'house',
+      }),
+    )
+    expect(toast.success).toHaveBeenCalledWith('Espaço atualizado.')
+  })
+
+  it('archives the current non-personal space after confirming', async () => {
     actions.archiveSpaceAction.mockResolvedValue({ ok: false, error: 'Espaço não encontrado.' })
     await openMenu(SHOP)
     await userEvent.click(screen.getByRole('menuitem', { name: /Arquivar/ }))

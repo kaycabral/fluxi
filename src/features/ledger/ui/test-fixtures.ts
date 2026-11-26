@@ -131,7 +131,7 @@ export function sampleData(overrides: Partial<LedgerData> = {}): LedgerData {
         amountCents: -700000,
         day: 3,
         accountId: IDS.cc,
-        budgetGroup: 'variable',
+        budgetGroup: 'guilt_free',
         recurrence: 'none',
         startMonth: '2026-12',
       }),

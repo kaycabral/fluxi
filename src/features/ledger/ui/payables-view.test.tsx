@@ -75,14 +75,14 @@ describe('PayablesView', () => {
       screen.getByText('Saídas R$ 7.000,00 · Entradas R$ 3.000,00 · Transferências R$ 400,00'),
     ).toBeInTheDocument()
     expect(
-      within(overdue).getByRole('button', { name: 'Recebido: Salário (Saldo)' }),
+      within(overdue).getByRole('button', { name: 'Marcar como recebido: Salário (Saldo)' }),
     ).toBeInTheDocument()
     expect(within(group(/Resto do mês/)).getByText('1/12')).toBeInTheDocument()
   })
 
   it('marks one paid today with one click', async () => {
     renderPayables()
-    await userEvent.click(screen.getByRole('button', { name: 'Pago: Avulso' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Marcar como pago: Avulso' }))
     await waitFor(() =>
       expect(markPaidAction).toHaveBeenCalledWith({
         entryId: IDS.once,
@@ -95,7 +95,8 @@ describe('PayablesView', () => {
   it('marks one paid on another date and reports failures', async () => {
     markPaidAction.mockResolvedValueOnce({ ok: false, error: 'Falhou.' })
     renderPayables()
-    await userEvent.click(within(group(/Próximos 7 dias/)).getByLabelText('Escolher a data: Luz'))
+    await userEvent.click(within(group(/Próximos 7 dias/)).getByLabelText('Mais opções: Luz'))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Pago em outra data…' }))
     const date = await screen.findByLabelText('Pago em')
     expect(date).toHaveValue('2026-12-15')
     fireEvent.change(date, { target: { value: '2026-12-14' } })
@@ -138,7 +139,7 @@ describe('PayablesView', () => {
       ...data,
       entries: data.entries.map((e) => (e.id === IDS.once ? { ...e, fromBank: true } : e)),
     })
-    expect(screen.queryByRole('button', { name: /Pago: Avulso/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /Marcar como pago: Avulso/ })).toBeNull()
     expect(screen.getByText('Pago · banco')).toBeInTheDocument()
   })
 

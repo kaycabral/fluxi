@@ -8,13 +8,21 @@ import { paymentKeyOf } from '@/features/ledger/core/payments'
 import {
   Button,
   Checkbox,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
   Input,
   Label,
   Popover,
   PopoverContent,
   PopoverTrigger,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from '@cbrl/design'
-import { CalendarDays, Check, Landmark } from 'lucide-react'
+import { CalendarDays, Check, ChevronDown, Landmark } from 'lucide-react'
 import { useId, useOptimistic, useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { useLedgerUi } from './ledger-shell'
@@ -88,7 +96,11 @@ function EditablePaidCheckbox({ landing, paid }: { landing: Landing; paid: boole
   )
 }
 
-/** One-click "Pago"/"Recebido" (today) plus a popover to pick another date. */
+/**
+ * "Marcar como pago/recebido" (today) as an icon button attached to a menu
+ * with the same action on another date (a date popover). Fixed width, so
+ * the rows of a list line up.
+ */
 export function PayButton({ landing }: { landing: Landing }) {
   if (landing.entry.fromBank) return <BankPaidBadge landing={landing} />
   return <EditablePayButton landing={landing} />
@@ -101,31 +113,51 @@ function EditablePayButton({ landing }: { landing: Landing }) {
   const [open, setOpen] = useState(false)
   const id = useId()
   const label = paidLabel(landing.amountCents)
+  const action = `Marcar como ${label.toLowerCase()}`
   const name = occurrenceName(landing)
   const key = paymentKeyOf(landing)
 
   return (
-    <div className="flex items-center justify-end gap-1">
-      <Button
-        size="sm"
-        variant="outline"
-        disabled={pending}
-        aria-label={`${label}: ${name}`}
-        onClick={() => run(true, () => markPaidAction(key))}
-      >
-        <Check /> {label}
-      </Button>
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            disabled={pending}
-            aria-label={`Escolher a data: ${name}`}
-          >
-            <CalendarDays />
-          </Button>
-        </PopoverTrigger>
+    <div role="group" aria-label={`${action}: ${name}`} className="flex w-16 justify-end">
+      <TooltipProvider delayDuration={150}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              size="icon-sm"
+              variant="outline"
+              className="rounded-r-none"
+              disabled={pending}
+              aria-label={`${action}: ${name}`}
+              onClick={() => run(true, () => markPaidAction(key))}
+            >
+              <Check />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>{action}</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+      {/* The popover anchors on the menu trigger; only the menu item opens it. */}
+      <Popover open={open} onOpenChange={(next) => !next && setOpen(false)}>
+        <DropdownMenu>
+          <PopoverTrigger asChild>
+            <DropdownMenuTrigger asChild>
+              <Button
+                size="icon-sm"
+                variant="outline"
+                className="w-7 rounded-l-none border-l-0"
+                disabled={pending}
+                aria-label={`Mais opções: ${name}`}
+              >
+                <ChevronDown />
+              </Button>
+            </DropdownMenuTrigger>
+          </PopoverTrigger>
+          <DropdownMenuContent align="end" onCloseAutoFocus={(e) => open && e.preventDefault()}>
+            <DropdownMenuItem onSelect={() => setOpen(true)}>
+              <CalendarDays /> {label} em outra data…
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <PopoverContent align="end" className="grid w-56 gap-2">
           <Label htmlFor={id}>{label} em</Label>
           <Input

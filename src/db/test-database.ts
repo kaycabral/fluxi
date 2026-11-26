@@ -84,9 +84,13 @@ alter default privileges for role postgres in schema public
 `
 
 // Tables created before the default privileges existed (older test databases).
+// The suite also impersonates `fluxi_sync` (migration 0014) with `set role`,
+// which needs the SET option on the membership (PG16+ only grants ADMIN to
+// the creator).
 const API_GRANTS = `
 grant all on all tables in schema public to anon, authenticated, service_role;
 grant all on all sequences in schema public to anon, authenticated, service_role;
+grant fluxi_sync to current_user with inherit false, set true;
 `
 
 async function withClient<T>(url: string, run: (client: pg.Client) => Promise<T>): Promise<T> {

@@ -21,6 +21,17 @@
   --popover: oklch(0.24 0 0);
 }
 
+/*
+ * Light mode, like shadcn's own site: the page (and the sidebar around it) is
+ * a soft gray so white cards and popups stand out from it. The design system
+ * paints `--background` and `--card` the same white, so cards blended into
+ * the page; dark mode already separates them. TODO: move to `@cbrl/design`.
+ */
+:root:not(.dark) {
+  --background: oklch(0.97 0 0);
+  --sidebar: oklch(0.97 0 0);
+}
+
 html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

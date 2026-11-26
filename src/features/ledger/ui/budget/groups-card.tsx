@@ -16,7 +16,7 @@ import {
   type BudgetMonth,
   type Targets,
 } from '@/features/ledger/core/budget'
-import { formatMoney, formatPercent, monthLabel } from '@/features/ledger/core/format'
+import { formatAmount, formatMoney, formatPercent, monthLabel } from '@/features/ledger/core/format'
 import { GROUP_DOT_CLASSES } from '@/features/ledger/core/labels'
 import type { Month } from '@/features/ledger/core/month'
 import type { BudgetGroup, BudgetVersion } from '@/features/ledger/core/types'
@@ -275,10 +275,13 @@ function VersionEditor({
                     onRename={() => setRenaming(budgetGroup.key)}
                   />
                 </div>
-                <p className="text-muted-foreground pl-5.5 text-xs">
+                <p
+                  className="text-muted-foreground pl-5.5 text-xs"
+                  title={`${budgetGroup.goal === 'minimum' ? 'Guardar ao menos' : 'Até'} ${formatMoney(Math.round((income * bps) / 10000))}; planejado em ${monthLabel(current.month)}: ${formatMoney(cell.plannedCents)}`}
+                >
                   {budgetGroup.goal === 'minimum' ? 'guardar ao menos' : 'até'}{' '}
-                  {formatMoney(Math.round((income * bps) / 10000))} · planejado em{' '}
-                  {monthLabel(current.month)} {formatMoney(cell.plannedCents)} (
+                  {formatAmount(Math.round((income * bps) / 10000))} · planejado em{' '}
+                  {monthLabel(current.month)} {formatAmount(cell.plannedCents)} (
                   {formatPercent(cell.ratio)}) · até{' '}
                   {formatPercent(maxBpsFor(targets, budgetGroup.key) / 10000)}
                 </p>

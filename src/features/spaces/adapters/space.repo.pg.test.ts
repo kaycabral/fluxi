@@ -300,8 +300,12 @@ describe('connection status and connected banks (Postgres)', () => {
   })
 
   it('lists the connected institutions of the space that have no linked account', async () => {
+    // The stored institution is the proxy connector's: named from the accounts instead.
     await feedAccount(ana, 'item-1', 'acc-1', [])
-    await expect(listUnlinkedConnectedInstitutions(ana)).resolves.toEqual(['Banco X', 'Inter'])
+    await db()
+      .update(bankFeedAccounts)
+      .set({ institution: 'MeuPluggy', name: 'Nu Pagamentos S.A. - Instituição de Pagamento' })
+    await expect(listUnlinkedConnectedInstitutions(ana)).resolves.toEqual(['Inter', 'Nubank'])
     const [bank] = await db()
       .insert(banks)
       .values({ ...ana, name: 'B' })

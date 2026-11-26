@@ -34,6 +34,32 @@ test.describe('dashboard and budget', () => {
     await db.delete(banks).where(eq(banks.userId, user.id))
   })
 
+  test('the bills tabs never hide the active tab on a phone', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto('/painel')
+    const list = page.getByRole('tablist')
+    // At 390px the tabs overflow: the hidden end fades.
+    await expect(list).toHaveAttribute('data-fade-end', 'true')
+    const last = list.getByRole('tab', { name: /Próximo mês/ })
+    await last.click()
+    await expect(last).toHaveAttribute('aria-selected', 'true')
+    // Fully inside the strip once the scroll settles.
+    await expect
+      .poll(async () =>
+        list.evaluate((el) => {
+          const tab = el.querySelector('[data-state="active"]')
+          if (tab === null) return false
+          const outer = el.getBoundingClientRect()
+          const inner = tab.getBoundingClientRect()
+          return inner.left >= outer.left - 1 && inner.right <= outer.right + 1
+        }),
+      )
+      .toBe(true)
+    // Aligned to the end: nothing left to the right, the start fades instead.
+    await expect(list).toHaveAttribute('data-fade-start', 'true')
+    await expect(list).not.toHaveAttribute('data-fade-end')
+  })
+
   test('the dashboard sums up the money and links to the budget', async ({ page }) => {
     await page.goto('/painel')
     await expect(page.getByRole('heading', { level: 1, name: 'Painel' })).toBeVisible()

@@ -217,7 +217,7 @@ test.describe('ledger critical flow', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'A pagar' })).toBeVisible()
     const soon = page.getByRole('table', { name: /Próximos 7 dias/ })
     await expect(soon.getByRole('row', { name: /Conta de luz E2E/ })).toContainText('R$ 230')
-    await soon.getByRole('button', { name: 'Pago: Conta de luz E2E' }).click()
+    await soon.getByRole('button', { name: 'Marcar como pago: Conta de luz E2E' }).click()
 
     // It leaves the list (other tests of this worker's user may still have bills due)…
     await expect(page.getByRole('row', { name: /Conta de luz E2E/ })).toHaveCount(0)

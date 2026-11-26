@@ -1,6 +1,10 @@
 'use client'
 
-import { feedAccountLabel, institutionOf } from '@/features/bank-feed/core/institution'
+import {
+  connectionInstitution,
+  feedAccountLabel,
+  feedAccountShortLabel,
+} from '@/features/bank-feed/core/institution'
 import { compatibleTypes, ledgerBalanceOf } from '@/features/bank-feed/core/mapping'
 import type { CardStatus } from '@/features/bank-feed/core/pluggy'
 import { feedAccountStatusLine } from '@/features/bank-feed/core/status'
@@ -85,8 +89,6 @@ function targetOf(value: string): MapTarget {
 /** A remap/unmap waiting for confirmation: it deletes what the feed account created. */
 type PendingMap = { feed: FeedAccount; label: string; target: MapTarget; targetName: string }
 
-const FEED_TYPE_LABELS: Record<string, string> = { BANK: 'Conta', CREDIT: 'Cartão de crédito' }
-
 const UNASSIGNED = 'none'
 
 /** A move waiting for the user's confirmation. */
@@ -104,13 +106,11 @@ export function hasMovement(feed: Pick<FeedAccount, 'transactionCount' | 'balanc
  * (`institutionOf`), never the proxy connector's "MeuPluggy".
  */
 export function connectionName(connection: BankConnection, index: number): string {
-  if (connection.feedAccounts.length > 0) {
-    return institutionOf(connection.feedAccounts.map((f) => f.name))
-  }
-  if (connection.accounts.length > 0) return institutionOf(connection.accounts)
-  const label = connection.label?.trim() ?? ''
-  if (label !== '' && !/pluggy/i.test(label)) return label
-  return `Conexão ${index + 1}`
+  const names =
+    connection.feedAccounts.length > 0
+      ? connection.feedAccounts.map((f) => f.name)
+      : connection.accounts
+  return connectionInstitution(names, connection.label) ?? `Conexão ${index + 1}`
 }
 
 /**
@@ -255,7 +255,7 @@ function ConnectionCard({
     summary =
       c.feedAccounts.length === 0
         ? 'Nenhuma conta sincronizada ainda'
-        : plural(active.length, 'conta com movimento', 'contas com movimento')
+        : plural(c.feedAccounts.length, 'conta', 'contas')
   }
   return (
     <div className="grid min-w-0 gap-3">
@@ -381,16 +381,13 @@ function FeedAccountRow({
   return (
     <li className="grid min-w-0 gap-1 text-sm">
       <p className="truncate font-medium" title={feed.name}>
-        {label}
+        {feedAccountShortLabel(institution, feed)}
         {feed.numberHint ? (
           <span className="text-muted-foreground font-normal"> ••{feed.numberHint}</span>
         ) : null}
       </p>
       <p className="text-muted-foreground text-xs">
-        {FEED_TYPE_LABELS[feed.type] ?? feed.type} · saldo no banco{' '}
-        {formatMoney(ledgerBalanceOf(feed.type, feed.balanceCents))}
-      </p>
-      <p className="text-muted-foreground text-xs">
+        Saldo {formatMoney(ledgerBalanceOf(feed.type, feed.balanceCents))} ·{' '}
         {feedAccountStatusLine({
           lastMovement: feed.lastMovement ?? null,
           cardStatus: feed.cardStatus ?? null,

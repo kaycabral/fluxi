@@ -125,9 +125,10 @@ test.describe('bank feed in the ledger', () => {
     // Linked automatically to a new "Feedbank · Conta"; the empty one is folded.
     const accountsList = settings.getByRole('list', { name: `Contas de ${BANK}` })
     await expect(accountsList).toContainText(`→ ${BANK} · Conta`)
-    await expect(accountsList).toContainText(/saldo no banco R\$\s1\.000,00/)
+    await expect(accountsList).toContainText(/Saldo R\$\s1\.000,00/)
+    await expect(settings.getByText('2 contas')).toBeVisible()
     await expect(settings.getByRole('button', { name: '+1 conta sem movimento' })).toBeVisible()
-    await expect(settings.getByText(`${BANK} · Reserva`)).toHaveCount(0)
+    await expect(settings.getByText('Reserva')).toHaveCount(0)
     const fits = () =>
       settings.evaluate((el) => {
         const content = el.querySelector('[aria-label="Conexões"]') ?? el

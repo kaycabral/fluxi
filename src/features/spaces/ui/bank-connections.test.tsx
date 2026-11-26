@@ -111,9 +111,9 @@ describe('BankConnections', () => {
         spaces={[PERSONAL]}
       />,
     )
-    expect(screen.getByText('Último movimento: 03/11/2026')).toBeInTheDocument()
+    expect(screen.getByText(/ · Último movimento: 03\/11\/2026$/)).toBeInTheDocument()
     expect(
-      screen.getByText('Cartão bloqueado · Sem movimento nos últimos 12 meses'),
+      screen.getByText(/ · Cartão bloqueado · Sem movimento nos últimos 12 meses$/),
     ).toBeInTheDocument()
   })
 
@@ -284,15 +284,18 @@ describe('BankConnections', () => {
         spaces={[PERSONAL]}
       />,
     )
+    // The total of the bank's accounts; the bank name is the card's only.
+    expect(screen.getByText('4 contas')).toBeInTheDocument()
     const active = screen.getByRole('list', { name: 'Contas de BTG Pactual' })
     expect(within(active).getAllByRole('listitem')).toHaveLength(1)
-    expect(active).toHaveTextContent('BTG Pactual · Conta corrente')
+    expect(active).toHaveTextContent(/^Conta corrente/)
     expect(active).toHaveTextContent('Não vinculada')
-    expect(screen.queryByText('BTG Pactual · Investimentos')).toBeNull()
+    expect(screen.queryByText('Investimentos')).toBeNull()
     await userEvent.click(screen.getByRole('button', { name: '+3 contas sem movimento' }))
     const quiet = screen.getByRole('list', { name: 'Contas sem movimento de BTG Pactual' })
     expect(within(quiet).getAllByRole('listitem')).toHaveLength(3)
-    expect(quiet).toHaveTextContent('BTG Pactual · Investimentos')
+    expect(quiet).toHaveTextContent('Investimentos')
+    expect(quiet).not.toHaveTextContent('BTG Pactual ·')
     await userEvent.click(screen.getByRole('button', { name: 'Esconder contas sem movimento' }))
     expect(screen.queryByRole('list', { name: /sem movimento/ })).toBeNull()
   })
@@ -341,9 +344,7 @@ describe('BankConnections', () => {
           onChanged={onChanged}
         />,
       )
-      expect(
-        screen.getByText(/Cartão de crédito · saldo no banco -R\$\s300,00/),
-      ).toBeInTheDocument()
+      expect(screen.getByText(/^Saldo -R\$\s300,00 · /)).toBeInTheDocument()
       expect(screen.queryByRole('combobox', { name: /Conta no Fluxi/ })).toBeNull()
       await openPicker()
       expect(screen.queryByRole('option', { name: 'BTG · Conta' })).toBeNull()

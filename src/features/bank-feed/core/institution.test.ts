@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   aliasesOf,
+  connectionInstitution,
   feedAccountLabel,
   feedAccountShortLabel,
   institutionColor,
@@ -85,5 +86,17 @@ describe('helpers', () => {
     expect(institutionColor('Nubank')).toContain('purple')
     expect(institutionColor('Inter')).toBe(institutionColor('Inter'))
     expect(institutionColor('Inter')).toMatch(/^bg-/)
+  })
+})
+
+describe('connectionInstitution', () => {
+  it('names a connection from its accounts, never the proxy connector', () => {
+    expect(
+      connectionInstitution(['Nu Pagamentos S.A. - Instituição de Pagamento'], 'MeuPluggy'),
+    ).toBe('Nubank')
+    expect(connectionInstitution([], 'Inter')).toBe('Inter')
+    expect(connectionInstitution([], 'MeuPluggy')).toBeNull()
+    expect(connectionInstitution([], '  ')).toBeNull()
+    expect(connectionInstitution([], null)).toBeNull()
   })
 })

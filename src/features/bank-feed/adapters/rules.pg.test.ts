@@ -1,13 +1,13 @@
 import { fluxiDb, personalScope, seedUser, truncateFluxiTables } from '@/db'
 import { accounts, banks, categories, entries } from '@/db/schema'
 import { bankEntryLinks, bankFeedAccounts, categorizationRules } from '@/db/schema-bank-feed'
-import { feedEntryDescription, GENERIC_DESCRIPTIONS } from '@/features/bank-feed/core/merchant'
 import type { FeedAccountRow, FeedTransactionRow } from '@/features/bank-feed/core/pluggy'
 import { TRANSFER_SIGNAL_EXAMPLES } from '@/features/bank-feed/core/transfer'
 import { descriptionKey } from '@/features/ledger/core/similar'
 import type { Scope } from '@/features/spaces/core/space'
 import { requireEnv } from '@cbrl/env'
 import { and, eq, isNull, sql } from 'drizzle-orm'
+import { readFileSync } from 'node:fs'
 import postgres from 'postgres'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { syncFeedAccount } from './feed.write'
@@ -147,69 +147,123 @@ describe('transfer signal (SQL = TS)', () => {
   })
 })
 
-describe('merchant description (SQL = TS)', () => {
-  it('agrees with feedEntryDescription', async () => {
-    const samples = [
-      ...GENERIC_DESCRIPTIONS,
-      'Compra no débito autorizada',
-      'COMPRA NO CRÉDITO 12/03',
-      'Transferência',
-      'Padaria São João',
-      'Pix enviado Maria',
-      '',
-    ]
-    for (const description of samples) {
-      for (const merchant of ['Padaria Pão', ' ', null]) {
-        const { rows } = await db().execute<{ value: string }>(
-          sql`select private.feed_entry_description(${description}, ${merchant}) as value`,
-        )
-        expect(rows[0]?.value).toBe(feedEntryDescription(description, merchant))
-      }
-    }
-  })
-})
+/** One statement of a migration, found by its first line. */
+function migrationStatement(file: string, startsWith: string): string {
+  const found = readFileSync(`drizzle/${file}`, 'utf8')
+    .split('--> statement-breakpoint')
+    .map((part) =>
+      part
+        .split('\n')
+        .filter((line) => !line.startsWith('--'))
+        .join('\n')
+        .trim(),
+    )
+    .find((part) => part.startsWith(startsWith))
+  if (found === undefined) throw new Error(`${startsWith} not in ${file}`)
+  return found
+}
 
-describe('merchant names bank entries (Postgres)', () => {
+class Rollback extends Error {}
+
+describe('merchant is extra information (Postgres)', () => {
   const generic = 'Compra no débito autorizada'
 
-  it('creates a generic bank entry under the merchant name and categorizes by it', async () => {
+  it('keeps the bank description and categorizes by merchant first', async () => {
     const bakery = await categoryId(ana, 'Padaria')
+    const market = await categoryId(ana, 'Mercado')
     await db()
       .insert(categorizationRules)
-      .values({ ...ana, pattern: 'padaria pao', minCents: 0, maxCents: 10000, categoryId: bakery })
+      .values([
+        { ...ana, merchantKey: 'padaria pao', minCents: 0, maxCents: 10000, categoryId: bakery },
+        {
+          ...ana,
+          pattern: descriptionKey(generic),
+          minCents: 0,
+          maxCents: 10000,
+          categoryId: market,
+          createdAt: new Date(Date.now() + 1000),
+        },
+      ])
     await feed(ana, checkingFeed, [
       tx('a', { description: generic, merchantName: 'Padaria Pão' }),
       tx('b', { description: generic }),
       tx('c', { description: 'UBER *TRIP', merchantName: 'Uber' }),
     ])
     await map(ana, 'acc-checking', checkingId)
-    expect(await materialize()).toMatchObject({ created: 3, named: 0, categorized: 1 })
+    expect(await materialize()).toMatchObject({ created: 3, named: 0, categorized: 2 })
     const rows = await entriesOf(ana)
-    expect(rows.map((e) => e.description).sort()).toEqual([generic, 'Padaria Pão', 'UBER *TRIP'])
-    expect(rows.find((e) => e.description === 'Padaria Pão')?.categoryId).toBe(bakery)
+    expect(rows.map((e) => e.description).sort()).toEqual([generic, generic, 'UBER *TRIP'])
+    const links = await db().select().from(bankEntryLinks)
+    const entryOf = async (externalId: string) => {
+      const { rows: found } = await db().execute<{ id: string }>(
+        sql`select id from bank_transactions where external_id = ${externalId}`,
+      )
+      const link = links.find((l) => l.bankTransactionId === found[0]?.id)
+      return rows.find((e) => e.id === link?.entryId)
+    }
+    // Merchant rule beats the newer description rule; no merchant → description.
+    expect((await entryOf('a'))?.categoryId).toBe(bakery)
+    expect((await entryOf('b'))?.categoryId).toBe(market)
+    expect((await entryOf('c'))?.categoryId).toBeNull()
   })
 
-  it('renames existing entries only while they keep the bank text', async () => {
+  it('rejects a rule with both keys or none', async () => {
+    const bakery = await categoryId(ana, 'Padaria')
+    const base = { ...ana, minCents: 0, maxCents: 1, categoryId: bakery }
+    await expect(
+      db()
+        .insert(categorizationRules)
+        .values({ ...base, pattern: 'a', merchantKey: 'b' }),
+    ).rejects.toThrow()
+    await expect(db().insert(categorizationRules).values(base)).rejects.toThrow()
+  })
+
+  it('migration 0027 reverts only the entries 0025 renamed', async () => {
     await feed(ana, checkingFeed, [
-      tx('a', { description: generic }),
-      tx('b', { description: generic }),
+      tx('renamed', { description: generic, merchantName: 'Padaria Pão' }),
+      tx('edited', { description: generic, merchantName: 'Padaria Pão' }),
+      tx('specific', { description: 'PADARIA PAO 22', merchantName: 'Padaria Pão' }),
+      tx('plain', { description: generic }),
     ])
     await map(ana, 'acc-checking', checkingId)
-    expect(await materialize()).toMatchObject({ created: 2 })
-    const [first] = await entriesOf(ana)
-    if (first === undefined) throw new Error('missing')
-    await db().update(entries).set({ description: 'Minha' }).where(eq(entries.id, first.id))
+    await materialize()
+    const { rows: ids } = await db().execute<{ external_id: string; entry_id: string }>(
+      sql`select t.external_id, l.entry_id from bank_entry_links l
+          join bank_transactions t on t.id = l.bank_transaction_id`,
+    )
+    const id = (externalId: string) => ids.find((r) => r.external_id === externalId)?.entry_id ?? ''
+    const rename = (externalId: string, description: string) =>
+      db()
+        .update(entries)
+        .set({ description })
+        .where(eq(entries.id, id(externalId)))
+    // As 0025 left them: renamed after the merchant, or edited by the user.
+    await rename('renamed', 'Padaria Pão')
+    await rename('edited', 'Pão da esquina')
+    await rename('specific', 'Padaria Pão')
 
-    // The merchant arrives on a later sync.
-    await feed(ana, checkingFeed, [
-      tx('a', { description: generic, merchantName: 'Padaria Pão' }),
-      tx('b', { description: generic, merchantName: 'Padaria Pão' }),
-    ])
-    expect(await materialize()).toMatchObject({ created: 0, named: 1 })
-    const rows = await entriesOf(ana)
-    expect(rows.find((e) => e.id === first.id)?.description).toBe('Minha')
-    expect(rows.find((e) => e.id !== first.id)?.description).toBe('Padaria Pão')
-    expect(await materialize()).toMatchObject({ named: 0 })
+    const generic0025 = migrationStatement(
+      '0025_feed_merchant.sql',
+      'CREATE OR REPLACE FUNCTION private.feed_generic_description',
+    )
+    const revert = migrationStatement('0027_merchant_as_info.sql', 'UPDATE public.entries e SET')
+    let after: { id: string; description: string }[] = []
+    // Run 0027's revert over 0025's state, then roll back (the suite's database
+    // is already past both).
+    await expect(
+      db().transaction(async (t) => {
+        await t.execute(sql.raw(generic0025))
+        await t.execute(sql.raw(revert))
+        after = await t.select().from(entries).where(eq(entries.spaceId, ana.spaceId))
+        throw new Rollback()
+      }),
+    ).rejects.toThrow(Rollback)
+    const of = (externalId: string) => after.find((e) => e.id === id(externalId))?.description
+    expect(of('renamed')).toBe(generic)
+    expect(of('edited')).toBe('Pão da esquina')
+    // The bank's text was specific: 0025 never renamed it, so it is the user's.
+    expect(of('specific')).toBe('Padaria Pão')
+    expect(of('plain')).toBe(generic)
   })
 })
 

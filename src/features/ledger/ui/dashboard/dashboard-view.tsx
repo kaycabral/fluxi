@@ -14,7 +14,7 @@ import {
   monthLongLabel,
 } from '@/features/ledger/core/format'
 import { POT_DOT_CLASSES } from '@/features/ledger/core/labels'
-import { addMonths, monthRange, type Month } from '@/features/ledger/core/month'
+import { addMonths, type Month } from '@/features/ledger/core/month'
 import type { BudgetPlan, Pot } from '@/features/ledger/core/types'
 import { projectWindow, type LedgerData } from '@/features/ledger/core/view'
 import {
@@ -37,7 +37,6 @@ import { ArrowRight, TrendingDown, TrendingUp } from 'lucide-react'
 import Link from 'next/link'
 import { useMemo } from 'react'
 import { TrafficLight, useBudgetMonth } from '../budget/traffic-light'
-import { CountFromForm } from '../count-from-form'
 import { Money, toneOf } from '../money'
 import { UpcomingBills } from './upcoming-bills'
 
@@ -240,11 +239,6 @@ export function DashboardView({
           {dayLongLabel(today)}
         </p>
       </div>
-      <CountFromForm
-        value={data.countFrom}
-        months={monthRange(addMonths(month, -24), addMonths(month, 12))}
-        showAccountsLink={false}
-      />
     </div>
   )
 
@@ -265,15 +259,7 @@ export function DashboardView({
       {header}
 
       <section aria-label="Resumo" className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Stat
-          label="Saldo hoje"
-          cents={snapshot?.todayCents ?? null}
-          hint={
-            snapshot === null && data.countFrom !== null
-              ? `Saldos contam a partir de ${monthLabel(data.countFrom)}`
-              : 'Todas as contas'
-          }
-        />
+        <Stat label="Saldo hoje" cents={snapshot?.todayCents ?? null} hint="Todas as contas" />
         <Stat
           label={`Fim de ${monthLabel(month)}`}
           cents={snapshot?.monthEndCents ?? null}

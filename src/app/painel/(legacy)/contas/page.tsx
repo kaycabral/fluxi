@@ -2,7 +2,7 @@ import { PageHeader } from '@/app/painel/_components/page-header'
 import { Unavailable } from '@/app/painel/_components/unavailable'
 import { requirePainelScope, todayIso } from '@/app/painel/_lib/session'
 import { Container } from '@/components/container'
-import { loadAccountBalances, loadCountFrom, loadRefs } from '@/features/ledger/adapters/views'
+import { loadAccountBalances, loadRefs } from '@/features/ledger/adapters/views'
 import { addMonths } from '@/features/ledger/core/month'
 import { AccountsView } from '@/features/ledger/ui/accounts-view'
 import { listFeedItems } from '@/features/spaces/adapters/space.repo'
@@ -16,8 +16,8 @@ export const metadata: Metadata = { title: 'Bancos e contas — Fluxi' }
 export default async function AccountsPage() {
   const scope = await requirePainelScope()
   const today = todayIso()
-  const [refs, countFrom] = await Promise.all([loadRefs(scope, today), loadCountFrom(scope)])
-  const first = countFrom.ok && countFrom.data !== null ? countFrom.data : today.slice(0, 7)
+  const refs = await loadRefs(scope, today)
+  const first = today.slice(0, 7)
   const balances = await loadAccountBalances(scope, first, addMonths(first, 12))
   const connections = await readBackend('bank connections', () => listFeedItems(scope.userId))
 

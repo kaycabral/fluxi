@@ -18,17 +18,14 @@ type Read<T> = { ok: true; data: T } | { ok: false }
 
 const views = {
   loadRefs: vi.fn<() => Promise<Read<unknown>>>(),
-  loadCountFrom: vi.fn<() => Promise<Read<string | null>>>(),
-  loadLedgerData:
-    vi.fn<(scope: unknown, window: unknown, countFrom: unknown) => Promise<Read<unknown>>>(),
+  loadLedgerData: vi.fn<(scope: unknown, window: unknown) => Promise<Read<unknown>>>(),
   loadBudgetPlans: vi.fn<(scope: unknown) => Promise<Read<unknown>>>(),
   loadAccountBalances:
     vi.fn<(scope: unknown, first: string, later: string) => Promise<Read<unknown>>>(),
 }
 vi.mock('@/features/ledger/adapters/views', () => ({
   loadRefs: () => views.loadRefs(),
-  loadCountFrom: () => views.loadCountFrom(),
-  loadLedgerData: (u: unknown, w: unknown, c: unknown) => views.loadLedgerData(u, w, c),
+  loadLedgerData: (u: unknown, w: unknown) => views.loadLedgerData(u, w),
   loadBudgetPlans: (u: unknown) => views.loadBudgetPlans(u),
   loadAccountBalances: (u: unknown, f: string, l: string) => views.loadAccountBalances(u, f, l),
 }))
@@ -152,7 +149,6 @@ const ok = <T,>(data: T): Read<T> => ({ ok: true, data })
 
 beforeEach(() => {
   views.loadRefs.mockResolvedValue(ok(sampleRefs()))
-  views.loadCountFrom.mockResolvedValue(ok('2026-11'))
   views.loadLedgerData.mockResolvedValue(ok(sampleData()))
   views.loadBudgetPlans.mockResolvedValue(ok([{}, {}]))
   views.loadAccountBalances.mockResolvedValue(ok({ firstMonth: '2026-11' }))
@@ -167,31 +163,27 @@ describe('painel pages', () => {
   it('timeline loads the window around the count start', async () => {
     render(await TimelinePage())
     expect(screen.getByRole('heading', { level: 1, name: 'Linha do tempo' })).toBeInTheDocument()
-    expect(screen.getByText('timeline 2026-08..2028-12')).toBeInTheDocument()
+    expect(screen.getByText('timeline 2026-09..2028-12')).toBeInTheDocument()
   })
 
-  it('a pagar loads from the count start to next month with today', async () => {
+  it('a pagar loads 12 months back to next month with today', async () => {
     render(await PayablesPage())
     expect(screen.getByRole('heading', { level: 1, name: 'A pagar' })).toBeInTheDocument()
-    expect(screen.getByText('payables 2026-11..2027-01@2026-12-15')).toBeInTheDocument()
+    expect(screen.getByText('payables 2025-12..2027-01@2026-12-15')).toBeInTheDocument()
   })
 
   it('search loads the whole ledger with the query this browser left', async () => {
     searchCookie = JSON.stringify({ text: 'luz', from: '2027-01-01' })
     render(await SearchPage())
     expect(screen.getByText('search luz@2027-01-01')).toBeInTheDocument()
-    expect(views.loadLedgerData).toHaveBeenCalledWith(
-      SCOPE,
-      { from: '1900-01', to: '9999-12' },
-      null,
-    )
+    expect(views.loadLedgerData).toHaveBeenCalledWith(SCOPE, { from: '1900-01', to: '9999-12' })
     searchCookie = undefined
   })
 
-  it('accounts load balances from the count start to a year later', async () => {
+  it('accounts load balances from this month to a year later', async () => {
     render(await AccountsPage())
     expect(screen.getByText('accounts 2026-11')).toBeInTheDocument()
-    expect(views.loadAccountBalances).toHaveBeenCalledWith(SCOPE, '2026-11', '2027-11')
+    expect(views.loadAccountBalances).toHaveBeenCalledWith(SCOPE, '2026-12', '2027-12')
   })
 
   it('the settings and the old connections addresses open the settings modal', () => {
@@ -207,11 +199,7 @@ describe('painel pages', () => {
   it('budget loads the whole ledger and the budget versions', async () => {
     render(await BudgetPage())
     expect(screen.getByText('budget 2@2026-12')).toBeInTheDocument()
-    expect(views.loadLedgerData).toHaveBeenCalledWith(
-      SCOPE,
-      { from: '1900-01', to: '9999-12' },
-      '2026-11',
-    )
+    expect(views.loadLedgerData).toHaveBeenCalledWith(SCOPE, { from: '1900-01', to: '9999-12' })
   })
 
   it('dashboard loads the whole ledger and the budget versions with today', async () => {
@@ -227,11 +215,7 @@ describe('painel pages', () => {
       }),
     )
     expect(screen.getByText('calendar week 2027-02-27/abc@2026-12-15')).toBeInTheDocument()
-    expect(views.loadLedgerData).toHaveBeenLastCalledWith(
-      SCOPE,
-      { from: '2027-02', to: '2027-02' },
-      '2026-11',
-    )
+    expect(views.loadLedgerData).toHaveBeenLastCalledWith(SCOPE, { from: '2027-02', to: '2027-02' })
   })
 
   it('calendar falls back to old month links, then today, in the last view used', async () => {
@@ -243,11 +227,7 @@ describe('painel pages', () => {
     prefsCookie = '{nada'
     render(await CalendarPage({ searchParams: Promise.resolve({ data: 'ontem', modo: 'x' }) }))
     expect(screen.getByText('calendar month 2026-12-15/@2026-12-15')).toBeInTheDocument()
-    expect(views.loadLedgerData).toHaveBeenLastCalledWith(
-      SCOPE,
-      { from: '2026-11', to: '2027-01' },
-      '2026-11',
-    )
+    expect(views.loadLedgerData).toHaveBeenLastCalledWith(SCOPE, { from: '2026-11', to: '2027-01' })
     prefsCookie = undefined
   })
 
@@ -265,7 +245,6 @@ describe('painel pages', () => {
   })
 
   it('degrades every page when the backend is unavailable', async () => {
-    views.loadCountFrom.mockResolvedValue({ ok: false })
     views.loadRefs.mockResolvedValue({ ok: false })
     views.loadLedgerData.mockResolvedValue({ ok: false })
     for (const page of [

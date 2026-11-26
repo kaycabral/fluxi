@@ -594,12 +594,12 @@ describe('CalendarView · views and preferences', () => {
     const balance = within(december).getByLabelText('Saldo no fim de Dezembro')
     expect(balance).toHaveTextContent('-3.560,00')
     expect(balance).toHaveClass('text-destructive')
-    // Months not loaded have no balance to show.
+    // Every month has a balance: it accumulates from the opening balances.
     expect(
-      within(screen.getByRole('region', { name: 'Janeiro' })).queryByLabelText(
+      within(screen.getByRole('region', { name: 'Janeiro' })).getByLabelText(
         'Saldo no fim de Janeiro',
       ),
-    ).not.toBeInTheDocument()
+    ).toHaveTextContent('-20,00')
   })
 
   it('focuses the date in the year and brings today back with Hoje or T, like Google Calendar', async () => {

@@ -4,7 +4,6 @@ import type { SessionUser } from '@cbrl/supabase'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { saveAccountAction, saveBankAction } from './accounts'
 import { changeDayAction, createEntryAction, deleteEntryAction, updateEntryAction } from './entries'
-import { setCountFromAction } from './settings'
 
 type Result = { ok: true } | { ok: false; reason: string }
 const write = {
@@ -16,7 +15,6 @@ const write = {
   updateBank: vi.fn<(...args: unknown[]) => Promise<Result>>(),
   createAccount: vi.fn<(...args: unknown[]) => Promise<Result>>(),
   updateAccount: vi.fn<(...args: unknown[]) => Promise<Result>>(),
-  setCountFrom: vi.fn<(...args: unknown[]) => Promise<Result>>(),
 }
 const getServerUser = vi.fn<() => Promise<SessionUser | null>>()
 const revalidatePath = vi.fn<(path: string, type?: string) => void>()
@@ -38,7 +36,6 @@ vi.mock('@/features/ledger/adapters/ledger.write', () => ({
   updateBank: (...a: unknown[]) => write.updateBank(...a),
   createAccount: (...a: unknown[]) => write.createAccount(...a),
   updateAccount: (...a: unknown[]) => write.updateAccount(...a),
-  setCountFrom: (...a: unknown[]) => write.setCountFrom(...a),
 }))
 
 const user: SessionUser = {
@@ -245,23 +242,6 @@ describe('bank and account actions', () => {
     await expect(saveBankAction(INITIAL_FORM_STATE, form({}))).resolves.toMatchObject({ ok: false })
     await expect(saveAccountAction(INITIAL_FORM_STATE, form({}))).resolves.toMatchObject({
       ok: false,
-    })
-    await expect(setCountFromAction(INITIAL_FORM_STATE, form({}))).resolves.toMatchObject({
-      ok: false,
-    })
-  })
-})
-
-describe('settings actions', () => {
-  it('set count_from_month', async () => {
-    await expect(
-      setCountFromAction(INITIAL_FORM_STATE, form({ month: '2027-01' })),
-    ).resolves.toMatchObject({ ok: true })
-    expect(write.setCountFrom).toHaveBeenCalledWith(SCOPE, '2027-01')
-    await expect(
-      setCountFromAction(INITIAL_FORM_STATE, form({ month: 'jan' })),
-    ).resolves.toMatchObject({
-      error: 'Mês inválido.',
     })
   })
 })

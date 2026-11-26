@@ -2,14 +2,14 @@ import { describe, expect, it } from 'vitest'
 import { calendarMonth, firstWeekday, isMovable, withMoves } from './calendar'
 import { makeEntry, makePart } from './fixtures'
 import { projectMonths } from './projection'
-import { initialSelectedMonth, sumBalances, timelineWindow } from './timeline'
+import { sumBalances, timelineWindow } from './timeline'
 
 const entries = [
   makeEntry({ id: 'rent', amountCents: -50000, day: 3, accountId: 'cc', startMonth: '2026-12' }),
   makeEntry({ id: 'gym', amountCents: -10000, day: 3, accountId: 'nu', startMonth: '2026-12' }),
 ]
 
-function project(countFrom: string) {
+function project() {
   return projectMonths({
     entries,
     parts: [],
@@ -19,7 +19,6 @@ function project(countFrom: string) {
       { id: 'nu', openingBalanceCents: 20000 },
     ],
     months: ['2026-11', '2026-12'],
-    countFrom,
   })
 }
 
@@ -32,14 +31,14 @@ describe('calendarMonth', () => {
   })
 
   it('counts an account without an opening balance as zero', () => {
-    const [, dec] = project('2026-11')
+    const [, dec] = project()
     if (dec === undefined) throw new Error('no month')
     const ghost = calendarMonth(dec, ['ghost'])
     expect(ghost.days[0]?.endBalanceCents).toBe(0)
   })
 
   it('runs the end-of-day balance of the chosen accounts', () => {
-    const [, dec] = project('2026-11')
+    const [, dec] = project()
     if (dec === undefined) throw new Error('no month')
     const all = calendarMonth(dec, null)
     expect(all.leadingBlanks).toBe(2)
@@ -53,7 +52,7 @@ describe('calendarMonth', () => {
   })
 
   it('shows dragged occurrences on their new day before the server confirms', () => {
-    const [, dec] = project('2026-11')
+    const [, dec] = project()
     if (dec === undefined) throw new Error('no month')
     const { days } = calendarMonth(dec, null)
     expect(withMoves(days, [])).toEqual(days)
@@ -70,7 +69,7 @@ describe('calendarMonth', () => {
   })
 
   it('never drags the parts of a split entry', () => {
-    const [, dec] = project('2026-11')
+    const [, dec] = project()
     const landing = dec?.landings[0]
     if (landing === undefined) throw new Error('no landing')
     expect(isMovable(landing)).toBe(true)
@@ -100,7 +99,6 @@ describe('calendarMonth', () => {
         { id: 'va', openingBalanceCents: 9000 },
       ],
       months: ['2026-12'],
-      countFrom: null,
     })
     if (dec === undefined) throw new Error('no month')
     const available = calendarMonth(dec, ['cc', 'nu'])
@@ -108,25 +106,14 @@ describe('calendarMonth', () => {
     expect(available.days[2]?.endBalanceCents).toBe(-10000)
     expect(calendarMonth(dec, ['va']).days[2]?.endBalanceCents).toBe(5000)
   })
-
-  it('has no balances before the count start', () => {
-    const [nov] = project('2026-12')
-    if (nov === undefined) throw new Error('no month')
-    expect(calendarMonth(nov, null).days[0]?.endBalanceCents).toBeNull()
-  })
 })
 
 describe('timeline helpers', () => {
-  it('computes the window and initial month', () => {
-    expect(timelineWindow(null, '2026-11')).toEqual({ from: '2026-08', to: '2028-11' })
-    expect(timelineWindow('2026-06', '2026-11')).toEqual({ from: '2026-03', to: '2028-11' })
-    expect(timelineWindow('2027-01', '2026-11').from).toBe('2026-08')
-    expect(initialSelectedMonth('2027-01', '2026-11')).toBe('2027-01')
-    expect(initialSelectedMonth(null, '2026-11')).toBe('2026-11')
+  it('computes the window around today', () => {
+    expect(timelineWindow('2026-11')).toEqual({ from: '2026-08', to: '2028-11' })
   })
 
   it('sums balances', () => {
-    expect(sumBalances(null, ['a'])).toBeNull()
     expect(sumBalances({ a: 1, b: 2 }, ['a', 'b', 'c'])).toBe(3)
   })
 })

@@ -134,6 +134,20 @@
       "when": 1795655778208,
       "tag": "0018_sync_feed_items",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1795663856030,
+      "tag": "0019_seed_without_count_from",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1795663856619,
+      "tag": "0020_drop_count_from",
+      "breakpoints": true
     }
   ]
 }

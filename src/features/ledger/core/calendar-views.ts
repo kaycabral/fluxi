@@ -208,7 +208,7 @@ export type DayCell = {
   landings: Landing[]
   /** Skipped occurrences that would land on this day ("ignorados"); they never count. */
   skipped: Landing[]
-  /** Balance of the selected accounts at the end of the day; null when not counted (or not loaded). */
+  /** Balance of the selected accounts at the end of the day; null when its month was not loaded. */
   endBalanceCents: number | null
 }
 

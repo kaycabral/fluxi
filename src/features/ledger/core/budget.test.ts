@@ -124,7 +124,6 @@ describe('budgetMonths', () => {
       { id: 'va', openingBalanceCents: 0 },
     ],
     months: ['2024-12', '2026-11', '2026-12'],
-    countFrom: null,
   })
   const months = budgetMonths(results, [OLD, NEW])
   const monthAt = (index: number): BudgetMonth => {

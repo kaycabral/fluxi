@@ -8,10 +8,9 @@ import {
   importLinks,
   importRaw,
   occurrencePayments,
-  userSettings,
 } from '@/db/schema'
 import { NOTION_KINDS, type NotionSource } from '@/features/import/core/notion'
-import { COUNT_FROM_MONTH, type ImportPlan } from '@/features/import/core/plan'
+import type { ImportPlan } from '@/features/import/core/plan'
 import { inScope, owned, type Scope } from '@/features/ledger/adapters/scope-filter'
 import { monthToDate } from '@/features/ledger/core/month'
 import { and, eq, inArray, sql } from 'drizzle-orm'
@@ -381,14 +380,6 @@ export async function writeImport(
       maps,
       createdCategories: categoryResult.created,
     })
-    const countFrom = monthToDate(COUNT_FROM_MONTH)
-    await tx
-      .insert(userSettings)
-      .values({ ...owned(scope), countFromMonth: countFrom })
-      .onConflictDoUpdate({
-        target: userSettings.spaceId,
-        set: { countFromMonth: countFrom, updatedAt: new Date() },
-      })
     return {
       removed,
       banks: { created: bankResult.created, kept: bankResult.kept },

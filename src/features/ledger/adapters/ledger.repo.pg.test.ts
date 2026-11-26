@@ -8,7 +8,6 @@ import {
   entryParts,
   importLinks,
   pots,
-  userSettings,
 } from '@/db/schema'
 import { DEFAULT_CATEGORY_GROUPS, DEFAULT_POTS } from '@/features/ledger/core/defaults'
 import { archiveSpace, createSpace, resolveScope } from '@/features/spaces/adapters/space.repo'
@@ -18,7 +17,6 @@ import { sql } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import {
-  getCountFrom,
   listAccounts,
   listBanks,
   listBudgetPlans,
@@ -123,10 +121,6 @@ beforeEach(async () => {
   biaScope = await personalScope(db(), BIA)
   ana = await seedLedger(anaScope, 1000000)
   bia = await seedLedger(biaScope, 500000)
-  await db()
-    .update(userSettings)
-    .set({ countFromMonth: '2026-12-01' })
-    .where(sql`${userSettings.userId} = ${ANA}`)
 })
 
 afterAll(async () => {
@@ -160,7 +154,6 @@ describe('default seeding (auth trigger)', () => {
     )
     const seeded = await listCategories(biaScope)
     expect(seeded.map(({ id: _id, ...rest }) => rest)).toEqual(expected)
-    await expect(getCountFrom(biaScope)).resolves.toBeNull()
   })
 
   it('is idempotent and per user', async () => {
@@ -214,8 +207,6 @@ describe('user isolation', () => {
     )
     expect(anaLedger.entries.map((e) => e.amountCents).sort()).toEqual([-10000, 1000000])
     expect(biaLedger.entries.map((e) => e.amountCents).sort()).toEqual([-10000, 500000])
-    expect(anaLedger.countFrom).toBe('2026-12')
-    expect(biaLedger.countFrom).toBeNull()
   })
 
   it('lists each user’s own tags, distinct and sorted', async () => {
@@ -309,7 +300,6 @@ describe('space isolation', () => {
     const [personal, business] = await Promise.all([listCategories(anaScope), listCategories(work)])
     expect(business).toHaveLength(personal.length)
     expect(business.some((c) => personal.some((p) => p.id === c.id))).toBe(false)
-    await expect(getCountFrom(work)).resolves.toBeNull()
   })
 
   it('never returns another space’s rows, and the other space never sees them', async () => {
@@ -325,7 +315,6 @@ describe('space isolation', () => {
     expect(personal.accounts.map((a) => a.id)).not.toContain(mine.checkingId)
     expect(personal.entries.map((e) => e.id)).not.toContain(mine.entryId)
     await expect(listEntryParts(anaScope, [mine.entryId])).resolves.toEqual([])
-    expect(business.countFrom).toBeNull()
   })
 
   it('refuses every reference across spaces of the same user', async () => {
@@ -490,7 +479,7 @@ describe('loading a window', () => {
     expect(descriptions.sort()).toEqual(['Reserva', 'Salário', 'Termina no mês anterior'])
   })
 
-  it('projects balances from count_from_month', async () => {
+  it('projects balances from the opening balances over every entry', async () => {
     const { months } = await projectLedger(anaScope, { from: '2027-01', to: '2027-02' })
     expect(months.map((m) => m.month)).toEqual(['2027-01', '2027-02'])
     // Dec: +400000 advance, -10000 transfer. Jan (skipped): +600000 rest of Dec, -10000.
@@ -502,9 +491,13 @@ describe('loading a window', () => {
     expect(months[1]?.totals.incomeCents).toBe(400000)
   })
 
-  it('projects from the window start without count_from_month', async () => {
+  it('accumulates the months before the window into its opening balances', async () => {
     const { months } = await projectLedger(biaScope, { from: '2027-02', to: '2027-02' })
-    expect(months[0]?.openingBalances).toEqual({ [bia.checkingId]: 100000, [bia.savingsId]: 0 })
+    // Dec + Jan land before February: 100000 + 500000 salary − 2 × 10000 transfers.
+    expect(months[0]?.openingBalances).toEqual({
+      [bia.checkingId]: 580000,
+      [bia.savingsId]: 20000,
+    })
   })
 })
 

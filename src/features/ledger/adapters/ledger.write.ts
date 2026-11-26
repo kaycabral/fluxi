@@ -1,6 +1,6 @@
 import 'server-only'
 
-import { accounts, banks, entries, entryOverrides, entryParts, userSettings } from '@/db/schema'
+import { accounts, banks, entries, entryOverrides, entryParts } from '@/db/schema'
 import { monthToDate, type Month } from '@/features/ledger/core/month'
 import { amountFor, dayFor, occursIn } from '@/features/ledger/core/occurrence'
 import { keepPartIds } from '@/features/ledger/core/payments'
@@ -485,15 +485,4 @@ export async function updateAccount(
     .where(and(eq(accounts.id, input.id), inScope(accounts, scope)))
     .returning({ id: accounts.id })
   return rows.length === 0 ? fail('not_found') : ok
-}
-
-export async function setCountFrom(scope: Scope, month: Month): Promise<WriteResult> {
-  await db()
-    .insert(userSettings)
-    .values({ ...owned(scope), countFromMonth: monthToDate(month) })
-    .onConflictDoUpdate({
-      target: userSettings.spaceId,
-      set: { countFromMonth: monthToDate(month), updatedAt: sql`now()` },
-    })
-  return ok
 }

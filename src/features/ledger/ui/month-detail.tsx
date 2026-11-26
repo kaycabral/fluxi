@@ -93,31 +93,12 @@ function DayInput({ row, data }: { row: DailyRow; data: LedgerData }) {
   )
 }
 
-/** "<mês> dia a dia": running balance of the chosen accounts within a counted month. */
+/** "<mês> dia a dia": running balance of the chosen accounts within a month. */
 export function MonthDetail({ result, data }: { result: MonthResult; data: LedgerData }) {
   const { openNew, openEdit, refs } = useLedgerUi()
   const [filter, setFilter] = useState('')
 
-  if (!result.counted) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle asChild>
-            <h2>{monthLabel(result.month)}</h2>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground text-sm">
-            Este mês está antes do início da contagem. Os lançamentos aparecem na busca, mas não
-            afetam o saldo.
-          </p>
-        </CardContent>
-      </Card>
-    )
-  }
-
   const daily = dailyBalance(result, decisionAccountIds(filter, data.accounts))
-  if (daily === null) return null
   const firstNegative = daily.rows.find((r) => r.balanceAfterCents < 0)
   const label = (id: string | null) => accountLabel(id, data.accounts, data.banks)
 

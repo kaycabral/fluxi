@@ -492,25 +492,19 @@ export const occurrencePayments = pgTable(
 ).enableRLS()
 
 /**
- * Per-space preferences (the table keeps its historic name); `count_from_month`
- * is where balances start accumulating. Seeded per space.
+ * Per-space preferences (the table keeps its historic name), seeded per space.
+ * No preference lives here yet: balances accumulate from each account's
+ * opening balance over every entry.
  */
 export const userSettings = pgTable(
   'user_settings',
   {
     spaceId: uuid('space_id').primaryKey(),
     userId: ownerId(),
-    countFromMonth: month('count_from_month'),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
-  (t) => [
-    inSpace('user_settings', t),
-    check(
-      'user_settings_count_from_first_day',
-      sql`${t.countFromMonth} is null or ${isFirstOfMonth(t.countFromMonth)}`,
-    ),
-  ],
+  (t) => [inSpace('user_settings', t)],
 ).enableRLS()
 
 /**

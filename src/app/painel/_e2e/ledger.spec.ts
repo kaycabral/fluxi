@@ -1,5 +1,5 @@
 import { fluxiDb } from '@/db'
-import { accounts, banks, entries, userSettings } from '@/db/schema'
+import { accounts, banks, entries } from '@/db/schema'
 import {
   formatAmount,
   isoDayOf,
@@ -11,7 +11,6 @@ import { addMonths, diffMonths, monthToDate } from '@/features/ledger/core/month
 import type { Scope } from '@/features/spaces/core/space'
 import { expect, test } from '@e2e/fixtures'
 import type { Page } from '@playwright/test'
-import { eq } from 'drizzle-orm'
 
 const THIS_MONTH = monthOf(new Date())
 const TODAY_DAY = Number(isoDayOf(new Date()).slice(8, 10))
@@ -87,10 +86,6 @@ test.describe('ledger critical flow', () => {
       .returning()
     if (account === undefined) throw new Error('account not created')
     accountId = account.id
-    await db
-      .update(userSettings)
-      .set({ countFromMonth: monthToDate(THIS_MONTH) })
-      .where(eq(userSettings.spaceId, user.scope.spaceId))
   })
 
   test('benefit accounts count like any other account', async ({ page, user }) => {

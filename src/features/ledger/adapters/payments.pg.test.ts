@@ -12,7 +12,6 @@ import {
   createBank,
   createEntry,
   deleteEntry,
-  setCountFrom,
   updateEntry,
 } from './ledger.write'
 import { markOccurrencePaid, unmarkOccurrencePaid } from './payments.write'
@@ -38,7 +37,6 @@ async function setupUser(scope: Scope): Promise<string> {
     type: 'checking',
     openingBalanceCents: 100000,
   })
-  await setCountFrom(scope, '2026-12')
   return accountId
 }
 

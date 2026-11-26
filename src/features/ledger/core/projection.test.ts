@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { makeEntry, makeOverride, salarySplit } from './fixtures'
 import { monthRange } from './month'
-import { dailyBalance, effectOn, projectMonths, type MonthResult } from './projection'
+import {
+  dailyBalance,
+  effectOn,
+  firstLandingMonth,
+  projectMonths,
+  type MonthResult,
+} from './projection'
 
 const accounts = [
   { id: 'checking', openingBalanceCents: 100000 },
@@ -36,14 +42,13 @@ const transfer = makeEntry({
   toAccountId: 'nubank',
 })
 
-function project(countFrom: string | null = '2026-12') {
+function project(from = '2026-12') {
   return projectMonths({
     entries: [rent, gym, misc, transfer, salary],
     parts: [],
     overrides: [],
     accounts,
-    months: monthRange('2026-11', '2027-01'),
-    countFrom,
+    months: monthRange(from, '2027-01'),
   })
 }
 
@@ -72,7 +77,6 @@ describe('projectMonths', () => {
       overrides: [],
       accounts,
       months: monthRange('2026-11', '2026-12'),
-      countFrom: '2026-12',
     })
     if (december === undefined) throw new Error('missing december')
     expect(december.totals).toEqual({
@@ -89,7 +93,8 @@ describe('projectMonths', () => {
       'gym',
       'reversal',
     ])
-    expect(december.closingBalances).toEqual({ checking: 604000, nubank: 7000 })
+    // November counts too now: gym (−13000) and salary (+500000) land there first.
+    expect(december.closingBalances).toEqual({ checking: 1108000, nubank: -6000 })
   })
 
   it('orders landings by day, income first within a day, then input order', () => {
@@ -103,15 +108,8 @@ describe('projectMonths', () => {
     ])
   })
 
-  it('accumulates balances only from countFrom; earlier months are not counted', () => {
-    const [november, december, january] = project()
-    expect(november).toMatchObject({
-      counted: false,
-      openingBalances: null,
-      closingBalances: null,
-    })
-    expect(november?.totals.incomeCents).toBe(500000)
-    expect(december?.counted).toBe(true)
+  it('accumulates balances month by month from the opening balances', () => {
+    const [december, january] = project()
     expect(december?.openingBalances).toEqual({ checking: 100000, nubank: 20000 })
     expect(december?.closingBalances).toEqual({
       checking: 100000 + 500000 - 200000 - 10000 - 40000,
@@ -121,10 +119,11 @@ describe('projectMonths', () => {
     expect(january?.closingBalances).toEqual({ checking: 600000, nubank: 74000 })
   })
 
-  it('counts every month when countFrom is null', () => {
-    const results = project(null)
-    expect(results.every((r) => r.counted)).toBe(true)
-    expect(results[0]?.openingBalances).toEqual({ checking: 100000, nubank: 20000 })
+  it('counts every projected month, the first one from the opening balances', () => {
+    const [november, december] = project('2026-11')
+    expect(november?.openingBalances).toEqual({ checking: 100000, nubank: 20000 })
+    expect(november?.totals.incomeCents).toBe(500000)
+    expect(december?.openingBalances).toEqual(november?.closingBalances)
   })
 
   it('moves transfers between accounts without touching totals', () => {
@@ -134,7 +133,6 @@ describe('projectMonths', () => {
       overrides: [],
       accounts,
       months: ['2026-12'],
-      countFrom: null,
     })
     expect(result?.totals).toMatchObject({
       incomeCents: 0,
@@ -151,7 +149,6 @@ describe('projectMonths', () => {
       overrides: [],
       accounts: [],
       months: ['2026-10', '2026-09'],
-      countFrom: null,
     })
     expect(results.map((r) => r.month)).toEqual(['2026-09', '2026-10'])
     expect(results[1]?.closingBalances).toEqual({ ghost: -1000 })
@@ -172,13 +169,12 @@ describe('projectMonths', () => {
       overrides: [makeOverride({ entryId: 'rent', month: '2027-01', skipped: true })],
       accounts,
       months: monthRange('2026-12', '2027-01'),
-      countFrom: '2026-12',
     })
     expect(results.map((r) => [r.totals.incomeCents, r.totals.expenseCents])).toEqual([
       [400000, 200000],
       [600000, 0],
     ])
-    expect(results[1]?.closingBalances?.checking).toBe(100000 + 1000000 - 200000)
+    expect(results[1]?.closingBalances.checking).toBe(100000 + 1000000 - 200000)
   })
 })
 
@@ -219,7 +215,6 @@ describe('projectMonths with benefit accounts', () => {
       overrides: [],
       accounts: benefitAccounts,
       months: ['2026-12'],
-      countFrom: null,
     })
     if (result === undefined) throw new Error('no month')
     return result
@@ -283,7 +278,6 @@ describe('dailyBalance', () => {
       overrides: [makeOverride({ entryId: 'salary', month: '2026-12', day: 20 })],
       accounts,
       months: ['2026-12'],
-      countFrom: null,
     })
     const daily = dailyBalance(monthOf(results, '2026-12'), ['checking'])
     expect(daily?.rows.map((r) => r.landing.entry.id)).toEqual(['transfer', 'rent', 'salary'])
@@ -296,8 +290,12 @@ describe('dailyBalance', () => {
     const nubank = dailyBalance(monthOf(results, '2026-12'), ['nubank'])
     expect(nubank?.rows.map((r) => r.effectCents)).toEqual([-13000, 40000])
   })
+})
 
-  it('is null for a month before countFrom', () => {
-    expect(dailyBalance(monthOf(project(), '2026-11'), null)).toBeNull()
+describe('firstLandingMonth', () => {
+  it('is the earliest start month, null without entries', () => {
+    expect(firstLandingMonth([salary, rent, gym])).toBe('2026-09')
+    expect(firstLandingMonth([salary])).toBe('2026-11')
+    expect(firstLandingMonth([])).toBeNull()
   })
 })

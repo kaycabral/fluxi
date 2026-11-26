@@ -183,7 +183,7 @@ describe('buildImportPlan with benefit mirrors', () => {
 
   it('keeps every mirror before the count start', () => {
     expect(
-      buildImportPlan(workspaceWithBenefit, { countFrom: '2028-01' }).stats.mirrorsDropped,
+      buildImportPlan(workspaceWithBenefit, { mirrorsFrom: '2028-01' }).stats.mirrorsDropped,
     ).toBe(0)
   })
 })

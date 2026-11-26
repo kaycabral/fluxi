@@ -1,5 +1,5 @@
 import { fluxiDb, personalScope, seedUser, truncateFluxiTables } from '@/db'
-import { accounts, entries, userSettings } from '@/db/schema'
+import { accounts, entries } from '@/db/schema'
 import { workspace } from '@/features/import/core/fixtures'
 import { buildImportPlan, expectedFlows } from '@/features/import/core/plan'
 import { verifyLedger } from '@/features/import/core/verify'
@@ -78,8 +78,6 @@ describe('Notion import (Postgres)', () => {
     expect((after.categories ?? 0) - (before.categories ?? 0)).toBe(summary.categories.created)
     expect(after.import_raw).toBe(summary.raw + summary.categories.created)
 
-    const [settings] = await db().select().from(userSettings).where(eq(userSettings.userId, ANA))
-    expect(settings?.countFromMonth).toBe('2026-12-01')
     const archived = await db()
       .select({ archivedAt: accounts.archivedAt })
       .from(accounts)

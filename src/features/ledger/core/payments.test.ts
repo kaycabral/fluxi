@@ -131,11 +131,8 @@ describe('groupPayables', () => {
 })
 
 describe('payablesWindow', () => {
-  it('starts at the count start, never more than 12 months back, and ends next month', () => {
-    expect(payablesWindow('2026-09', '2026-11')).toEqual({ from: '2026-09', to: '2026-12' })
-    expect(payablesWindow(null, '2026-11')).toEqual({ from: '2026-11', to: '2026-12' })
-    expect(payablesWindow('2027-03', '2026-11')).toEqual({ from: '2026-11', to: '2026-12' })
-    expect(payablesWindow('2024-01', '2026-11')).toEqual({ from: '2025-11', to: '2026-12' })
+  it('looks a fixed 12 months back and ends next month', () => {
+    expect(payablesWindow('2026-11')).toEqual({ from: '2025-11', to: '2026-12' })
   })
 })
 

@@ -160,15 +160,15 @@ export function groupPayables(
   })
 }
 
+/** How many months back "A pagar" looks for overdue occurrences. */
+export const PAYABLES_LOOKBACK_MONTHS = 12
+
 /**
- * Months "A pagar" loads: from the count start (else the current month), at
- * most 12 months back, to the next month. Occurrences before the count start
- * are history the user is not tracking, so they never show as overdue.
+ * Months "A pagar" loads: a fixed {@link PAYABLES_LOOKBACK_MONTHS} back to the
+ * next month. Older unpaid occurrences are history, never "Atrasadas".
  */
-export function payablesWindow(countFrom: Month | null, today: Month): { from: Month; to: Month } {
-  const floor = addMonths(today, -12)
-  const anchor = countFrom === null || countFrom > today ? today : countFrom
-  return { from: anchor < floor ? floor : anchor, to: addMonths(today, 1) }
+export function payablesWindow(today: Month): { from: Month; to: Month } {
+  return { from: addMonths(today, -PAYABLES_LOOKBACK_MONTHS), to: addMonths(today, 1) }
 }
 
 /** Pair each part of `next` with the part at the same position in `previous` (keeps its id). */

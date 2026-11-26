@@ -108,7 +108,6 @@ describe('dayCells', () => {
       { id: 'nu', openingBalanceCents: 20000 },
     ],
     months: ['2026-12'],
-    countFrom: '2026-12',
   })
   const source = { entries: [rent, gym], parts: [], overrides }
 
@@ -144,7 +143,6 @@ describe('withDateMoves', () => {
     overrides: [],
     accounts: [{ id: 'cc', openingBalanceCents: 0 }],
     months: ['2026-12'],
-    countFrom: '2026-12',
   })
   const cells = dayCells(results, null, { entries: [rent], parts: [], overrides: [] })
 

@@ -11,7 +11,6 @@ import {
   entryParts,
   occurrencePayments,
   pots,
-  userSettings,
 } from '@/db/schema'
 import { addMonths, monthFromDate, monthToDate, type Month } from '@/features/ledger/core/month'
 import type { OccurrencePayment } from '@/features/ledger/core/payments'
@@ -37,12 +36,14 @@ import { inScope, type Scope } from './scope-filter'
 
 export type MonthWindow = { from: Month; to: Month }
 
+/** Earliest month a window can start at: loading from it reads every entry up to `to`. */
+export const EPOCH: Month = '1900-01'
+
 export type LedgerSnapshot = {
   banks: Bank[]
   accounts: Account[]
   categories: Category[]
   pots: Pot[]
-  countFrom: Month | null
   entries: Entry[]
   parts: EntryPart[]
   overrides: EntryOverride[]
@@ -132,15 +133,6 @@ export async function listBudgetPlans(scope: Scope): Promise<BudgetPlan[]> {
       targetRows.filter((t) => t.planId === plan.id).map((t) => [t.potKey, t.targetBps]),
     ),
   }))
-}
-
-export async function getCountFrom(scope: Scope): Promise<Month | null> {
-  const [row] = await db()
-    .select({ countFromMonth: userSettings.countFromMonth })
-    .from(userSettings)
-    .where(inScope(userSettings, scope))
-    .limit(1)
-  return monthOrNull(row?.countFromMonth ?? null)
 }
 
 /**
@@ -261,12 +253,11 @@ export async function listOccurrencePayments(
 
 /** Everything the core needs to project `scope`'s ledger over `window`. */
 export async function loadLedger(scope: Scope, window: MonthWindow): Promise<LedgerSnapshot> {
-  const [bankRows, accountRows, categoryRows, potRows, countFrom, entryRows] = await Promise.all([
+  const [bankRows, accountRows, categoryRows, potRows, entryRows] = await Promise.all([
     listBanks(scope),
     listAccounts(scope),
     listCategories(scope),
     listPots(scope),
-    getCountFrom(scope),
     listEntries(scope, window),
   ])
   const entryIds = entryRows.map((e) => e.id)
@@ -280,7 +271,6 @@ export async function loadLedger(scope: Scope, window: MonthWindow): Promise<Led
     accounts: accountRows,
     categories: categoryRows,
     pots: potRows,
-    countFrom,
     entries: entryRows,
     parts,
     overrides,

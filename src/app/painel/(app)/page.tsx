@@ -1,6 +1,6 @@
 import { Unavailable } from '@/app/painel/_components/unavailable'
 import { requirePainelScope, todayIso } from '@/app/painel/_lib/session'
-import { loadBudgetPlans, loadCountFrom, loadLedgerData } from '@/features/ledger/adapters/views'
+import { loadBudgetPlans, loadLedgerData } from '@/features/ledger/adapters/views'
 import { DashboardView } from '@/features/ledger/ui/dashboard/dashboard-view'
 import { Main } from '@cbrl/design'
 import type { Metadata } from 'next'
@@ -33,11 +33,7 @@ export default async function DashboardPage({
   if (calendar.size > 0) redirect(`/painel/calendario?${calendar.toString()}`)
 
   const scope = await requirePainelScope()
-  const countFrom = await loadCountFrom(scope)
-  const [data, plans] = await Promise.all([
-    loadLedgerData(scope, ALL_TIME, countFrom.ok ? countFrom.data : null),
-    loadBudgetPlans(scope),
-  ])
+  const [data, plans] = await Promise.all([loadLedgerData(scope, ALL_TIME), loadBudgetPlans(scope)])
 
   return (
     <Main>

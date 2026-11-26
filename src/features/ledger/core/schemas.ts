@@ -235,8 +235,6 @@ export const budgetPlanSchema = z.object({
 })
 export type BudgetPlanInput = z.infer<typeof budgetPlanSchema>
 
-export const countFromSchema = z.object({ month: monthSchema })
-
 /** First issue's message, for `{ ok: false, error }` results. */
 export function firstIssue(error: z.ZodError): string {
   return error.issues[0]?.message ?? 'Dados inválidos.'

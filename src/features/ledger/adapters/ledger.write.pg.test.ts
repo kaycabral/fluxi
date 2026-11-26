@@ -6,14 +6,13 @@ import { pgErrorOf } from '@cbrl/pg'
 import { eq } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
-import { getCountFrom, listAccounts, listBanks } from './ledger.repo'
+import { listAccounts, listBanks } from './ledger.repo'
 import {
   changeOccurrenceDay,
   createAccount,
   createBank,
   createEntry,
   deleteEntry,
-  setCountFrom,
   updateAccount,
   updateBank,
   updateEntry,
@@ -49,7 +48,6 @@ async function setupUser(scope: Scope): Promise<Setup> {
     type: 'investment',
     openingBalanceCents: 0,
   })
-  await setCountFrom(scope, '2026-12')
   return { bankId, accountId, otherAccountId }
 }
 
@@ -595,13 +593,5 @@ describe('banks and accounts', () => {
     })
     const biaBanks = await db().select().from(banks).where(eq(banks.userId, BIA))
     expect(biaBanks.map((b) => b.name)).toEqual(['BTG'])
-  })
-})
-
-describe('settings', () => {
-  it('sets count_from_month per user', async () => {
-    await setCountFrom(anaScope, '2027-03')
-    await expect(getCountFrom(anaScope)).resolves.toBe('2027-03')
-    await expect(getCountFrom(biaScope)).resolves.toBe('2026-12')
   })
 })

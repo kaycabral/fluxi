@@ -5,6 +5,12 @@ import { and, eq } from 'drizzle-orm'
 
 const SPACE = 'Empresa E2E'
 
+function firstRow<T>(rows: readonly T[], what: string): T {
+  const [row] = rows
+  if (row === undefined) throw new Error(`${what} not created`)
+  return row
+}
+
 test.describe('spaces (Pessoal × Empresa)', () => {
   test.use({ authAsUser: true })
 
@@ -32,19 +38,23 @@ test.describe('spaces (Pessoal × Empresa)', () => {
     await expect(page.getByLabel(`Espaço atual: ${SPACE}`)).toContainText('Empresa')
 
     // The new space starts empty: give it an account of its own.
-    const [space] = await fluxiDb
-      .db()
-      .select({ id: spaces.id })
-      .from(spaces)
-      .where(and(eq(spaces.userId, user.id), eq(spaces.name, SPACE)))
-    if (space === undefined) throw new Error('space not created')
+    const space = firstRow(
+      await fluxiDb
+        .db()
+        .select({ id: spaces.id })
+        .from(spaces)
+        .where(and(eq(spaces.userId, user.id), eq(spaces.name, SPACE))),
+      'space',
+    )
     const owner = { userId: user.id, spaceId: space.id }
-    const [bank] = await fluxiDb
-      .db()
-      .insert(banks)
-      .values({ ...owner, name: 'Banco PJ' })
-      .returning()
-    if (bank === undefined) throw new Error('bank not created')
+    const bank = firstRow(
+      await fluxiDb
+        .db()
+        .insert(banks)
+        .values({ ...owner, name: 'Banco PJ' })
+        .returning(),
+      'bank',
+    )
     await fluxiDb
       .db()
       .insert(accounts)

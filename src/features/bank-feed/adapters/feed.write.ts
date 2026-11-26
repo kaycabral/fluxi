@@ -1,7 +1,5 @@
-import type { FluxiDb } from '@/db'
-import { bankFeedAccounts, bankTransactions } from '@/db/schema'
-import type { FeedAccountRow, FeedTransactionRow } from '@/features/bank-feed/core/pluggy'
-import { and, eq, gte, notInArray, sql } from 'drizzle-orm'
+import type { Sql } from 'postgres'
+import type { FeedAccountRow, FeedTransactionRow } from '../core/pluggy.ts'
 
 /**
  * Write side of the bank feed. {@link syncFeedAccount} replaces, in one
@@ -12,6 +10,11 @@ import { and, eq, gte, notInArray, sql } from 'drizzle-orm'
  * Open Finance exposes a rolling 12-month window, so older rows are history
  * the source simply stopped serving and are kept forever. The user's mapping
  * onto a fluxi account is never touched. Every statement is scoped by `userId`.
+ *
+ * Runtime-agnostic (postgres.js + relative imports with extensions): the
+ * `pluggy-sync` Edge Function (Deno) imports this exact module, and the Node
+ * Postgres suite proves it. It runs as the least-privileged `fluxi_sync` role,
+ * which can only touch the two feed tables.
  */
 
 const CHUNK = 250
@@ -26,69 +29,71 @@ export type FeedSnapshot = {
   coveredFrom: string
 }
 
-export async function syncFeedAccount(
-  db: FluxiDb,
+export function syncFeedAccount(
+  sql: Sql,
   userId: string,
   { source, account, transactions, coveredFrom }: FeedSnapshot,
 ): Promise<SyncCounts> {
   const syncedAt = new Date()
-  return db.transaction(async (tx) => {
-    const [row] = await tx
-      .insert(bankFeedAccounts)
-      .values({ ...account, userId, source, syncedAt })
-      .onConflictDoUpdate({
-        target: [bankFeedAccounts.userId, bankFeedAccounts.source, bankFeedAccounts.externalId],
-        set: {
-          itemId: account.itemId,
-          institution: account.institution,
-          name: account.name,
-          type: account.type,
-          subtype: account.subtype,
-          balanceCents: account.balanceCents,
-          syncedAt,
-          updatedAt: syncedAt,
-        },
-      })
-      .returning({ id: bankFeedAccounts.id })
+  return sql.begin(async (tx) => {
+    const [row] = await tx<{ id: string }[]>`
+      insert into bank_feed_accounts
+        (user_id, source, external_id, item_id, institution, name, type, subtype,
+         balance_cents, synced_at)
+      values
+        (${userId}, ${source}, ${account.externalId}, ${account.itemId}, ${account.institution},
+         ${account.name}, ${account.type}, ${account.subtype}, ${account.balanceCents}, ${syncedAt})
+      on conflict (user_id, source, external_id) do update set
+        item_id = excluded.item_id,
+        institution = excluded.institution,
+        name = excluded.name,
+        type = excluded.type,
+        subtype = excluded.subtype,
+        balance_cents = excluded.balance_cents,
+        synced_at = excluded.synced_at,
+        updated_at = excluded.synced_at
+      returning id`
     if (!row) throw new Error('bank feed account upsert returned nothing')
     const feedAccountId = row.id
 
     for (let i = 0; i < transactions.length; i += CHUNK) {
-      const chunk = transactions.slice(i, i + CHUNK)
-      await tx
-        .insert(bankTransactions)
-        .values(chunk.map((t) => ({ ...t, userId, feedAccountId, syncedAt })))
-        .onConflictDoUpdate({
-          target: [
-            bankTransactions.userId,
-            bankTransactions.feedAccountId,
-            bankTransactions.externalId,
-          ],
-          set: {
-            date: sql`excluded.date`,
-            amountCents: sql`excluded.amount_cents`,
-            description: sql`excluded.description`,
-            status: sql`excluded.status`,
-            category: sql`excluded.category`,
-            installmentNumber: sql`excluded.installment_number`,
-            totalInstallments: sql`excluded.total_installments`,
-            billMonth: sql`excluded.bill_month`,
-            syncedAt,
-            updatedAt: syncedAt,
-          },
-        })
+      const rows = transactions.slice(i, i + CHUNK).map((t) => ({
+        user_id: userId,
+        feed_account_id: feedAccountId,
+        external_id: t.externalId,
+        date: t.date,
+        amount_cents: t.amountCents,
+        description: t.description,
+        status: t.status,
+        category: t.category,
+        installment_number: t.installmentNumber,
+        total_installments: t.totalInstallments,
+        bill_month: t.billMonth,
+        synced_at: syncedAt,
+      }))
+      await tx`
+        insert into bank_transactions ${tx(rows)}
+        on conflict (user_id, feed_account_id, external_id) do update set
+          date = excluded.date,
+          amount_cents = excluded.amount_cents,
+          description = excluded.description,
+          status = excluded.status,
+          category = excluded.category,
+          installment_number = excluded.installment_number,
+          total_installments = excluded.total_installments,
+          bill_month = excluded.bill_month,
+          synced_at = excluded.synced_at,
+          updated_at = excluded.synced_at`
     }
 
-    const scope = and(
-      eq(bankTransactions.userId, userId),
-      eq(bankTransactions.feedAccountId, feedAccountId),
-      gte(bankTransactions.date, coveredFrom),
-    )
     const keep = transactions.map((t) => t.externalId)
-    const removed = await tx
-      .delete(bankTransactions)
-      .where(keep.length > 0 ? and(scope, notInArray(bankTransactions.externalId, keep)) : scope)
-      .returning({ id: bankTransactions.id })
+    const removed = await tx`
+      delete from bank_transactions
+      where user_id = ${userId}
+        and feed_account_id = ${feedAccountId}
+        and date >= ${coveredFrom}
+        and external_id <> all(${keep}::text[])
+      returning id`
     return { upserted: transactions.length, removed: removed.length }
   })
 }

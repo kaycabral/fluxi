@@ -1,5 +1,5 @@
+import { z } from 'zod'
 import {
-  parsePluggyConfig,
   pluggyAccountSchema,
   pluggyItemSchema,
   pluggyTransactionSchema,
@@ -8,26 +8,17 @@ import {
   type PluggyConfig,
   type PluggyItem,
   type PluggyTransaction,
-} from '@/features/bank-feed/core/pluggy'
-import { readFile } from 'node:fs/promises'
-import { homedir } from 'node:os'
-import path from 'node:path'
-import { z } from 'zod'
+} from '../core/pluggy.ts'
 
 /**
  * Minimal Pluggy API client for the personal (Meu Pluggy) feed. The client
  * secret only lives in this process: it is exchanged for a short-lived API key
- * (POST /auth) and never logged. Retries 429/5xx with backoff.
+ * (POST /auth) and never logged. Retries 429/5xx with backoff. Web-standard
+ * `fetch` only, so the `pluggy-sync` Edge Function (Deno) imports it as is.
  */
 
 const API = 'https://api.pluggy.ai'
 const MAX_ATTEMPTS = 5
-
-export async function readPluggyConfig(): Promise<PluggyConfig> {
-  const file = path.join(homedir(), '.config', 'fluxi', 'pluggy.env')
-  const content = await readFile(file, 'utf8').catch(() => '')
-  return parsePluggyConfig(content, process.env)
-}
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -56,7 +47,9 @@ export type PluggyClient = {
   listTransactions(accountId: string): Promise<PluggyTransaction[]>
 }
 
-export async function createPluggyClient(config: PluggyConfig): Promise<PluggyClient> {
+export async function createPluggyClient(
+  config: Pick<PluggyConfig, 'clientId' | 'clientSecret'>,
+): Promise<PluggyClient> {
   const auth = z.object({ apiKey: z.string() }).parse(
     await request(`${API}/auth`, {
       method: 'POST',

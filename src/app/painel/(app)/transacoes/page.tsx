@@ -7,13 +7,13 @@ import { Main } from '@cbrl/design'
 import type { Metadata } from 'next'
 import { cookies } from 'next/headers'
 
-export const metadata: Metadata = { title: 'Lançamentos — Fluxi' }
+export const metadata: Metadata = { title: 'Transações — Fluxi' }
 
 /** Every month the database can hold: the list shows the whole ledger. */
 const ALL_TIME = { from: '1900-01', to: '9999-12' }
 
 /**
- * `/painel/lancamentos`: every occurrence of the ledger, newest first. The
+ * `/painel/transacoes`: every occurrence of the ledger, newest first. The
  * whole ledger comes once; search and filters run on the client, starting
  * from the query this browser left (cookie).
  */

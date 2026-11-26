@@ -45,12 +45,12 @@ import { settingsHash, SettingsModal } from './settings-modal'
 import { SIDEBAR_COOKIE } from './sidebar-state'
 
 /** Pages that put "Criar" beside their title instead of the header. */
-const OWN_CREATE_BUTTON = new Set(['/painel/lancamentos'])
+const OWN_CREATE_BUTTON = new Set(['/painel/transacoes'])
 
 const NAV: NavItem[] = [
   { href: '/painel', label: 'Painel', icon: LayoutDashboard, match: 'exact' },
   { href: '/painel/calendario', label: 'Calendário', icon: CalendarDays, match: 'prefix' },
-  { href: '/painel/lancamentos', label: 'Lançamentos', icon: ListIcon, match: 'prefix' },
+  { href: '/painel/transacoes', label: 'Transações', icon: ListIcon, match: 'prefix' },
   { href: '/painel/orcamento', label: 'Orçamento', icon: PiggyBank, match: 'prefix' },
 ]
 

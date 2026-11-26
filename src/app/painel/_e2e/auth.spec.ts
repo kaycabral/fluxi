@@ -12,9 +12,17 @@ test.describe('signed in', () => {
     // The dashboard is the main view, in the new sidebar layout.
     await expect(page.getByRole('heading', { level: 1, name: 'Painel' })).toBeVisible()
     const nav = page.getByRole('navigation', { name: 'Seções' })
-    for (const name of ['Painel', 'Calendário', 'Lançamentos', 'Orçamento']) {
+    for (const name of ['Painel', 'Calendário', 'Transações', 'Orçamento']) {
       await expect(nav.getByRole('link', { name })).toBeVisible()
     }
+  })
+
+  test('the old /painel/lancamentos address lands on Transações', async ({ page }) => {
+    const response = await page.request.get('/painel/lancamentos', { maxRedirects: 0 })
+    expect(response.status()).toBe(308)
+    await page.goto('/painel/lancamentos')
+    await expect(page).toHaveURL(/\/painel\/transacoes$/)
+    await expect(page.getByRole('heading', { level: 1, name: 'Transações' })).toBeVisible()
   })
 
   test('the space menu holds the account, the settings and sign-out', async ({ page, user }) => {

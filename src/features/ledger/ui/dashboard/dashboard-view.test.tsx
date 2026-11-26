@@ -217,7 +217,7 @@ describe('DashboardView', () => {
     renderDashboard()
     const panel = screen.getByRole('tabpanel')
     await userEvent.click(within(panel).getByRole('button', { name: /^Avulso/ }))
-    expect(await screen.findByRole('dialog', { name: 'Editar lançamento' })).toBeInTheDocument()
+    expect(await screen.findByRole('dialog', { name: 'Editar transação' })).toBeInTheDocument()
   })
 
   it('says when a tab has nothing', () => {

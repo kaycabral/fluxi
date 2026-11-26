@@ -27,7 +27,7 @@ export function useEntrySelection() {
 }
 
 /**
- * The bar under "Lançamentos" while entries are selected: set the category or
+ * The bar under "Transações" while entries are selected: set the category or
  * the pot of all of them at once (only the user's fields: bank entries keep
  * amount, date and account; transfers get neither, incomes no pot).
  */
@@ -65,7 +65,7 @@ export function SelectionBar({
       className="bg-background fixed inset-x-4 bottom-4 z-40 mx-auto flex max-w-3xl flex-wrap items-center gap-2 rounded-2xl border p-2 shadow-lg"
     >
       <span className="px-2 text-sm font-medium" aria-live="polite">
-        {count} {count === 1 ? 'selecionado' : 'selecionados'}
+        {count} {count === 1 ? 'selecionada' : 'selecionadas'}
       </span>
       <CategorySelect
         aria-label="Categoria da seleção"

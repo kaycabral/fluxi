@@ -24,7 +24,7 @@ test.describe('spaces (Pessoal × Empresa)', () => {
   })
 
   test('an entry created in a business space never shows in Pessoal', async ({ page, user }) => {
-    await page.goto('/painel/lancamentos')
+    await page.goto('/painel/transacoes')
     await expect(
       page.getByRole('button', { name: 'Espaço: Pessoal. Trocar de espaço e abrir a conta' }),
     ).toBeVisible()
@@ -73,7 +73,7 @@ test.describe('spaces (Pessoal × Empresa)', () => {
     ).toBeVisible()
 
     await page.keyboard.press('n')
-    const sheet = page.getByRole('dialog', { name: 'Novo lançamento' })
+    const sheet = page.getByRole('dialog', { name: 'Nova transação' })
     await expect(sheet).toBeVisible()
     await expect(sheet.getByLabel('Conta')).toContainText('Conta PJ')
     await sheet.getByLabel('Valor').fill('12345')
@@ -92,7 +92,7 @@ test.describe('spaces (Pessoal × Empresa)', () => {
     ).toBeVisible()
     await expect(page.getByText('Nota fiscal E2E')).toHaveCount(0)
     await page.keyboard.press('n')
-    const personal = page.getByRole('dialog', { name: 'Novo lançamento' })
+    const personal = page.getByRole('dialog', { name: 'Nova transação' })
     await expect(personal).toBeVisible()
     await expect(personal.getByLabel('Conta')).not.toContainText('Conta PJ')
   })

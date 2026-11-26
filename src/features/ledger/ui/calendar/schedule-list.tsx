@@ -104,11 +104,11 @@ export function ScheduleList() {
       </ol>
       {rows.length === 0 && (
         <p className="text-muted-foreground p-6 text-center text-sm">
-          Nenhum lançamento neste período.
+          Nenhuma transação neste período.
         </p>
       )}
       <p className="text-muted-foreground px-3 py-4 text-sm">
-        Mostrando lançamentos até {Number(last.slice(8, 10))}{' '}
+        Mostrando transações até {Number(last.slice(8, 10))}{' '}
         {MONTHS_LONG[Number(last.slice(5, 7)) - 1]} {last.slice(0, 4)}.{' '}
         <Link
           className="text-primary font-medium hover:underline"

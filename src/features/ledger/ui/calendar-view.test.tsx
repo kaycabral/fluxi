@@ -84,7 +84,7 @@ const dayGroup = (day: number) =>
 
 /** The button under a day's entries: a click on any empty spot of the day. */
 const emptyPartOf = (day: number) =>
-  within(dayGroup(day)).getByRole('button', { name: /^Criar lançamento em/ })
+  within(dayGroup(day)).getByRole('button', { name: /^Criar transação em/ })
 
 beforeEach(() => {
   vi.mocked(createEntryAction).mockResolvedValue({ ok: true })
@@ -128,7 +128,7 @@ describe('CalendarView · month', () => {
     expect(within(dayGroup(3)).getByText('-5.800,00')).toBeInTheDocument()
     // Neighbour days fill the first and last weeks; the 1st shows its month.
     expect(
-      screen.getByRole('button', { name: /^Criar lançamento em segunda-feira, 30 de novembro/ }),
+      screen.getByRole('button', { name: /^Criar transação em segunda-feira, 30 de novembro/ }),
     ).toBeInTheDocument()
     expect(screen.getByText('1 dez.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /terça-feira, 15 de dezembro/ })).toHaveAttribute(
@@ -170,7 +170,7 @@ describe('CalendarView · month', () => {
   it('keeps the month when the wheel is inside a popup or its select list', async () => {
     renderCalendar()
     await userEvent.click(emptyPartOf(10))
-    const form = await screen.findByRole('form', { name: 'Criar lançamento' })
+    const form = await screen.findByRole('form', { name: 'Criar transação' })
     fireEvent.wheel(form, { deltaY: 200 })
     await userEvent.click(within(form).getByLabelText('Conta'))
     fireEvent.wheel(await screen.findByRole('listbox'), { deltaY: 200 })
@@ -190,10 +190,10 @@ describe('CalendarView · month', () => {
     height.mockRestore()
     // 150px / 5 rows → 30px a day: one line, so the 15th (Luz + Extra) shows "Mais 2".
     await userEvent.click(within(dayGroup(15)).getByRole('button', { name: /^Mais \d$/ }))
-    const card = await screen.findByLabelText('Lançamentos de 2026-12-15')
+    const card = await screen.findByLabelText('Transações de 2026-12-15')
     expect(within(card).getByRole('button', { name: /Luz/ })).toBeInTheDocument()
     await userEvent.click(within(card).getByRole('button', { name: 'Criar neste dia' }))
-    expect(await screen.findByRole('form', { name: 'Criar lançamento' })).toHaveTextContent(
+    expect(await screen.findByRole('form', { name: 'Criar transação' })).toHaveTextContent(
       'terça-feira, 15 de dezembro',
     )
   })
@@ -210,8 +210,8 @@ describe('CalendarView · event popup', () => {
     expect(details).toHaveTextContent('Energia elétrica · pote Essencial')
     expect(details).toHaveTextContent('A pagar')
     expect(details).toHaveTextContent('#casa')
-    await userEvent.click(within(details).getByRole('button', { name: 'Editar lançamento' }))
-    expect(await screen.findByRole('dialog', { name: 'Editar lançamento' })).toBeInTheDocument()
+    await userEvent.click(within(details).getByRole('button', { name: 'Editar transação' }))
+    expect(await screen.findByRole('dialog', { name: 'Editar transação' })).toBeInTheDocument()
   })
 
   it('says what is still to be received', async () => {
@@ -273,7 +273,7 @@ describe('CalendarView · event popup', () => {
     const popup = await screen.findByLabelText('Detalhes de Avulso')
     expect(popup).toHaveTextContent('(vem do banco)')
     expect(within(popup).getByRole('img', { name: 'Vem do banco' })).toBeInTheDocument()
-    expect(within(popup).queryByRole('button', { name: 'Excluir lançamento' })).toBeNull()
+    expect(within(popup).queryByRole('button', { name: 'Excluir transação' })).toBeNull()
     expect(within(popup).queryByRole('button', { name: /pago/ })).toBeNull()
   })
 
@@ -288,7 +288,7 @@ describe('CalendarView · event popup', () => {
   it('deletes a one-off entry right away and asks the scope of a recurring one', async () => {
     renderCalendar()
     await userEvent.click(screen.getByRole('button', { name: /Avulso/ }))
-    await userEvent.click(await screen.findByRole('button', { name: 'Excluir lançamento' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Excluir transação' }))
     await waitFor(() =>
       expect(deleteEntryAction).toHaveBeenCalledWith({
         entryId: IDS.once,
@@ -296,12 +296,12 @@ describe('CalendarView · event popup', () => {
         scope: 'all',
       }),
     )
-    expect(toast.success).toHaveBeenCalledWith('Lançamento excluído.')
+    expect(toast.success).toHaveBeenCalledWith('Transação excluída.')
 
     await userEvent.click(screen.getByRole('button', { name: /Luz/ }))
     await userEvent.click(
       within(await screen.findByLabelText('Detalhes de Luz')).getByRole('button', {
-        name: 'Excluir lançamento',
+        name: 'Excluir transação',
       }),
     )
     const dialog = await screen.findByRole('dialog', { name: /Excluir/ })
@@ -320,14 +320,14 @@ describe('CalendarView · event popup', () => {
     vi.mocked(deleteEntryAction).mockResolvedValue({ ok: false, error: 'Não encontrado.' })
     renderCalendar()
     await userEvent.click(screen.getByRole('button', { name: /Avulso/ }))
-    await userEvent.click(await screen.findByRole('button', { name: 'Excluir lançamento' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Excluir transação' }))
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Não encontrado.'))
     await userEvent.click(screen.getByRole('button', { name: 'Fechar' }))
 
     await userEvent.click(screen.getByRole('button', { name: /Luz/ }))
     await userEvent.click(
       within(await screen.findByLabelText('Detalhes de Luz')).getByRole('button', {
-        name: 'Excluir lançamento',
+        name: 'Excluir transação',
       }),
     )
     const dialog = await screen.findByRole('dialog', { name: /Excluir/ })
@@ -340,20 +340,20 @@ describe('CalendarView · quick add', () => {
   it('opens in a column view from a click or from the keyboard', async () => {
     renderCalendar({ view: 'day', date: '2026-12-10' })
     await userEvent.click(emptyPartOf(10))
-    expect(await screen.findByRole('form', { name: 'Criar lançamento' })).toBeInTheDocument()
+    expect(await screen.findByRole('form', { name: 'Criar transação' })).toBeInTheDocument()
     await userEvent.keyboard('{Escape}')
     await waitFor(() =>
-      expect(screen.queryByRole('form', { name: 'Criar lançamento' })).not.toBeInTheDocument(),
+      expect(screen.queryByRole('form', { name: 'Criar transação' })).not.toBeInTheDocument(),
     )
     emptyPartOf(10).focus()
     await userEvent.keyboard('{Enter}')
-    expect(await screen.findByRole('form', { name: 'Criar lançamento' })).toBeInTheDocument()
+    expect(await screen.findByRole('form', { name: 'Criar transação' })).toBeInTheDocument()
   })
 
   it('opens on a click in an empty part of a day and creates an entry there', async () => {
     renderCalendar()
     await userEvent.click(emptyPartOf(10))
-    const form = await screen.findByRole('form', { name: 'Criar lançamento' })
+    const form = await screen.findByRole('form', { name: 'Criar transação' })
     expect(form).toHaveTextContent('quinta-feira, 10 de dezembro')
     expect(within(form).getByLabelText('Descrição')).toHaveFocus()
     // The day shows a placeholder while the quick add is open.
@@ -376,7 +376,7 @@ describe('CalendarView · quick add', () => {
       },
     })
     await waitFor(() =>
-      expect(screen.queryByRole('form', { name: 'Criar lançamento' })).not.toBeInTheDocument(),
+      expect(screen.queryByRole('form', { name: 'Criar transação' })).not.toBeInTheDocument(),
     )
   })
 
@@ -384,7 +384,7 @@ describe('CalendarView · quick add', () => {
     vi.mocked(createEntryAction).mockResolvedValue({ ok: false, error: 'Conta não encontrada.' })
     renderCalendar()
     await userEvent.click(emptyPartOf(10))
-    const form = await screen.findByRole('form', { name: 'Criar lançamento' })
+    const form = await screen.findByRole('form', { name: 'Criar transação' })
     await userEvent.click(within(form).getByRole('button', { name: 'Salvar' }))
     expect(within(form).getByRole('alert')).toHaveTextContent('Informe o valor.')
     await userEvent.type(within(form).getByLabelText('Valor'), '10')
@@ -392,18 +392,18 @@ describe('CalendarView · quick add', () => {
     expect(await within(form).findByRole('alert')).toHaveTextContent('Conta não encontrada.')
     await userEvent.click(within(form).getByRole('button', { name: 'Fechar' }))
     await waitFor(() =>
-      expect(screen.queryByRole('form', { name: 'Criar lançamento' })).not.toBeInTheDocument(),
+      expect(screen.queryByRole('form', { name: 'Criar transação' })).not.toBeInTheDocument(),
     )
   })
 
   it('"Mais opções" carries what was typed to the full sheet', async () => {
     renderCalendar()
     await userEvent.click(emptyPartOf(10))
-    const form = await screen.findByRole('form', { name: 'Criar lançamento' })
+    const form = await screen.findByRole('form', { name: 'Criar transação' })
     await userEvent.click(within(form).getByRole('button', { name: 'Entrada' }))
     await userEvent.type(within(form).getByLabelText('Valor'), '10000')
     await userEvent.click(within(form).getByRole('button', { name: 'Mais opções' }))
-    const sheet = await screen.findByRole('dialog', { name: 'Novo lançamento' })
+    const sheet = await screen.findByRole('dialog', { name: 'Nova transação' })
     expect(within(sheet).getByLabelText('Data')).toHaveValue('10/12/2026')
     expect(within(sheet).getByLabelText('Valor')).toHaveValue('100,00')
     expect(within(sheet).getByRole('button', { name: 'Entrada' })).toHaveAttribute(
@@ -578,7 +578,7 @@ describe('CalendarView · views and preferences', () => {
     expect(within(dayGroup(15)).getByRole('button', { name: /Luz/ })).toBeInTheDocument()
     expect(screen.getByText('15')).toHaveAttribute('aria-current', 'date')
     await userEvent.click(emptyPartOf(16))
-    expect(await screen.findByRole('form', { name: 'Criar lançamento' })).toHaveTextContent(
+    expect(await screen.findByRole('form', { name: 'Criar transação' })).toHaveTextContent(
       'quarta-feira, 16 de dezembro',
     )
   })
@@ -612,10 +612,10 @@ describe('CalendarView · views and preferences', () => {
     await userEvent.click(
       within(december).getByRole('button', { name: 'quinta-feira, 3 de dezembro' }),
     )
-    const card = await screen.findByLabelText('Lançamentos de 2026-12-03')
+    const card = await screen.findByLabelText('Transações de 2026-12-03')
     expect(card).toHaveTextContent('Saldo no fim do dia: -5.800,00')
     await userEvent.click(within(card).getByRole('button', { name: 'Criar neste dia' }))
-    const sheet = await screen.findByRole('dialog', { name: 'Novo lançamento' })
+    const sheet = await screen.findByRole('dialog', { name: 'Nova transação' })
     expect(within(sheet).getByLabelText('Data')).toHaveValue('03/12/2026')
   })
 
@@ -685,6 +685,6 @@ describe('CalendarView · views and preferences', () => {
 
   it('says so when the schedule has nothing', () => {
     renderCalendar({ view: 'schedule', data: sampleData({ entries: [] }) })
-    expect(screen.getByText('Nenhum lançamento neste período.')).toBeInTheDocument()
+    expect(screen.getByText('Nenhuma transação neste período.')).toBeInTheDocument()
   })
 })

@@ -27,7 +27,7 @@ export default function PrivacidadePage() {
           Base legal: execução de contrato (LGPD Art. 7º, V).
         </li>
         <li>
-          <strong>Os registros financeiros que você cadastra</strong>: bancos, contas, lançamentos,
+          <strong>Os registros financeiros que você cadastra</strong>: bancos, contas, transações,
           categorias, orçamentos e o status de pagamento (pago/recebido). Esses dados são digitados
           por você e existem só para montar o seu planejamento. Base legal: execução de contrato
           (LGPD Art. 7º, V).

@@ -138,7 +138,7 @@ export function PotMenu({ pot, onRename }: { pot: Pot; onRename: () => void }) {
       if (result.ok) {
         toast.success(
           result.archived === true
-            ? `"${pot.name}" foi arquivado: ele tem lançamentos, então continua no histórico.`
+            ? `"${pot.name}" foi arquivado: ele tem transações, então continua no histórico.`
             : `"${pot.name}" excluído.`,
         )
       }

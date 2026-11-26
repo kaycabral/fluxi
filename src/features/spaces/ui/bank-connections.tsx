@@ -337,8 +337,8 @@ function MoveDialog({
           </AlertDialogTitle>
           <AlertDialogDescription>
             {accounts} e {transactions} vão para o espaço {move.space.name}. As contas movidas são
-            vinculadas de novo no espaço {move.space.name}; os lançamentos que vieram do banco
-            passam para lá.
+            vinculadas de novo no espaço {move.space.name}; as transações que vieram do banco passam
+            para lá.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -447,7 +447,7 @@ function RemapDialog({
   onCancel: () => void
   onConfirm: () => void
 }) {
-  const entries = plural(pending.feed.entryCount, 'lançamento', 'lançamentos')
+  const entries = plural(pending.feed.entryCount, 'transação', 'transações')
   const unmap = pending.target.kind === 'none'
   return (
     <AlertDialog open onOpenChange={(open) => !open && onCancel()}>
@@ -459,8 +459,8 @@ function RemapDialog({
               : `Vincular “${pending.label}” a ${pending.targetName}?`}
           </AlertDialogTitle>
           <AlertDialogDescription>
-            Os {entries} que vieram desta conta do banco serão apagados
-            {unmap ? '' : ' e criados de novo na conta escolhida'}. O saldo inicial da conta
+            As {entries} que vieram desta conta do banco serão apagadas
+            {unmap ? '' : ' e criadas de novo na conta escolhida'}. O saldo inicial da conta
             anterior fica como está.
           </AlertDialogDescription>
         </AlertDialogHeader>

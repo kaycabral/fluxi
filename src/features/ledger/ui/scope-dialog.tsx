@@ -41,7 +41,7 @@ const OPTIONS: Record<ScopeRequest['kind'], { value: EditScope; title: string; h
       title: 'Este e os próximos',
       hint: 'Encerra a repetição no mês anterior.',
     },
-    { value: 'all', title: 'Todos', hint: 'Apaga o lançamento em todos os meses.' },
+    { value: 'all', title: 'Todos', hint: 'Apaga a transação em todos os meses.' },
   ],
 }
 

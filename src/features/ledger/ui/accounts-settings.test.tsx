@@ -79,7 +79,7 @@ describe('AccountsSettings', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Arquivar Conta' }))
     const dialog = await screen.findByRole('alertdialog')
     expect(dialog).toHaveTextContent(
-      'A conta e todos os lançamentos dela deixam de contar em qualquer lugar: saldos, totais, orçamento, calendário e lista de lançamentos. Nada é apagado: ao desarquivar, em “Arquivadas”, tudo volta como estava.',
+      'A conta e todas as transações dela deixam de contar em qualquer lugar: saldos, totais, orçamento, calendário e lista de transações. Nada é apagado: ao desarquivar, em “Arquivadas”, tudo volta como estava.',
     )
   })
 

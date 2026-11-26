@@ -200,7 +200,7 @@ function PotsThisMonth({ pots, month }: { pots: readonly Pot[]; month: BudgetMon
 /**
  * "Painel": the quick look. Balance cards, the traffic light of the budget,
  * the bills coming up, the month-end balance ahead and each pot this month.
- * Everything over every account (filter in Lançamentos/Calendário to narrow).
+ * Everything over every account (filter in Transações/Calendário to narrow).
  */
 export function DashboardView({
   data,
@@ -247,7 +247,7 @@ export function DashboardView({
         {header}
         <EmptyState
           title="Cadastre seu primeiro banco e conta"
-          description="O painel resume saldos, contas a pagar e o orçamento assim que houver contas e lançamentos."
+          description="O painel resume saldos, contas a pagar e o orçamento assim que houver contas e transações."
         />
       </div>
     )

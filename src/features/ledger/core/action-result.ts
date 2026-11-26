@@ -26,7 +26,7 @@ const MESSAGES: Record<WriteFailureReason, string> = {
   invalid_reference: 'Conta, banco ou categoria inválida.',
   scope_required: 'Escolha onde aplicar a mudança.',
   split_needs_series: 'A divisão vale para a repetição: escolha "Este e os próximos" ou "Todos".',
-  no_occurrence: 'Esse lançamento não ocorre nesse mês.',
+  no_occurrence: 'Essa transação não ocorre nesse mês.',
   over_budget: 'A soma dos potes não pode passar de 100%.',
   undo_expired: 'Não dá mais para desfazer essa ação.',
   duplicate_plan: 'Já existe uma versão começando nesse mês.',
@@ -34,7 +34,7 @@ const MESSAGES: Record<WriteFailureReason, string> = {
   account_connected:
     'Esta conta está vinculada a uma conta do banco. Desvincule em Configurações → Conexões antes de arquivar.',
   bank_locked:
-    'Vem do banco: valor, data, conta, tipo, repetição e pagamento não podem ser alterados, nem o lançamento excluído.',
+    'Vem do banco: valor, data, conta, tipo, repetição e pagamento não podem ser alterados, nem a transação excluída.',
 }
 
 export const SESSION_EXPIRED = 'Sessão expirada. Entre novamente.'

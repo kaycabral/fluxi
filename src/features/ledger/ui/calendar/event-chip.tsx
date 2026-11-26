@@ -213,7 +213,7 @@ export function EventDetails({
         toast.error(result.error)
         return
       }
-      offerUndo(result, 'Lançamento excluído.')
+      offerUndo(result, 'Transação excluída.')
       onClose()
     })
   }
@@ -233,14 +233,14 @@ export function EventDetails({
   return (
     <div className="grid gap-3 p-2 pb-5" aria-label={`Detalhes de ${landingTitle(landing)}`}>
       <div className="flex justify-end gap-0.5">
-        <Button variant="ghost" size="icon-sm" aria-label="Editar lançamento" onClick={edit}>
+        <Button variant="ghost" size="icon-sm" aria-label="Editar transação" onClick={edit}>
           <Pencil />
         </Button>
         {!entry.fromBank && (
           <Button
             variant="ghost"
             size="icon-sm"
-            aria-label="Excluir lançamento"
+            aria-label="Excluir transação"
             disabled={pending}
             onClick={() => void remove()}
           >

@@ -29,7 +29,7 @@ export type SimilarOffer = SimilarResult & {
 const dayLabel = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(2, 4)}`
 
 /**
- * "Aplicar a outros N lançamentos parecidos?": after a category/pot change,
+ * "Aplicar a outras N transações parecidas?": after a category/pot change,
  * the bank entries with the same normalized description, each with a
  * checkbox. Preselected only when the amount is close (½× to 2×) and nothing
  * is classified yet; an entry already classified shows what it has and only
@@ -101,15 +101,15 @@ export function SimilarDialog({
         <DialogHeader>
           <DialogTitle>
             Aplicar a{' '}
-            {count === 1 ? 'outro lançamento parecido' : `outros ${count} lançamentos parecidos`}?
+            {count === 1 ? 'outra transação parecida' : `outras ${count} transações parecidas`}?
           </DialogTitle>
           <DialogDescription>
-            Mesma descrição de “{offer.reference.description}”. Marcamos os de valor parecido ainda
+            Mesma descrição de “{offer.reference.description}”. Marcamos as de valor parecido ainda
             sem categoria.
           </DialogDescription>
         </DialogHeader>
         <ScrollArea className="max-h-72">
-          <ul className="grid gap-1 pr-3" aria-label="Lançamentos parecidos">
+          <ul className="grid gap-1 pr-3" aria-label="Transações parecidas">
             {offer.candidates.map((c) => {
               const now = current(c.categoryId, c.pot)
               return (

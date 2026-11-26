@@ -70,9 +70,9 @@ describe('SimilarDialog', () => {
     const onDone = vi.fn()
     render(<SimilarDialog offer={three()} refs={sampleRefs()} onDone={onDone} />)
     expect(
-      screen.getByRole('heading', { name: 'Aplicar a outros 3 lançamentos parecidos?' }),
+      screen.getByRole('heading', { name: 'Aplicar a outras 3 transações parecidas?' }),
     ).toBeInTheDocument()
-    const boxes = within(screen.getByRole('list', { name: 'Lançamentos parecidos' })).getAllByRole(
+    const boxes = within(screen.getByRole('list', { name: 'Transações parecidas' })).getAllByRole(
       'checkbox',
     )
     expect(boxes.map((b) => b.getAttribute('aria-checked'))).toEqual(['true', 'false', 'false'])
@@ -110,7 +110,7 @@ describe('SimilarDialog', () => {
     const onDone = vi.fn()
     render(<SimilarDialog offer={offer([candidate({})])} refs={sampleRefs()} onDone={onDone} />)
     expect(
-      screen.getByRole('heading', { name: 'Aplicar a outro lançamento parecido?' }),
+      screen.getByRole('heading', { name: 'Aplicar a outra transação parecida?' }),
     ).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Aplicar a 1' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Falhou.')
@@ -155,7 +155,7 @@ describe('the entry form offers it after a category change', () => {
   it('opens the dialog when there are similar entries', async () => {
     actions.findSimilarAction.mockResolvedValue({ ok: true, data: three() })
     await saveWithCategory()
-    expect(await screen.findByText('Aplicar a outros 3 lançamentos parecidos?')).toBeInTheDocument()
+    expect(await screen.findByText('Aplicar a outras 3 transações parecidas?')).toBeInTheDocument()
     expect(actions.findSimilarAction).toHaveBeenCalledWith({ entryId: IDS.once })
     await userEvent.click(screen.getByRole('button', { name: 'Agora não' }))
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Salvar' })).toBeNull())

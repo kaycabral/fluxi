@@ -63,17 +63,17 @@ async function openFilters() {
 }
 
 // The cookie is scoped to the page's path.
-beforeEach(() => window.history.replaceState(null, '', '/painel/lancamentos'))
+beforeEach(() => window.history.replaceState(null, '', '/painel/transacoes'))
 
 afterEach(() => {
   vi.clearAllMocks()
-  document.cookie = `${SEARCH_QUERY_COOKIE}=; Path=/painel/lancamentos; Max-Age=0`
+  document.cookie = `${SEARCH_QUERY_COOKIE}=; Path=/painel/transacoes; Max-Age=0`
 })
 
 describe('SearchView', () => {
   it('lists the whole ledger, newest first, paged', async () => {
     renderSearch()
-    expect(screen.getByRole('heading', { name: 'Lançamentos' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Transações' })).toBeInTheDocument()
     expect(rows()).toHaveLength(50)
     const iso = rows().map((r) => {
       const d = r.textContent?.match(/\d{2}\/\d{2}\/\d{2}/)?.[0] ?? ''
@@ -87,13 +87,13 @@ describe('SearchView', () => {
   it('creates an entry from beside the title', async () => {
     renderSearch()
     await userEvent.click(screen.getByRole('button', { name: 'Criar' }))
-    expect(await screen.findByRole('dialog', { name: 'Novo lançamento' })).toBeInTheDocument()
+    expect(await screen.findByRole('dialog', { name: 'Nova transação' })).toBeInTheDocument()
   })
 
   it('sums what the filters left under the title', () => {
     renderSearch({ text: 'luz', from: '2026-12-01', to: '2026-12-31' })
     const summary = screen.getByRole('status', { name: 'Resumo' })
-    expect(summary).toHaveTextContent('1 lançamento')
+    expect(summary).toHaveTextContent('1 transação')
     expect(summary).toHaveTextContent('Saídas-R$ 260,00')
     expect(summary).toHaveTextContent('Saldo-R$ 260,00')
   })
@@ -125,7 +125,7 @@ describe('SearchView', () => {
     renderSearch({ kind: 'transfer' })
     expect(within(list()).getAllByText('interna').length).toBeGreaterThan(0)
     await userEvent.click(within(list()).getAllByText('Para o Nubank')[0] ?? document.body)
-    expect(await screen.findByRole('dialog', { name: 'Editar lançamento' })).toBeInTheDocument()
+    expect(await screen.findByRole('dialog', { name: 'Editar transação' })).toBeInTheDocument()
   })
 
   it('values transfers inside the filtered account', () => {
@@ -142,14 +142,14 @@ describe('SearchView', () => {
 
   it('filters while typing and remembers the search', async () => {
     renderSearch()
-    await userEvent.type(screen.getByRole('searchbox', { name: 'Buscar lançamentos' }), 'luz')
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Buscar transações' }), 'luz')
     expect(rows().every((r) => r.textContent?.includes('Luz'))).toBe(true)
     expect(remembered().text).toBe('luz')
   })
 
   it('starts from the query this browser left', () => {
     renderSearch({ text: 'luz' })
-    expect(screen.getByRole('searchbox', { name: 'Buscar lançamentos' })).toHaveValue('luz')
+    expect(screen.getByRole('searchbox', { name: 'Buscar transações' })).toHaveValue('luz')
     expect(rows().every((r) => r.textContent?.includes('Luz'))).toBe(true)
   })
 
@@ -275,9 +275,9 @@ describe('SearchView', () => {
 
   it('tells nothing matched apart from an empty ledger', () => {
     const { unmount } = renderSearch({ text: 'inexistente' })
-    expect(screen.getByText('Nenhum lançamento encontrado')).toBeInTheDocument()
+    expect(screen.getByText('Nenhuma transação encontrada')).toBeInTheDocument()
     unmount()
     renderSearch({}, { ...sampleData(), entries: [] })
-    expect(screen.getByText('Nenhum lançamento ainda')).toBeInTheDocument()
+    expect(screen.getByText('Nenhuma transação ainda')).toBeInTheDocument()
   })
 })

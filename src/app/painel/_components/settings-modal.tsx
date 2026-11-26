@@ -48,7 +48,7 @@ const SECTIONS = [
     key: 'regras',
     label: 'Regras',
     description:
-      'Lançamentos novos do banco com essa descrição e valor na faixa ganham a categoria e o pote sozinhos. Nunca mudam o que você já classificou.',
+      'Transações novas do banco com essa descrição e valor na faixa ganham a categoria e o pote sozinhos. Nunca mudam o que você já classificou.',
   },
 ] as const
 

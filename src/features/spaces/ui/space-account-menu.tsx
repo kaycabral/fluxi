@@ -254,7 +254,7 @@ function NewSpaceDialog({
           <DialogHeader>
             <DialogTitle>Novo espaço</DialogTitle>
             <DialogDescription>
-              Um espaço é um controle separado, com contas, lançamentos e orçamento próprios. Nada
+              Um espaço é um controle separado, com contas, transações e orçamento próprios. Nada
               dele se soma ao Pessoal.
             </DialogDescription>
           </DialogHeader>

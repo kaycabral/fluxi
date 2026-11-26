@@ -15,6 +15,10 @@ const nextConfig: NextConfig = {
   env: { NEXT_PUBLIC_COMMIT_SHA: commitSha() },
   // 127.0.0.1 (Playwright), <hostname>.local and the machine's LAN IPv4s.
   allowedDevOrigins: devOrigins(),
+  // "Lançamentos" became "Transações": old links and bookmarks keep working.
+  redirects: async () => [
+    { source: '/painel/lancamentos', destination: '/painel/transacoes', permanent: true },
+  ],
   images: {
     // The local Supabase stack serves Storage from http://127.0.0.1:54421.
     // Next refuses to optimize images from private IPs (anti-SSRF), even when

@@ -107,7 +107,7 @@ test.describe('ledger critical flow', () => {
 
     // Create a monthly expense through the N shortcut.
     await page.keyboard.press('n')
-    const sheet = page.getByRole('dialog', { name: 'Novo lançamento' })
+    const sheet = page.getByRole('dialog', { name: 'Nova transação' })
     await expect(sheet).toBeVisible()
     await sheet.getByLabel('Valor').fill('10000')
     await sheet.getByLabel('Descrição').fill('Aluguel E2E')
@@ -134,7 +134,7 @@ test.describe('ledger critical flow', () => {
       page.getByRole('heading', { name: `${monthLabel(NEXT_MONTH)} dia a dia` }),
     ).toBeVisible()
     await page.getByRole('row', { name: /Aluguel E2E/ }).click()
-    const edit = page.getByRole('dialog', { name: 'Editar lançamento' })
+    const edit = page.getByRole('dialog', { name: 'Editar transação' })
     await expect(edit).toBeVisible()
     await expect(edit.getByLabel('Valor')).toHaveValue('100,00')
     await edit.getByLabel('Valor').fill('15000')
@@ -163,7 +163,7 @@ test.describe('ledger critical flow', () => {
     const balance = day.getByText(/^-?\d{1,3}(\.\d{3})*,\d{2}$/).first()
     const before = parseMoneyInput((await balance.textContent()) ?? '')
     await create.click()
-    const form = page.getByRole('form', { name: 'Criar lançamento' })
+    const form = page.getByRole('form', { name: 'Criar transação' })
     await expect(form.getByLabel('Descrição')).toBeFocused()
     await form.getByLabel('Descrição').fill('Padaria E2E')
     await form.getByLabel('Valor').fill('42,90')
@@ -190,7 +190,7 @@ test.describe('ledger critical flow', () => {
     await expect(page.getByRole('button', { name: 'Visualização: Semana' })).toBeVisible()
     await expect(page.getByRole('button', { name: /42,90 Padaria E2E/ })).toBeVisible()
     await page.getByRole('button', { name: 'Criar', exact: true }).click()
-    await expect(page.getByRole('dialog', { name: 'Novo lançamento' })).toBeVisible()
+    await expect(page.getByRole('dialog', { name: 'Nova transação' })).toBeVisible()
   })
 
   test('mark a bill paid in A pagar, then see it paid in the day by day', async ({
@@ -260,7 +260,7 @@ test.describe('ledger critical flow', () => {
         recurrence: 'none',
       })
     const details = page.getByLabel('Detalhes de Popup E2E')
-    const quickAdd = page.getByRole('form', { name: 'Criar lançamento' })
+    const quickAdd = page.getByRole('form', { name: 'Criar transação' })
 
     // Day view: one column, the whole width.
     await page.goto('/painel/calendario?modo=dia')
@@ -268,7 +268,7 @@ test.describe('ledger critical flow', () => {
     await expect.poll(() => isOnScreen(page, details)).toBe(true)
     await page.keyboard.press('Escape')
     await page
-      .getByRole('button', { name: /^Criar lançamento em/ })
+      .getByRole('button', { name: /^Criar transação em/ })
       .click({ position: { x: 40, y: 120 } })
     await expect.poll(() => isOnScreen(page, quickAdd)).toBe(true)
     await page.keyboard.press('Escape')
@@ -308,7 +308,7 @@ test.describe('ledger critical flow', () => {
 
     // Deleted from its popup: gone, with "Desfazer" in the toast bringing it back.
     await chip.click()
-    await details.getByRole('button', { name: 'Excluir lançamento' }).click()
+    await details.getByRole('button', { name: 'Excluir transação' }).click()
     await expect(chip).toHaveCount(0)
     await page.getByRole('button', { name: 'Desfazer', exact: true }).click()
     await expect(page.getByText('Ação desfeita.')).toBeVisible()

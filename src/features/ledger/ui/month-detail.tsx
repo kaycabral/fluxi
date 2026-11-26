@@ -69,7 +69,7 @@ function DayInput({ row, data }: { row: DailyRow; data: LedgerData }) {
       if (!result.ok) {
         toast.error(result.error)
         setValue(String(landing.day))
-      } else offerUndo(result, 'Lançamento movido.')
+      } else offerUndo(result, 'Transação movida.')
     })
   }
 
@@ -121,7 +121,7 @@ export function MonthDetail({ result, data }: { result: MonthResult; data: Ledge
             onValueChange={setFilter}
           />
           <Button variant="outline" size="sm" onClick={() => openNew({ month: result.month })}>
-            <Plus /> Lançamento
+            <Plus /> Transação
           </Button>
         </div>
       </CardHeader>
@@ -161,7 +161,7 @@ export function MonthDetail({ result, data }: { result: MonthResult; data: Ledge
             {daily.rows.length === 0 && (
               <TableRow>
                 <TableCell colSpan={7} className="text-muted-foreground py-6 text-center">
-                  Nenhum lançamento neste mês.
+                  Nenhuma transação neste mês.
                 </TableCell>
               </TableRow>
             )}

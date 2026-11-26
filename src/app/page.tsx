@@ -16,7 +16,7 @@ export default async function LandingPage() {
             Planeje o fluxo de caixa das suas finanças pessoais.
           </p>
           <p className="text-muted-foreground max-w-[52ch]">
-            Cadastre lançamentos recorrentes, veja o saldo ao longo dos meses, acompanhe as contas a
+            Cadastre transações recorrentes, veja o saldo ao longo dos meses, acompanhe as contas a
             pagar e divida o orçamento em potes.
           </p>
         </div>

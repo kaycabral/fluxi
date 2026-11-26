@@ -22,7 +22,7 @@ export default function TermosPage() {
       <h2>2. Sobre o serviço</h2>
       <p>
         O Fluxi é uma ferramenta gratuita, para uso pessoal, de planejamento do fluxo de caixa: você
-        cadastra lançamentos (inclusive recorrentes), acompanha o saldo projetado ao longo do tempo,
+        cadastra transações (inclusive recorrentes), acompanha o saldo projetado ao longo do tempo,
         as contas a pagar e o orçamento. É preciso entrar com uma conta Google para usar.
       </p>
 

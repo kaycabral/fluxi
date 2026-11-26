@@ -45,12 +45,6 @@ export const LIGHT_LABELS: Record<Light, string> = {
 
 const NO_VERSION_CLASS = 'bg-muted text-muted-foreground'
 
-const LEGEND: Record<Light, string> = {
-  good: 'Dentro da meta',
-  warn: 'Até 20% fora',
-  bad: 'Mais de 20% fora',
-}
-
 /** The window both the dashboard widget and the budget page open on: previous, current and the next 3 months. */
 export const BUDGET_WINDOW = { span: 5, before: 1 } as const
 
@@ -103,7 +97,6 @@ export function TrafficLight({
   today,
   span,
   before,
-  compact = false,
   className,
 }: {
   data: LedgerData
@@ -114,8 +107,6 @@ export function TrafficLight({
   span: number
   /** Months before today in the default window (and on "Hoje"). */
   before?: number
-  /** No range label and no legend: each cell explains itself on hover. */
-  compact?: boolean
   className?: string
 }) {
   const initial = defaultFirstMonth(today, span, before)
@@ -129,12 +120,7 @@ export function TrafficLight({
   return (
     <TooltipProvider delayDuration={150}>
       <div className={cn('grid gap-3', className)}>
-        <div className={cn('flex items-center justify-between gap-2', compact && 'justify-end')}>
-          {!compact && (
-            <p className="text-muted-foreground text-sm tabular-nums" aria-live="polite">
-              {monthLabel(first)} – {monthLabel(last)}
-            </p>
-          )}
+        <div className="flex items-center justify-end gap-2">
           <div className="flex items-center gap-1">
             <Button
               variant="outline"
@@ -260,21 +246,6 @@ export function TrafficLight({
             ))}
           </TableBody>
         </Table>
-
-        {!compact && (
-          <ul className="text-muted-foreground flex flex-wrap gap-x-4 gap-y-1 text-xs">
-            {(['good', 'warn', 'bad'] as const).map((light) => (
-              <li key={light} className="flex items-center gap-1.5">
-                <span className={cn('size-2.5 rounded-full', LIGHT_CLASSES[light])} aria-hidden />
-                {LEGEND[light]}
-              </li>
-            ))}
-            <li className="flex items-center gap-1.5">
-              <span className={cn('size-2.5 rounded-full', NO_VERSION_CLASS)} aria-hidden />
-              Sem meta no mês
-            </li>
-          </ul>
-        )}
       </div>
     </TooltipProvider>
   )

@@ -98,6 +98,7 @@ test.describe('spaces', () => {
     await expect(personal).toBeVisible()
     await expect(personal.getByLabel('Conta')).not.toContainText('Conta PJ')
   })
+
   test('renames a space and changes its icon', async ({ page }) => {
     await page.goto('/painel')
     const trigger = (name: string) =>

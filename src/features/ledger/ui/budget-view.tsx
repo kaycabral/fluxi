@@ -48,7 +48,6 @@ export function BudgetView({
               today={today}
               span={BUDGET_WINDOW.span}
               before={BUDGET_WINDOW.before}
-              compact
             />
           </CardContent>
         </Card>

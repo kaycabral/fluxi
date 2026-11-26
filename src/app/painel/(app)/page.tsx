@@ -33,7 +33,10 @@ export default async function DashboardPage({
   if (calendar.size > 0) redirect(`/painel/calendario?${calendar.toString()}`)
 
   const scope = await requirePainelScope()
-  const [data, plans] = await Promise.all([loadLedgerData(scope, ALL_TIME), loadBudgetPlans(scope)])
+  const [data, plans] = await Promise.all([
+    loadLedgerData(scope, ALL_TIME, todayIso()),
+    loadBudgetPlans(scope),
+  ])
 
   return (
     <Main>

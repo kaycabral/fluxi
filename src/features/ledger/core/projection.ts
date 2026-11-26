@@ -1,3 +1,4 @@
+import { isoDate } from './format'
 import type { Month } from './month'
 import { landingsIn, type Landing } from './occurrence'
 import type { Account, Entry, EntryOverride, EntryPart } from './types'
@@ -37,6 +38,39 @@ export type ProjectionInput = {
    * ({@link firstLandingMonth}).
    */
   months: readonly Month[]
+  /** Bank-fed accounts (see {@link FeedRule}); none when omitted. */
+  feed?: FeedRule
+}
+
+/**
+ * Accounts with a mapped bank feed: their past is the bank's. A PLANNED
+ * occurrence (an entry without a bank link) landing up to `today` that touches
+ * a connected account does not exist for the projection (balances, totals,
+ * calendar, "A pagar"); the bank's own entries count as usual, and planned
+ * occurrences after `today` count. Accounts without a feed are unchanged. A
+ * planned transfer between a connected and an unconnected account is dropped
+ * whole (keep it simple: the bank already shows its side).
+ */
+export type FeedRule = {
+  connectedAccountIds: readonly string[]
+  /** Entries materialized from bank transactions. */
+  bankEntryIds: readonly string[]
+  /** `YYYY-MM-DD`. */
+  today: string
+}
+
+/** The test of {@link FeedRule}: whether a landing counts (ids indexed once). */
+export function feedFilter(rule: FeedRule | undefined): (landing: Landing) => boolean {
+  if (rule === undefined || rule.connectedAccountIds.length === 0) return () => true
+  const connected = new Set(rule.connectedAccountIds)
+  const fromBank = new Set(rule.bankEntryIds)
+  return ({ entry, month, day }) =>
+    fromBank.has(entry.id) ||
+    !(
+      connected.has(entry.accountId) ||
+      (entry.toAccountId !== null && connected.has(entry.toAccountId))
+    ) ||
+    isoDate(month, day) > rule.today
 }
 
 /** Inflows (positive amounts) before outflows on the same day. */
@@ -121,10 +155,13 @@ export function firstLandingMonth(entries: readonly Pick<Entry, 'startMonth'>[])
 export function projectMonths(input: ProjectionInput): MonthResult[] {
   const balances = new Map(input.accounts.map((a) => [a.id, a.openingBalanceCents]))
   const snapshot = (): Balances => Object.fromEntries(balances)
+  const counts = feedFilter(input.feed)
 
   return [...input.months].sort().map((month) => {
     const landings = orderLandings(
-      input.entries.flatMap((entry) => landingsIn(entry, input.parts, input.overrides, month)),
+      input.entries
+        .flatMap((entry) => landingsIn(entry, input.parts, input.overrides, month))
+        .filter(counts),
     )
     const openingBalances = snapshot()
     applyToBalances(balances, landings)

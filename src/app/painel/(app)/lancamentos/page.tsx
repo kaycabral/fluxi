@@ -20,7 +20,7 @@ const ALL_TIME = { from: '1900-01', to: '9999-12' }
 export default async function SearchPage() {
   const scope = await requirePainelScope()
   const query = parseSearchQuery((await cookies()).get(SEARCH_QUERY_COOKIE)?.value)
-  const data = await loadLedgerData(scope, ALL_TIME)
+  const data = await loadLedgerData(scope, ALL_TIME, todayIso())
 
   return (
     <Main>

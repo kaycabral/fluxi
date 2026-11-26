@@ -40,13 +40,21 @@ export function loadRefs(scope: Scope, today: string): Promise<BackendRead<Ledge
 /**
  * The ledger up to `window.to`, every entry since the first: balances
  * accumulate from the accounts' opening balances, so the client projection
- * needs the whole history before the window too.
+ * needs the whole history before the window too. `today` (`YYYY-MM-DD`)
+ * drives the bank-fed accounts rule (`FeedRule`).
  */
 export function loadLedgerData(
   scope: Scope,
   window: MonthWindow,
+  today: string,
 ): Promise<BackendRead<LedgerData>> {
-  return readBackend('ledger', () => loadLedger(scope, { from: EPOCH, to: window.to }))
+  return readBackend('ledger', async () => {
+    const { connectedAccountIds, bankEntryIds, ...ledger } = await loadLedger(scope, {
+      from: EPOCH,
+      to: window.to,
+    })
+    return { ...ledger, feed: { connectedAccountIds, bankEntryIds, today } }
+  })
 }
 
 /** Budget versions of the user, oldest first. */
@@ -67,9 +75,10 @@ export function loadAccountBalances(
   scope: Scope,
   first: Month,
   later: Month,
+  today: string,
 ): Promise<BackendRead<AccountsData>> {
   return readBackend('account balances', async () => {
-    const { months } = await projectLedger(scope, { from: first, to: later })
+    const { months } = await projectLedger(scope, { from: first, to: later }, today)
     return {
       firstMonth: first,
       laterMonth: later,

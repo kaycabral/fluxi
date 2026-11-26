@@ -18,7 +18,7 @@ export default async function AccountsPage() {
   const today = todayIso()
   const refs = await loadRefs(scope, today)
   const first = today.slice(0, 7)
-  const balances = await loadAccountBalances(scope, first, addMonths(first, 12))
+  const balances = await loadAccountBalances(scope, first, addMonths(first, 12), today)
   const connections = await readBackend('bank connections', () => listFeedItems(scope.userId))
 
   return (

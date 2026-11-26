@@ -2,7 +2,7 @@ import type { EditTarget } from './entry-form'
 import { diffMonths, monthRange, type Month } from './month'
 import type { Landing } from './occurrence'
 import type { OccurrencePayment } from './payments'
-import { firstLandingMonth, projectMonths, type MonthResult } from './projection'
+import { firstLandingMonth, projectMonths, type FeedRule, type MonthResult } from './projection'
 import type { Account, Bank, Category, Entry, EntryOverride, EntryPart, Pot } from './types'
 
 /**
@@ -20,6 +20,8 @@ export type LedgerData = {
   parts: EntryPart[]
   overrides: EntryOverride[]
   payments: OccurrencePayment[]
+  /** Bank-fed accounts and today: planned past occurrences on them do not count. */
+  feed: FeedRule
 }
 
 /** Reference data the entry sheet needs on every page. */
@@ -49,6 +51,7 @@ export function projectWindow(data: LedgerData, from: Month, to: Month): MonthRe
     overrides: data.overrides,
     accounts: data.accounts,
     months: monthRange(start, to),
+    feed: data.feed,
   }).filter((m) => m.month >= from)
 }
 

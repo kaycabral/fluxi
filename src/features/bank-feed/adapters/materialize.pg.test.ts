@@ -2,6 +2,7 @@ import { fluxiDb, personalScope, seedUser, truncateFluxiTables } from '@/db'
 import { accounts, banks, entries, occurrencePayments } from '@/db/schema'
 import { bankEntryLinks, bankFeedAccounts, bankTransactions } from '@/db/schema-bank-feed'
 import type { FeedAccountRow, FeedTransactionRow } from '@/features/bank-feed/core/pluggy'
+import { loadLedger } from '@/features/ledger/adapters/ledger.repo'
 import { deleteEntry } from '@/features/ledger/adapters/ledger.write'
 import { projectLedger } from '@/features/ledger/adapters/projection'
 import { undoLastAction } from '@/features/ledger/adapters/undo.write'
@@ -269,7 +270,27 @@ describe('materialize_bank_feed (Postgres)', () => {
     expect(checking?.openingBalanceCents).toBe(100000 - 150000)
     expect(card?.openingBalanceCents).toBe(-30000 + 12000)
 
-    const { months } = await projectLedger(ana, { from: '2026-11', to: '2026-11' })
+    // A planned rent on the connected account, already past: the bank's past wins.
+    await db()
+      .insert(entries)
+      .values({
+        ...ana,
+        kind: 'expense',
+        description: 'Aluguel planejado',
+        amountCents: -80000,
+        accountId: checkingId,
+        startMonth: '2026-11-01',
+        day: 10,
+        recurrence: 'none',
+      })
+    const ledger = await loadLedger(ana, { from: '2026-11', to: '2026-11' })
+    expect(ledger.connectedAccountIds).toEqual([checkingId, cardId].sort())
+    expect(ledger.bankEntryIds).toHaveLength(4)
+    const bia = await personalScope(db(), BIA)
+    expect((await loadLedger(bia, { from: '2026-11', to: '2026-11' })).connectedAccountIds).toEqual(
+      [],
+    )
+    const { months } = await projectLedger(ana, { from: '2026-11', to: '2026-11' }, TODAY)
     const balances = months[0]!.closingBalances
     // End of November = today's bank balance + what lands after today.
     expect(balances[checkingId]).toBe(100000 - 1000)

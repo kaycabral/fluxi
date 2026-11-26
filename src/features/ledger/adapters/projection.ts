@@ -21,7 +21,12 @@ export type LedgerProjection = {
  * `window.to` is loaded, the projection runs from the first month an entry
  * lands in and the earlier months are dropped from the result.
  */
-export async function projectLedger(scope: Scope, window: MonthWindow): Promise<LedgerProjection> {
+export async function projectLedger(
+  scope: Scope,
+  window: MonthWindow,
+  /** `YYYY-MM-DD`: applies the bank-fed accounts rule (`FeedRule`); null = no rule. */
+  today: string | null = null,
+): Promise<LedgerProjection> {
   const ledger = await loadLedger(scope, { from: EPOCH, to: window.to })
   const first = firstLandingMonth(ledger.entries)
   const start = first !== null && first < window.from ? first : window.from
@@ -31,6 +36,14 @@ export async function projectLedger(scope: Scope, window: MonthWindow): Promise<
     overrides: ledger.overrides,
     accounts: ledger.accounts,
     months: monthRange(start, window.to),
+    feed:
+      today === null
+        ? undefined
+        : {
+            connectedAccountIds: ledger.connectedAccountIds,
+            bankEntryIds: ledger.bankEntryIds,
+            today,
+          },
   }).filter((m) => m.month >= window.from)
   return { ledger, months }
 }

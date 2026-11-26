@@ -13,7 +13,10 @@ const ALL_TIME = { from: '1900-01', to: '9999-12' }
 /** `/painel/orcamento`: pots, budget versions and the monthly traffic light. */
 export default async function BudgetPage() {
   const scope = await requirePainelScope()
-  const [data, plans] = await Promise.all([loadLedgerData(scope, ALL_TIME), loadBudgetPlans(scope)])
+  const [data, plans] = await Promise.all([
+    loadLedgerData(scope, ALL_TIME, todayIso()),
+    loadBudgetPlans(scope),
+  ])
 
   return (
     <Main>

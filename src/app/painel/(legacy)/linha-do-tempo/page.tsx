@@ -8,9 +8,10 @@ import { TimelineView } from '@/features/ledger/ui/timeline-view'
 
 export default async function TimelinePage() {
   const scope = await requirePainelScope()
-  const today = todayIso().slice(0, 7)
+  const day = todayIso()
+  const today = day.slice(0, 7)
   const window = timelineWindow(today)
-  const data = await loadLedgerData(scope, window)
+  const data = await loadLedgerData(scope, window, day)
 
   return (
     <Container className="grid gap-4 px-4 py-5 md:px-6 md:py-8">

@@ -39,7 +39,7 @@ export default async function CalendarPage({
   const view = viewFromSlug(first(params.modo)) ?? prefs.view
   const date = dateOf(params, today)
   const account = first(params.conta).slice(0, 80)
-  const data = await loadLedgerData(scope, viewMonths(view, date))
+  const data = await loadLedgerData(scope, viewMonths(view, date), today)
 
   return data.ok ? (
     <CalendarView

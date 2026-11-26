@@ -299,3 +299,66 @@ describe('firstLandingMonth', () => {
     expect(firstLandingMonth([])).toBeNull()
   })
 })
+
+describe('projectMonths with bank-fed accounts', () => {
+  const planned = makeEntry({ id: 'planned', amountCents: -1000, day: 10, startMonth: '2026-12' })
+  const fromBank = makeEntry({
+    id: 'bank',
+    amountCents: -3000,
+    day: 8,
+    recurrence: 'none',
+    startMonth: '2026-12',
+  })
+  const elsewhere = makeEntry({
+    id: 'elsewhere',
+    amountCents: -500,
+    day: 2,
+    accountId: 'nubank',
+    startMonth: '2026-12',
+  })
+  const toNubank = makeEntry({
+    id: 'to-nubank',
+    kind: 'transfer',
+    pot: null,
+    amountCents: -700,
+    day: 3,
+    toAccountId: 'nubank',
+    startMonth: '2026-12',
+  })
+  const run = (today: string) =>
+    projectMonths({
+      entries: [planned, fromBank, elsewhere, toNubank],
+      parts: [],
+      overrides: [],
+      accounts,
+      months: ['2026-12', '2027-01'],
+      feed: { connectedAccountIds: ['checking'], bankEntryIds: ['bank'], today },
+    })
+  const ids = (result: MonthResult | undefined) => result?.landings.map((l) => l.entry.id)
+
+  it('drops planned occurrences up to today on connected accounts, keeps the bank and the future', () => {
+    const [december, january] = run('2026-12-10')
+    // Planned on the 10th is "today": the bank already tells what happened. The
+    // planned transfer touches the connected account, so it goes whole.
+    expect(ids(december)).toEqual(['elsewhere', 'bank'])
+    expect(ids(january)).toEqual(['elsewhere', 'to-nubank', 'planned'])
+    expect(december?.closingBalances).toEqual({ checking: 100000 - 3000, nubank: 20000 - 500 })
+    expect(december?.totals.expenseCents).toBe(3500)
+  })
+
+  it('counts planned occurrences after today', () => {
+    expect(ids(run('2026-12-09')[0])).toEqual(['elsewhere', 'bank', 'planned'])
+  })
+
+  it('changes nothing without connected accounts', () => {
+    const [december] = projectMonths({
+      entries: [planned, fromBank],
+      parts: [],
+      overrides: [],
+      accounts,
+      months: ['2026-12'],
+      feed: { connectedAccountIds: [], bankEntryIds: ['bank'], today: '2026-12-31' },
+    })
+    expect(ids(december)).toEqual(['bank', 'planned'])
+  })
+})

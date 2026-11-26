@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm'
 import {
+  boolean,
   check,
   date,
   foreignKey,
@@ -10,12 +11,14 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core'
 import {
   accounts,
   cents,
   createdAt,
+  entries,
   inSpace,
   isFirstOfMonth,
   month,
@@ -114,6 +117,8 @@ export const bankTransactions = pgTable(
     description: text('description').notNull(),
     status: text('status').notNull(),
     category: text('category'),
+    /** Open Finance operation type (`PAGAMENTO_FATURA` = card bill payment); a transfer signal. */
+    operationType: text('operation_type'),
     installmentNumber: smallint('installment_number'),
     totalInstallments: smallint('total_installments'),
     billMonth: month('bill_month'),
@@ -123,6 +128,7 @@ export const bankTransactions = pgTable(
   },
   (t) => [
     unique('bank_transactions_external_unique').on(t.userId, t.feedAccountId, t.externalId),
+    unique('bank_transactions_id_space_id_unique').on(t.id, t.spaceId),
     foreignKey({
       name: 'bank_transactions_feed_account_fk',
       columns: [t.feedAccountId, t.spaceId],
@@ -135,5 +141,50 @@ export const bankTransactions = pgTable(
       'bank_transactions_bill_month_first_day',
       sql`${t.billMonth} is null or ${isFirstOfMonth(t.billMonth)}`,
     ),
+  ],
+).enableRLS()
+
+/**
+ * Bank transaction ↔ ledger entry: each transaction of a MAPPED feed account
+ * is materialized as a one-off entry (`private.materialize_bank_feed`, run by
+ * the sync), one link per transaction; a detected transfer pair is ONE entry
+ * linked from both transactions. The bank owns the entry's amount and date
+ * (re-synced), the user its description, category and pot.
+ *
+ * Both foreign keys null only their own column on delete, so the link
+ * outlives either side: the user deleting the entry leaves `entry_id` null =
+ * `discarded` (a tombstone, never re-created); the bank dropping the
+ * transaction leaves `bank_transaction_id` null, and the next
+ * materialization deletes the entry (unless discarded) and the link.
+ */
+export const bankEntryLinks = pgTable(
+  'bank_entry_links',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: ownerId(),
+    spaceId: spaceIdColumn(),
+    bankTransactionId: uuid('bank_transaction_id'),
+    entryId: uuid('entry_id'),
+    discarded: boolean('discarded')
+      .notNull()
+      .generatedAlwaysAs(sql`entry_id is null`),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    inSpace('bank_entry_links', t),
+    foreignKey({
+      name: 'bank_entry_links_transaction_fk',
+      columns: [t.bankTransactionId, t.spaceId],
+      foreignColumns: [bankTransactions.id, bankTransactions.spaceId],
+    }).onDelete('set null'),
+    foreignKey({
+      name: 'bank_entry_links_entry_fk',
+      columns: [t.entryId, t.spaceId],
+      foreignColumns: [entries.id, entries.spaceId],
+    }).onDelete('set null'),
+    uniqueIndex('bank_entry_links_transaction_idx').on(t.bankTransactionId),
+    index('bank_entry_links_entry_id_idx').on(t.entryId),
+    index('bank_entry_links_space_id_idx').on(t.spaceId),
   ],
 ).enableRLS()

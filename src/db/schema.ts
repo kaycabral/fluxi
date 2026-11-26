@@ -528,6 +528,10 @@ export const undoSnapshots = pgTable(
     entryParts: jsonb('entry_parts').notNull(),
     entryOverrides: jsonb('entry_overrides').notNull(),
     occurrencePayments: jsonb('occurrence_payments').notNull(),
+    /** `bank_entry_links` of those entries: an undo re-links what it restores. */
+    bankEntryLinks: jsonb('bank_entry_links')
+      .notNull()
+      .default(sql`'[]'::jsonb`),
     createdAt: createdAt(),
   },
   (t) => [inSpace('undo_snapshots', t)],

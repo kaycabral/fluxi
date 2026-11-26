@@ -1,6 +1,11 @@
 import { fluxiDb, personalScope, seedUser, truncateFluxiTables } from '@/db'
 import { accounts, banks, entries, spaces } from '@/db/schema'
-import { bankFeedAccounts, bankFeedItems, bankTransactions } from '@/db/schema-bank-feed'
+import {
+  bankEntryLinks,
+  bankFeedAccounts,
+  bankFeedItems,
+  bankTransactions,
+} from '@/db/schema-bank-feed'
 import type { Scope } from '@/features/spaces/core/space'
 import { and, eq } from 'drizzle-orm'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
@@ -108,6 +113,26 @@ describe('assignFeedItem (Postgres)', () => {
         day: 5,
         recurrence: 'none',
       })
+    // What the sync materialized from t1: an entry linked to the transaction.
+    const [t1] = (await txRows(ANA)).filter(
+      (t) => t.externalId === 't1' && t.spaceId === ana.spaceId,
+    )
+    const [fromBank] = await db()
+      .insert(entries)
+      .values({
+        ...ana,
+        kind: 'expense',
+        description: 'Banco t1',
+        amountCents: -100,
+        accountId: mapped!.id,
+        startMonth: '2026-11-01',
+        day: 1,
+        recurrence: 'none',
+      })
+      .returning()
+    await db()
+      .insert(bankEntryLinks)
+      .values({ ...ana, bankTransactionId: t1!.id, entryId: fromBank!.id })
     expect((await listFeedItems(ANA)).find((i) => i.itemId === 'item-1')).toMatchObject({
       transactionCount: 2,
       accounts: ['Conta acc-1'],
@@ -133,10 +158,15 @@ describe('assignFeedItem (Postgres)', () => {
       .from(bankFeedItems)
       .where(and(eq(bankFeedItems.userId, ANA), eq(bankFeedItems.itemId, 'item-1')))
     expect(item?.spaceId).toBe(work.spaceId)
-    // Ledger entries and the other user stay untouched.
+    // Planned entries and the other user stay untouched; what was materialized
+    // from the moved transactions leaves with its links.
     expect(
-      (await db().select().from(entries).where(eq(entries.userId, ANA))).map((e) => e.spaceId),
-    ).toEqual([ana.spaceId])
+      (await db().select().from(entries).where(eq(entries.userId, ANA))).map((e) => [
+        e.description,
+        e.spaceId,
+      ]),
+    ).toEqual([['Aluguel', ana.spaceId]])
+    expect(await db().select().from(bankEntryLinks)).toHaveLength(0)
     expect((await feedRows(BIA)).map((f) => f.spaceId)).toEqual([bia.spaceId])
     expect(await txRows(BIA)).toHaveLength(1)
   })

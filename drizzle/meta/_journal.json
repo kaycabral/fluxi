@@ -148,6 +148,20 @@
       "when": 1795663856619,
       "tag": "0020_drop_count_from",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1795664330111,
+      "tag": "0021_bank_entry_links",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1795664392809,
+      "tag": "0022_materialize_bank_feed",
+      "breakpoints": true
     }
   ]
 }

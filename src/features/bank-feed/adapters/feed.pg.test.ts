@@ -45,6 +45,7 @@ const tx = (externalId: string, over: Partial<FeedTransactionRow> = {}): FeedTra
   description: 'x',
   status: 'POSTED',
   category: null,
+  operationType: null,
   installmentNumber: null,
   totalInstallments: null,
   billMonth: null,

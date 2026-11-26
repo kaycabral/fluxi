@@ -140,7 +140,9 @@ type Tx = Parameters<Parameters<ReturnType<typeof db>['transaction']>[0]>[0]
  * referenced from the new one. When the destination already holds the same
  * external account (an earlier move back and forth), the two are merged: the
  * destination row is kept and only the transactions it lacks (by external id)
- * move. Unassigning keeps the stored data where it is. Ledger entries never move.
+ * move. Unassigning keeps the stored data where it is. Ledger entries never move:
+ * the ones materialized from the moved transactions are deleted (the next sync
+ * materializes them in the new space once its feed accounts are mapped).
  */
 export async function assignFeedItem(
   userId: string,
@@ -198,6 +200,7 @@ async function moveFeedAccounts(tx: Tx, userId: string, itemId: string, spaceId:
         ),
       )
       .for('update')
+    await unmaterialize(tx, userId, source.id)
     const targetId = existing?.id ?? (await copyFeedAccount(tx, source, spaceId))
     await tx
       .update(bankTransactions)
@@ -218,6 +221,28 @@ async function moveFeedAccounts(tx: Tx, userId: string, itemId: string, spaceId:
       .delete(bankFeedAccounts)
       .where(and(eq(bankFeedAccounts.userId, userId), eq(bankFeedAccounts.id, source.id)))
   }
+}
+
+/**
+ * The ledger entries materialized from a feed account's transactions belong
+ * to the space it leaves: delete them with their links (a transfer's other
+ * link too, so its transaction is materialized again on its own), never
+ * leaving a link pointing across spaces. Tombstones go as well.
+ */
+async function unmaterialize(tx: Tx, userId: string, feedAccountId: string) {
+  const { rows } = await tx.execute<{ entry_id: string | null }>(sql`
+    delete from bank_entry_links l
+    using bank_transactions t
+    where t.id = l.bank_transaction_id and t.user_id = ${userId}
+      and t.feed_account_id = ${feedAccountId} and l.user_id = ${userId}
+    returning l.entry_id`)
+  const entryIds = rows.flatMap((r) => (r.entry_id === null ? [] : [r.entry_id]))
+  if (entryIds.length === 0) return
+  const ids = `{${entryIds.join(',')}}`
+  await tx.execute(
+    sql`delete from bank_entry_links where user_id = ${userId} and entry_id = any(${ids}::uuid[])`,
+  )
+  await tx.execute(sql`delete from entries where user_id = ${userId} and id = any(${ids}::uuid[])`)
 }
 
 async function copyFeedAccount(

@@ -42,6 +42,8 @@ export const pluggyTransactionSchema = z.object({
   type: z.enum(['DEBIT', 'CREDIT']),
   status: z.enum(['POSTED', 'PENDING']).nullish(),
   category: z.string().nullish(),
+  /** Open Finance operation (e.g. `PIX`, `TED`, `PAGAMENTO_FATURA`), when the institution reports it. */
+  operationType: z.string().nullish(),
   creditCardMetadata: z
     .object({
       installmentNumber: z.number().nullish(),
@@ -114,6 +116,7 @@ export type FeedTransactionRow = {
   description: string
   status: 'POSTED' | 'PENDING'
   category: string | null
+  operationType: string | null
   installmentNumber: number | null
   totalInstallments: number | null
   billMonth: string | null
@@ -140,6 +143,7 @@ export function toFeedTransaction(tx: PluggyTransaction): FeedTransactionRow {
     description: tx.description.trim(),
     status: tx.status ?? 'POSTED',
     category: tx.category ?? null,
+    operationType: tx.operationType?.trim() || null,
     installmentNumber: card?.installmentNumber ?? null,
     totalInstallments: card?.totalInstallments ?? null,
     billMonth: billMonthOf(card?.billForecastDate),

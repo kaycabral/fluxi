@@ -1,3 +1,4 @@
+import { NEVER_CHECKED } from '@/features/bank-feed/core/health'
 import type { ActionResult } from '@/features/ledger/core/action-result'
 import type { Space } from '@/features/spaces/core/space'
 import { render, screen, waitFor, within } from '@testing-library/react'
@@ -52,6 +53,51 @@ describe('BankConnections', () => {
   it('says when there is no connection yet', () => {
     render(<BankConnections connections={[]} spaces={[PERSONAL]} />)
     expect(screen.getByText('Nenhuma conexão ainda.')).toBeInTheDocument()
+  })
+
+  it('shows each connection health next to its name, with the reason on hover', async () => {
+    const checked = new Date(Date.now() - 60_000).toISOString()
+    render(
+      <BankConnections
+        connections={[
+          {
+            itemId: 'i1',
+            label: 'Inter',
+            spaceId: PERSONAL.id,
+            accounts: [],
+            transactionCount: 0,
+            feedAccounts: [],
+            status: {
+              ...NEVER_CHECKED,
+              itemStatus: 'LOGIN_ERROR',
+              checkedAt: checked,
+            },
+          },
+          {
+            itemId: 'i2',
+            label: 'Nubank',
+            spaceId: PERSONAL.id,
+            accounts: [],
+            transactionCount: 0,
+            feedAccounts: [],
+          },
+        ]}
+        spaces={[PERSONAL]}
+      />,
+    )
+    const reconnect = 'Conexão: O banco pediu nova autorização: reconecte no Meu Pluggy'
+    const inter = screen.getByRole('button', { name: reconnect })
+    expect(inter).toHaveAttribute('data-level', 'error')
+    // Never checked by the sync: a muted dot.
+    const nubank = screen.getByRole('button', {
+      name: 'Conexão: Ainda não verificada pela sincronização',
+    })
+    expect(nubank).toHaveAttribute('data-level', 'unknown')
+    await userEvent.hover(inter)
+    expect(
+      (await screen.findAllByText('O banco pediu nova autorização: reconecte no Meu Pluggy'))
+        .length,
+    ).toBeGreaterThan(0)
   })
 
   it('names a connection after its institution, never "MeuPluggy"', () => {

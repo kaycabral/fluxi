@@ -1,3 +1,8 @@
+import {
+  connectionBankKey,
+  connectionHealth,
+  NEVER_CHECKED,
+} from '@/features/bank-feed/core/health'
 import { DEFAULT_BUDGET_GROUPS } from '@/features/ledger/core/defaults'
 import type { BudgetVersion } from '@/features/ledger/core/types'
 import { render, screen, waitFor, within } from '@testing-library/react'
@@ -151,6 +156,36 @@ describe('DashboardView', () => {
     expect(text.at(-1)).toMatch(/^BTG-R\$/)
     // The archived account stays out of every bank.
     expect(list).not.toHaveTextContent('999.999')
+  })
+
+  it('shows the connection health next to connected banks only', async () => {
+    const health = connectionHealth(
+      { ...NEVER_CHECKED, itemStatus: 'LOGIN_ERROR', checkedAt: '2026-12-15T09:00:00.000Z' },
+      new Date('2026-12-15T12:00:00.000Z'),
+    )
+    render(
+      <LedgerShell refs={sampleRefs()}>
+        <DashboardView
+          data={sampleData()}
+          versions={[PLAN]}
+          today="2026-12-15"
+          connectedBanks={['Nubank Empresas']}
+          bankHealth={{ [connectionBankKey('Nubank Empresas')]: health }}
+        />
+      </LedgerShell>,
+    )
+    await userEvent.hover(screen.getByRole('button', { name: /^Saldo por banco: / }))
+    const list = (await screen.findAllByRole('list', { name: 'Saldo por banco' }))[0]
+    if (list === undefined) throw new Error('no breakdown')
+    // Only the connected bank has a dot; manual banks have none.
+    expect(within(list).getAllByRole('img')).toHaveLength(1)
+    const row = within(list)
+      .getAllByRole('listitem')
+      .find((r) => r.textContent?.startsWith('Nubank Empresas'))
+    if (row === undefined) throw new Error('no connected bank row')
+    expect(within(row).getByRole('img')).toHaveAccessibleName(
+      'Conexão: O banco pediu nova autorização: reconecte no Meu Pluggy',
+    )
   })
 
   it('shows a bank connected in the space with no linked account at R$ 0,00', async () => {

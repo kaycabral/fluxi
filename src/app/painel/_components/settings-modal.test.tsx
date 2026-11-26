@@ -1,3 +1,4 @@
+import { NEVER_CHECKED } from '@/features/bank-feed/core/health'
 import type { AccountsData } from '@/features/ledger/adapters/actions/accounts'
 import type { ActionResult } from '@/features/ledger/core/action-result'
 import type { CategorizationRule } from '@/features/ledger/core/similar'
@@ -43,6 +44,7 @@ const DATA: ConnectionsData = {
       accounts: [],
       transactionCount: 0,
       feedAccounts: [],
+      status: NEVER_CHECKED,
     },
   ],
   spaces: [{ ...PERSONAL, kind: 'personal', icon: 'user', archived: false }],

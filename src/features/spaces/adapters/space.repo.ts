@@ -3,6 +3,7 @@ import 'server-only'
 import { personalScope } from '@/db/queries/spaces'
 import { accounts, banks, spaces } from '@/db/schema'
 import { bankFeedAccounts, bankFeedItems, bankTransactions } from '@/db/schema-bank-feed'
+import { connectionStatusOf, type ConnectionStatus } from '@/features/bank-feed/core/health'
 import {
   cardStatusOf,
   HOLDER_TYPES,
@@ -119,6 +120,8 @@ export type FeedItem = {
   transactionCount: number
   /** The connection's feed accounts in its current space, with their mapping. */
   feedAccounts: FeedAccountView[]
+  /** Health as the sync last read it from Pluggy (`connectionHealth`). */
+  status: ConnectionStatus
 }
 
 /** A bank feed account as "Conexões" shows it. */
@@ -236,6 +239,7 @@ export async function listFeedItems(userId: string): Promise<FeedItem[]> {
     spaceId: item.spaceId,
     spaceSource: mappingSourceOf(item.spaceSource),
     suggestedSpaceName: item.suggestedSpaceName,
+    status: connectionStatusOf(item),
     accounts: accounts.filter((a) => a.itemId === item.itemId).map((a) => a.name),
     transactionCount: counts.find((c) => c.itemId === item.itemId)?.count ?? 0,
     feedAccounts: feeds

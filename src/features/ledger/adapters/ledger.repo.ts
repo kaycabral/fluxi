@@ -12,7 +12,8 @@ import {
   entryParts,
   occurrencePayments,
 } from '@/db/schema'
-import { bankFeedAccounts } from '@/db/schema-bank-feed'
+import { bankFeedAccounts, bankFeedItems } from '@/db/schema-bank-feed'
+import { connectionStatusOf, type ConnectionStatus } from '@/features/bank-feed/core/health'
 import { connectionInstitution } from '@/features/bank-feed/core/institution'
 import { addMonths, monthFromDate, monthToDate, type Month } from '@/features/ledger/core/month'
 import type { OccurrencePayment } from '@/features/ledger/core/payments'
@@ -28,7 +29,7 @@ import type {
 } from '@/features/ledger/core/types'
 import { isBudgetGroupColor } from '@/features/ledger/core/types'
 import { fluxiDb } from '@/lib/db'
-import { and, asc, gte, inArray, isNotNull, isNull, lte, ne, or, sql } from 'drizzle-orm'
+import { and, asc, eq, gte, inArray, isNotNull, isNull, lte, ne, or, sql } from 'drizzle-orm'
 import { inScope, type Scope } from './scope-filter'
 
 /**
@@ -102,6 +103,51 @@ export async function listUnlinkedConnectedInstitutions(scope: Scope): Promise<s
     .map((r) => connectionInstitution(r.names, r.label, r.holders))
     .filter((name): name is string => name !== null)
   return [...new Set(names)].sort((a, b) => a.localeCompare(b, 'pt-BR'))
+}
+
+/** A connection of the space: the fluxi banks it feeds, its institution name and its health. */
+export type SpaceConnection = {
+  /** Banks of the fluxi accounts its feed accounts are linked to (none = unlinked). */
+  bankIds: string[]
+  /** As Conexões names it (the dashboard keys unlinked ones by it). */
+  institution: string | null
+  status: ConnectionStatus
+}
+
+/** The space's bank connections with their health and the banks they feed ("Saldo hoje"). */
+export async function listSpaceConnections(scope: Scope): Promise<SpaceConnection[]> {
+  const [items, feeds] = await Promise.all([
+    db().select().from(bankFeedItems).where(inScope(bankFeedItems, scope)),
+    db()
+      .select({
+        itemId: bankFeedAccounts.itemId,
+        name: bankFeedAccounts.name,
+        holderType: bankFeedAccounts.holderType,
+        bankId: accounts.bankId,
+      })
+      .from(bankFeedAccounts)
+      .leftJoin(
+        accounts,
+        and(
+          eq(accounts.id, bankFeedAccounts.accountId),
+          eq(accounts.spaceId, bankFeedAccounts.spaceId),
+        ),
+      )
+      .where(inScope(bankFeedAccounts, scope)),
+  ])
+  return items.map((item) => {
+    const own = feeds.filter((f) => f.itemId === item.itemId)
+    const bankIds = own.map((f) => f.bankId).filter((id): id is string => id !== null)
+    return {
+      bankIds: [...new Set(bankIds)],
+      institution: connectionInstitution(
+        own.map((f) => f.name),
+        item.label,
+        own.map((f) => f.holderType),
+      ),
+      status: connectionStatusOf(item),
+    }
+  })
 }
 
 export async function listBanks(scope: Scope): Promise<Bank[]> {

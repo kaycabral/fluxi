@@ -34,6 +34,7 @@ vi.mock('@/features/ledger/adapters/views', () => ({
   loadLedgerData: (u: unknown, w: unknown, t: string) => views.loadLedgerData(u, w, t),
   loadBudgetVersions: (u: unknown) => views.loadBudgetVersions(u),
   loadConnectedBanks: () => connectedBanks(),
+  loadBankHealth: () => Promise.resolve({ ok: true, data: {} }),
   loadAccountBalances: (u: unknown, f: string, l: string, t: string) =>
     views.loadAccountBalances(u, f, l, t),
 }))

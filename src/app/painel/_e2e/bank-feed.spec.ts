@@ -77,9 +77,18 @@ test.describe('bank feed in the ledger', () => {
   }) => {
     const db = fluxiDb.db()
     const today = isoDayOf(new Date())
-    await db
-      .insert(bankFeedItems)
-      .values({ userId: user.id, itemId: ITEM, spaceId: null, label: 'MeuPluggy' })
+    await db.insert(bankFeedItems).values({
+      userId: user.id,
+      itemId: ITEM,
+      spaceId: null,
+      label: 'MeuPluggy',
+      // As the sync records it: updated a minute ago.
+      itemStatus: 'UPDATED',
+      executionStatus: 'SUCCESS',
+      institutionHealth: 'ONLINE',
+      lastUpdatedAt: new Date(Date.now() - 60_000),
+      checkedAt: new Date(),
+    })
     const feeds = await db
       .insert(bankFeedAccounts)
       .values(
@@ -118,6 +127,9 @@ test.describe('bank feed in the ledger', () => {
     const settings = page.getByRole('dialog', { name: 'Conexões' })
     await expect(settings.getByText(BANK, { exact: true })).toBeVisible()
     await expect(settings).not.toContainText('MeuPluggy')
+    await expect(
+      settings.getByRole('button', { name: /^Conexão: Atualizada (hoje|ontem) às \d{2}:\d{2}$/ }),
+    ).toBeVisible()
     await settings.getByRole('combobox', { name: `Espaço de ${BANK}` }).click()
     await page.getByRole('option', { name: /Pessoal/ }).click()
     await page.getByRole('alertdialog').getByRole('button', { name: 'Mover' }).click()

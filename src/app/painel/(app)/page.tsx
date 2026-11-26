@@ -1,6 +1,7 @@
 import { Unavailable } from '@/app/painel/_components/unavailable'
 import { requirePainelScope, todayIso } from '@/app/painel/_lib/session'
 import {
+  loadBankHealth,
   loadBudgetVersions,
   loadConnectedBanks,
   loadLedgerData,
@@ -37,10 +38,11 @@ export default async function DashboardPage({
   if (calendar.size > 0) redirect(`/painel/calendario?${calendar.toString()}`)
 
   const scope = await requirePainelScope()
-  const [data, versions, connected] = await Promise.all([
+  const [data, versions, connected, health] = await Promise.all([
     loadLedgerData(scope, ALL_TIME, todayIso()),
     loadBudgetVersions(scope),
     loadConnectedBanks(scope),
+    loadBankHealth(scope, new Date()),
   ])
 
   return (
@@ -52,6 +54,7 @@ export default async function DashboardPage({
           today={todayIso()}
           // Optional extra: the dashboard still renders without it.
           connectedBanks={connected.ok ? connected.data : []}
+          bankHealth={health.ok ? health.data : {}}
         />
       ) : (
         <Unavailable />

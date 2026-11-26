@@ -1,5 +1,6 @@
 import 'server-only'
 
+import { healthByBank, type ConnectionHealth } from '@/features/bank-feed/core/health'
 import type { Month } from '@/features/ledger/core/month'
 import type { BudgetVersion } from '@/features/ledger/core/types'
 import type { LedgerData, LedgerRefs } from '@/features/ledger/core/view'
@@ -11,6 +12,7 @@ import {
   listBudgetGroups,
   listBudgetVersions,
   listCategories,
+  listSpaceConnections,
   listTags,
   listUnlinkedConnectedInstitutions,
   loadLedger,
@@ -61,6 +63,16 @@ export function loadLedgerData(
 /** Institutions connected in the space with no linked account ("Saldo hoje" shows them at R$ 0,00). */
 export function loadConnectedBanks(scope: Scope): Promise<BackendRead<string[]>> {
   return readBackend('connected banks', () => listUnlinkedConnectedInstitutions(scope))
+}
+
+/** Health of the space's connections per "Saldo hoje" bank (`healthByBank`), as of `now`. */
+export function loadBankHealth(
+  scope: Scope,
+  now: Date,
+): Promise<BackendRead<Record<string, ConnectionHealth>>> {
+  return readBackend('connection health', async () =>
+    healthByBank(await listSpaceConnections(scope), now),
+  )
 }
 
 /** Budget versions of the user, oldest first. */

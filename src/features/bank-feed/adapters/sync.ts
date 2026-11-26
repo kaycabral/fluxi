@@ -250,8 +250,7 @@ export async function suggestedSpaceName(
  */
 async function recordItem(
   sql: Sql,
-  userId: string,
-  itemId: string,
+  { userId, itemId }: { userId: string; itemId: string },
   label: string,
   status: ItemStatusRow,
 ): Promise<{ spaceId: string | null; source: string | null }> {
@@ -317,7 +316,7 @@ async function resolveItem(
   const company = holders.types.includes('company')
   const names = accounts.map((a) => a.marketingName?.trim() || a.name)
   const institution = connectionInstitution(names, connector, holders.types) ?? connector
-  const recorded = await recordItem(sql, userId, itemId, institution, itemStatusOf(item))
+  const recorded = await recordItem(sql, { userId, itemId }, institution, itemStatusOf(item))
   const base = {
     connector,
     institution,

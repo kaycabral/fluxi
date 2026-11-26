@@ -303,7 +303,7 @@ export function SearchView({ data, initialQuery, today }: Props) {
                 {/* The meta column (the date) only shows from `sm` up. */}
                 <span className="sm:hidden">{date} · </span>
                 {entry.fromBank && <BankMark className="mr-1" />}
-                {[account, category].filter(Boolean).join(' · ')}
+                {[entry.merchantName, account, category].filter(Boolean).join(' · ')}
               </>
             ),
             meta: date,

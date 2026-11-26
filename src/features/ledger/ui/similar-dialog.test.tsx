@@ -37,6 +37,7 @@ const DONE = '00000000-0000-4000-8000-00000000f004'
 const candidate = (over: Partial<SimilarCandidate>): SimilarCandidate => ({
   id: SMALL,
   description: 'ATM VENEZA 02',
+  merchantName: null,
   date: '2026-11-12',
   accountId: IDS.cc,
   amountCents: -1200,
@@ -46,7 +47,13 @@ const candidate = (over: Partial<SimilarCandidate>): SimilarCandidate => ({
 })
 
 const offer = (candidates: SimilarCandidate[]): SimilarOffer => ({
-  reference: { id: REF, amountCents: -1000, description: 'ATM VENEZA 01' },
+  reference: {
+    id: REF,
+    amountCents: -1000,
+    description: 'ATM VENEZA 01',
+    merchantName: null,
+    by: 'description',
+  },
   candidates,
   categoryId: IDS.gymCat,
   budgetGroup: 'comfort',
@@ -66,6 +73,24 @@ beforeEach(() => {
 afterEach(() => vi.clearAllMocks())
 
 describe('SimilarDialog', () => {
+  it('says what the candidates share: the merchant or the description', () => {
+    const byMerchant = three()
+    const { unmount } = render(
+      <SimilarDialog
+        offer={{
+          ...byMerchant,
+          reference: { ...byMerchant.reference, merchantName: 'Padaria Veneza', by: 'merchant' },
+        }}
+        refs={sampleRefs()}
+        onDone={vi.fn()}
+      />,
+    )
+    expect(screen.getByText(/Mesmo estabelecimento: Padaria Veneza\./)).toBeInTheDocument()
+    unmount()
+    render(<SimilarDialog offer={three()} refs={sampleRefs()} onDone={vi.fn()} />)
+    expect(screen.getByText(/Mesma descrição de “ATM VENEZA 01”\./)).toBeInTheDocument()
+  })
+
   it('preselects only small unclassified ones and shows what the others have', async () => {
     const onDone = vi.fn()
     render(<SimilarDialog offer={three()} refs={sampleRefs()} onDone={onDone} />)

@@ -86,6 +86,7 @@ function entryFromFields(id: string, fields: EntryFields): Entry {
     installments: fields.installments,
     endMonth: fields.endMonth,
     fromBank: false,
+    merchantName: null,
   }
 }
 

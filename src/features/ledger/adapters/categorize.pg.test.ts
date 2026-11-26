@@ -1,6 +1,11 @@
 import { fluxiDb, personalScope, seedUser, truncateFluxiTables } from '@/db'
 import { accounts, banks, budgetGroups, categories, entries } from '@/db/schema'
-import { bankEntryLinks, categorizationRules } from '@/db/schema-bank-feed'
+import {
+  bankEntryLinks,
+  bankFeedAccounts,
+  bankTransactions,
+  categorizationRules,
+} from '@/db/schema-bank-feed'
 import type { Scope } from '@/features/spaces/core/space'
 import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
@@ -39,7 +44,12 @@ async function entry(
   scope: Scope,
   description: string,
   amountCents: number,
-  over: { fromBank?: boolean; kind?: 'income' | 'expense' | 'transfer'; account?: string } = {},
+  over: {
+    fromBank?: boolean
+    kind?: 'income' | 'expense' | 'transfer'
+    account?: string
+    merchant?: string
+  } = {},
 ): Promise<string> {
   const kind = over.kind ?? (amountCents < 0 ? 'expense' : 'income')
   const [row] = await db()
@@ -57,12 +67,57 @@ async function entry(
     })
     .returning()
   if (row === undefined) throw new Error('entry')
-  if (over.fromBank ?? true) {
+  if (over.merchant !== undefined) {
+    await db()
+      .insert(bankEntryLinks)
+      .values({ ...scope, entryId: row.id, bankTransactionId: await bankTransaction(scope, over) })
+  } else if (over.fromBank ?? true) {
     await db()
       .insert(bankEntryLinks)
       .values({ ...scope, entryId: row.id })
   }
   return row.id
+}
+
+let feedAccountId: string | null = null
+
+/** A bank transaction carrying the merchant (one feed account for the test). */
+async function bankTransaction(scope: Scope, over: { merchant?: string }): Promise<string> {
+  if (feedAccountId === null) {
+    const [feedAccount] = await db()
+      .insert(bankFeedAccounts)
+      .values({
+        ...scope,
+        source: 'pluggy',
+        externalId: 'acc',
+        itemId: 'item',
+        institution: 'BTG',
+        name: 'Conta',
+        type: 'BANK',
+        subtype: 'CHECKING_ACCOUNT',
+        balanceCents: 0,
+        syncedAt: new Date(),
+      })
+      .returning()
+    if (feedAccount === undefined) throw new Error('feed account')
+    feedAccountId = feedAccount.id
+  }
+  const [tx] = await db()
+    .insert(bankTransactions)
+    .values({
+      ...scope,
+      feedAccountId,
+      externalId: crypto.randomUUID(),
+      date: '2026-11-10',
+      amountCents: -1000,
+      description: 'Compra no débito',
+      status: 'POSTED',
+      merchantName: over.merchant,
+      syncedAt: new Date(),
+    })
+    .returning()
+  if (tx === undefined) throw new Error('bank transaction')
+  return tx.id
 }
 
 const rowOf = async (id: string) => {
@@ -72,6 +127,7 @@ const rowOf = async (id: string) => {
 
 beforeEach(async () => {
   await truncateFluxiTables(db())
+  feedAccountId = null
   await seedUser(db(), { id: ANA, email: 'ana@example.test' })
   await seedUser(db(), { id: BIA, email: 'bia@example.test' })
   ana = await personalScope(db(), ANA)
@@ -99,6 +155,26 @@ describe('findSimilarBankEntries', () => {
     expect(found?.candidates.map((c) => c.id).sort()).toEqual([small, big].sort())
     expect(found?.candidates[0]).toMatchObject({ date: '2026-11-10', accountId })
     expect(await findSimilarBankEntries(bia, source)).toBeNull()
+  })
+})
+
+describe('merchant as similarity key', () => {
+  it('matches by merchant when the entry has one, and records a merchant rule', async () => {
+    const source = await entry(ana, 'Compra no débito', -1000, { merchant: 'Padaria Pão' })
+    const same = await entry(ana, 'COMPRA NO DEBITO', -1100, { merchant: 'PADARIA PAO' })
+    const otherText = await entry(ana, 'Pix', -900, { merchant: 'Padaria Pão' })
+    await entry(ana, 'Compra no débito', -1000, { merchant: 'Uber' })
+    await entry(ana, 'Compra no débito', -1000)
+    const found = await findSimilarBankEntries(ana, source)
+    expect(found?.reference).toMatchObject({ merchantName: 'Padaria Pão', by: 'merchant' })
+    expect(found?.candidates.map((c) => c.id).sort()).toEqual([same, otherText].sort())
+
+    await categorizeEntries(ana, {
+      entryIds: [same],
+      categoryId: bakery,
+      ruleFromEntryId: source,
+    })
+    expect(await listRules(ana)).toMatchObject([{ pattern: null, merchantKey: 'padaria pao' }])
   })
 })
 

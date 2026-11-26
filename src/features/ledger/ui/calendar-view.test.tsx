@@ -261,7 +261,9 @@ describe('CalendarView · event popup', () => {
     renderCalendar({
       data: {
         ...data,
-        entries: data.entries.map((e) => (e.id === IDS.once ? { ...e, fromBank: true } : e)),
+        entries: data.entries.map((e) =>
+          e.id === IDS.once ? { ...e, fromBank: true, merchantName: 'Padaria Veneza' } : e,
+        ),
       },
       prefs: { paid: true },
     })
@@ -272,6 +274,8 @@ describe('CalendarView · event popup', () => {
     await userEvent.click(chip)
     const popup = await screen.findByLabelText('Detalhes de Avulso')
     expect(popup).toHaveTextContent('(vem do banco)')
+    expect(chip).toHaveAttribute('title', expect.stringContaining('Avulso · Padaria Veneza'))
+    expect(popup).toHaveTextContent('Padaria Veneza')
     expect(within(popup).getByRole('img', { name: 'Vem do banco' })).toBeInTheDocument()
     expect(within(popup).queryByRole('button', { name: 'Excluir transação' })).toBeNull()
     expect(within(popup).queryByRole('button', { name: /pago/ })).toBeNull()

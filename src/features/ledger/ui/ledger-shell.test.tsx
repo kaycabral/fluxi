@@ -63,7 +63,12 @@ function Opener() {
       <button
         onClick={() => {
           const landing = landingOf(IDS.once)
-          openEdit(targetFor(data, { ...landing, entry: { ...landing.entry, fromBank: true } }))
+          openEdit(
+            targetFor(data, {
+              ...landing,
+              entry: { ...landing.entry, fromBank: true, merchantName: 'Padaria Veneza' },
+            }),
+          )
         }}
       >
         editar do banco
@@ -409,6 +414,7 @@ describe('editing', () => {
     expect(
       within(sheet).getByText('Vem do banco: valor, data e conta não podem ser alterados.'),
     ).toBeInTheDocument()
+    expect(within(sheet).getByText('Padaria Veneza')).toBeInTheDocument()
     expect(within(sheet).queryByRole('button', { name: 'Excluir' })).not.toBeInTheDocument()
     expect(within(sheet).getByLabelText('Data')).toBeDisabled()
     expect(within(sheet).getByLabelText('Valor')).toBeDisabled()

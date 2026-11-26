@@ -79,6 +79,7 @@ const transfer = makeEntry({
 const loose = makeEntry({
   id: 'loose',
   description: 'Avulso',
+  merchantName: 'Padaria Veneza',
   amountCents: -5000,
   accountId: 'cc',
   budgetGroup: null,
@@ -204,6 +205,8 @@ describe('searchOccurrences', () => {
     const count = (q: Partial<typeof base>) =>
       searchOccurrences(months, { ...base, ...q }, ctx).length
     expect(count({ text: 'LUZ' })).toBe(3)
+    // The bank's merchant is searchable too.
+    expect(count({ text: 'veneza' })).toBe(1)
     expect(count({ kind: 'transfer' })).toBe(3)
     expect(count({ account: 'nucc' })).toBe(6)
     expect(count({ account: 'b:btg' })).toBe(12)

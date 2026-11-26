@@ -3,13 +3,14 @@ import 'server-only'
 import { budgetGroups, categories, entries } from '@/db/schema'
 import { categorizationRules } from '@/db/schema-bank-feed'
 import {
-  descriptionKey,
+  matchesKey,
   ruleRange,
+  similarityKey,
   type CategorizationRule,
   type SimilarResult,
 } from '@/features/ledger/core/similar'
 import { and, desc, eq, inArray, isNull, ne, sql } from 'drizzle-orm'
-import { isFromBank } from './ledger.repo'
+import { bankMerchant, isFromBank } from './ledger.repo'
 import { inScope, owned, type Scope } from './scope-filter'
 import { db, fail, guarded, ok, ScopeError, type Tx, type WriteResult } from './write-base'
 
@@ -30,28 +31,31 @@ const dateOf = (startMonth: string, day: number) =>
   `${startMonth.slice(0, 8)}${String(day).padStart(2, '0')}`
 
 /**
- * Bank one-off entries of the space with the same {@link descriptionKey} as
- * `entryId` (itself excluded), newest first. Null when the entry is not the
+ * Bank one-off entries of the space with the same {@link similarityKey} as
+ * `entryId` (its merchant when the bank gave one, else its description) (itself excluded), newest first. Null when the entry is not the
  * scope's.
  */
 export async function findSimilarBankEntries(
   scope: Scope,
   entryId: string,
 ): Promise<SimilarResult | null> {
-  const [source] = await db()
-    .select()
+  const [found] = await db()
+    .select({ entry: entries, merchantName: bankMerchant })
     .from(entries)
     .where(and(eq(entries.id, entryId), inScope(entries, scope)))
-  if (source === undefined) return null
+  if (found === undefined) return null
+  const { entry: source, merchantName } = found
+  const key = similarityKey({ description: source.description, merchantName })
   const reference = {
     id: source.id,
     amountCents: source.amountCents,
     description: source.description,
+    merchantName,
+    by: key.by,
   }
-  const key = descriptionKey(source.description)
-  if (key === '') return { reference, candidates: [] }
+  if (key.key === '') return { reference, candidates: [] }
   const rows = await db()
-    .select()
+    .select({ entry: entries, merchantName: bankMerchant })
     .from(entries)
     .where(
       and(
@@ -64,11 +68,14 @@ export async function findSimilarBankEntries(
     )
     .orderBy(desc(entries.startMonth), desc(entries.day))
   const candidates = rows
-    .filter((r) => descriptionKey(r.description) === key)
+    .filter((r) =>
+      matchesKey(key, { description: r.entry.description, merchantName: r.merchantName }),
+    )
     .slice(0, MAX_CANDIDATES)
-    .map((r) => ({
+    .map(({ entry: r, merchantName: merchant }) => ({
       id: r.id,
       description: r.description,
+      merchantName: merchant,
       date: dateOf(r.startMonth, r.day),
       accountId: r.accountId,
       amountCents: r.amountCents,
@@ -123,17 +130,22 @@ async function recordRule(
   amounts: readonly number[],
 ): Promise<void> {
   const [source] = await tx
-    .select({ description: entries.description, amountCents: entries.amountCents })
+    .select({
+      description: entries.description,
+      amountCents: entries.amountCents,
+      merchantName: bankMerchant,
+    })
     .from(entries)
     .where(and(eq(entries.id, input.ruleFromEntryId), inScope(entries, scope)))
   if (source === undefined) throw new ScopeError('not_found')
-  const pattern = descriptionKey(source.description).slice(0, 200)
+  const { by, key } = similarityKey(source)
+  const value = key.slice(0, 200)
   const categoryId = input.categoryId ?? null
   const budgetGroup = input.budgetGroup ?? null
-  if (pattern === '' || (categoryId === null && budgetGroup === null)) return
+  if (value === '' || (categoryId === null && budgetGroup === null)) return
   await tx.insert(categorizationRules).values({
     ...owned(scope),
-    pattern,
+    ...(by === 'merchant' ? { merchantKey: value } : { pattern: value }),
     ...ruleRange([source.amountCents, ...amounts]),
     categoryId,
     budgetGroup,
@@ -143,7 +155,7 @@ async function recordRule(
 /**
  * Sets category and/or budget group on the scope's `entryIds` (transfers never get
  * either, incomes never a budget group). With `ruleFromEntryId`, also records a rule:
- * that entry's normalized description, the range of the absolute amounts of
+ * that entry's `similarityKey` (merchant, else description), the range of the absolute amounts of
  * it and of the entries, its category and budget group as given.
  */
 export function categorizeEntries(scope: Scope, input: CategorizeInput): Promise<WriteResult> {
@@ -213,6 +225,7 @@ export async function listRules(scope: Scope): Promise<CategorizationRule[]> {
   return rows.map(({ rule, categoryName, budgetGroupName }) => ({
     id: rule.id,
     pattern: rule.pattern,
+    merchantKey: rule.merchantKey,
     minCents: rule.minCents,
     maxCents: rule.maxCents,
     categoryId: rule.categoryId,

@@ -301,6 +301,12 @@ export function EntryForm({
               Vem do banco: valor, data e conta não podem ser alterados.
             </p>
           )}
+          {target !== null && target.entry.merchantName !== null && (
+            <p className="text-muted-foreground text-sm">
+              Estabelecimento:{' '}
+              <span className="text-foreground font-medium">{target.entry.merchantName}</span>
+            </p>
+          )}
           {occurrence !== null && (
             <p className="text-muted-foreground text-xs">
               Editando {monthLabel(occurrence)}. Se mudar valor ou dia, você escolhe o alcance ao

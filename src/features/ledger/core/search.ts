@@ -200,9 +200,13 @@ function categoryOf(categoryId: string | null, ctx: SearchContext) {
   return ctx.categories.find((c) => c.id === categoryId)
 }
 
-function matchesText(description: string, text: string): boolean {
+/** The description or, on a bank entry, the merchant the bank identified. */
+function matchesText(entry: Entry, text: string): boolean {
   const needle = text.trim().toLocaleLowerCase('pt-BR')
-  return needle === '' || description.toLocaleLowerCase('pt-BR').includes(needle)
+  if (needle === '') return true
+  return [entry.description, entry.merchantName ?? ''].some((value) =>
+    value.toLocaleLowerCase('pt-BR').includes(needle),
+  )
 }
 
 function matchesCategory(categoryId: string | null, filter: string, ctx: SearchContext): boolean {
@@ -219,7 +223,7 @@ function matches(
 ): boolean {
   const { entry } = landing
   return (
-    matchesText(entry.description, query.text) &&
+    matchesText(entry, query.text) &&
     (query.kind === '' || entry.kind === query.kind) &&
     entryMatchesAccounts(entry, ids) &&
     matchesCategory(entry.categoryId, query.category, ctx) &&

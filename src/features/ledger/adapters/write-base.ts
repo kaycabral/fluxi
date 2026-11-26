@@ -7,7 +7,7 @@ import type { SeriesState } from '@/features/ledger/core/scoped-edit'
 import { fluxiDb, type FluxiDb } from '@/lib/db'
 import { isForeignKeyViolation } from '@cbrl/pg'
 import { and, asc, eq } from 'drizzle-orm'
-import { isFromBank } from './ledger.repo'
+import { bankMerchant, isFromBank } from './ledger.repo'
 import { inScope, type Scope } from './scope-filter'
 
 /** Shared plumbing of the ledger write adapters (results, transactions, the locked series). */
@@ -48,12 +48,12 @@ export async function loadSeries(
   entryId: string,
 ): Promise<SeriesState | null> {
   const [locked] = await tx
-    .select({ row: entries, fromBank: isFromBank })
+    .select({ row: entries, fromBank: isFromBank, merchantName: bankMerchant })
     .from(entries)
     .where(and(eq(entries.id, entryId), inScope(entries, scope)))
     .for('update', { of: entries })
   if (locked === undefined) return null
-  const { row, fromBank } = locked
+  const { row, fromBank, merchantName } = locked
   const partRows = await tx
     .select()
     .from(entryParts)
@@ -82,6 +82,7 @@ export async function loadSeries(
       installments: row.installments,
       endMonth: row.endMonth === null ? null : monthFromDate(row.endMonth),
       fromBank,
+      merchantName,
     },
     parts: partRows.map((p) => ({
       id: p.id,

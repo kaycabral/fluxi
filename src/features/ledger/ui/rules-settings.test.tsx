@@ -15,6 +15,7 @@ afterEach(() => vi.clearAllMocks())
 const RULE: CategorizationRule = {
   id: '00000000-0000-4000-8000-00000000d001',
   pattern: 'atm veneza',
+  merchantKey: null,
   minCents: 800,
   maxCents: 1500,
   categoryId: 'c',
@@ -40,11 +41,23 @@ describe('RulesSettings', () => {
     )
     expect(screen.getByText('R$ 8,00 a R$ 15,00 → Padaria · Essencial')).toBeInTheDocument()
     expect(screen.getByText('R$ 5,00 → Padaria')).toBeInTheDocument()
+    expect(screen.getAllByText('“atm veneza”')).toHaveLength(2)
     const [first] = screen.getAllByRole('button', { name: 'Excluir regra atm veneza' })
     if (first === undefined) throw new Error('no button')
     await userEvent.click(first)
     expect(remove).toHaveBeenCalledWith({ id: RULE.id })
     await waitFor(() => expect(onChanged).toHaveBeenCalled())
+  })
+
+  it('labels a merchant rule', () => {
+    render(
+      <RulesSettings
+        rules={[{ ...RULE, pattern: null, merchantKey: 'padaria pao' }]}
+        onChanged={vi.fn()}
+      />,
+    )
+    expect(screen.getByText('Estabelecimento “padaria pao”')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Excluir regra padaria pao' })).toBeInTheDocument()
   })
 
   it('shows a failure', async () => {

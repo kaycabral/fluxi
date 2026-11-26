@@ -6,9 +6,11 @@ import {
   holderKeyOf,
   holderTypeOf,
   itemReadiness,
+  itemStatusOf,
   numberHintOf,
   parsePluggyConfig,
   pluggyIdentitySchema,
+  pluggyItemSchema,
   pluggyTransactionSchema,
   spaceNameOf,
   toFeedAccount,
@@ -291,5 +293,43 @@ describe('holder', () => {
     expect(spaceNameOf('  ACME   Comércio  ')).toBe('ACME Comércio')
     expect(spaceNameOf('   ')).toBeNull()
     expect(spaceNameOf('x'.repeat(50))).toHaveLength(40)
+  })
+})
+
+describe('itemStatusOf', () => {
+  it('keeps codes and dates only, never the error message', () => {
+    const item = pluggyItemSchema.parse({
+      id: 'i',
+      status: 'LOGIN_ERROR',
+      executionStatus: 'INVALID_CREDENTIALS',
+      lastUpdatedAt: '2026-11-20T09:02:00.000Z',
+      nextAutoSyncAt: null,
+      consentExpiresAt: 'not a date',
+      error: { code: ' INVALID_CREDENTIALS ', message: 'Senha de Maria inválida' },
+      connector: { name: 'MeuPluggy', health: { status: 'ONLINE', stage: null } },
+    })
+    const row = itemStatusOf(item)
+    expect(row).toEqual({
+      itemStatus: 'LOGIN_ERROR',
+      executionStatus: 'INVALID_CREDENTIALS',
+      errorCode: 'INVALID_CREDENTIALS',
+      lastUpdatedAt: '2026-11-20T09:02:00.000Z',
+      nextSyncAt: null,
+      consentExpiresAt: null,
+      institutionHealth: 'ONLINE',
+    })
+    expect(JSON.stringify(row)).not.toContain('Maria')
+  })
+
+  it('falls back when Pluggy omits fields and caps long codes', () => {
+    expect(itemStatusOf({ id: 'i', status: ' ', error: { code: 'X'.repeat(99) } })).toEqual({
+      itemStatus: 'UNKNOWN',
+      executionStatus: null,
+      errorCode: 'X'.repeat(60),
+      lastUpdatedAt: null,
+      nextSyncAt: null,
+      consentExpiresAt: null,
+      institutionHealth: null,
+    })
   })
 })

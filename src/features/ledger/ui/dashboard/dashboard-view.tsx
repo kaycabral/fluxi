@@ -1,5 +1,6 @@
 'use client'
 
+import type { ConnectionHealth } from '@/features/bank-feed/core/health'
 import {
   budgetGroupCell,
   lightSummary,
@@ -229,6 +230,7 @@ export function DashboardView({
   versions,
   today,
   connectedBanks = [],
+  bankHealth = {},
 }: {
   data: LedgerData
   versions: readonly BudgetVersion[]
@@ -236,6 +238,8 @@ export function DashboardView({
   today: string
   /** Institutions connected in the space with no linked account (shown at R$ 0,00). */
   connectedBanks?: readonly string[]
+  /** Connection health per bank id (connected banks only; see `healthByBank`). */
+  bankHealth?: Readonly<Record<string, ConnectionHealth>>
 }) {
   const month = today.slice(0, 7)
   const results = useMemo(() => projectWindow(data, month, addMonths(month, 11)), [data, month])
@@ -289,7 +293,7 @@ export function DashboardView({
         <Stat
           label="Saldo hoje"
           cents={snapshot.todayCents}
-          hint={banks.length > 0 ? <BankAvatars banks={banks} /> : undefined}
+          hint={banks.length > 0 ? <BankAvatars banks={banks} health={bankHealth} /> : undefined}
         />
         <Stat
           label={`Fim de ${monthLabel(month)}`}

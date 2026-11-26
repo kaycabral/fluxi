@@ -6,7 +6,10 @@ import {
   bankFeedItems,
   bankTransactions,
 } from '@/db/schema-bank-feed'
-import { listUnlinkedConnectedInstitutions } from '@/features/ledger/adapters/ledger.repo'
+import {
+  listSpaceConnections,
+  listUnlinkedConnectedInstitutions,
+} from '@/features/ledger/adapters/ledger.repo'
 import type { Scope } from '@/features/spaces/core/space'
 import { and, eq, sql } from 'drizzle-orm'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
@@ -347,5 +350,58 @@ describe('connection status and connected banks (Postgres)', () => {
       .where(eq(bankFeedAccounts.userId, ANA))
     await expect(listUnlinkedConnectedInstitutions(ana)).resolves.toEqual(['Inter'])
     await expect(listUnlinkedConnectedInstitutions(bia)).resolves.toEqual([])
+  })
+
+  it('lists the space connections with their health and the banks they feed', async () => {
+    const checked = new Date('2026-11-25T09:00:00Z')
+    await db()
+      .update(bankFeedItems)
+      .set({ itemStatus: 'LOGIN_ERROR', errorCode: 'INVALID_CREDENTIALS', checkedAt: checked })
+      .where(and(eq(bankFeedItems.userId, ANA), eq(bankFeedItems.itemId, 'item-1')))
+    await db()
+      .update(bankFeedItems)
+      .set({ itemStatus: 'UPDATED', checkedAt: checked })
+      .where(eq(bankFeedItems.userId, BIA))
+    const linked = await feedAccount(ana, 'item-1', 'acc-1', [])
+    await db()
+      .update(bankFeedAccounts)
+      .set({ name: 'Inter Conta' })
+      .where(eq(bankFeedAccounts.id, linked.id))
+    const [bank] = await db()
+      .insert(banks)
+      .values({ ...ana, name: 'Inter' })
+      .returning()
+    const [account] = await db()
+      .insert(accounts)
+      .values({ ...ana, bankId: bank!.id, name: 'Conta', type: 'checking' })
+      .returning()
+    await db()
+      .update(bankFeedAccounts)
+      .set({ accountId: account!.id })
+      .where(eq(bankFeedAccounts.id, linked.id))
+    await db()
+      .update(bankFeedItems)
+      .set({ label: 'Nubank' })
+      .where(and(eq(bankFeedItems.userId, ANA), eq(bankFeedItems.itemId, 'item-2')))
+
+    const rows = await listSpaceConnections(ana)
+    const sorted = [...rows].sort((a, b) =>
+      (a.institution ?? '').localeCompare(b.institution ?? ''),
+    )
+    expect(sorted.map((c) => [c.institution, c.bankIds])).toEqual([
+      ['Inter', [bank!.id]],
+      ['Nubank', []],
+    ])
+    expect(sorted[0]?.status).toMatchObject({
+      itemStatus: 'LOGIN_ERROR',
+      errorCode: 'INVALID_CREDENTIALS',
+      checkedAt: checked.toISOString(),
+    })
+    expect(sorted[1]?.status).toMatchObject({ itemStatus: null, checkedAt: null })
+    // Another space of the same user and another user see none of it.
+    await expect(listSpaceConnections(work)).resolves.toEqual([])
+    const theirs = await listSpaceConnections(bia)
+    expect(theirs).toHaveLength(1)
+    expect(theirs[0]?.status.itemStatus).toBe('UPDATED')
   })
 })

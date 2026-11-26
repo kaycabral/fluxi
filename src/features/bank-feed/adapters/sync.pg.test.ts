@@ -5,6 +5,7 @@ import { requireEnv } from '@cbrl/env'
 import { sql } from 'drizzle-orm'
 import postgres from 'postgres'
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { PluggyItem } from '../core/pluggy'
 import type { PluggyClient } from './pluggy.client'
 import { handleSyncRequest, TOKEN_HEADER, tokenMatches } from './sync'
 
@@ -23,6 +24,8 @@ const env = {
 type FakeAccount = { id: string; name: string; taxNumber?: string; owner?: string }
 type FakeItem = {
   status?: string
+  /** Extra `items-retrieve` fields (health, error, dates). */
+  item?: Partial<PluggyItem>
   accounts?: FakeAccount[]
   identity?: { companyName?: string | null; documentType?: string | null } | null
 }
@@ -39,6 +42,7 @@ const pluggy: PluggyClient = {
       id,
       status: fixtures[id]?.status ?? (id === 'item-busy' ? 'UPDATING' : 'UPDATED'),
       connector: { name: 'MeuPluggy' },
+      ...fixtures[id]?.item,
     }),
   listAccounts: (itemId) =>
     Promise.resolve(
@@ -215,6 +219,58 @@ describe('pluggy-sync handler (Postgres)', () => {
     ])
     const logged = log.mock.calls.map(([line]) => line).join('\n')
     expect(logged).not.toMatch(/Café|Pix|secret|a{64}/)
+  })
+
+  it('records the health of every item, skipped and unassigned ones included, for the sync user only', async () => {
+    const BIA = '22222222-2222-4222-8222-222222222222'
+    await seedUser(db(), { id: BIA, email: 'bia@example.test' })
+    await db().insert(bankFeedItems).values({ userId: BIA, itemId: 'item-busy', label: 'Bia' })
+    const { spaceId } = await personalScope(db(), ANA)
+    await db()
+      .insert(bankFeedItems)
+      .values({ userId: ANA, itemId: 'item-busy', spaceId, spaceSource: 'manual' })
+    fixtures = {
+      'item-ok': {
+        status: 'LOGIN_ERROR',
+        item: {
+          executionStatus: 'INVALID_CREDENTIALS',
+          error: { code: 'INVALID_CREDENTIALS' },
+          lastUpdatedAt: '2026-11-20T09:02:00.000Z',
+          consentExpiresAt: '2027-05-01T00:00:00.000Z',
+          connector: { name: 'MeuPluggy', health: { status: 'UNSTABLE' } },
+        },
+      },
+      'item-busy': {
+        status: 'UPDATING',
+        item: { nextAutoSyncAt: '2026-11-26T09:00:00.000Z' },
+      },
+    }
+    const res = await call(authed).response
+    expect(res.status).toBe(200)
+    const rows = await db().select().from(bankFeedItems)
+    const of = (userId: string, itemId: string) =>
+      rows.find((r) => r.userId === userId && r.itemId === itemId)
+    // Unassigned: nothing synced, but its health is on record.
+    expect(of(ANA, 'item-ok')).toMatchObject({
+      spaceId: null,
+      itemStatus: 'LOGIN_ERROR',
+      executionStatus: 'INVALID_CREDENTIALS',
+      errorCode: 'INVALID_CREDENTIALS',
+      lastUpdatedAt: new Date('2026-11-20T09:02:00.000Z'),
+      consentExpiresAt: new Date('2027-05-01T00:00:00.000Z'),
+      institutionHealth: 'UNSTABLE',
+    })
+    expect(of(ANA, 'item-ok')?.checkedAt).toBeInstanceOf(Date)
+    // Skipped (not UPDATED yet): recorded before skipping.
+    expect(of(ANA, 'item-busy')).toMatchObject({
+      spaceId,
+      itemStatus: 'UPDATING',
+      errorCode: null,
+      nextSyncAt: new Date('2026-11-26T09:00:00.000Z'),
+    })
+    expect(of(ANA, 'item-busy')?.checkedAt).toBeInstanceOf(Date)
+    // Another user's row with the same item id is never touched.
+    expect(of(BIA, 'item-busy')).toMatchObject({ itemStatus: null, checkedAt: null, label: 'Bia' })
   })
 
   it('routes a connection held only by persons to the personal space (auto)', async () => {

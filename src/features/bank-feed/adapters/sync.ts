@@ -6,12 +6,14 @@ import {
   holderKeyOf,
   holderTypeOf,
   itemReadiness,
+  itemStatusOf,
   PLUGGY_SOURCE,
   spaceNameOf,
   toFeedAccount,
   toFeedTransaction,
   type HolderType,
   type ItemReadiness,
+  type ItemStatusRow,
   type PluggyAccount,
 } from '../core/pluggy.ts'
 import { syncFeedAccount } from './feed.write.ts'
@@ -242,20 +244,32 @@ export async function suggestedSpaceName(
 }
 
 /**
- * Record `itemId` (label = institution) and return its space and who chose
- * it (null source = nobody yet).
+ * Record `itemId` (label = institution) with the health Pluggy reports for it
+ * (`checked_at` = now), whether or not it gets synced, and return its space
+ * and who chose it (null source = nobody yet).
  */
 async function recordItem(
   sql: Sql,
-  userId: string,
-  itemId: string,
+  { userId, itemId }: { userId: string; itemId: string },
   label: string,
+  status: ItemStatusRow,
 ): Promise<{ spaceId: string | null; source: string | null }> {
   const [row] = await sql<{ space_id: string | null; space_source: string | null }[]>`
-    insert into bank_feed_items (user_id, item_id, label)
-    values (${userId}, ${itemId}, ${label})
+    insert into bank_feed_items (user_id, item_id, label, item_status, execution_status,
+      error_code, last_updated_at, next_sync_at, consent_expires_at, institution_health, checked_at)
+    values (${userId}, ${itemId}, ${label}, ${status.itemStatus}, ${status.executionStatus},
+      ${status.errorCode}, ${status.lastUpdatedAt}, ${status.nextSyncAt},
+      ${status.consentExpiresAt}, ${status.institutionHealth}, now())
     on conflict (user_id, item_id) do update set
       label = excluded.label,
+      item_status = excluded.item_status,
+      execution_status = excluded.execution_status,
+      error_code = excluded.error_code,
+      last_updated_at = excluded.last_updated_at,
+      next_sync_at = excluded.next_sync_at,
+      consent_expires_at = excluded.consent_expires_at,
+      institution_health = excluded.institution_health,
+      checked_at = excluded.checked_at,
       updated_at = now()
     returning space_id, space_source`
   return { spaceId: row?.space_id ?? null, source: row?.space_source ?? null }
@@ -302,7 +316,7 @@ async function resolveItem(
   const company = holders.types.includes('company')
   const names = accounts.map((a) => a.marketingName?.trim() || a.name)
   const institution = connectionInstitution(names, connector, holders.types) ?? connector
-  const recorded = await recordItem(sql, userId, itemId, institution)
+  const recorded = await recordItem(sql, { userId, itemId }, institution, itemStatusOf(item))
   const base = {
     connector,
     institution,

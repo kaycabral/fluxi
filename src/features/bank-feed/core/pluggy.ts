@@ -18,9 +18,49 @@ export const pluggyItemSchema = z.object({
   status: z.string(),
   executionStatus: z.string().nullish(),
   lastUpdatedAt: z.string().nullish(),
-  connector: z.object({ name: z.string() }).nullish(),
+  nextAutoSyncAt: z.string().nullish(),
+  consentExpiresAt: z.string().nullish(),
+  /** Only the code is parsed: the message may carry the institution's own text. */
+  error: z.object({ code: z.string().nullish() }).nullish(),
+  connector: z
+    .object({
+      name: z.string(),
+      health: z.object({ status: z.string().nullish() }).nullish(),
+    })
+    .nullish(),
 })
 export type PluggyItem = z.infer<typeof pluggyItemSchema>
+
+/** What `bank_feed_items` keeps of an item's health (codes and dates only). */
+export type ItemStatusRow = {
+  itemStatus: string
+  executionStatus: string | null
+  errorCode: string | null
+  lastUpdatedAt: string | null
+  nextSyncAt: string | null
+  consentExpiresAt: string | null
+  institutionHealth: string | null
+}
+
+const code = (value: string | null | undefined, max: number): string | null => {
+  const trimmed = value?.trim() ?? ''
+  return trimmed === '' ? null : trimmed.slice(0, max)
+}
+
+const instant = (value: string | null | undefined): string | null =>
+  value && !Number.isNaN(Date.parse(value)) ? value : null
+
+export function itemStatusOf(item: PluggyItem): ItemStatusRow {
+  return {
+    itemStatus: code(item.status, 40) ?? 'UNKNOWN',
+    executionStatus: code(item.executionStatus, 60),
+    errorCode: code(item.error?.code, 60),
+    lastUpdatedAt: instant(item.lastUpdatedAt),
+    nextSyncAt: instant(item.nextAutoSyncAt),
+    consentExpiresAt: instant(item.consentExpiresAt),
+    institutionHealth: code(item.connector?.health?.status, 20),
+  }
+}
 
 export const pluggyAccountSchema = z.object({
   id: z.string(),

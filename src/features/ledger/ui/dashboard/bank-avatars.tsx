@@ -1,6 +1,8 @@
 'use client'
 
+import type { ConnectionHealth } from '@/features/bank-feed/core/health'
 import { BankLogo } from '@/features/bank-feed/ui/bank-logo'
+import { HealthDot } from '@/features/bank-feed/ui/connection-health-dot'
 import type { BankBalance } from '@/features/ledger/core/dashboard'
 import {
   AvatarGroup,
@@ -18,9 +20,17 @@ export const MAX_BANK_AVATARS = 4
 /**
  * The banks behind "Saldo hoje": overlapping avatars (official logo, or initials
  * in the same deterministic color as Conexões), "+N" past `MAX_BANK_AVATARS`; hovering or
- * focusing lists each bank's balance, highest first (`banks` comes sorted).
+ * focusing lists each bank's balance, highest first (`banks` comes sorted), with
+ * the connection's health dot next to connected banks.
  */
-export function BankAvatars({ banks }: { banks: readonly BankBalance[] }) {
+export function BankAvatars({
+  banks,
+  health = {},
+}: {
+  banks: readonly BankBalance[]
+  /** Connection health by bank id: connected banks show a dot, manual ones none. */
+  health?: Readonly<Record<string, ConnectionHealth>>
+}) {
   const shown = banks.slice(0, MAX_BANK_AVATARS)
   const hidden = banks.length - shown.length
   return (
@@ -42,12 +52,18 @@ export function BankAvatars({ banks }: { banks: readonly BankBalance[] }) {
         </TooltipTrigger>
         <TooltipContent className="min-w-48">
           <ul aria-label="Saldo por banco" className="grid gap-1">
-            {banks.map((bank) => (
-              <li key={bank.bankId} className="flex items-baseline justify-between gap-4">
-                <span className="truncate">{bank.name}</span>
-                <Money cents={bank.cents} className="shrink-0" />
-              </li>
-            ))}
+            {banks.map((bank) => {
+              const dot = health[bank.bankId]
+              return (
+                <li key={bank.bankId} className="flex items-baseline justify-between gap-4">
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <span className="truncate">{bank.name}</span>
+                    {dot !== undefined && <HealthDot health={dot} />}
+                  </span>
+                  <Money cents={bank.cents} className="shrink-0" />
+                </li>
+              )
+            })}
           </ul>
         </TooltipContent>
       </Tooltip>

@@ -1,6 +1,11 @@
 'use client'
 
 import {
+  connectionHealth,
+  NEVER_CHECKED,
+  type ConnectionStatus,
+} from '@/features/bank-feed/core/health'
+import {
   connectionInstitution,
   feedAccountLabel,
   feedAccountShortLabel,
@@ -9,6 +14,7 @@ import { compatibleTypes, ledgerBalanceOf } from '@/features/bank-feed/core/mapp
 import type { CardStatus, HolderType } from '@/features/bank-feed/core/pluggy'
 import { feedAccountStatusLine } from '@/features/bank-feed/core/status'
 import { BankLogo } from '@/features/bank-feed/ui/bank-logo'
+import { ConnectionHealthDot } from '@/features/bank-feed/ui/connection-health-dot'
 import { formatMoney } from '@/features/ledger/core/format'
 import { useAction } from '@/features/ledger/ui/budget/shared'
 import {
@@ -81,6 +87,8 @@ export type BankConnection = {
   accounts: string[]
   transactionCount: number
   feedAccounts: FeedAccount[]
+  /** Health the sync last recorded; absent = never checked. */
+  status?: ConnectionStatus
 }
 
 const NOT_MAPPED = 'none'
@@ -282,7 +290,10 @@ function ConnectionCard({
       <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
         <BankLogo name={name} className="shrink-0" />
         <div className="min-w-0 flex-1">
-          <p className="truncate font-medium">{name}</p>
+          <div className="flex min-w-0 items-center gap-1.5">
+            <p className="truncate font-medium">{name}</p>
+            <ConnectionHealthDot health={connectionHealth(c.status ?? NEVER_CHECKED, new Date())} />
+          </div>
           <p className="text-muted-foreground truncate text-xs">{summary}</p>
         </div>
         <Select value={c.spaceId ?? UNASSIGNED} onValueChange={onChooseSpace} disabled={disabled}>

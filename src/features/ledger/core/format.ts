@@ -1,3 +1,5 @@
+import { formatAmountFromCents, maskBRLInput, parseBRLInput } from '@cbrl/br/money'
+
 import { daysInMonth, type Month } from './month'
 
 /**
@@ -54,20 +56,20 @@ const decimalReais = new Intl.NumberFormat('pt-BR', {
   maximumFractionDigits: 2,
 })
 
-/** Always with cents (precision over brevity): `-123456` → `-R$ 1.234,56`. */
+/**
+ * Always with cents (precision over brevity): `-123456` → `-R$ 1.234,56`.
+ * Kept instead of `formatBRLFromCents` (`@cbrl/br/money`), which separates
+ * `R$` with a non-breaking space; the UI and its E2E assertions use a plain
+ * space.
+ */
 export function formatMoney(cents: number): string {
   const sign = cents < 0 ? '-' : ''
-  return `${sign}R$ ${formatAmount(Math.abs(cents))}`
+  return `${sign}R$ ${formatAmountFromCents(Math.abs(cents))}`
 }
 
 /** Like {@link formatMoney} with an explicit `+` on positive values. */
 export function formatSignedMoney(cents: number): string {
   return cents > 0 ? `+${formatMoney(cents)}` : formatMoney(cents)
-}
-
-/** Without the currency symbol, for dense grids: `1060000` → `10.600,00`, `-26050` → `-260,50`. */
-export function formatAmount(cents: number): string {
-  return decimalReais.format(cents / 100)
 }
 
 /** `0.325` → `32,5%`. */
@@ -82,46 +84,14 @@ export function centsToInput(cents: number): string {
 }
 
 /**
- * The form's text value → cents, or null when it is not a number. Accepts
- * `1234,56`, `1.234,56`, `1234.56` and `1234`.
- */
-export function parseMoneyInput(raw: string): number | null {
-  const text = raw.trim().replace(/\s|R\$/g, '')
-  if (text === '') return null
-  let normalized = text
-  if (text.includes(',')) {
-    normalized = text.replace(/\./g, '').replace(',', '.')
-  } else if (/^\d{1,3}(\.\d{3})+$/.test(text)) {
-    normalized = text.replace(/\./g, '')
-  }
-  if (!/^\d+(\.\d+)?$/.test(normalized)) return null
-  return Math.round(Number(normalized) * 100)
-}
-
-/** Typed digits beyond this (R$ 99 bilhões) are dropped: cents stay a safe integer. */
-const MONEY_MASK_MAX_DIGITS = 13
-
-/**
- * The money mask of the form: every digit typed shifts in from the cents side,
- * like a bank app (`5` → `0,05`, `1234` → `12,34`, `123456` → `1.234,56`).
- * Anything that is not a digit is ignored and zero is empty, so erasing digit
- * by digit ends in an empty field. Its output is read back by
- * {@link parseMoneyInput}.
- */
-export function maskMoneyInput(raw: string): string {
-  const digits = raw.replace(/\D/g, '').replace(/^0+/, '').slice(0, MONEY_MASK_MAX_DIGITS)
-  return digits === '' ? '' : formatAmount(Number(digits))
-}
-
-/**
  * What the money input shows for a form value: exactly the amount that will
  * be saved (`50` → `50,00`, `1234,56` → `1.234,56`), so a value set by code
  * without cents is never misread by the mask; zero/empty → empty.
  */
 export function moneyInputDisplay(value: string): string {
-  const cents = parseMoneyInput(value)
-  if (cents === null) return maskMoneyInput(value)
-  return cents === 0 ? '' : formatAmount(cents)
+  const cents = parseBRLInput(value)
+  if (cents === null) return maskBRLInput(value)
+  return cents === 0 ? '' : formatAmountFromCents(cents)
 }
 
 /** Day of `month` as an ISO date (`YYYY-MM-DD`), clamped to the month's length. */
@@ -164,11 +134,15 @@ export function isoDayOf(date: Date, timeZone = 'America/Sao_Paulo'): string {
   return `${get('year')}-${get('month')}-${get('day')}`
 }
 
-/** Like {@link parseMoneyInput}, accepting a leading minus (opening balances may be negative). */
+/**
+ * Like `parseBRLInput`, accepting a leading minus (opening balances may be
+ * negative). Kept instead of `parseSignedBRLInput`, which also accepts U+2212
+ * and turns `-0` into `0`.
+ */
 export function parseSignedMoneyInput(raw: string): number | null {
   const text = raw.trim()
   const negative = text.startsWith('-')
-  const cents = parseMoneyInput(negative ? text.slice(1) : text)
+  const cents = parseBRLInput(negative ? text.slice(1) : text)
   if (cents === null) return null
   return negative ? -cents : cents
 }

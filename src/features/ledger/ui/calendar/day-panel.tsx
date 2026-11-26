@@ -1,8 +1,8 @@
 'use client'
 
 import { cellOf, weekdayOf } from '@/features/ledger/core/calendar-views'
-import { formatAmount } from '@/features/ledger/core/format'
 import { paymentFor } from '@/features/ledger/core/payments'
+import { formatAmountFromCents } from '@cbrl/br/money'
 import { Button, cn } from '@cbrl/design'
 import { Plus, X } from 'lucide-react'
 import { useCalendar, visibleLandings } from './context'
@@ -47,7 +47,7 @@ export function DayPanel({ date, onClose }: { date: string; onClose: () => void 
             negative && 'text-destructive',
           )}
         >
-          Saldo no fim do dia: {formatAmount(cell.endBalanceCents)}
+          Saldo no fim do dia: {formatAmountFromCents(cell.endBalanceCents)}
         </p>
       )}
       <div className="grid max-h-80 gap-0.5 overflow-y-auto">

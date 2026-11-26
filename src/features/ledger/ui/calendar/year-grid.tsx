@@ -1,7 +1,8 @@
 'use client'
 
 import { cellOf, monthDays, monthWeeks } from '@/features/ledger/core/calendar-views'
-import { dayLongLabel, formatAmount } from '@/features/ledger/core/format'
+import { dayLongLabel } from '@/features/ledger/core/format'
+import { formatAmountFromCents } from '@cbrl/br/money'
 import { cn, Popover, PopoverContent, PopoverTrigger } from '@cbrl/design'
 import { useEffect, useRef, useState } from 'react'
 import { CALENDAR_TODAY_EVENT, POPUP_CLASS, POPUP_PLACEMENT, useCalendar } from './context'
@@ -97,7 +98,7 @@ function MiniMonth({ name, month }: { name: string; month: string }) {
               endBalance < 0 && 'text-destructive font-semibold',
             )}
           >
-            {formatAmount(endBalance)}
+            {formatAmountFromCents(endBalance)}
           </span>
         )}
       </div>

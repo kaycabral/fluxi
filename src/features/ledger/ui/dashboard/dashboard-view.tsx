@@ -17,7 +17,6 @@ import {
 } from '@/features/ledger/core/dashboard'
 import {
   dayLongLabel,
-  formatAmount,
   formatMoney,
   monthLabel,
   monthLongLabel,
@@ -26,6 +25,7 @@ import { GROUP_DOT_CLASSES } from '@/features/ledger/core/labels'
 import { addMonths, type Month } from '@/features/ledger/core/month'
 import type { BudgetGroup, BudgetVersion } from '@/features/ledger/core/types'
 import { projectWindow, type LedgerData } from '@/features/ledger/core/view'
+import { formatAmountFromCents } from '@cbrl/br/money'
 import {
   Button,
   Card,
@@ -199,7 +199,7 @@ function BudgetGroupsThisMonth({
                 aria-label={`${formatMoney(cell.plannedCents)} planejado de ${formatMoney(target)}`}
                 title={`${formatMoney(cell.plannedCents)} planejado de ${formatMoney(target)}`}
               >
-                {formatAmount(cell.plannedCents)} / {formatAmount(target)}
+                {formatAmountFromCents(cell.plannedCents)} / {formatAmountFromCents(target)}
               </span>
             </div>
             <div className="bg-muted h-1.5 overflow-hidden rounded-full">
@@ -384,7 +384,7 @@ export function DashboardView({
             <CardDescription>
               Planejado ÷ meta · renda{' '}
               <span title={formatMoney(budget.incomeCents)}>
-                {formatAmount(budget.incomeCents)}
+                {formatAmountFromCents(budget.incomeCents)}
               </span>
             </CardDescription>
           </CardHeader>

@@ -1,19 +1,17 @@
+import { formatAmountFromCents, maskBRLInput, parseBRLInput } from '@cbrl/br/money'
 import { describe, expect, it } from 'vitest'
 import {
   centsToInput,
   dayLongLabel,
-  formatAmount,
   formatMoney,
   formatPercent,
   formatSignedMoney,
   isoDate,
   isoDayOf,
-  maskMoneyInput,
   moneyInputDisplay,
   monthLabel,
   monthLongLabel,
   monthOf,
-  parseMoneyInput,
   parseSignedMoneyInput,
   shortDate,
   signedCentsToInput,
@@ -41,10 +39,10 @@ describe('format', () => {
   })
 
   it('formats amounts for dense grids without the symbol, keeping the cents', () => {
-    expect(formatAmount(1060000)).toBe('10.600,00')
-    expect(formatAmount(-2450050)).toBe('-24.500,50')
-    expect(formatAmount(26000)).toBe('260,00')
-    expect(formatAmount(10)).toBe('0,10')
+    expect(formatAmountFromCents(1060000)).toBe('10.600,00')
+    expect(formatAmountFromCents(-2450050)).toBe('-24.500,50')
+    expect(formatAmountFromCents(26000)).toBe('260,00')
+    expect(formatAmountFromCents(10)).toBe('0,10')
   })
 
   it('formats percentages', () => {
@@ -55,13 +53,13 @@ describe('format', () => {
   it('round-trips the money input', () => {
     expect(centsToInput(0)).toBe('')
     expect(centsToInput(123456)).toBe('1234,56')
-    expect(parseMoneyInput('1234,56')).toBe(123456)
-    expect(parseMoneyInput('1.234,56')).toBe(123456)
-    expect(parseMoneyInput('1234.56')).toBe(123456)
-    expect(parseMoneyInput('1.234')).toBe(123400)
-    expect(parseMoneyInput('R$ 50')).toBe(5000)
-    expect(parseMoneyInput('')).toBeNull()
-    expect(parseMoneyInput('abc')).toBeNull()
+    expect(parseBRLInput('1234,56')).toBe(123456)
+    expect(parseBRLInput('1.234,56')).toBe(123456)
+    expect(parseBRLInput('1234.56')).toBe(123456)
+    expect(parseBRLInput('1.234')).toBe(123400)
+    expect(parseBRLInput('R$ 50')).toBe(5000)
+    expect(parseBRLInput('')).toBeNull()
+    expect(parseBRLInput('abc')).toBeNull()
   })
 
   it('handles signed money', () => {
@@ -86,29 +84,29 @@ describe('format', () => {
   })
 })
 
-describe('maskMoneyInput', () => {
+describe('maskBRLInput', () => {
   it('shifts digits in from the cents side', () => {
-    expect(maskMoneyInput('5')).toBe('0,05')
-    expect(maskMoneyInput('1234')).toBe('12,34')
-    expect(maskMoneyInput('123456')).toBe('1.234,56')
-    expect(maskMoneyInput('1.234,567')).toBe('12.345,67')
+    expect(maskBRLInput('5')).toBe('0,05')
+    expect(maskBRLInput('1234')).toBe('12,34')
+    expect(maskBRLInput('123456')).toBe('1.234,56')
+    expect(maskBRLInput('1.234,567')).toBe('12.345,67')
   })
 
   it('re-masks values coming from the form and reads back as cents', () => {
-    expect(maskMoneyInput('1234,56')).toBe('1.234,56')
-    expect(parseMoneyInput(maskMoneyInput('123456'))).toBe(123456)
+    expect(maskBRLInput('1234,56')).toBe('1.234,56')
+    expect(parseBRLInput(maskBRLInput('123456'))).toBe(123456)
   })
 
   it('empties on zero so erasing digit by digit clears the field', () => {
-    expect(maskMoneyInput('')).toBe('')
-    expect(maskMoneyInput('R$ abc')).toBe('')
-    expect(maskMoneyInput('0')).toBe('')
-    expect(maskMoneyInput('0,0')).toBe('')
-    expect(maskMoneyInput('0,05')).toBe('0,05')
+    expect(maskBRLInput('')).toBe('')
+    expect(maskBRLInput('R$ abc')).toBe('')
+    expect(maskBRLInput('0')).toBe('')
+    expect(maskBRLInput('0,0')).toBe('')
+    expect(maskBRLInput('0,05')).toBe('0,05')
   })
 
   it('drops digits past R$ 99 bilhões', () => {
-    expect(maskMoneyInput('99999999999999999')).toBe('99.999.999.999,99')
+    expect(maskBRLInput('99999999999999999')).toBe('99.999.999.999,99')
   })
 })
 

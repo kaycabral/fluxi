@@ -1,4 +1,5 @@
-import { centsToInput, formatMoney, isoDate, monthLabel, parseMoneyInput } from './format'
+import { parseBRLInput } from '@cbrl/br/money'
+import { centsToInput, formatMoney, isoDate, monthLabel } from './format'
 import type { Month } from './month'
 import { amountFor, dayFor, installmentShares, sortParts } from './occurrence'
 import { entryFieldsSchema, firstIssue, type EntryFields } from './schemas'
@@ -199,7 +200,7 @@ export type FieldsResult = { ok: true; fields: EntryFields } | { ok: false; erro
 
 /** Form values → validated domain fields. */
 export function valuesToFields(values: EntryFormValues): FieldsResult {
-  const magnitude = parseMoneyInput(values.amount)
+  const magnitude = parseBRLInput(values.amount)
   if (magnitude === null) return { ok: false, error: 'Informe o valor.' }
   const amountCents = signedAmountOf(values.kind, values.refund, magnitude)
   const date = /^(\d{4}-\d{2})-(\d{2})$/.exec(values.date)
@@ -361,7 +362,7 @@ export function amountLabel(values: EntryFormValues): string {
  */
 export function installmentsHint(values: EntryFormValues): string | null {
   if (values.recurrence !== 'installments') return null
-  const totalCents = parseMoneyInput(values.amount)
+  const totalCents = parseBRLInput(values.amount)
   const count = parseIntOrNull(values.installments)
   if (totalCents === null || count === null || count < 1) return null
   const { first, rest } = installmentShares(totalCents, count)

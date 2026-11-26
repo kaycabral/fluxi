@@ -1,6 +1,7 @@
 'use client'
 
-import { maskMoneyInput, moneyInputDisplay } from '@/features/ledger/core/format'
+import { moneyInputDisplay } from '@/features/ledger/core/format'
+import { maskBRLInput } from '@cbrl/br/money'
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@cbrl/design'
 import type * as React from 'react'
 
@@ -14,7 +15,7 @@ type MoneyInputProps = Omit<
 }
 
 /**
- * Amount in reais with the bank-app mask ({@link maskMoneyInput}): the design
+ * Amount in reais with the bank-app mask ({@link maskBRLInput}): the design
  * system's input group with an `R$` prefix, so it sits in a form exactly like
  * every other input.
  */
@@ -31,7 +32,7 @@ export function MoneyInput({ value, onValueChange, className, ...props }: MoneyI
         // The group's border wraps the input: 30px inside keeps it 32px tall, like `Input`.
         className="h-7.5 tabular-nums"
         value={moneyInputDisplay(value)}
-        onChange={(e) => onValueChange(maskMoneyInput(e.target.value))}
+        onChange={(e) => onValueChange(maskBRLInput(e.target.value))}
       />
     </InputGroup>
   )

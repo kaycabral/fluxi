@@ -13,6 +13,7 @@ import {
   listMappableAccounts,
   listSpaces,
   resolveScope,
+  updateSpace,
   type FeedItem,
   type MappableAccount,
 } from '@/features/spaces/adapters/space.repo'
@@ -21,6 +22,7 @@ import {
   createSpaceSchema,
   SPACE_COOKIE,
   spaceIdSchema,
+  updateSpaceSchema,
   type Space,
 } from '@/features/spaces/core/space'
 import { getServerUser } from '@/lib/auth/server'
@@ -68,7 +70,7 @@ export async function switchSpaceAction(input: unknown): Promise<ActionResult> {
   return refreshed()
 }
 
-/** Create a business space (seeded with the default budget groups, budget version and categories) and switch to it. */
+/** Create a space (any name and icon; seeded with the default budget groups, budget version and categories) and switch to it. */
 export async function createSpaceAction(input: unknown): Promise<ActionResult> {
   const user = await getServerUser()
   if (!user) return { ok: false, error: SESSION_EXPIRED }
@@ -80,7 +82,17 @@ export async function createSpaceAction(input: unknown): Promise<ActionResult> {
   return refreshed()
 }
 
-/** Archive a business space (hidden, data kept); back to the personal space if it was current. */
+/** "Editar espaço…": rename one of the user's spaces and change its icon. */
+export async function updateSpaceAction(input: unknown): Promise<ActionResult> {
+  const user = await getServerUser()
+  if (!user) return { ok: false, error: SESSION_EXPIRED }
+  const parsed = updateSpaceSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) }
+  if (!(await updateSpace(user.id, parsed.data))) return NOT_FOUND
+  return refreshed()
+}
+
+/** Archive a non-personal space (hidden, data kept); back to the personal space if it was current. */
 export async function archiveSpaceAction(input: unknown): Promise<ActionResult> {
   const user = await getServerUser()
   if (!user) return { ok: false, error: SESSION_EXPIRED }

@@ -5,8 +5,17 @@ import {
   archiveSpaceAction,
   createSpaceAction,
   switchSpaceAction,
+  updateSpaceAction,
 } from '@/features/spaces/adapters/actions/spaces'
-import { SPACE_KIND_LABELS, switcherSpaces, type Space } from '@/features/spaces/core/space'
+import {
+  DEFAULT_SPACE_ICON,
+  SPACE_ICON_LABELS,
+  SPACE_ICONS,
+  switcherSpaces,
+  type Space,
+  type SpaceIconKey,
+} from '@/features/spaces/core/space'
+import { SpaceIcon } from '@/features/spaces/ui/space-icon'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,7 +28,6 @@ import {
   Avatar,
   AvatarFallback,
   AvatarImage,
-  Badge,
   Button,
   cn,
   Dialog,
@@ -40,34 +48,18 @@ import {
   Label,
   SidebarMenuButton,
 } from '@cbrl/design'
-import { Archive, Briefcase, Check, ChevronsUpDown, Plus, User } from 'lucide-react'
+import { Archive, Check, ChevronsUpDown, Pencil, Plus } from 'lucide-react'
 import { useState } from 'react'
-
-/** Icon of a space kind: a person for "Pessoal", a briefcase for "Empresa". */
-export function SpaceIcon({ space, className }: { space: Space; className?: string }) {
-  const Icon = space.kind === 'business' ? Briefcase : User
-  return (
-    <Icon
-      aria-hidden
-      className={cn(
-        'size-4 shrink-0',
-        space.kind === 'business'
-          ? 'text-amber-600 dark:text-amber-400'
-          : 'text-sky-600 dark:text-sky-400',
-        className,
-      )}
-    />
-  )
-}
 
 /** Who is signed in, as the account menu shows it. */
 export type MenuAccount = { name: string | null; email: string | null; avatarUrl: string | null }
 
 /**
  * The one menu at the bottom of the sidebar (Oilio's user-menu placement, opening
- * upward): the trigger is the current space (icon, name, "Empresa" badge) over
- * who is signed in; the menu shows the account (avatar, name, e-mail), the
- * user's spaces (switch, "Novo espaço…", archive the current business one)
+ * upward): the trigger is the current space (its icon and name) over who is
+ * signed in; the menu shows the account (avatar, name, e-mail), the user's
+ * spaces (switch, "Novo espaço…", "Editar espaço…" for the current one and
+ * archive it unless it is the personal one)
  * and then the account actions passed as `children` (settings, sign-out).
  * Without `spaces` (backend unavailable) only the account part is shown.
  */
@@ -81,6 +73,7 @@ export function SpaceAccountMenu({
   children: React.ReactNode
 }) {
   const [creating, setCreating] = useState(false)
+  const [editing, setEditing] = useState(false)
   const [archiving, setArchiving] = useState(false)
   const [pending, run] = useAction()
   const current = spaces?.current ?? null
@@ -106,21 +99,11 @@ export function SpaceAccountMenu({
               <AccountAvatar account={account} />
             ) : (
               <span className="bg-sidebar-accent flex size-8 shrink-0 items-center justify-center rounded-md">
-                <SpaceIcon space={current} />
+                <SpaceIcon icon={current.icon} labelled />
               </span>
             )}
             <span className="flex min-w-0 flex-1 flex-col text-left">
-              <span className="flex min-w-0 items-center gap-1.5">
-                <span className="truncate text-sm font-medium">{current?.name ?? 'Conta'}</span>
-                {current?.kind === 'business' && (
-                  <Badge
-                    variant="outline"
-                    className="border-amber-500/50 px-1.5 py-0 text-[10px] text-amber-700 dark:text-amber-300"
-                  >
-                    {SPACE_KIND_LABELS.business}
-                  </Badge>
-                )}
-              </span>
+              <span className="truncate text-sm font-medium">{current?.name ?? 'Conta'}</span>
               <span className="text-muted-foreground truncate text-xs">
                 {account.name ?? account.email ?? 'Fluxi'}
               </span>
@@ -148,7 +131,10 @@ export function SpaceAccountMenu({
               <DropdownMenuItem onSelect={() => setCreating(true)}>
                 <Plus aria-hidden className="size-4" /> Novo espaço…
               </DropdownMenuItem>
-              {current.kind === 'business' && (
+              <DropdownMenuItem onSelect={() => setEditing(true)}>
+                <Pencil aria-hidden className="size-4" /> Editar espaço…
+              </DropdownMenuItem>
+              {current.kind !== 'personal' && (
                 <DropdownMenuItem onSelect={() => setArchiving(true)}>
                   <Archive aria-hidden className="size-4" /> Arquivar “{current.name}”…
                 </DropdownMenuItem>
@@ -159,7 +145,15 @@ export function SpaceAccountMenu({
           {children}
         </DropdownMenuContent>
       </DropdownMenu>
-      <NewSpaceDialog open={creating} onOpenChange={setCreating} />
+      <SpaceDialog open={creating} onOpenChange={setCreating} />
+      {current !== null && (
+        <SpaceDialog
+          key={`${current.id}:${current.name}:${current.icon}`}
+          space={current}
+          open={editing}
+          onOpenChange={setEditing}
+        />
+      )}
       {current !== null && (
         <AlertDialog open={archiving} onOpenChange={setArchiving}>
           <AlertDialogContent>
@@ -213,72 +207,101 @@ function SpaceItems({
       </DropdownMenuLabel>
       {switcherSpaces(spaces).map((space) => (
         <DropdownMenuItem key={space.id} onSelect={() => onSelect(space)}>
-          <SpaceIcon space={space} />
+          <SpaceIcon icon={space.icon} labelled />
           <span className="flex-1 truncate">{space.name}</span>
-          {space.kind === 'business' && (
-            <Badge variant="outline" className="text-xs">
-              {SPACE_KIND_LABELS.business}
-            </Badge>
-          )}
           {space.id === current.id && <Check aria-label="atual" className="size-4" />}
         </DropdownMenuItem>
       ))}
     </DropdownMenuGroup>
   )
 }
-/** "Novo espaço…": a separate ledger (its own accounts, entries and budget) for a company. */
-function NewSpaceDialog({
+/**
+ * "Novo espaço…" (no `space`) or "Editar espaço…": a name chosen freely and an
+ * icon. A space is a separate ledger (its own accounts, transactions and budget).
+ */
+function SpaceDialog({
+  space,
   open,
   onOpenChange,
 }: {
+  space?: Space
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
-  const [name, setName] = useState('')
+  const [name, setName] = useState(space?.name ?? '')
+  const [icon, setIcon] = useState<SpaceIconKey>(space?.icon ?? DEFAULT_SPACE_ICON)
   const [pending, run] = useAction()
-  const create = (event: React.FormEvent) => {
+  const submit = (event: React.FormEvent) => {
     event.preventDefault()
+    if (space === undefined) {
+      run(
+        () => createSpaceAction({ name, icon }),
+        'Espaço criado.',
+        () => {
+          setName('')
+          setIcon(DEFAULT_SPACE_ICON)
+          onOpenChange(false)
+        },
+      )
+      return
+    }
     run(
-      () => createSpaceAction({ name, kind: 'business' }),
-      'Espaço criado.',
-      () => {
-        setName('')
-        onOpenChange(false)
-      },
+      () => updateSpaceAction({ id: space.id, name, icon }),
+      'Espaço atualizado.',
+      () => onOpenChange(false),
     )
   }
+  const fieldId = space === undefined ? 'space-name' : 'space-edit-name'
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
-        <form onSubmit={create} className="grid gap-4">
+        <form onSubmit={submit} className="grid gap-4">
           <DialogHeader>
-            <DialogTitle>Novo espaço</DialogTitle>
+            <DialogTitle>{space === undefined ? 'Novo espaço' : 'Editar espaço'}</DialogTitle>
             <DialogDescription>
-              Um espaço é um controle separado, com contas, transações e orçamento próprios. Nada
-              dele se soma ao Pessoal.
+              {space === undefined
+                ? 'Um espaço é um controle separado, com contas, transações e orçamento próprios. Nada dele se soma aos outros espaços.'
+                : 'Mude o nome e o ícone. As contas, transações e o orçamento continuam os mesmos.'}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-1.5">
-            <Label htmlFor="space-name">Nome</Label>
+            <Label htmlFor={fieldId}>Nome</Label>
             <Input
-              id="space-name"
+              id={fieldId}
               value={name}
               maxLength={40}
-              placeholder="Ex.: Minha empresa"
+              placeholder="Ex.: Casa, Loja, Freela"
               onChange={(e) => setName(e.target.value)}
               required
             />
           </div>
-          <div className="grid gap-1.5">
-            <span className="text-sm font-medium">Tipo</span>
-            <span className="flex items-center gap-2 text-sm">
-              <Briefcase aria-hidden className="size-4 text-amber-600 dark:text-amber-400" />
-              {SPACE_KIND_LABELS.business}
-            </span>
-          </div>
+          <fieldset className="grid gap-1.5">
+            <legend className="mb-1.5 text-sm font-medium">Ícone</legend>
+            <div role="radiogroup" aria-label="Ícone" className="grid grid-cols-5 gap-2">
+              {SPACE_ICONS.map((key) => (
+                <Button
+                  key={key}
+                  type="button"
+                  role="radio"
+                  variant="outline"
+                  size="icon"
+                  aria-checked={icon === key}
+                  aria-label={SPACE_ICON_LABELS[key]}
+                  title={SPACE_ICON_LABELS[key]}
+                  onClick={() => setIcon(key)}
+                  className={cn(
+                    'size-10 w-full',
+                    icon === key && 'border-primary bg-primary/10 ring-primary/40 ring-2',
+                  )}
+                >
+                  <SpaceIcon icon={key} className="size-5" />
+                </Button>
+              ))}
+            </div>
+          </fieldset>
           <DialogFooter>
             <Button type="submit" disabled={pending || name.trim() === ''}>
-              Criar espaço
+              {space === undefined ? 'Criar espaço' : 'Salvar'}
             </Button>
           </DialogFooter>
         </form>

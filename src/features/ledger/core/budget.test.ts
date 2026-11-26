@@ -22,18 +22,29 @@ import { makeEntry } from './fixtures'
 import { projectMonths } from './projection'
 import type { BudgetGroup, BudgetVersion } from './types'
 
-const targets = Object.fromEntries(DEFAULT_BUDGET_GROUPS.map((p) => [p.key, p.targetBps]))
+// A six-group, 90% budget (independent of today's defaults).
+const LEGACY_GROUPS = [
+  ...DEFAULT_BUDGET_GROUPS.slice(0, 4),
+  { key: 'variable', name: 'Variável', color: 'yellow', goal: 'limit', targetBps: 800 },
+  { ...DEFAULT_BUDGET_GROUPS[4]! },
+] as const
+const targets: Record<string, number> = {
+  essential: 3300,
+  comfort: 700,
+  guilt_free: 700,
+  education: 300,
+  variable: 800,
+  investment: 3200,
+}
 
-const budgetGroups: BudgetGroup[] = DEFAULT_BUDGET_GROUPS.map(
-  ({ key, name, color, goal }, sort) => ({
-    key,
-    name,
-    color,
-    goal,
-    sort,
-    archived: false,
-  }),
-)
+const budgetGroups: BudgetGroup[] = LEGACY_GROUPS.map(({ key, name, color, goal }, sort) => ({
+  key,
+  name,
+  color,
+  goal,
+  sort,
+  archived: false,
+}))
 
 const OLD: BudgetVersion = { id: 'old', startsMonth: '2025-01', targets: { essential: 5000 } }
 const NEW: BudgetVersion = { id: 'new', startsMonth: '2026-12', targets }

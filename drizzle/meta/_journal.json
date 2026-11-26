@@ -197,6 +197,13 @@
       "when": 1795711744250,
       "tag": "0027_merchant_as_info",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1795712407089,
+      "tag": "0028_space_icon_card_status_defaults",
+      "breakpoints": true
     }
   ]
 }

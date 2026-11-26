@@ -1,6 +1,10 @@
 import { Unavailable } from '@/app/painel/_components/unavailable'
 import { requirePainelScope, todayIso } from '@/app/painel/_lib/session'
-import { loadBudgetVersions, loadLedgerData } from '@/features/ledger/adapters/views'
+import {
+  loadBudgetVersions,
+  loadConnectedBanks,
+  loadLedgerData,
+} from '@/features/ledger/adapters/views'
 import { DashboardView } from '@/features/ledger/ui/dashboard/dashboard-view'
 import { Main } from '@cbrl/design'
 import type { Metadata } from 'next'
@@ -33,15 +37,22 @@ export default async function DashboardPage({
   if (calendar.size > 0) redirect(`/painel/calendario?${calendar.toString()}`)
 
   const scope = await requirePainelScope()
-  const [data, versions] = await Promise.all([
+  const [data, versions, connected] = await Promise.all([
     loadLedgerData(scope, ALL_TIME, todayIso()),
     loadBudgetVersions(scope),
+    loadConnectedBanks(scope),
   ])
 
   return (
     <Main>
       {data.ok && versions.ok ? (
-        <DashboardView data={data.data} versions={versions.data} today={todayIso()} />
+        <DashboardView
+          data={data.data}
+          versions={versions.data}
+          today={todayIso()}
+          // Optional extra: the dashboard still renders without it.
+          connectedBanks={connected.ok ? connected.data : []}
+        />
       ) : (
         <Unavailable />
       )}

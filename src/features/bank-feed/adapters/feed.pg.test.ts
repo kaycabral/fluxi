@@ -38,6 +38,7 @@ const account: FeedAccountRow = {
   subtype: 'CHECKING_ACCOUNT',
   balanceCents: 1000,
   numberHint: '4821',
+  cardStatus: null,
 }
 const tx = (externalId: string, over: Partial<FeedTransactionRow> = {}): FeedTransactionRow => ({
   externalId,

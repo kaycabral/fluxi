@@ -32,6 +32,8 @@ export const pluggyAccountSchema = z.object({
   number: z.string().nullish(),
   balance: z.number(),
   currencyCode: z.string(),
+  /** Cards only: `ACTIVE`, `BLOCKED` or `CANCELLED` (bank accounts have no such flag). */
+  creditData: z.object({ status: z.string().nullish() }).nullish(),
 })
 export type PluggyAccount = z.infer<typeof pluggyAccountSchema>
 
@@ -106,6 +108,17 @@ export type FeedAccountRow = {
   balanceCents: number
   /** Last 4 digits of the account / card number, to tell accounts apart ("••4821"). */
   numberHint: string | null
+  /** A card's status as Pluggy reports it; null for bank accounts or when unknown. */
+  cardStatus: CardStatus | null
+}
+
+export const CARD_STATUSES = ['active', 'blocked', 'cancelled'] as const
+export type CardStatus = (typeof CARD_STATUSES)[number]
+
+/** Pluggy's `creditData.status` (`ACTIVE`/`BLOCKED`/`CANCELLED`) → the stored card status. */
+export function cardStatusOf(status: string | null | undefined): CardStatus | null {
+  const value = status?.trim().toLowerCase()
+  return CARD_STATUSES.find((s) => s === value) ?? null
 }
 
 /**
@@ -133,6 +146,7 @@ export function toFeedAccount(account: PluggyAccount, institution: string): Feed
     subtype: account.subtype,
     balanceCents: sign * toCents(account.balance),
     numberHint: numberHintOf(account.number),
+    cardStatus: account.type === 'CREDIT' ? cardStatusOf(account.creditData?.status) : null,
   }
 }
 

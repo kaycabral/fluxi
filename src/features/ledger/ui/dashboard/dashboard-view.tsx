@@ -11,6 +11,7 @@ import {
   bankBalancesOn,
   monthEndBalances,
   monthTotalsOf,
+  withConnectedBanks,
   type MonthBalance,
 } from '@/features/ledger/core/dashboard'
 import {
@@ -42,7 +43,7 @@ import {
 import { ArrowRight, TrendingDown, TrendingUp } from 'lucide-react'
 import Link from 'next/link'
 import { useMemo } from 'react'
-import { TrafficLight, useBudgetMonth } from '../budget/traffic-light'
+import { BUDGET_WINDOW, TrafficLight, useBudgetMonth } from '../budget/traffic-light'
 import { Money, toneOf } from '../money'
 import { BankAvatars } from './bank-avatars'
 import { UpcomingBills } from './upcoming-bills'
@@ -222,11 +223,14 @@ export function DashboardView({
   data,
   versions,
   today,
+  connectedBanks = [],
 }: {
   data: LedgerData
   versions: readonly BudgetVersion[]
   /** `YYYY-MM-DD` in São Paulo. */
   today: string
+  /** Institutions connected in the space with no linked account (shown at R$ 0,00). */
+  connectedBanks?: readonly string[]
 }) {
   const month = today.slice(0, 7)
   const results = useMemo(() => projectWindow(data, month, addMonths(month, 11)), [data, month])
@@ -242,7 +246,10 @@ export function DashboardView({
   const budgetGroups = visibleBudgetGroups(data.budgetGroups, [budget])
   const lights = lightSummary(budgetGroups, budget)
   const monthEndDelta = snapshot.monthEndCents - snapshot.todayCents
-  const banks = bankBalancesOn(results, today, data.accounts, data.banks)
+  const banks = withConnectedBanks(
+    bankBalancesOn(results, today, data.accounts, data.banks),
+    connectedBanks,
+  )
 
   const header = (
     <div className="flex flex-wrap items-end justify-between gap-3">
@@ -340,9 +347,8 @@ export function DashboardView({
               data={data}
               versions={versions}
               today={month}
-              span={5}
-              before={1}
-              compact
+              span={BUDGET_WINDOW.span}
+              before={BUDGET_WINDOW.before}
             />
           </CardContent>
         </Card>

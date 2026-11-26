@@ -12,6 +12,7 @@ import {
   listBudgetVersions,
   listCategories,
   listTags,
+  listUnlinkedConnectedInstitutions,
   loadLedger,
   type MonthWindow,
 } from './ledger.repo'
@@ -55,6 +56,11 @@ export function loadLedgerData(
     })
     return { ...ledger, feed: { connectedAccountIds, today } }
   })
+}
+
+/** Institutions connected in the space with no linked account ("Saldo hoje" shows them at R$ 0,00). */
+export function loadConnectedBanks(scope: Scope): Promise<BackendRead<string[]>> {
+  return readBackend('connected banks', () => listUnlinkedConnectedInstitutions(scope))
 }
 
 /** Budget versions of the user, oldest first. */

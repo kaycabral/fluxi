@@ -84,6 +84,8 @@ export const bankFeedAccounts = pgTable(
     balanceCents: cents('balance_cents').notNull(),
     /** Last 4 digits of the account / card number ("••4821"); never the full number. */
     numberHint: text('number_hint'),
+    /** A card's status from Pluggy (`active`/`blocked`/`cancelled`); null for bank accounts. */
+    cardStatus: text('card_status'),
     accountId: uuid('account_id'),
     /**
      * Who decided `account_id`: `auto` = the auto-link
@@ -112,6 +114,10 @@ export const bankFeedAccounts = pgTable(
     check(
       'bank_feed_accounts_mapping_source',
       sql`${t.mappingSource} is null or ${t.mappingSource} in ('auto', 'manual')`,
+    ),
+    check(
+      'bank_feed_accounts_card_status',
+      sql`${t.cardStatus} is null or ${t.cardStatus} in ('active', 'blocked', 'cancelled')`,
     ),
   ],
 ).enableRLS()

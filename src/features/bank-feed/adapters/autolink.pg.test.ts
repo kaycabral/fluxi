@@ -36,6 +36,7 @@ const feedAcc = (over: Partial<FeedAccountRow>): FeedAccountRow => ({
   subtype: 'CHECKING_ACCOUNT',
   balanceCents: 0,
   numberHint: null,
+  cardStatus: null,
   ...over,
 })
 

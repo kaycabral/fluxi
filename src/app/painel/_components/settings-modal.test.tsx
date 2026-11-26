@@ -43,7 +43,7 @@ const DATA: ConnectionsData = {
       feedAccounts: [],
     },
   ],
-  spaces: [{ ...PERSONAL, kind: 'personal', archived: false }],
+  spaces: [{ ...PERSONAL, kind: 'personal', icon: 'user', archived: false }],
   accounts: [],
 }
 

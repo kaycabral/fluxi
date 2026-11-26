@@ -79,10 +79,10 @@ describe('budgetGroups', () => {
       name: 'Viagens',
       color: 'sky',
       goal: 'limit',
-      sort: 6,
+      sort: 5,
       archived: false,
     })
-    await expect(listBudgetGroups(biaScope)).resolves.toHaveLength(6)
+    await expect(listBudgetGroups(biaScope)).resolves.toHaveLength(5)
   })
 
   it('renames, recolors and changes the goal; never another user’s budget group', async () => {
@@ -163,7 +163,7 @@ describe('budgetGroups', () => {
 describe('budget versions', () => {
   it('starts every user with one version holding the default targets', async () => {
     const [version] = await listBudgetVersions(anaScope)
-    expect(version?.targets.essential).toBe(3300)
+    expect(version?.targets.essential).toBe(5000)
   })
 
   it('creates a version from a month and edits its targets, within 100%', async () => {

@@ -43,10 +43,11 @@ export function syncFeedAccount(
     const [row] = await tx<{ id: string }[]>`
       insert into bank_feed_accounts
         (user_id, space_id, source, external_id, item_id, institution, name, type, subtype,
-         balance_cents, number_hint, synced_at)
+         balance_cents, number_hint, card_status, synced_at)
       values
         (${userId}, ${spaceId}, ${source}, ${account.externalId}, ${account.itemId}, ${account.institution},
          ${account.name}, ${account.type}, ${account.subtype}, ${account.balanceCents}, ${account.numberHint},
+         ${account.cardStatus},
          ${syncedAt})
       on conflict (space_id, source, external_id) do update set
         item_id = excluded.item_id,
@@ -56,6 +57,7 @@ export function syncFeedAccount(
         subtype = excluded.subtype,
         balance_cents = excluded.balance_cents,
         number_hint = excluded.number_hint,
+        card_status = excluded.card_status,
         synced_at = excluded.synced_at,
         updated_at = excluded.synced_at
       where bank_feed_accounts.user_id = excluded.user_id

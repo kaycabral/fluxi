@@ -80,12 +80,15 @@ test.describe('dashboard and budget', () => {
       `${monthLabel(next)} em diante`,
     )
 
-    const range = page.locator('p[aria-live]', { hasText: ' – ' })
-    const before = await range.textContent()
+    // Same window as the dashboard widget: previous, current and the next 3 months.
+    const light = page.getByRole('table')
+    const firstMonth = light.getByRole('columnheader').nth(1)
+    await expect(light.getByRole('columnheader')).toHaveCount(6)
+    await expect(firstMonth).toHaveText(monthLabel(addMonths(THIS_MONTH, -1)))
     await page.getByRole('button', { name: 'Mês anterior' }).click()
-    await expect(range).not.toHaveText(before ?? '')
+    await expect(firstMonth).toHaveText(monthLabel(addMonths(THIS_MONTH, -2)))
     await page.getByRole('button', { name: 'Hoje' }).click()
-    await expect(range).toHaveText(before ?? '')
+    await expect(firstMonth).toHaveText(monthLabel(addMonths(THIS_MONTH, -1)))
   })
 
   test('old calendar links on /painel still open the calendar', async ({ page }) => {

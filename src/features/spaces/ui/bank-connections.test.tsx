@@ -20,12 +20,14 @@ const PERSONAL: Space = {
   id: '00000000-0000-4000-8000-000000000001',
   name: 'Pessoal',
   kind: 'personal',
+  icon: 'user',
   archived: false,
 }
 const SHOP: Space = {
   id: '00000000-0000-4000-8000-000000000002',
   name: 'Loja',
   kind: 'business',
+  icon: 'store',
   archived: false,
 }
 
@@ -75,6 +77,44 @@ describe('BankConnections', () => {
     expect(hasMovement({ transactionCount: 0, balanceCents: 0 })).toBe(false)
     expect(hasMovement({ transactionCount: 0, balanceCents: -1 })).toBe(true)
     expect(hasMovement({ transactionCount: 2, balanceCents: 0 })).toBe(true)
+  })
+
+  it('shows each account’s latest movement and a card’s status', () => {
+    render(
+      <BankConnections
+        connections={[
+          {
+            itemId: 'i1',
+            label: 'Nubank',
+            spaceId: PERSONAL.id,
+            accounts: ['Conta', 'Cartão'],
+            transactionCount: 1,
+            feedAccounts: [
+              feedAccount({
+                id: 'f1',
+                name: 'Conta',
+                transactionCount: 1,
+                lastMovement: '2026-11-03',
+              }),
+              feedAccount({
+                id: 'f2',
+                name: 'Cartão',
+                type: 'CREDIT',
+                subtype: 'CREDIT_CARD',
+                balanceCents: 100,
+                cardStatus: 'blocked',
+                lastMovement: null,
+              }),
+            ],
+          },
+        ]}
+        spaces={[PERSONAL]}
+      />,
+    )
+    expect(screen.getByText('Último movimento: 03/11/2026')).toBeInTheDocument()
+    expect(
+      screen.getByText('Cartão bloqueado · Sem movimento nos últimos 12 meses'),
+    ).toBeInTheDocument()
   })
 
   it('lists each connection as a card with its space, without overflowing', () => {
@@ -153,7 +193,7 @@ describe('BankConnections', () => {
       />,
     )
     await userEvent.click(screen.getByRole('combobox', { name: 'Espaço de Nubank' }))
-    await userEvent.click(await screen.findByRole('option', { name: 'Loja · Empresa' }))
+    await userEvent.click(await screen.findByRole('option', { name: 'Loja' }))
     await waitFor(() =>
       expect(assignFeedItemAction).toHaveBeenCalledWith({ itemId: 'i1', spaceId: SHOP.id }),
     )
@@ -178,7 +218,7 @@ describe('BankConnections', () => {
       />,
     )
     await userEvent.click(screen.getByRole('combobox', { name: 'Espaço de Nubank' }))
-    await userEvent.click(await screen.findByRole('option', { name: 'Loja · Empresa' }))
+    await userEvent.click(await screen.findByRole('option', { name: 'Loja' }))
     const dialog = await screen.findByRole('alertdialog', { name: 'Mover “Nubank” para Loja?' })
     expect(dialog).toHaveTextContent('2 contas e 1 transação vão para o espaço Loja.')
     expect(assignFeedItemAction).not.toHaveBeenCalled()
@@ -206,7 +246,7 @@ describe('BankConnections', () => {
       />,
     )
     await userEvent.click(screen.getByRole('combobox', { name: 'Espaço de Nubank' }))
-    await userEvent.click(await screen.findByRole('option', { name: 'Loja · Empresa' }))
+    await userEvent.click(await screen.findByRole('option', { name: 'Loja' }))
     await userEvent.click(await screen.findByRole('button', { name: 'Cancelar' }))
     expect(assignFeedItemAction).not.toHaveBeenCalled()
     await userEvent.click(screen.getByRole('combobox', { name: 'Espaço de Nubank' }))

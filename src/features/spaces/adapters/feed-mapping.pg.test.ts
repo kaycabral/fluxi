@@ -58,6 +58,7 @@ beforeEach(async () => {
       subtype: 'CREDIT_CARD',
       balanceCents: 30000,
       numberHint: null,
+      cardStatus: null,
     },
     transactions: [tx('a', -10000, '2026-11-10'), tx('b', -2000, '2026-11-12')],
     coveredFrom: '2026-01-01',

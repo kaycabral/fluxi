@@ -257,7 +257,7 @@ export async function seedDemoLedger(db: FluxiDb, scope: Scope, start: Month): P
       kind: 'expense',
       description: 'Fatura do cartão',
       categoryId: cat('Cartão de crédito'),
-      budgetGroup: 'variable',
+      budgetGroup: 'essential',
       accountId: btgcc,
       amountCents: -240000,
       day: 12,

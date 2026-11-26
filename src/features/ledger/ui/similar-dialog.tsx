@@ -104,8 +104,10 @@ export function SimilarDialog({
             {count === 1 ? 'outra transação parecida' : `outras ${count} transações parecidas`}?
           </DialogTitle>
           <DialogDescription>
-            Mesma descrição de “{offer.reference.description}”. Marcamos as de valor parecido ainda
-            sem categoria.
+            {offer.reference.by === 'merchant' && offer.reference.merchantName !== null
+              ? `Mesmo estabelecimento: ${offer.reference.merchantName}.`
+              : `Mesma descrição de “${offer.reference.description}”.`}{' '}
+            Marcamos as de valor parecido ainda sem categoria.
           </DialogDescription>
         </DialogHeader>
         <ScrollArea className="max-h-72">

@@ -247,9 +247,12 @@ describe('SearchView', () => {
       { text: 'avulso' },
       {
         ...data,
-        entries: data.entries.map((e) => (e.id === IDS.once ? { ...e, fromBank: true } : e)),
+        entries: data.entries.map((e) =>
+          e.id === IDS.once ? { ...e, fromBank: true, merchantName: 'Padaria Veneza' } : e,
+        ),
       },
     )
+    expect(list()).toHaveTextContent('Padaria Veneza ·')
     const mark = within(list()).getByRole('img', { name: 'Vem do banco' })
     await userEvent.hover(mark)
     expect(await screen.findByRole('tooltip')).toHaveTextContent('Vem do banco')

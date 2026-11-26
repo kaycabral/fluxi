@@ -112,6 +112,11 @@ export type Entry = {
    * change description, category, budget group and tags. Never set by the form.
    */
   fromBank: boolean
+  /**
+   * The merchant the bank identified (bank entries only), shown as extra
+   * information next to the description, which is never replaced by it.
+   */
+  merchantName: string | null
 }
 
 export type EntryPart = {

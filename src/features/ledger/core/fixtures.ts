@@ -20,6 +20,7 @@ export function makeEntry(overrides: Partial<Entry> = {}): Entry {
     installments: null,
     endMonth: null,
     fromBank: false,
+    merchantName: null,
     ...overrides,
   }
 }

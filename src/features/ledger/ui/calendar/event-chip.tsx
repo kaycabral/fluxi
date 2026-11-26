@@ -38,6 +38,7 @@ import {
   EyeOff,
   Hash,
   Pencil,
+  Store,
   Tag,
   Trash2,
   Wallet,
@@ -108,7 +109,7 @@ export function EventChip({
         <button
           type="button"
           onClick={(e) => measureSide(e.currentTarget)}
-          title={`${title} ${signedAmount(landing)}${statusTitle === '' ? '' : ` (${statusTitle})`}${landing.entry.fromBank ? ` · ${BANK_MARK_LABEL}` : ''}`}
+          title={`${title}${landing.entry.merchantName === null ? '' : ` · ${landing.entry.merchantName}`} ${signedAmount(landing)}${statusTitle === '' ? '' : ` (${statusTitle})`}${landing.entry.fromBank ? ` · ${BANK_MARK_LABEL}` : ''}`}
           draggable={movable}
           onDragStart={(e) => {
             // Firefox only starts a drag with data set.
@@ -358,6 +359,9 @@ function detailRows(
   const classification = [category, budgetGroup].filter((part) => part !== undefined).join(' · ')
   return [
     { icon: Banknote, label: 'Valor', text: signedAmount(landing) },
+    ...(entry.merchantName === null
+      ? []
+      : [{ icon: Store, label: 'Estabelecimento', text: entry.merchantName }]),
     {
       icon: Wallet,
       label: 'Conta',

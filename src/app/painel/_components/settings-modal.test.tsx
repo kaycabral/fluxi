@@ -211,6 +211,7 @@ describe('SettingsModal', () => {
         {
           id: 'r1',
           pattern: 'atm veneza',
+          merchantKey: null,
           minCents: 800,
           maxCents: 1500,
           categoryId: 'c1',

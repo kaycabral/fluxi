@@ -59,6 +59,20 @@ const db = () => fluxiDb.db()
 export const isFromBank = sql<boolean>`exists (
   select 1 from bank_entry_links l where l.entry_id = "entries"."id"
 )`.mapWith(Boolean)
+
+/**
+ * The merchant Pluggy identified for a bank entry's transaction (a transfer's
+ * outgoing side first), null for manual entries or when the bank gave none.
+ * Extra information only: the description stays the bank's.
+ */
+export const bankMerchant = sql<string | null>`(
+  select nullif(btrim(t.merchant_name), '')
+  from bank_entry_links l
+  join bank_transactions t on t.id = l.bank_transaction_id and t.space_id = l.space_id
+  where l.entry_id = "entries"."id" and nullif(btrim(t.merchant_name), '') is not null
+  order by t.amount_cents, t.id
+  limit 1
+)`
 const monthOrNull = (value: string | null) => (value === null ? null : monthFromDate(value))
 
 export async function listBanks(scope: Scope): Promise<Bank[]> {
@@ -151,7 +165,7 @@ export async function listBudgetVersions(scope: Scope): Promise<BudgetVersion[]>
 export async function listEntries(scope: Scope, window: MonthWindow): Promise<Entry[]> {
   const lookBack = monthToDate(addMonths(window.from, -1))
   const rows = await db()
-    .select({ entry: entries, fromBank: isFromBank })
+    .select({ entry: entries, fromBank: isFromBank, merchantName: bankMerchant })
     .from(entries)
     .where(
       and(
@@ -162,7 +176,7 @@ export async function listEntries(scope: Scope, window: MonthWindow): Promise<En
       ),
     )
     .orderBy(asc(entries.startMonth), asc(entries.createdAt), asc(entries.id))
-  return rows.map(({ entry: r, fromBank }) => ({
+  return rows.map(({ entry: r, fromBank, merchantName }) => ({
     id: r.id,
     kind: r.kind,
     description: r.description,
@@ -180,6 +194,7 @@ export async function listEntries(scope: Scope, window: MonthWindow): Promise<En
     installments: r.installments,
     endMonth: monthOrNull(r.endMonth),
     fromBank,
+    merchantName,
   }))
 }
 

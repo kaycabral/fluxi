@@ -212,9 +212,12 @@ export const bankEntryLinks = pgTable(
 ).enableRLS()
 
 /**
- * "Fazer isso sozinho daqui para frente": a bank entry whose normalized
- * description is `pattern` (`descriptionKey`) and whose absolute amount lies
- * in `[min_cents, max_cents]` gets this category / budget group. Applied by the
+ * "Fazer isso sozinho daqui para frente": a bank entry that matches the
+ * rule's key and whose absolute amount lies in `[min_cents, max_cents]` gets
+ * this category / budget group. A rule has exactly one key: `merchant_key`
+ * (the bank's merchant name, normalized; recorded when the source entry had a
+ * merchant) matches entries with that merchant, `pattern` (the normalized
+ * description) matches entries by description, whatever their merchant. Applied by the
  * materialization (`private.apply_categorization_rules`) only to bank entries
  * still without category AND budget group: it never overwrites the user. Newest wins.
  */
@@ -224,7 +227,10 @@ export const categorizationRules = pgTable(
     id: uuid('id').primaryKey().defaultRandom(),
     userId: ownerId(),
     spaceId: spaceIdColumn(),
-    pattern: text('pattern').notNull(),
+    /** `descriptionKey` of the description; null on a merchant rule. */
+    pattern: text('pattern'),
+    /** `descriptionKey` of the bank's merchant name; null on a description rule. */
+    merchantKey: text('merchant_key'),
     minCents: cents('min_cents').notNull(),
     maxCents: cents('max_cents').notNull(),
     categoryId: uuid('category_id'),
@@ -245,6 +251,14 @@ export const categorizationRules = pgTable(
     }).onDelete('cascade'),
     index('categorization_rules_space_pattern_idx').on(t.spaceId, t.pattern),
     check('categorization_rules_pattern', sql`char_length(${t.pattern}) between 1 and 200`),
+    check(
+      'categorization_rules_merchant_key',
+      sql`char_length(${t.merchantKey}) between 1 and 200`,
+    ),
+    check(
+      'categorization_rules_one_key',
+      sql`(${t.pattern} is null) <> (${t.merchantKey} is null)`,
+    ),
     check('categorization_rules_range', sql`${t.minCents} >= 0 and ${t.maxCents} >= ${t.minCents}`),
     check(
       'categorization_rules_target',

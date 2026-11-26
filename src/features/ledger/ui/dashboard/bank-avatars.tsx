@@ -1,14 +1,10 @@
 'use client'
 
-import { institutionColor } from '@/features/bank-feed/core/institution'
+import { BankLogo } from '@/features/bank-feed/ui/bank-logo'
 import type { BankBalance } from '@/features/ledger/core/dashboard'
 import {
-  Avatar,
-  AvatarFallback,
   AvatarGroup,
   AvatarGroupCount,
-  cn,
-  initials,
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -20,8 +16,8 @@ import { Money } from '../money'
 export const MAX_BANK_AVATARS = 4
 
 /**
- * The banks behind "Saldo hoje": overlapping avatars (initials in the same
- * deterministic color as Conexões), "+N" past `MAX_BANK_AVATARS`; hovering or
+ * The banks behind "Saldo hoje": overlapping avatars (official logo, or initials
+ * in the same deterministic color as Conexões), "+N" past `MAX_BANK_AVATARS`; hovering or
  * focusing lists each bank's balance, highest first (`banks` comes sorted).
  */
 export function BankAvatars({ banks }: { banks: readonly BankBalance[] }) {
@@ -38,13 +34,7 @@ export function BankAvatars({ banks }: { banks: readonly BankBalance[] }) {
           >
             <AvatarGroup>
               {shown.map((bank) => (
-                <Avatar key={bank.bankId} size="sm">
-                  <AvatarFallback
-                    className={cn('text-[10px] font-medium', institutionColor(bank.name))}
-                  >
-                    {initials(bank.name)}
-                  </AvatarFallback>
-                </Avatar>
+                <BankLogo key={bank.bankId} name={bank.name} size="sm" />
               ))}
               {hidden > 0 && <AvatarGroupCount>+{hidden}</AvatarGroupCount>}
             </AvatarGroup>

@@ -1,11 +1,8 @@
 'use client'
 
-import {
-  feedAccountLabel,
-  institutionColor,
-  institutionOf,
-} from '@/features/bank-feed/core/institution'
+import { feedAccountLabel, institutionOf } from '@/features/bank-feed/core/institution'
 import { compatibleTypes, ledgerBalanceOf } from '@/features/bank-feed/core/mapping'
+import { BankLogo } from '@/features/bank-feed/ui/bank-logo'
 import { formatMoney } from '@/features/ledger/core/format'
 import { useAction } from '@/features/ledger/ui/budget/shared'
 import {
@@ -22,10 +19,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  Avatar,
-  AvatarFallback,
   Button,
-  initials,
   Select,
   SelectContent,
   SelectItem,
@@ -259,9 +253,7 @@ function ConnectionCard({
   return (
     <div className="grid min-w-0 gap-3">
       <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
-        <Avatar className="shrink-0">
-          <AvatarFallback className={institutionColor(name)}>{initials(name)}</AvatarFallback>
-        </Avatar>
+        <BankLogo name={name} className="shrink-0" />
         <div className="min-w-0 flex-1">
           <p className="truncate font-medium">{name}</p>
           <p className="text-muted-foreground truncate text-xs">{summary}</p>

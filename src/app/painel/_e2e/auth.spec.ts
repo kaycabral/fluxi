@@ -26,13 +26,20 @@ test.describe('signed in', () => {
     await expect(menu).toContainText(user.email)
     await expect(menu.getByRole('menuitem', { name: 'Sair' })).toBeVisible()
     await menu.getByRole('menuitem', { name: 'Configurações' }).click()
-    await expect(page).toHaveURL(/\/painel\/configuracoes$/)
-    await expect(page.getByRole('heading', { level: 1, name: 'Configurações' })).toBeVisible()
-    await expect(page.getByRole('region', { name: 'Conexões' })).toBeVisible()
+    await expect(page).toHaveURL(/\/painel#configuracoes\/conexoes$/)
+    const settings = page.getByRole('dialog', { name: 'Conexões' })
+    await expect(settings).toBeVisible()
+    await expect(settings).toContainText('Nenhuma conexão ainda.')
+    await page.keyboard.press('Escape')
+    await expect(settings).toBeHidden()
+    await expect(page).toHaveURL(/\/painel$/)
 
-    // The old address still lands on the settings.
-    await page.goto('/painel/conexoes')
-    await expect(page).toHaveURL(/\/painel\/configuracoes/)
+    // The settings and the old connections addresses open the painel with the modal.
+    for (const address of ['/painel/configuracoes', '/painel/conexoes']) {
+      await page.goto(address)
+      await expect(page).toHaveURL(/\/painel#configuracoes\/conexoes$/)
+      await expect(page.getByRole('dialog', { name: 'Conexões' })).toBeVisible()
+    }
   })
 
   test('/ sends a signed-in user to /painel', async ({ page }) => {

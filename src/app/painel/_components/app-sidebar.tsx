@@ -1,12 +1,9 @@
 'use client'
 
+import { BrandLink } from '@/components/brand-link'
 import { useLedgerUi } from '@/features/ledger/ui/ledger-shell'
 import type { Space } from '@/features/spaces/core/space'
-import {
-  SpaceAccountMenu,
-  SpaceBadge,
-  type MenuAccount,
-} from '@/features/spaces/ui/space-account-menu'
+import { SpaceAccountMenu, type MenuAccount } from '@/features/spaces/ui/space-account-menu'
 import { useSignOut } from '@/hooks/use-sign-out'
 import { writeBrowserCookie } from '@/lib/browser-cookie'
 import {
@@ -16,6 +13,7 @@ import {
   isNavItemActive,
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarHeader,
@@ -43,6 +41,7 @@ import {
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
+import { settingsHash, SettingsModal } from './settings-modal'
 import { SIDEBAR_COOKIE } from './sidebar-state'
 
 /** Pages that put "Criar" beside their title instead of the header. */
@@ -57,13 +56,14 @@ const NAV: NavItem[] = [
 
 /**
  * Chrome of the new layout, composed from the `@cbrl/design` sidebar
- * primitives: on top of the sidebar, one menu (Notion-like) whose trigger is
- * the current space and that holds the account, the spaces and the account
- * actions ("Configurações", the MVP screens outside production, "Sair"); the
- * pages (dashboard, calendar, entries, budget) below; the current space and
- * "Criar" in the header. On desktop the sidebar collapses only by its rail
- * (the edge) or Ctrl/⌘+B — no header button; on mobile, where the sidebar is
- * off-canvas, the header keeps the trigger that opens it.
+ * primitives in Oilio's arrangement: the brand on top, the pages (dashboard,
+ * calendar, entries, budget) below it and, at the bottom, one menu whose
+ * trigger is the current space and that holds the account, the spaces and the
+ * account actions ("Configurações" opens the settings modal, the MVP screens
+ * outside production, "Sair"). The header only has "Criar". On desktop the
+ * sidebar collapses only by its rail (the edge) or Ctrl/⌘+B — no header
+ * button; on mobile, where the sidebar is off-canvas, the header keeps the
+ * trigger that opens it.
  */
 export function AppSidebar({
   legacyScreens,
@@ -96,14 +96,25 @@ export function AppSidebar({
       <SidebarProvider open={open} onOpenChange={changeOpen}>
         <Sidebar collapsible="icon">
           <SidebarHeader>
+            <div className="flex items-center gap-2 px-2 py-1.5">
+              <BrandLink href="/painel" className="text-base font-bold tracking-tight">
+                <span className="group-data-[collapsible=icon]:hidden">Fluxi</span>
+                <span className="hidden group-data-[collapsible=icon]:inline">F</span>
+              </BrandLink>
+            </div>
+          </SidebarHeader>
+          <SidebarContent>
+            <Nav pathname={pathname} />
+          </SidebarContent>
+          <SidebarFooter>
             <SidebarMenu>
               <SidebarMenuItem>
                 <SpaceAccountMenu account={account} spaces={spaces}>
                   <DropdownMenuItem asChild>
-                    <Link href="/painel/configuracoes">
+                    <a href={settingsHash('conexoes')}>
                       <Settings aria-hidden />
                       Configurações
-                    </Link>
+                    </a>
                   </DropdownMenuItem>
                   {legacyScreens && (
                     <DropdownMenuItem asChild>
@@ -121,16 +132,12 @@ export function AppSidebar({
                 </SpaceAccountMenu>
               </SidebarMenuItem>
             </SidebarMenu>
-          </SidebarHeader>
-          <SidebarContent>
-            <Nav pathname={pathname} />
-          </SidebarContent>
+          </SidebarFooter>
           <SidebarRail />
         </Sidebar>
         <SidebarInset>
           <header className="border-border bg-card/60 z-30 flex h-14 shrink-0 items-center gap-3 border-b px-4 backdrop-blur md:px-6">
             <SidebarTrigger className="md:hidden" aria-label="Abrir menu" />
-            {spaces !== null && <SpaceBadge space={spaces.current} />}
             <div className="ml-auto flex items-center gap-2">
               {/* Pages with their own "Criar" beside the title leave the header empty. */}
               {!OWN_CREATE_BUTTON.has(pathname) && (
@@ -143,6 +150,7 @@ export function AppSidebar({
           <div data-slot="app-scroll" className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
             {children}
           </div>
+          <SettingsModal />
         </SidebarInset>
       </SidebarProvider>
     </TooltipProvider>

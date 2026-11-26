@@ -60,30 +60,13 @@ export function SpaceIcon({ space, className }: { space: Space; className?: stri
   )
 }
 
-/** The current space, always in the header so the user never confuses where they are. */
-export function SpaceBadge({ space }: { space: Space }) {
-  return (
-    <span
-      className="flex min-w-0 items-center gap-1.5 text-sm font-medium"
-      aria-label={`Espaço atual: ${space.name}`}
-    >
-      <SpaceIcon space={space} />
-      <span className="truncate">{space.name}</span>
-      {space.kind === 'business' && (
-        <Badge variant="outline" className="border-amber-500/50 text-amber-700 dark:text-amber-300">
-          {SPACE_KIND_LABELS.business}
-        </Badge>
-      )}
-    </span>
-  )
-}
-
 /** Who is signed in, as the account menu shows it. */
 export type MenuAccount = { name: string | null; email: string | null; avatarUrl: string | null }
 
 /**
- * The one menu at the top-left of the sidebar (Notion-like): the trigger is
- * the current space; the menu shows the account (avatar, name, e-mail), the
+ * The one menu at the bottom of the sidebar (Oilio's user-menu placement, opening
+ * upward): the trigger is the current space (icon, name, "Empresa" badge) over
+ * who is signed in; the menu shows the account (avatar, name, e-mail), the
  * user's spaces (switch, "Novo espaço…", archive the current business one)
  * and then the account actions passed as `children` (settings, sign-out).
  * Without `spaces` (backend unavailable) only the account part is shown.
@@ -127,15 +110,28 @@ export function SpaceAccountMenu({
               </span>
             )}
             <span className="flex min-w-0 flex-1 flex-col text-left">
-              <span className="truncate text-sm font-semibold">{current?.name ?? 'Fluxi'}</span>
+              <span className="flex min-w-0 items-center gap-1.5">
+                <span className="truncate text-sm font-medium">{current?.name ?? 'Conta'}</span>
+                {current?.kind === 'business' && (
+                  <Badge
+                    variant="outline"
+                    className="border-amber-500/50 px-1.5 py-0 text-[10px] text-amber-700 dark:text-amber-300"
+                  >
+                    {SPACE_KIND_LABELS.business}
+                  </Badge>
+                )}
+              </span>
               <span className="text-muted-foreground truncate text-xs">
-                {current === null ? (account.name ?? 'Conta') : SPACE_KIND_LABELS[current.kind]}
+                {account.name ?? account.email ?? 'Fluxi'}
               </span>
             </span>
             <ChevronsUpDown aria-hidden className="text-muted-foreground ml-auto size-4" />
           </SidebarMenuButton>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-64">
+        <DropdownMenuContent
+          align="start"
+          className="w-(--radix-dropdown-menu-trigger-width) min-w-64"
+        >
           <DropdownMenuLabel className="flex items-center gap-2 font-normal">
             <AccountAvatar account={account} />
             <span className="flex min-w-0 flex-col gap-0.5">

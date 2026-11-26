@@ -25,7 +25,9 @@ test.describe('spaces (Pessoal × Empresa)', () => {
 
   test('an entry created in a business space never shows in Pessoal', async ({ page, user }) => {
     await page.goto('/painel/lancamentos')
-    await expect(page.getByLabel('Espaço atual: Pessoal')).toBeVisible()
+    await expect(
+      page.getByRole('button', { name: 'Espaço: Pessoal. Trocar de espaço e abrir a conta' }),
+    ).toBeVisible()
 
     // "Novo espaço…" creates the space and switches to it.
     await page
@@ -36,8 +38,12 @@ test.describe('spaces (Pessoal × Empresa)', () => {
     await dialog.getByLabel('Nome').fill(SPACE)
     await dialog.getByRole('button', { name: 'Criar espaço' }).click()
     await expect(dialog).toBeHidden()
-    await expect(page.getByLabel(`Espaço atual: ${SPACE}`)).toBeVisible()
-    await expect(page.getByLabel(`Espaço atual: ${SPACE}`)).toContainText('Empresa')
+    await expect(
+      page.getByRole('button', { name: `Espaço: ${SPACE}. Trocar de espaço e abrir a conta` }),
+    ).toBeVisible()
+    await expect(
+      page.getByRole('button', { name: `Espaço: ${SPACE}. Trocar de espaço e abrir a conta` }),
+    ).toContainText('Empresa')
 
     // The new space starts empty: give it an account of its own.
     const space = firstRow(
@@ -62,7 +68,9 @@ test.describe('spaces (Pessoal × Empresa)', () => {
       .insert(accounts)
       .values({ ...owner, bankId: bank.id, name: 'Conta PJ', type: 'checking' })
     await page.reload()
-    await expect(page.getByLabel(`Espaço atual: ${SPACE}`)).toBeVisible()
+    await expect(
+      page.getByRole('button', { name: `Espaço: ${SPACE}. Trocar de espaço e abrir a conta` }),
+    ).toBeVisible()
 
     await page.keyboard.press('n')
     const sheet = page.getByRole('dialog', { name: 'Novo lançamento' })
@@ -79,7 +87,9 @@ test.describe('spaces (Pessoal × Empresa)', () => {
       .getByRole('button', { name: `Espaço: ${SPACE}. Trocar de espaço e abrir a conta` })
       .click()
     await page.getByRole('menuitem', { name: /Pessoal/ }).click()
-    await expect(page.getByLabel('Espaço atual: Pessoal')).toBeVisible()
+    await expect(
+      page.getByRole('button', { name: 'Espaço: Pessoal. Trocar de espaço e abrir a conta' }),
+    ).toBeVisible()
     await expect(page.getByText('Nota fiscal E2E')).toHaveCount(0)
     await page.keyboard.press('n')
     const personal = page.getByRole('dialog', { name: 'Novo lançamento' })

@@ -4,7 +4,7 @@ import { DropdownMenuItem, SidebarProvider } from '@cbrl/design'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { SpaceAccountMenu, SpaceBadge } from './space-account-menu'
+import { SpaceAccountMenu } from './space-account-menu'
 
 const actions = {
   switchSpaceAction: vi.fn<(input: unknown) => Promise<ActionResult>>(),
@@ -60,16 +60,28 @@ async function openMenu(current: Space) {
   )
 }
 
-describe('SpaceBadge', () => {
-  it('marks a business space clearly', () => {
-    const { rerender } = render(<SpaceBadge space={SHOP} />)
-    expect(screen.getByLabelText('Espaço atual: Loja')).toHaveTextContent('LojaEmpresa')
-    rerender(<SpaceBadge space={PERSONAL} />)
-    expect(screen.getByLabelText('Espaço atual: Pessoal')).toHaveTextContent(/^Pessoal$/)
-  })
-})
-
 describe('SpaceAccountMenu', () => {
+  it('falls back to the product name for an anonymous account', () => {
+    render(
+      <SidebarProvider>
+        <SpaceAccountMenu
+          account={{ name: null, email: null, avatarUrl: 'https://a/p.png' }}
+          spaces={null}
+        >
+          <DropdownMenuItem>Sair</DropdownMenuItem>
+        </SpaceAccountMenu>
+      </SidebarProvider>,
+    )
+    expect(screen.getByRole('button', { name: 'Conta' })).toHaveTextContent('ContaFluxi')
+  })
+
+  it('makes the current space unmistakable on the trigger', async () => {
+    await openMenu(SHOP)
+    expect(
+      screen.getByRole('button', { name: 'Espaço: Loja. Trocar de espaço e abrir a conta' }),
+    ).toHaveTextContent('LojaEmpresaana@example.test')
+  })
+
   it('lists the active spaces, personal first, and switches to another one', async () => {
     actions.switchSpaceAction.mockResolvedValue({ ok: true })
     await openMenu(PERSONAL)
@@ -124,7 +136,7 @@ describe('SpaceAccountMenu', () => {
       </SidebarProvider>,
     )
     const trigger = screen.getByRole('button', { name: 'Conta' })
-    expect(trigger).toHaveTextContent('FluxiAna Souza')
+    expect(trigger).toHaveTextContent('ContaAna Souza')
     await userEvent.click(trigger)
     const menu = await screen.findByRole('menu')
     expect(menu).toHaveTextContent('Ana Souzaana@example.test')

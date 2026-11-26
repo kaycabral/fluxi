@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import CalendarPage from './(app)/calendario/page'
 import ConnectionsRedirect from './(app)/conexoes/page'
-import SettingsPage from './(app)/configuracoes/page'
+import SettingsRedirect from './(app)/configuracoes/page'
 import SearchPage from './(app)/lancamentos/page'
 import AppLayout from './(app)/layout'
 import BudgetPage from './(app)/orcamento/page'
@@ -194,28 +194,14 @@ describe('painel pages', () => {
     expect(views.loadAccountBalances).toHaveBeenCalledWith(SCOPE, '2026-11', '2027-11')
   })
 
-  it('settings list the user’s connections with the spaces to route them to', async () => {
-    listFeedItems.mockResolvedValueOnce([
-      { itemId: 'i1', label: 'Nubank', spaceId: 's1', accounts: ['Conta'], transactionCount: 2 },
-    ])
-    render(await SettingsPage())
-    expect(screen.getByRole('heading', { level: 1, name: 'Configurações' })).toBeInTheDocument()
-    expect(screen.getByRole('region', { name: 'Conexões' })).toBeInTheDocument()
-    expect(screen.getByRole('combobox', { name: 'Espaço de Nubank' })).toHaveTextContent('Pessoal')
-  })
-
-  it('settings degrade when the backend is unavailable', async () => {
-    listFeedItems.mockRejectedValueOnce(new Error('db down'))
-    render(await SettingsPage())
-    expect(screen.getByRole('button', { name: 'Tentar de novo' })).toBeInTheDocument()
-  })
-
-  it('the old connections page leads to the settings', () => {
+  it('the settings and the old connections addresses open the settings modal', () => {
     redirect.mockImplementation(() => {
       throw new Error('redirected')
     })
+    expect(() => SettingsRedirect()).toThrow('redirected')
+    expect(redirect).toHaveBeenLastCalledWith('/painel#configuracoes/conexoes')
     expect(() => ConnectionsRedirect()).toThrow('redirected')
-    expect(redirect).toHaveBeenLastCalledWith('/painel/configuracoes#conexoes')
+    expect(redirect).toHaveBeenLastCalledWith('/painel#configuracoes/conexoes')
   })
 
   it('budget loads the whole ledger and the budget versions', async () => {

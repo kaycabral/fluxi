@@ -28,6 +28,8 @@ vi.mock('@/features/spaces/adapters/actions/spaces', () => ({
   switchSpaceAction: vi.fn(),
   createSpaceAction: vi.fn(),
   archiveSpaceAction: vi.fn(),
+  assignFeedItemAction: vi.fn(),
+  loadConnectionsAction: () => Promise.resolve({ ok: true, data: { connections: [], spaces: [] } }),
 }))
 
 const PERSONAL = { id: 's1', name: 'Pessoal', kind: 'personal', archived: false } as const
@@ -83,28 +85,37 @@ describe('AppSidebar', () => {
     ).toEqual(['Pessoal', 'LojaEmpresa', 'Novo espaço…', 'Configurações', 'Telas antigas', 'Sair'])
     expect(within(menu).getByRole('menuitem', { name: 'Configurações' })).toHaveAttribute(
       'href',
-      '/painel/configuracoes',
+      '#configuracoes/conexoes',
     )
     expect(within(menu).getByRole('menuitem', { name: 'Telas antigas' })).toHaveAttribute(
       'href',
       '/painel/linha-do-tempo',
     )
-    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Sair' }))
+    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Configurações' }))
+    expect(await screen.findByRole('dialog', { name: 'Conexões' })).toHaveTextContent(
+      'Nenhuma conexão ainda.',
+    )
+    window.history.replaceState(null, '', '/painel')
+    await userEvent.keyboard('{Escape}')
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Espaço: Pessoal. Trocar de espaço e abrir a conta' }),
+    )
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Sair' }))
     expect(signOut).toHaveBeenCalledOnce()
   })
 
-  it('shows the current space in the header and as the menu trigger', () => {
+  it('puts the brand on top and the space menu at the bottom, never in the header', () => {
     renderSidebar(true, true, WORK)
-    const badge = screen.getByLabelText('Espaço atual: Loja')
-    expect(within(badge).getByText('Empresa')).toBeInTheDocument()
-    expect(
-      screen.getByRole('button', { name: 'Espaço: Loja. Trocar de espaço e abrir a conta' }),
-    ).toHaveTextContent('LojaEmpresa')
+    expect(screen.getByRole('link', { name: /Fluxi/ })).toHaveAttribute('href', '/painel')
+    const trigger = screen.getByRole('button', {
+      name: 'Espaço: Loja. Trocar de espaço e abrir a conta',
+    })
+    expect(trigger).toHaveTextContent('LojaEmpresaAna Souza')
+    expect(screen.getByRole('banner')).not.toHaveTextContent('Loja')
   })
 
   it('keeps the account menu when the spaces could not be read', async () => {
     renderSidebar(true, true, null)
-    expect(screen.queryByLabelText(/Espaço atual/)).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Conta' }))
     const menu = await screen.findByRole('menu')
     expect(

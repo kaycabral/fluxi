@@ -7,7 +7,6 @@ import { isMovable } from '@/features/ledger/core/calendar'
 import { deleteMonthOf } from '@/features/ledger/core/entry-form'
 import {
   dayLongLabel,
-  formatAmount,
   formatMoney,
   formatSignedMoney,
   isoDate,
@@ -29,6 +28,7 @@ import {
 } from '@/features/ledger/core/payments'
 import type { BudgetGroup } from '@/features/ledger/core/types'
 import { installmentLabel, targetFor, type LedgerData } from '@/features/ledger/core/view'
+import { formatAmountFromCents } from '@cbrl/br/money'
 import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@cbrl/design'
 import {
   Banknote,
@@ -101,7 +101,7 @@ export function EventChip({
   const statusTitle = skipped ? 'ignorado' : STATUS_TITLES[status](landing.amountCents)
   const title = landingTitle(landing)
   const movable = !skipped && isMovable(landing)
-  const amount = formatAmount(chipCents(landing))
+  const amount = formatAmountFromCents(chipCents(landing))
 
   return (
     <Popover open={open} onOpenChange={setOpen}>

@@ -7,8 +7,9 @@ import {
   shiftDate,
   weekdayOf,
 } from '@/features/ledger/core/calendar-views'
-import { dayLongLabel, formatAmount } from '@/features/ledger/core/format'
+import { dayLongLabel } from '@/features/ledger/core/format'
 import { paymentFor } from '@/features/ledger/core/payments'
+import { formatAmountFromCents } from '@cbrl/br/money'
 import { cn, Popover, PopoverContent, PopoverTrigger } from '@cbrl/design'
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
@@ -238,7 +239,7 @@ function MonthDay({
             negative && 'text-destructive font-medium',
           )}
         >
-          {cell.endBalanceCents === null ? '' : formatAmount(cell.endBalanceCents)}
+          {cell.endBalanceCents === null ? '' : formatAmountFromCents(cell.endBalanceCents)}
         </span>
       </div>
       {/* Above the button; only the chips take clicks. */}

@@ -16,10 +16,11 @@ import {
   type BudgetMonth,
   type Targets,
 } from '@/features/ledger/core/budget'
-import { formatAmount, formatMoney, formatPercent, monthLabel } from '@/features/ledger/core/format'
+import { formatMoney, formatPercent, monthLabel } from '@/features/ledger/core/format'
 import { GROUP_DOT_CLASSES } from '@/features/ledger/core/labels'
 import type { Month } from '@/features/ledger/core/month'
 import type { BudgetGroup, BudgetVersion } from '@/features/ledger/core/types'
+import { formatAmountFromCents } from '@cbrl/br/money'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -280,8 +281,8 @@ function VersionEditor({
                   title={`${budgetGroup.goal === 'minimum' ? 'Guardar ao menos' : 'Até'} ${formatMoney(Math.round((income * bps) / 10000))}; planejado em ${monthLabel(current.month)}: ${formatMoney(cell.plannedCents)}`}
                 >
                   {budgetGroup.goal === 'minimum' ? 'guardar ao menos' : 'até'}{' '}
-                  {formatAmount(Math.round((income * bps) / 10000))} · planejado em{' '}
-                  {monthLabel(current.month)} {formatAmount(cell.plannedCents)} (
+                  {formatAmountFromCents(Math.round((income * bps) / 10000))} · planejado em{' '}
+                  {monthLabel(current.month)} {formatAmountFromCents(cell.plannedCents)} (
                   {formatPercent(cell.ratio)}) · até{' '}
                   {formatPercent(maxBpsFor(targets, budgetGroup.key) / 10000)}
                 </p>

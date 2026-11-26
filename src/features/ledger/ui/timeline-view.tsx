@@ -1,10 +1,11 @@
 'use client'
 
-import { formatAmount, monthLabel } from '@/features/ledger/core/format'
+import { monthLabel } from '@/features/ledger/core/format'
 import { ACCOUNT_TYPE_LABELS } from '@/features/ledger/core/labels'
 import type { Month } from '@/features/ledger/core/month'
 import { sumBalances } from '@/features/ledger/core/timeline'
 import { projectWindow, type LedgerData } from '@/features/ledger/core/view'
+import { formatAmountFromCents } from '@cbrl/br/money'
 import {
   Badge,
   Button,
@@ -33,7 +34,7 @@ const firstColClass = 'bg-card sticky left-0 z-10 px-2 py-1.5 text-left whitespa
 function ValueCell({ cents, tone = false }: { cents: number; tone?: boolean }) {
   return (
     <td className={cn(cellClass, tone && cents < 0 && 'text-destructive')}>
-      {formatAmount(cents)}
+      {formatAmountFromCents(cents)}
     </td>
   )
 }

@@ -1,8 +1,9 @@
 'use client'
 
 import { cellOf, columnDays, isWeekend, weekdayOf } from '@/features/ledger/core/calendar-views'
-import { dayLongLabel, formatAmount } from '@/features/ledger/core/format'
+import { dayLongLabel } from '@/features/ledger/core/format'
 import { paymentFor } from '@/features/ledger/core/payments'
+import { formatAmountFromCents } from '@cbrl/br/money'
 import { cn, Popover, PopoverContent, PopoverTrigger } from '@cbrl/design'
 import { Popover as PopoverPrimitive } from 'radix-ui'
 import { useRef, useState, type PointerEvent } from 'react'
@@ -68,7 +69,7 @@ function ColumnHeader({ date }: { date: string }) {
           negative && 'text-destructive font-medium',
         )}
       >
-        {cell.endBalanceCents === null ? '' : formatAmount(cell.endBalanceCents)}
+        {cell.endBalanceCents === null ? '' : formatAmountFromCents(cell.endBalanceCents)}
       </span>
     </div>
   )

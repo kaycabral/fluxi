@@ -1,14 +1,9 @@
 import { fluxiDb } from '@/db'
 import { accounts, banks, entries } from '@/db/schema'
-import {
-  formatAmount,
-  isoDayOf,
-  monthLabel,
-  monthOf,
-  parseMoneyInput,
-} from '@/features/ledger/core/format'
+import { isoDayOf, monthLabel, monthOf } from '@/features/ledger/core/format'
 import { addMonths, diffMonths, monthToDate } from '@/features/ledger/core/month'
 import type { Scope } from '@/features/spaces/core/space'
+import { formatAmountFromCents, parseBRLInput } from '@cbrl/br/money'
 import { expect, test } from '@e2e/fixtures'
 import type { Page } from '@playwright/test'
 
@@ -161,7 +156,7 @@ test.describe('ledger critical flow', () => {
     const day = page.getByRole('group').filter({ has: create })
     // The end-of-day balance: the first money-only text of the day (before the chips' amounts).
     const balance = day.getByText(/^-?\d{1,3}(\.\d{3})*,\d{2}$/).first()
-    const before = parseMoneyInput((await balance.textContent()) ?? '')
+    const before = parseBRLInput((await balance.textContent()) ?? '')
     await create.click()
     const form = page.getByRole('form', { name: 'Criar transação' })
     await expect(form.getByLabel('Descrição')).toBeFocused()
@@ -173,7 +168,7 @@ test.describe('ledger critical flow', () => {
     // The entry lands on that day and lowers the day's end balance by 42,90.
     const chip = day.getByRole('button', { name: /42,90 Padaria E2E/ })
     await expect(chip).toBeVisible()
-    await expect(balance).toHaveText(formatAmount((before ?? 0) - 4290))
+    await expect(balance).toHaveText(formatAmountFromCents((before ?? 0) - 4290))
 
     // Its popup, like a Google Calendar event: details and "Marcar como pago".
     await chip.click()

@@ -152,7 +152,11 @@ function EditablePayButton({ landing }: { landing: Landing }) {
               </Button>
             </DropdownMenuTrigger>
           </PopoverTrigger>
-          <DropdownMenuContent align="end" onCloseAutoFocus={(e) => open && e.preventDefault()}>
+          <DropdownMenuContent
+            align="end"
+            className="w-max"
+            onCloseAutoFocus={(e) => open && e.preventDefault()}
+          >
             <DropdownMenuItem onSelect={() => setOpen(true)}>
               <CalendarDays /> {label} em outra data…
             </DropdownMenuItem>

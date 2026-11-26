@@ -62,6 +62,7 @@ function ConnectionsSection({ loaded, reload }: { loaded: Loaded; reload: () => 
     <BankConnections
       connections={loaded.data.connections}
       spaces={loaded.data.spaces}
+      accounts={loaded.data.accounts}
       onChanged={reload}
     />
   )

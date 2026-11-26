@@ -17,9 +17,17 @@ vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 const PERSONAL = { id: '00000000-0000-4000-8000-000000000001', name: 'Pessoal' } as const
 const DATA: ConnectionsData = {
   connections: [
-    { itemId: 'i1', label: 'Nubank', spaceId: PERSONAL.id, accounts: [], transactionCount: 0 },
+    {
+      itemId: 'i1',
+      label: 'Nubank',
+      spaceId: PERSONAL.id,
+      accounts: [],
+      transactionCount: 0,
+      feedAccounts: [],
+    },
   ],
   spaces: [{ ...PERSONAL, kind: 'personal', archived: false }],
+  accounts: [],
 }
 
 function openAt(hash: string) {

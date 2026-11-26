@@ -34,8 +34,8 @@ import {
 /**
  * A bank connection (Pluggy item) of the user and the space its data goes to.
  * The sync records every configured item here; while `space_id` is null the
- * item is "unassigned" and nothing of it is stored. Assigning an item only
- * routes future syncs: no data moves between spaces.
+ * item is "unassigned" and nothing of it is stored. Assigning it to another
+ * space moves what was already synced along (`assignFeedItem`).
  */
 export const bankFeedItems = pgTable(
   'bank_feed_items',

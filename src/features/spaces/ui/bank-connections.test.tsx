@@ -32,22 +32,28 @@ afterEach(() => vi.resetAllMocks())
 describe('BankConnections', () => {
   it('says when there is no connection yet', () => {
     render(<BankConnections connections={[]} spaces={[PERSONAL]} />)
-    expect(screen.getByText('Nenhuma conexão bancária ainda.')).toBeInTheDocument()
+    expect(screen.getByText('Nenhuma conexão ainda.')).toBeInTheDocument()
   })
 
   it('lists each connection with its accounts and the space it syncs into', () => {
     render(
       <BankConnections
         connections={[
-          { itemId: 'i1', label: 'Nubank', spaceId: PERSONAL.id, accounts: ['Conta', 'Cartão'] },
-          { itemId: 'i2', label: null, spaceId: null, accounts: [] },
+          {
+            itemId: 'i1',
+            label: 'Nubank',
+            spaceId: PERSONAL.id,
+            accounts: ['Conta', 'Cartão'],
+            transactionCount: 3,
+          },
+          { itemId: 'i2', label: null, spaceId: null, accounts: [], transactionCount: 0 },
         ]}
         spaces={[PERSONAL, SHOP]}
       />,
     )
-    const [first, second] = within(
-      screen.getByRole('list', { name: 'Conexões bancárias' }),
-    ).getAllByRole('listitem')
+    const [first, second] = within(screen.getByRole('list', { name: 'Conexões' })).getAllByRole(
+      'listitem',
+    )
     expect(first).toHaveTextContent('Nubank')
     expect(first).toHaveTextContent('Conta, Cartão')
     expect(within(first!).getByRole('combobox', { name: 'Espaço de Nubank' })).toHaveTextContent(
@@ -62,7 +68,9 @@ describe('BankConnections', () => {
     assignFeedItemAction.mockResolvedValue({ ok: true })
     render(
       <BankConnections
-        connections={[{ itemId: 'i1', label: 'Nubank', spaceId: null, accounts: [] }]}
+        connections={[
+          { itemId: 'i1', label: 'Nubank', spaceId: null, accounts: [], transactionCount: 0 },
+        ]}
         spaces={[PERSONAL, SHOP]}
       />,
     )
@@ -72,5 +80,61 @@ describe('BankConnections', () => {
       expect(assignFeedItemAction).toHaveBeenCalledWith({ itemId: 'i1', spaceId: SHOP.id }),
     )
     expect(toast.success).toHaveBeenCalledWith('Espaço da conexão atualizado.')
+  })
+
+  it('asks before moving a connection with data, saying how much moves', async () => {
+    assignFeedItemAction.mockResolvedValue({ ok: true })
+    render(
+      <BankConnections
+        connections={[
+          {
+            itemId: 'i1',
+            label: 'Nubank',
+            spaceId: PERSONAL.id,
+            accounts: ['Conta', 'Cartão'],
+            transactionCount: 1,
+          },
+        ]}
+        spaces={[PERSONAL, SHOP]}
+      />,
+    )
+    await userEvent.click(screen.getByRole('combobox', { name: 'Espaço de Nubank' }))
+    await userEvent.click(await screen.findByRole('option', { name: 'Loja · Empresa' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Mover “Nubank” para Loja?' })
+    expect(dialog).toHaveTextContent('2 contas e 1 transação vão para o espaço Loja.')
+    expect(assignFeedItemAction).not.toHaveBeenCalled()
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Mover' }))
+    await waitFor(() =>
+      expect(assignFeedItemAction).toHaveBeenCalledWith({ itemId: 'i1', spaceId: SHOP.id }),
+    )
+  })
+
+  it('cancels a move and pauses without asking', async () => {
+    assignFeedItemAction.mockResolvedValue({ ok: true })
+    render(
+      <BankConnections
+        connections={[
+          {
+            itemId: 'i1',
+            label: 'Nubank',
+            spaceId: PERSONAL.id,
+            accounts: ['C'],
+            transactionCount: 0,
+          },
+        ]}
+        spaces={[PERSONAL, SHOP]}
+      />,
+    )
+    await userEvent.click(screen.getByRole('combobox', { name: 'Espaço de Nubank' }))
+    await userEvent.click(await screen.findByRole('option', { name: 'Loja · Empresa' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Cancelar' }))
+    expect(assignFeedItemAction).not.toHaveBeenCalled()
+    await userEvent.click(screen.getByRole('combobox', { name: 'Espaço de Nubank' }))
+    await userEvent.click(
+      await screen.findByRole('option', { name: 'Sem espaço (não sincroniza)' }),
+    )
+    await waitFor(() =>
+      expect(assignFeedItemAction).toHaveBeenCalledWith({ itemId: 'i1', spaceId: null }),
+    )
   })
 })

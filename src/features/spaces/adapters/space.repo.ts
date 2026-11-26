@@ -2,7 +2,7 @@ import 'server-only'
 
 import { personalScope } from '@/db/queries/spaces'
 import { spaces } from '@/db/schema'
-import { bankFeedAccounts, bankFeedItems } from '@/db/schema-bank-feed'
+import { bankFeedAccounts, bankFeedItems, bankTransactions } from '@/db/schema-bank-feed'
 import {
   pickActiveSpace,
   type CreateSpaceInput,
@@ -10,7 +10,7 @@ import {
   type Space,
 } from '@/features/spaces/core/space'
 import { fluxiDb } from '@/lib/db'
-import { and, asc, eq, isNull, ne, sql } from 'drizzle-orm'
+import { and, asc, count, eq, isNull, ne, sql } from 'drizzle-orm'
 
 /**
  * The user's spaces and bank connections. Every query is scoped by the
@@ -91,11 +91,13 @@ export type FeedItem = {
   spaceId: string | null
   /** Names of the feed accounts synced from this connection (any space). */
   accounts: string[]
+  /** Transactions stored for this connection (any space): what a move carries along. */
+  transactionCount: number
 }
 
-/** The user's bank connections with the accounts seen on each. */
+/** The user's bank connections with the accounts and transactions stored for each. */
 export async function listFeedItems(userId: string): Promise<FeedItem[]> {
-  const [items, accounts] = await Promise.all([
+  const [items, accounts, counts] = await Promise.all([
     db()
       .select()
       .from(bankFeedItems)
@@ -106,37 +108,143 @@ export async function listFeedItems(userId: string): Promise<FeedItem[]> {
       .from(bankFeedAccounts)
       .where(eq(bankFeedAccounts.userId, userId))
       .orderBy(asc(bankFeedAccounts.name)),
+    db()
+      .select({ itemId: bankFeedAccounts.itemId, count: count(bankTransactions.id) })
+      .from(bankTransactions)
+      .innerJoin(
+        bankFeedAccounts,
+        and(
+          eq(bankFeedAccounts.id, bankTransactions.feedAccountId),
+          eq(bankFeedAccounts.userId, userId),
+        ),
+      )
+      .where(eq(bankTransactions.userId, userId))
+      .groupBy(bankFeedAccounts.itemId),
   ])
   return items.map((item) => ({
     itemId: item.itemId,
     label: item.label,
     spaceId: item.spaceId,
     accounts: accounts.filter((a) => a.itemId === item.itemId).map((a) => a.name),
+    transactionCount: counts.find((c) => c.itemId === item.itemId)?.count ?? 0,
   }))
 }
 
+type Tx = Parameters<Parameters<ReturnType<typeof db>['transaction']>[0]>[0]
+
 /**
  * Route one of the user's bank connections to one of the user's active spaces
- * (or unassign it with null). Only future syncs follow; nothing moves.
+ * (or unassign it with null) and, when it gets a space, move everything
+ * already synced from it there, in one transaction. A moved feed account loses
+ * its mapping (`account_id`): a fluxi account of the old space cannot be
+ * referenced from the new one. When the destination already holds the same
+ * external account (an earlier move back and forth), the two are merged: the
+ * destination row is kept and only the transactions it lacks (by external id)
+ * move. Unassigning keeps the stored data where it is. Ledger entries never move.
  */
 export async function assignFeedItem(
   userId: string,
   itemId: string,
   spaceId: string | null,
 ): Promise<boolean> {
-  if (spaceId !== null) {
-    const [own] = await db()
-      .select({ id: spaces.id })
-      .from(spaces)
-      .where(and(eq(spaces.id, spaceId), eq(spaces.userId, userId), isNull(spaces.archivedAt)))
-    if (own === undefined) return false
+  return db().transaction(async (tx) => {
+    if (spaceId !== null) {
+      const [own] = await tx
+        .select({ id: spaces.id })
+        .from(spaces)
+        .where(and(eq(spaces.id, spaceId), eq(spaces.userId, userId), isNull(spaces.archivedAt)))
+      if (own === undefined) return false
+    }
+    const rows = await tx
+      .update(bankFeedItems)
+      .set({ spaceId, updatedAt: sql`now()` })
+      .where(and(eq(bankFeedItems.userId, userId), eq(bankFeedItems.itemId, itemId)))
+      .returning({ itemId: bankFeedItems.itemId })
+    if (rows.length === 0) return false
+    if (spaceId !== null) await moveFeedAccounts(tx, userId, itemId, spaceId)
+    return true
+  })
+}
+
+/**
+ * Move the item's feed accounts (and their transactions) into `spaceId`. The
+ * transactions' FK is `(feed_account_id, space_id)`, so they move by being
+ * re-pointed at a feed account that already lives in the destination: the
+ * existing twin (merge) or a fresh copy; the emptied source is then deleted
+ * (its cascade drops only duplicates the destination already had).
+ */
+async function moveFeedAccounts(tx: Tx, userId: string, itemId: string, spaceId: string) {
+  const sources = await tx
+    .select()
+    .from(bankFeedAccounts)
+    .where(
+      and(
+        eq(bankFeedAccounts.userId, userId),
+        eq(bankFeedAccounts.itemId, itemId),
+        ne(bankFeedAccounts.spaceId, spaceId),
+      ),
+    )
+    .for('update')
+  for (const source of sources) {
+    const [existing] = await tx
+      .select({ id: bankFeedAccounts.id })
+      .from(bankFeedAccounts)
+      .where(
+        and(
+          eq(bankFeedAccounts.userId, userId),
+          eq(bankFeedAccounts.spaceId, spaceId),
+          eq(bankFeedAccounts.source, source.source),
+          eq(bankFeedAccounts.externalId, source.externalId),
+        ),
+      )
+      .for('update')
+    const targetId = existing?.id ?? (await copyFeedAccount(tx, source, spaceId))
+    await tx
+      .update(bankTransactions)
+      .set({ feedAccountId: targetId, spaceId, updatedAt: sql`now()` })
+      .where(
+        and(
+          eq(bankTransactions.userId, userId),
+          eq(bankTransactions.feedAccountId, source.id),
+          sql`not exists (
+            select 1 from ${bankTransactions} as kept
+            where kept.user_id = ${userId}
+              and kept.feed_account_id = ${targetId}
+              and kept.external_id = ${bankTransactions.externalId}
+          )`,
+        ),
+      )
+    await tx
+      .delete(bankFeedAccounts)
+      .where(and(eq(bankFeedAccounts.userId, userId), eq(bankFeedAccounts.id, source.id)))
   }
-  const rows = await db()
-    .update(bankFeedItems)
-    .set({ spaceId, updatedAt: sql`now()` })
-    .where(and(eq(bankFeedItems.userId, userId), eq(bankFeedItems.itemId, itemId)))
-    .returning({ itemId: bankFeedItems.itemId })
-  return rows.length > 0
+}
+
+async function copyFeedAccount(
+  tx: Tx,
+  source: typeof bankFeedAccounts.$inferSelect,
+  spaceId: string,
+): Promise<string> {
+  const [copy] = await tx
+    .insert(bankFeedAccounts)
+    .values({
+      userId: source.userId,
+      spaceId,
+      source: source.source,
+      externalId: source.externalId,
+      itemId: source.itemId,
+      institution: source.institution,
+      name: source.name,
+      type: source.type,
+      subtype: source.subtype,
+      balanceCents: source.balanceCents,
+      // A fluxi account of the old space cannot be referenced from the new one.
+      accountId: null,
+      syncedAt: source.syncedAt,
+    })
+    .returning({ id: bankFeedAccounts.id })
+  if (copy === undefined) throw new Error('feed account copy was not inserted')
+  return copy.id
 }
 
 export type ServerScope = Scope & { space: Space; spaces: Space[] }

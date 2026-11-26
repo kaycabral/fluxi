@@ -5,6 +5,7 @@ import {
   bankBalancesOn,
   monthEndBalances,
   monthTotalsOf,
+  withConnectedBanks,
 } from './dashboard'
 import { makeEntry } from './fixtures'
 import { projectMonths } from './projection'
@@ -166,5 +167,35 @@ describe('bankBalancesOn', () => {
         banks,
       ).map((b) => b.name),
     ).toEqual(['Caju', 'Itaú'])
+  })
+})
+
+describe('withConnectedBanks', () => {
+  const banks = [
+    { bankId: 'b1', name: 'Itaú', cents: 5000 },
+    { bankId: 'b2', name: 'BTG', cents: -100 },
+  ]
+
+  it('adds a connected institution without a linked account at zero, in balance order', () => {
+    expect(withConnectedBanks(banks, ['Nubank Empresas'])).toEqual([
+      { bankId: 'b1', name: 'Itaú', cents: 5000 },
+      { bankId: 'connection:Nubank Empresas', name: 'Nubank Empresas', cents: 0 },
+      { bankId: 'b2', name: 'BTG', cents: -100 },
+    ])
+  })
+
+  it('orders banks with the same balance by name', () => {
+    expect(withConnectedBanks([], ['Nubank', 'Inter']).map((b) => b.name)).toEqual([
+      'Inter',
+      'Nubank',
+    ])
+  })
+
+  it('dedupes by name (case and accents) and ignores blanks', () => {
+    expect(withConnectedBanks(banks, ['itau', ' ', 'BTG', 'Inter', 'inter'])).toEqual([
+      banks[0],
+      { bankId: 'connection:Inter', name: 'Inter', cents: 0 },
+      banks[1],
+    ])
   })
 })

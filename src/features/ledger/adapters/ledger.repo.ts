@@ -75,6 +75,27 @@ export const bankMerchant = sql<string | null>`(
 )`
 const monthOrNull = (value: string | null) => (value === null ? null : monthFromDate(value))
 
+/**
+ * Institutions of the space's bank connections that have no feed account
+ * linked to a fluxi account (none synced yet, or none with movement): the
+ * dashboard shows them at R$ 0,00 so a connection never looks missing. A
+ * connection without feed accounts falls back to its label.
+ */
+export async function listUnlinkedConnectedInstitutions(scope: Scope): Promise<string[]> {
+  const { rows } = await db().execute<{ name: string }>(sql`
+    select distinct coalesce(min(fa.institution), i.label) as name
+    from bank_feed_items i
+    left join bank_feed_accounts fa
+      on fa.user_id = i.user_id and fa.item_id = i.item_id and fa.space_id = i.space_id
+    where i.user_id = ${scope.userId} and i.space_id = ${scope.spaceId}
+    group by i.item_id, i.label
+    having count(fa.account_id) = 0`)
+  return rows
+    .map((r) => r.name)
+    .filter((name): name is string => typeof name === 'string' && name.trim() !== '')
+    .sort((a, b) => a.localeCompare(b, 'pt-BR'))
+}
+
 export async function listBanks(scope: Scope): Promise<Bank[]> {
   const rows = await db()
     .select()

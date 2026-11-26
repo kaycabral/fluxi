@@ -153,6 +153,27 @@ describe('DashboardView', () => {
     expect(list).not.toHaveTextContent('999.999')
   })
 
+  it('shows a bank connected in the space with no linked account at R$ 0,00', async () => {
+    render(
+      <LedgerShell refs={sampleRefs()}>
+        <DashboardView
+          data={sampleData()}
+          versions={[PLAN]}
+          today="2026-12-15"
+          connectedBanks={['Nubank Empresas']}
+        />
+      </LedgerShell>,
+    )
+    const avatars = screen.getByRole('button', { name: /^Saldo por banco: .*Nubank Empresas/ })
+    await userEvent.hover(avatars)
+    const list = (await screen.findAllByRole('list', { name: 'Saldo por banco' }))[0]
+    if (list === undefined) throw new Error('no breakdown')
+    const row = within(list)
+      .getAllByRole('listitem')
+      .find((r) => r.textContent?.startsWith('Nubank Empresas'))
+    expect(row).toHaveTextContent(/^Nubank EmpresasR\$ 0,00$/)
+  })
+
   it('shows no bank avatars when no account counts in the balance', () => {
     const data = sampleData()
     renderDashboard({ ...data, accounts: data.accounts.map((a) => ({ ...a, archived: true })) })

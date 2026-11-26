@@ -26,14 +26,24 @@ const views = {
       (scope: unknown, first: string, later: string, today: string) => Promise<Read<unknown>>
     >(),
 }
+const connectedBanks = vi.fn<() => Promise<{ ok: true; data: string[] } | { ok: false }>>(() =>
+  Promise.resolve({ ok: true, data: ['Nubank'] }),
+)
 vi.mock('@/features/ledger/adapters/views', () => ({
   loadRefs: () => views.loadRefs(),
   loadLedgerData: (u: unknown, w: unknown, t: string) => views.loadLedgerData(u, w, t),
   loadBudgetVersions: (u: unknown) => views.loadBudgetVersions(u),
+  loadConnectedBanks: () => connectedBanks(),
   loadAccountBalances: (u: unknown, f: string, l: string, t: string) =>
     views.loadAccountBalances(u, f, l, t),
 }))
-const PERSONAL = { id: 's1', name: 'Pessoal', kind: 'personal', archived: false } as const
+const PERSONAL = {
+  id: 's1',
+  name: 'Pessoal',
+  kind: 'personal',
+  icon: 'user',
+  archived: false,
+} as const
 const SCOPE = { userId: 'u1', spaceId: 's1', space: PERSONAL, spaces: [PERSONAL] }
 vi.mock('@/app/painel/_lib/session', () => ({
   requirePainelScope: () => Promise.resolve(SCOPE),
@@ -104,9 +114,15 @@ vi.mock('@/features/ledger/ui/budget-view', () => ({
   ),
 }))
 vi.mock('@/features/ledger/ui/dashboard/dashboard-view', () => ({
-  DashboardView: ({ versions, today }: { versions: unknown[]; today: string }) => (
-    <p>dashboard {`${versions.length}@${today}`}</p>
-  ),
+  DashboardView: ({
+    versions,
+    today,
+    connectedBanks: banks,
+  }: {
+    versions: unknown[]
+    today: string
+    connectedBanks: string[]
+  }) => <p>dashboard {`${versions.length}@${today} [${banks.join(',')}]`}</p>,
 }))
 vi.mock('@/features/ledger/ui/calendar-view', () => ({
   CalendarView: (props: {
@@ -221,8 +237,14 @@ describe('painel pages', () => {
 
   it('dashboard loads the whole ledger and the budget versions with today', async () => {
     render(await DashboardPage({ searchParams: Promise.resolve({}) }))
-    expect(screen.getByText('dashboard 2@2026-12-15')).toBeInTheDocument()
+    expect(screen.getByText('dashboard 2@2026-12-15 [Nubank]')).toBeInTheDocument()
     expect(views.loadBudgetVersions).toHaveBeenCalledWith(SCOPE)
+  })
+
+  it('dashboard still renders when the connected banks cannot be read', async () => {
+    connectedBanks.mockResolvedValueOnce({ ok: false })
+    render(await DashboardPage({ searchParams: Promise.resolve({}) }))
+    expect(screen.getByText('dashboard 2@2026-12-15 []')).toBeInTheDocument()
   })
 
   it('calendar reads view, date and account from the URL and loads what the view needs', async () => {

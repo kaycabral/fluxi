@@ -128,3 +128,31 @@ export function bankBalancesOn(
     }))
     .sort((a, b) => b.cents - a.cents || a.name.localeCompare(b.name, 'pt-BR'))
 }
+
+/**
+ * "Saldo hoje" also shows every bank connected in the space: an institution
+ * whose connection has no linked fluxi account (auto-link only links accounts
+ * with movement) joins with R$ 0,00, so a connection never looks missing.
+ * Deduped by name (case- and accent-insensitive) against the fluxi banks.
+ */
+export function withConnectedBanks(
+  banks: readonly BankBalance[],
+  institutions: readonly string[],
+): BankBalance[] {
+  const key = (name: string) =>
+    name
+      .normalize('NFD')
+      .replace(/\p{Diacritic}/gu, '')
+      .trim()
+      .toLocaleLowerCase('pt-BR')
+  const seen = new Set(banks.map((b) => key(b.name)))
+  const added: BankBalance[] = []
+  for (const name of institutions) {
+    if (name.trim() === '' || seen.has(key(name))) continue
+    seen.add(key(name))
+    added.push({ bankId: `connection:${name}`, name, cents: 0 })
+  }
+  return [...banks, ...added].sort(
+    (a, b) => b.cents - a.cents || a.name.localeCompare(b.name, 'pt-BR'),
+  )
+}

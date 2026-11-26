@@ -1,5 +1,5 @@
 {
-  "id": "7fb78f32-d3e3-4226-ba97-7378c6ebefd6",
+  "id": "460d3f56-e261-4f8a-9304-5c295bb1f07d",
   "prevId": "af39bb46-d3bc-4d39-a54b-88d104306e00",
   "version": "7",
   "dialect": "postgresql",
@@ -1878,6 +1878,13 @@
           "primaryKey": false,
           "notNull": true
         },
+        "bank_entry_links": {
+          "name": "bank_entry_links",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -1929,6 +1936,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "count_from_month": {
+          "name": "count_from_month",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -1949,19 +1962,175 @@
         "user_settings_user_id_profiles_id_fk": {
           "name": "user_settings_user_id_profiles_id_fk",
           "tableFrom": "user_settings",
+          "columnsFrom": ["user_id"],
+          "tableTo": "profiles",
+          "columnsTo": ["id"],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
+        "user_settings_space_fk": {
+          "name": "user_settings_space_fk",
+          "tableFrom": "user_settings",
+          "columnsFrom": ["space_id", "user_id"],
+          "tableTo": "spaces",
+          "columnsTo": ["id", "user_id"],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "user_settings_count_from_first_day": {
+          "name": "user_settings_count_from_first_day",
+          "value": "\"user_settings\".\"count_from_month\" is null or extract(day from \"user_settings\".\"count_from_month\") = 1"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.bank_entry_links": {
+      "name": "bank_entry_links",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "space_id": {
+          "name": "space_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "bank_transaction_id": {
+          "name": "bank_transaction_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "entry_id": {
+          "name": "entry_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "discarded": {
+          "name": "discarded",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "generated": {
+            "as": "entry_id is null",
+            "type": "stored"
+          }
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "bank_entry_links_transaction_idx": {
+          "name": "bank_entry_links_transaction_idx",
+          "columns": [
+            {
+              "expression": "bank_transaction_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "bank_entry_links_entry_id_idx": {
+          "name": "bank_entry_links_entry_id_idx",
+          "columns": [
+            {
+              "expression": "entry_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "bank_entry_links_space_id_idx": {
+          "name": "bank_entry_links_space_id_idx",
+          "columns": [
+            {
+              "expression": "space_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "bank_entry_links_user_id_profiles_id_fk": {
+          "name": "bank_entry_links_user_id_profiles_id_fk",
+          "tableFrom": "bank_entry_links",
           "tableTo": "profiles",
           "columnsFrom": ["user_id"],
           "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "user_settings_space_fk": {
-          "name": "user_settings_space_fk",
-          "tableFrom": "user_settings",
+        "bank_entry_links_space_fk": {
+          "name": "bank_entry_links_space_fk",
+          "tableFrom": "bank_entry_links",
           "tableTo": "spaces",
           "columnsFrom": ["space_id", "user_id"],
           "columnsTo": ["id", "user_id"],
           "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "bank_entry_links_transaction_fk": {
+          "name": "bank_entry_links_transaction_fk",
+          "tableFrom": "bank_entry_links",
+          "tableTo": "bank_transactions",
+          "columnsFrom": ["bank_transaction_id", "space_id"],
+          "columnsTo": ["id", "space_id"],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "bank_entry_links_entry_fk": {
+          "name": "bank_entry_links_entry_fk",
+          "tableFrom": "bank_entry_links",
+          "tableTo": "entries",
+          "columnsFrom": ["entry_id", "space_id"],
+          "columnsTo": ["id", "space_id"],
+          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },
@@ -2272,6 +2441,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "operation_type": {
+          "name": "operation_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "installment_number": {
           "name": "installment_number",
           "type": "smallint",
@@ -2369,6 +2544,11 @@
           "name": "bank_transactions_external_unique",
           "nullsNotDistinct": false,
           "columns": ["user_id", "feed_account_id", "external_id"]
+        },
+        "bank_transactions_id_space_id_unique": {
+          "name": "bank_transactions_id_space_id_unique",
+          "nullsNotDistinct": false,
+          "columns": ["id", "space_id"]
         }
       },
       "policies": {},

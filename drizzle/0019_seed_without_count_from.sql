@@ -1,8 +1,8 @@
 -- `count_from_month` is gone (balances accumulate from each account's
 -- opening balance over every entry): the space seed no longer reads it to
 -- start the first budget version, which now starts in the current month
--- (São Paulo). Same lists as 0017 otherwise. Runs before the column is
--- dropped (next migration).
+-- (São Paulo). Same lists as 0017 otherwise. The column itself stays until a
+-- follow-up contract migration drops it.
 CREATE OR REPLACE FUNCTION public.seed_space_defaults(sid uuid)
 RETURNS void
 LANGUAGE plpgsql

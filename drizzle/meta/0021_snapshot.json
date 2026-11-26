@@ -1,6 +1,6 @@
 {
-  "id": "460d3f56-e261-4f8a-9304-5c295bb1f07d",
-  "prevId": "7fb78f32-d3e3-4226-ba97-7378c6ebefd6",
+  "id": "27a9891a-d6ad-4d56-a1e4-8a8f706cd587",
+  "prevId": "460d3f56-e261-4f8a-9304-5c295bb1f07d",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -86,9 +86,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "accounts_bank_id_idx": {
           "name": "accounts_bank_id_idx",
@@ -101,46 +101,46 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "accounts_user_id_profiles_id_fk": {
           "name": "accounts_user_id_profiles_id_fk",
           "tableFrom": "accounts",
-          "tableTo": "profiles",
           "columnsFrom": ["user_id"],
+          "tableTo": "profiles",
           "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "accounts_space_fk": {
           "name": "accounts_space_fk",
           "tableFrom": "accounts",
-          "tableTo": "spaces",
           "columnsFrom": ["space_id", "user_id"],
+          "tableTo": "spaces",
           "columnsTo": ["id", "user_id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "accounts_bank_fk": {
           "name": "accounts_bank_fk",
           "tableFrom": "accounts",
-          "tableTo": "banks",
           "columnsFrom": ["bank_id", "space_id"],
+          "tableTo": "banks",
           "columnsTo": ["id", "space_id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "accounts_id_space_id_unique": {
           "name": "accounts_id_space_id_unique",
-          "nullsNotDistinct": false,
-          "columns": ["id", "space_id"]
+          "columns": ["id", "space_id"],
+          "nullsNotDistinct": false
         }
       },
       "policies": {},
@@ -222,37 +222,37 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "banks_user_id_profiles_id_fk": {
           "name": "banks_user_id_profiles_id_fk",
           "tableFrom": "banks",
-          "tableTo": "profiles",
           "columnsFrom": ["user_id"],
+          "tableTo": "profiles",
           "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "banks_space_fk": {
           "name": "banks_space_fk",
           "tableFrom": "banks",
-          "tableTo": "spaces",
           "columnsFrom": ["space_id", "user_id"],
+          "tableTo": "spaces",
           "columnsTo": ["id", "user_id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "banks_id_space_id_unique": {
           "name": "banks_id_space_id_unique",
-          "nullsNotDistinct": false,
-          "columns": ["id", "space_id"]
+          "columns": ["id", "space_id"],
+          "nullsNotDistinct": false
         }
       },
       "policies": {},
@@ -299,38 +299,38 @@
         "budget_plan_targets_user_id_profiles_id_fk": {
           "name": "budget_plan_targets_user_id_profiles_id_fk",
           "tableFrom": "budget_plan_targets",
-          "tableTo": "profiles",
           "columnsFrom": ["user_id"],
+          "tableTo": "profiles",
           "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "budget_plan_targets_plan_fk": {
           "name": "budget_plan_targets_plan_fk",
           "tableFrom": "budget_plan_targets",
-          "tableTo": "budget_plans",
           "columnsFrom": ["plan_id", "space_id"],
+          "tableTo": "budget_plans",
           "columnsTo": ["id", "space_id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "budget_plan_targets_pot_fk": {
           "name": "budget_plan_targets_pot_fk",
           "tableFrom": "budget_plan_targets",
-          "tableTo": "pots",
           "columnsFrom": ["pot_key", "space_id"],
+          "tableTo": "pots",
           "columnsTo": ["key", "space_id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "budget_plan_targets_space_fk": {
           "name": "budget_plan_targets_space_fk",
           "tableFrom": "budget_plan_targets",
-          "tableTo": "spaces",
           "columnsFrom": ["space_id", "user_id"],
+          "tableTo": "spaces",
           "columnsTo": ["id", "user_id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {
@@ -398,33 +398,33 @@
         "budget_plans_user_id_profiles_id_fk": {
           "name": "budget_plans_user_id_profiles_id_fk",
           "tableFrom": "budget_plans",
-          "tableTo": "profiles",
           "columnsFrom": ["user_id"],
+          "tableTo": "profiles",
           "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "budget_plans_space_fk": {
           "name": "budget_plans_space_fk",
           "tableFrom": "budget_plans",
-          "tableTo": "spaces",
           "columnsFrom": ["space_id", "user_id"],
+          "tableTo": "spaces",
           "columnsTo": ["id", "user_id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "budget_plans_id_space_id_unique": {
           "name": "budget_plans_id_space_id_unique",
-          "nullsNotDistinct": false,
-          "columns": ["id", "space_id"]
+          "columns": ["id", "space_id"],
+          "nullsNotDistinct": false
         },
         "budget_plans_space_starts_unique": {
           "name": "budget_plans_space_starts_unique",
-          "nullsNotDistinct": false,
-          "columns": ["space_id", "starts_month"]
+          "columns": ["space_id", "starts_month"],
+          "nullsNotDistinct": false
         }
       },
       "policies": {},
@@ -510,42 +510,42 @@
         "categories_user_id_profiles_id_fk": {
           "name": "categories_user_id_profiles_id_fk",
           "tableFrom": "categories",
-          "tableTo": "profiles",
           "columnsFrom": ["user_id"],
+          "tableTo": "profiles",
           "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "categories_space_fk": {
           "name": "categories_space_fk",
           "tableFrom": "categories",
-          "tableTo": "spaces",
           "columnsFrom": ["space_id", "user_id"],
+          "tableTo": "spaces",
           "columnsTo": ["id", "user_id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "categories_default_pot_fk": {
           "name": "categories_default_pot_fk",
           "tableFrom": "categories",
-          "tableTo": "pots",
           "columnsFrom": ["default_pot", "space_id"],
+          "tableTo": "pots",
           "columnsTo": ["key", "space_id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "categories_id_space_id_unique": {
           "name": "categories_id_space_id_unique",
-          "nullsNotDistinct": false,
-          "columns": ["id", "space_id"]
+          "columns": ["id", "space_id"],
+          "nullsNotDistinct": false
         },
         "categories_space_group_name_unique": {
           "name": "categories_space_group_name_unique",
-          "nullsNotDistinct": false,
-          "columns": ["space_id", "group_name", "name"]
+          "columns": ["space_id", "group_name", "name"],
+          "nullsNotDistinct": false
         }
       },
       "policies": {},
@@ -704,9 +704,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "entries_space_id_start_month_idx": {
           "name": "entries_space_id_start_month_idx",
@@ -725,9 +725,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "entries_account_id_idx": {
           "name": "entries_account_id_idx",
@@ -740,9 +740,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "entries_to_account_id_idx": {
           "name": "entries_to_account_id_idx",
@@ -755,9 +755,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "entries_category_id_idx": {
           "name": "entries_category_id_idx",
@@ -770,73 +770,73 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "entries_user_id_profiles_id_fk": {
           "name": "entries_user_id_profiles_id_fk",
           "tableFrom": "entries",
-          "tableTo": "profiles",
           "columnsFrom": ["user_id"],
+          "tableTo": "profiles",
           "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "entries_space_fk": {
           "name": "entries_space_fk",
           "tableFrom": "entries",
-          "tableTo": "spaces",
           "columnsFrom": ["space_id", "user_id"],
+          "tableTo": "spaces",
           "columnsTo": ["id", "user_id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "entries_account_fk": {
           "name": "entries_account_fk",
           "tableFrom": "entries",
-          "tableTo": "accounts",
           "columnsFrom": ["account_id", "space_id"],
+          "tableTo": "accounts",
           "columnsTo": ["id", "space_id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "no action"
         },
         "entries_to_account_fk": {
           "name": "entries_to_account_fk",
           "tableFrom": "entries",
-          "tableTo": "accounts",
           "columnsFrom": ["to_account_id", "space_id"],
+          "tableTo": "accounts",
           "columnsTo": ["id", "space_id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "no action"
         },
         "entries_category_fk": {
           "name": "entries_category_fk",
           "tableFrom": "entries",
-          "tableTo": "categories",
           "columnsFrom": ["category_id", "space_id"],
+          "tableTo": "categories",
           "columnsTo": ["id", "space_id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "no action"
         },
         "entries_pot_fk": {
           "name": "entries_pot_fk",
           "tableFrom": "entries",
-          "tableTo": "pots",
           "columnsFrom": ["pot", "space_id"],
+          "tableTo": "pots",
           "columnsTo": ["key", "space_id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "entries_id_space_id_unique": {
           "name": "entries_id_space_id_unique",
-          "nullsNotDistinct": false,
-          "columns": ["id", "space_id"]
+          "columns": ["id", "space_id"],
+          "nullsNotDistinct": false
         }
       },
       "policies": {},
@@ -971,38 +971,38 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "entry_overrides_user_id_profiles_id_fk": {
           "name": "entry_overrides_user_id_profiles_id_fk",
           "tableFrom": "entry_overrides",
-          "tableTo": "profiles",
           "columnsFrom": ["user_id"],
+          "tableTo": "profiles",
           "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "entry_overrides_entry_fk": {
           "name": "entry_overrides_entry_fk",
           "tableFrom": "entry_overrides",
-          "tableTo": "entries",
           "columnsFrom": ["entry_id", "space_id"],
+          "tableTo": "entries",
           "columnsTo": ["id", "space_id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "entry_overrides_space_fk": {
           "name": "entry_overrides_space_fk",
           "tableFrom": "entry_overrides",
-          "tableTo": "spaces",
           "columnsFrom": ["space_id", "user_id"],
+          "tableTo": "spaces",
           "columnsTo": ["id", "user_id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {
@@ -1127,9 +1127,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "entry_parts_space_id_idx": {
           "name": "entry_parts_space_id_idx",
@@ -1142,46 +1142,46 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "entry_parts_user_id_profiles_id_fk": {
           "name": "entry_parts_user_id_profiles_id_fk",
           "tableFrom": "entry_parts",
-          "tableTo": "profiles",
           "columnsFrom": ["user_id"],
+          "tableTo": "profiles",
           "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "entry_parts_entry_fk": {
           "name": "entry_parts_entry_fk",
           "tableFrom": "entry_parts",
-          "tableTo": "entries",
           "columnsFrom": ["entry_id", "space_id"],
+          "tableTo": "entries",
           "columnsTo": ["id", "space_id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "entry_parts_space_fk": {
           "name": "entry_parts_space_fk",
           "tableFrom": "entry_parts",
-          "tableTo": "spaces",
           "columnsFrom": ["space_id", "user_id"],
+          "tableTo": "spaces",
           "columnsTo": ["id", "user_id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "entry_parts_id_entry_id_unique": {
           "name": "entry_parts_id_entry_id_unique",
-          "nullsNotDistinct": false,
-          "columns": ["id", "entry_id"]
+          "columns": ["id", "entry_id"],
+          "nullsNotDistinct": false
         }
       },
       "policies": {},
@@ -1264,38 +1264,38 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "import_links_user_id_profiles_id_fk": {
           "name": "import_links_user_id_profiles_id_fk",
           "tableFrom": "import_links",
-          "tableTo": "profiles",
           "columnsFrom": ["user_id"],
+          "tableTo": "profiles",
           "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "import_links_entry_fk": {
           "name": "import_links_entry_fk",
           "tableFrom": "import_links",
-          "tableTo": "entries",
           "columnsFrom": ["entry_id", "space_id"],
+          "tableTo": "entries",
           "columnsTo": ["id", "space_id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "import_links_space_fk": {
           "name": "import_links_space_fk",
           "tableFrom": "import_links",
-          "tableTo": "spaces",
           "columnsFrom": ["space_id", "user_id"],
+          "tableTo": "spaces",
           "columnsTo": ["id", "user_id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {
@@ -1373,20 +1373,20 @@
         "import_raw_user_id_profiles_id_fk": {
           "name": "import_raw_user_id_profiles_id_fk",
           "tableFrom": "import_raw",
-          "tableTo": "profiles",
           "columnsFrom": ["user_id"],
+          "tableTo": "profiles",
           "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "import_raw_space_fk": {
           "name": "import_raw_space_fk",
           "tableFrom": "import_raw",
-          "tableTo": "spaces",
           "columnsFrom": ["space_id", "user_id"],
+          "tableTo": "spaces",
           "columnsTo": ["id", "user_id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {
@@ -1473,9 +1473,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "occurrence_payments_part_id_idx": {
           "name": "occurrence_payments_part_id_idx",
@@ -1488,55 +1488,55 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "occurrence_payments_user_id_profiles_id_fk": {
           "name": "occurrence_payments_user_id_profiles_id_fk",
           "tableFrom": "occurrence_payments",
-          "tableTo": "profiles",
           "columnsFrom": ["user_id"],
+          "tableTo": "profiles",
           "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "occurrence_payments_entry_fk": {
           "name": "occurrence_payments_entry_fk",
           "tableFrom": "occurrence_payments",
-          "tableTo": "entries",
           "columnsFrom": ["entry_id", "space_id"],
+          "tableTo": "entries",
           "columnsTo": ["id", "space_id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "occurrence_payments_space_fk": {
           "name": "occurrence_payments_space_fk",
           "tableFrom": "occurrence_payments",
-          "tableTo": "spaces",
           "columnsFrom": ["space_id", "user_id"],
+          "tableTo": "spaces",
           "columnsTo": ["id", "user_id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "occurrence_payments_part_fk": {
           "name": "occurrence_payments_part_fk",
           "tableFrom": "occurrence_payments",
-          "tableTo": "entry_parts",
           "columnsFrom": ["part_id", "entry_id"],
+          "tableTo": "entry_parts",
           "columnsTo": ["id", "entry_id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "occurrence_payments_occurrence_unique": {
           "name": "occurrence_payments_occurrence_unique",
-          "nullsNotDistinct": true,
-          "columns": ["entry_id", "month", "part_id"]
+          "columns": ["entry_id", "month", "part_id"],
+          "nullsNotDistinct": true
         }
       },
       "policies": {},
@@ -1622,20 +1622,20 @@
         "pots_user_id_profiles_id_fk": {
           "name": "pots_user_id_profiles_id_fk",
           "tableFrom": "pots",
-          "tableTo": "profiles",
           "columnsFrom": ["user_id"],
+          "tableTo": "profiles",
           "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "pots_space_fk": {
           "name": "pots_space_fk",
           "tableFrom": "pots",
-          "tableTo": "spaces",
           "columnsFrom": ["space_id", "user_id"],
+          "tableTo": "spaces",
           "columnsTo": ["id", "user_id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {
@@ -1704,12 +1704,12 @@
         "profiles_id_users_id_fk": {
           "name": "profiles_id_users_id_fk",
           "tableFrom": "profiles",
+          "columnsFrom": ["id"],
           "tableTo": "users",
           "schemaTo": "auth",
-          "columnsFrom": ["id"],
           "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {},
@@ -1788,29 +1788,29 @@
             }
           ],
           "isUnique": true,
-          "where": "\"spaces\".\"kind\" = 'personal'",
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "where": "\"spaces\".\"kind\" = 'personal'",
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "spaces_user_id_profiles_id_fk": {
           "name": "spaces_user_id_profiles_id_fk",
           "tableFrom": "spaces",
-          "tableTo": "profiles",
           "columnsFrom": ["user_id"],
+          "tableTo": "profiles",
           "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "spaces_id_user_id_unique": {
           "name": "spaces_id_user_id_unique",
-          "nullsNotDistinct": false,
-          "columns": ["id", "user_id"]
+          "columns": ["id", "user_id"],
+          "nullsNotDistinct": false
         }
       },
       "policies": {},
@@ -1898,20 +1898,20 @@
         "undo_snapshots_user_id_profiles_id_fk": {
           "name": "undo_snapshots_user_id_profiles_id_fk",
           "tableFrom": "undo_snapshots",
-          "tableTo": "profiles",
           "columnsFrom": ["user_id"],
+          "tableTo": "profiles",
           "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "undo_snapshots_space_fk": {
           "name": "undo_snapshots_space_fk",
           "tableFrom": "undo_snapshots",
-          "tableTo": "spaces",
           "columnsFrom": ["space_id", "user_id"],
+          "tableTo": "spaces",
           "columnsTo": ["id", "user_id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {},
@@ -1936,6 +1936,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "count_from_month": {
+          "name": "count_from_month",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -1956,26 +1962,31 @@
         "user_settings_user_id_profiles_id_fk": {
           "name": "user_settings_user_id_profiles_id_fk",
           "tableFrom": "user_settings",
-          "tableTo": "profiles",
           "columnsFrom": ["user_id"],
+          "tableTo": "profiles",
           "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "user_settings_space_fk": {
           "name": "user_settings_space_fk",
           "tableFrom": "user_settings",
-          "tableTo": "spaces",
           "columnsFrom": ["space_id", "user_id"],
+          "tableTo": "spaces",
           "columnsTo": ["id", "user_id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "user_settings_count_from_first_day": {
+          "name": "user_settings_count_from_first_day",
+          "value": "\"user_settings\".\"count_from_month\" is null or extract(day from \"user_settings\".\"count_from_month\") = 1"
+        }
+      },
       "isRLSEnabled": true
     },
     "public.bank_entry_links": {
@@ -2019,8 +2030,8 @@
           "primaryKey": false,
           "notNull": true,
           "generated": {
-            "as": "entry_id is null",
-            "type": "stored"
+            "type": "stored",
+            "as": "entry_id is null"
           }
         },
         "created_at": {
@@ -2050,9 +2061,9 @@
             }
           ],
           "isUnique": true,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "bank_entry_links_entry_id_idx": {
           "name": "bank_entry_links_entry_id_idx",
@@ -2065,9 +2076,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "bank_entry_links_space_id_idx": {
           "name": "bank_entry_links_space_id_idx",
@@ -2080,47 +2091,47 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "bank_entry_links_user_id_profiles_id_fk": {
           "name": "bank_entry_links_user_id_profiles_id_fk",
           "tableFrom": "bank_entry_links",
-          "tableTo": "profiles",
           "columnsFrom": ["user_id"],
+          "tableTo": "profiles",
           "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "bank_entry_links_space_fk": {
           "name": "bank_entry_links_space_fk",
           "tableFrom": "bank_entry_links",
-          "tableTo": "spaces",
           "columnsFrom": ["space_id", "user_id"],
+          "tableTo": "spaces",
           "columnsTo": ["id", "user_id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "bank_entry_links_transaction_fk": {
           "name": "bank_entry_links_transaction_fk",
           "tableFrom": "bank_entry_links",
-          "tableTo": "bank_transactions",
           "columnsFrom": ["bank_transaction_id", "space_id"],
+          "tableTo": "bank_transactions",
           "columnsTo": ["id", "space_id"],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         },
         "bank_entry_links_entry_fk": {
           "name": "bank_entry_links_entry_fk",
           "tableFrom": "bank_entry_links",
-          "tableTo": "entries",
           "columnsFrom": ["entry_id", "space_id"],
+          "tableTo": "entries",
           "columnsTo": ["id", "space_id"],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         }
       },
       "compositePrimaryKeys": {},
@@ -2239,51 +2250,51 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "bank_feed_accounts_user_id_profiles_id_fk": {
           "name": "bank_feed_accounts_user_id_profiles_id_fk",
           "tableFrom": "bank_feed_accounts",
-          "tableTo": "profiles",
           "columnsFrom": ["user_id"],
+          "tableTo": "profiles",
           "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "bank_feed_accounts_space_fk": {
           "name": "bank_feed_accounts_space_fk",
           "tableFrom": "bank_feed_accounts",
-          "tableTo": "spaces",
           "columnsFrom": ["space_id", "user_id"],
+          "tableTo": "spaces",
           "columnsTo": ["id", "user_id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "bank_feed_accounts_account_fk": {
           "name": "bank_feed_accounts_account_fk",
           "tableFrom": "bank_feed_accounts",
-          "tableTo": "accounts",
           "columnsFrom": ["account_id", "space_id"],
+          "tableTo": "accounts",
           "columnsTo": ["id", "space_id"],
-          "onDelete": "set null",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "set null"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "bank_feed_accounts_id_space_id_unique": {
           "name": "bank_feed_accounts_id_space_id_unique",
-          "nullsNotDistinct": false,
-          "columns": ["id", "space_id"]
+          "columns": ["id", "space_id"],
+          "nullsNotDistinct": false
         },
         "bank_feed_accounts_external_unique": {
           "name": "bank_feed_accounts_external_unique",
-          "nullsNotDistinct": false,
-          "columns": ["space_id", "source", "external_id"]
+          "columns": ["space_id", "source", "external_id"],
+          "nullsNotDistinct": false
         }
       },
       "policies": {},
@@ -2338,20 +2349,20 @@
         "bank_feed_items_user_id_profiles_id_fk": {
           "name": "bank_feed_items_user_id_profiles_id_fk",
           "tableFrom": "bank_feed_items",
-          "tableTo": "profiles",
           "columnsFrom": ["user_id"],
+          "tableTo": "profiles",
           "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "bank_feed_items_space_fk": {
           "name": "bank_feed_items_space_fk",
           "tableFrom": "bank_feed_items",
-          "tableTo": "spaces",
           "columnsFrom": ["space_id", "user_id"],
+          "tableTo": "spaces",
           "columnsTo": ["id", "user_id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "no action"
         }
       },
       "compositePrimaryKeys": {
@@ -2493,51 +2504,51 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "bank_transactions_user_id_profiles_id_fk": {
           "name": "bank_transactions_user_id_profiles_id_fk",
           "tableFrom": "bank_transactions",
-          "tableTo": "profiles",
           "columnsFrom": ["user_id"],
+          "tableTo": "profiles",
           "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "bank_transactions_feed_account_fk": {
           "name": "bank_transactions_feed_account_fk",
           "tableFrom": "bank_transactions",
-          "tableTo": "bank_feed_accounts",
           "columnsFrom": ["feed_account_id", "space_id"],
+          "tableTo": "bank_feed_accounts",
           "columnsTo": ["id", "space_id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         },
         "bank_transactions_space_fk": {
           "name": "bank_transactions_space_fk",
           "tableFrom": "bank_transactions",
-          "tableTo": "spaces",
           "columnsFrom": ["space_id", "user_id"],
+          "tableTo": "spaces",
           "columnsTo": ["id", "user_id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "cascade"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "bank_transactions_external_unique": {
           "name": "bank_transactions_external_unique",
-          "nullsNotDistinct": false,
-          "columns": ["user_id", "feed_account_id", "external_id"]
+          "columns": ["user_id", "feed_account_id", "external_id"],
+          "nullsNotDistinct": false
         },
         "bank_transactions_id_space_id_unique": {
           "name": "bank_transactions_id_space_id_unique",
-          "nullsNotDistinct": false,
-          "columns": ["id", "space_id"]
+          "columns": ["id", "space_id"],
+          "nullsNotDistinct": false
         }
       },
       "policies": {},
@@ -2582,10 +2593,10 @@
     }
   },
   "schemas": {},
+  "views": {},
   "sequences": {},
   "roles": {},
   "policies": {},
-  "views": {},
   "_meta": {
     "columns": {},
     "schemas": {},

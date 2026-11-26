@@ -493,18 +493,27 @@ export const occurrencePayments = pgTable(
 
 /**
  * Per-space preferences (the table keeps its historic name), seeded per space.
- * No preference lives here yet: balances accumulate from each account's
- * opening balance over every entry.
+ * `count_from_month` is DEPRECATED and unused by the code (balances now
+ * accumulate from each account's opening balance over every entry); it stays
+ * until a follow-up contract migration drops it (expand → contract).
  */
 export const userSettings = pgTable(
   'user_settings',
   {
     spaceId: uuid('space_id').primaryKey(),
     userId: ownerId(),
+    /** @deprecated Unused; dropped by a follow-up contract migration. */
+    countFromMonth: month('count_from_month'),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
-  (t) => [inSpace('user_settings', t)],
+  (t) => [
+    inSpace('user_settings', t),
+    check(
+      'user_settings_count_from_first_day',
+      sql`${t.countFromMonth} is null or ${isFirstOfMonth(t.countFromMonth)}`,
+    ),
+  ],
 ).enableRLS()
 
 /**

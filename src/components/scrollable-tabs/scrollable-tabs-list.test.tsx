@@ -1,8 +1,9 @@
 import { Tabs, TabsTrigger } from '@cbrl/design'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, renderHook, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { ScrollableTabsList } from './scrollable-tabs-list'
+import { useScrollStrip } from './use-scroll-strip'
 
 function renderTabs() {
   render(
@@ -50,5 +51,40 @@ describe('ScrollableTabsList', () => {
     await userEvent.click(screen.getByRole('tab', { name: 'Aba d' }))
     expect(scrollTo).toHaveBeenLastCalledWith(expect.objectContaining({ left: 150 }))
     expect(list.scrollLeft).toBe(150)
+  })
+
+  it('scrolls without animation when the user prefers reduced motion', async () => {
+    const media = vi.spyOn(window, 'matchMedia').mockReturnValue({
+      ...window.matchMedia('(min-width: 0)'),
+      matches: true,
+    })
+    const { scrollTo } = renderTabs()
+    await userEvent.click(screen.getByRole('tab', { name: 'Aba d' }))
+    expect(scrollTo).toHaveBeenLastCalledWith({ left: 150, behavior: 'auto' })
+    media.mockRestore()
+  })
+
+  it('reveals the active tab again when the strip resizes', () => {
+    const callbacks: ResizeObserverCallback[] = []
+    const Original = window.ResizeObserver
+    window.ResizeObserver = class {
+      constructor(callback: ResizeObserverCallback) {
+        callbacks.push(callback)
+      }
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    }
+    const { list } = renderTabs()
+    list.scrollLeft = 150
+    for (const callback of callbacks) callback([], new Original(() => {}))
+    // The first tab is active: back to the start.
+    expect(list.scrollLeft).toBe(0)
+    window.ResizeObserver = Original
+  })
+
+  it('does nothing without a strip', () => {
+    const { result } = renderHook(() => useScrollStrip({ current: null }, '[data-state]'))
+    expect(result.current).toEqual({ start: false, end: false })
   })
 })

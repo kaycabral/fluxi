@@ -3,9 +3,7 @@
 import { useEffect, useState, type RefObject } from 'react'
 import { hiddenEdges, scrollTargetFor } from './scroll-target'
 
-const reducedMotion = () =>
-  typeof window.matchMedia === 'function' &&
-  window.matchMedia('(prefers-reduced-motion: reduce)').matches
+const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
 /**
  * Keeps the active item of a horizontal strip (tabs, a nav row) in view (on

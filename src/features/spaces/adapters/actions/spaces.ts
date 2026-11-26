@@ -99,7 +99,7 @@ export async function assignFeedItemAction(input: unknown): Promise<ActionResult
   const parsed = assignFeedItemSchema.safeParse(input)
   if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) }
   const { itemId, spaceId } = parsed.data
-  if (!(await assignFeedItem(user.id, itemId, spaceId))) {
+  if (!(await assignFeedItem(user.id, itemId, spaceId, isoDayOf(new Date())))) {
     return { ok: false, error: 'Conexão ou espaço inválido.' }
   }
   return refreshed()

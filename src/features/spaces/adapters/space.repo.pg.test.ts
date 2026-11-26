@@ -13,6 +13,7 @@ import { assignFeedItem, listFeedItems } from './space.repo'
 
 const ANA = '11111111-1111-4111-8111-111111111111'
 const BIA = '22222222-2222-4222-8222-222222222222'
+const TODAY = '2026-11-25'
 const db = () => fluxiDb.db()
 
 let ana: Scope
@@ -138,11 +139,15 @@ describe('assignFeedItem (Postgres)', () => {
       accounts: ['Conta acc-1'],
     })
 
-    expect(await assignFeedItem(ANA, 'item-1', work.spaceId)).toBe(true)
+    expect(await assignFeedItem(ANA, 'item-1', work.spaceId, TODAY)).toBe(true)
 
     const feeds = await feedRows(ANA)
     const moved = feeds.find((f) => f.externalId === 'acc-1')
-    expect(moved).toMatchObject({ spaceId: work.spaceId, accountId: null, itemId: 'item-1' })
+    // The old mapping is gone; the new space auto-links it (it has movement).
+    expect(moved).toMatchObject({ spaceId: work.spaceId, mappingSource: 'auto', itemId: 'item-1' })
+    expect(moved?.accountId).not.toBe(mapped!.id)
+    const [relinked] = await db().select().from(accounts).where(eq(accounts.id, moved!.accountId!))
+    expect(relinked?.spaceId).toBe(work.spaceId)
     expect(feeds.find((f) => f.externalId === 'acc-2')?.spaceId).toBe(ana.spaceId)
     const txs = await txRows(ANA)
     expect(
@@ -161,12 +166,19 @@ describe('assignFeedItem (Postgres)', () => {
     // Planned entries and the other user stay untouched; what was materialized
     // from the moved transactions leaves with its links.
     expect(
-      (await db().select().from(entries).where(eq(entries.userId, ANA))).map((e) => [
-        e.description,
-        e.spaceId,
-      ]),
+      (await db().select().from(entries).where(eq(entries.userId, ANA)))
+        .filter((e) => e.spaceId === ana.spaceId)
+        .map((e) => [e.description, e.spaceId]),
     ).toEqual([['Aluguel', ana.spaceId]])
-    expect(await db().select().from(bankEntryLinks)).toHaveLength(0)
+    expect(
+      (await db().select().from(entries).where(eq(entries.userId, ANA)))
+        .filter((e) => e.spaceId === work.spaceId)
+        .map((e) => e.description)
+        .sort(),
+    ).toEqual(['t1', 't2'])
+    expect(
+      (await db().select().from(bankEntryLinks)).every((l) => l.spaceId === work.spaceId),
+    ).toBe(true)
     expect((await feedRows(BIA)).map((f) => f.spaceId)).toEqual([bia.spaceId])
     expect(await txRows(BIA)).toHaveLength(1)
   })
@@ -175,7 +187,7 @@ describe('assignFeedItem (Postgres)', () => {
     await feedAccount(ana, 'item-1', 'acc-1', ['t1', 't2'])
     const twin = await feedAccount(work, 'item-1', 'acc-1', ['t2', 't3'])
 
-    expect(await assignFeedItem(ANA, 'item-1', work.spaceId)).toBe(true)
+    expect(await assignFeedItem(ANA, 'item-1', work.spaceId, TODAY)).toBe(true)
 
     const feeds = await feedRows(ANA)
     expect(feeds.map((f) => [f.id, f.spaceId])).toEqual([[twin.id, work.spaceId]])
@@ -184,7 +196,7 @@ describe('assignFeedItem (Postgres)', () => {
     expect(txs.every((t) => t.feedAccountId === twin.id && t.spaceId === work.spaceId)).toBe(true)
 
     // And back again: everything returns to the personal space, nothing duplicated.
-    expect(await assignFeedItem(ANA, 'item-1', ana.spaceId)).toBe(true)
+    expect(await assignFeedItem(ANA, 'item-1', ana.spaceId, TODAY)).toBe(true)
     expect((await feedRows(ANA)).map((f) => f.spaceId)).toEqual([ana.spaceId])
     expect((await txRows(ANA)).map((t) => t.spaceId)).toEqual([
       ana.spaceId,
@@ -195,13 +207,13 @@ describe('assignFeedItem (Postgres)', () => {
 
   it('refuses a foreign or archived space and keeps data on unassign', async () => {
     await feedAccount(ana, 'item-1', 'acc-1', ['t1'])
-    expect(await assignFeedItem(ANA, 'item-1', bia.spaceId)).toBe(false)
-    expect(await assignFeedItem(BIA, 'item-2', bia.spaceId)).toBe(false)
+    expect(await assignFeedItem(ANA, 'item-1', bia.spaceId, TODAY)).toBe(false)
+    expect(await assignFeedItem(BIA, 'item-2', bia.spaceId, TODAY)).toBe(false)
     await db().update(spaces).set({ archivedAt: new Date() }).where(eq(spaces.id, work.spaceId))
-    expect(await assignFeedItem(ANA, 'item-1', work.spaceId)).toBe(false)
+    expect(await assignFeedItem(ANA, 'item-1', work.spaceId, TODAY)).toBe(false)
     expect((await feedRows(ANA)).map((f) => f.spaceId)).toEqual([ana.spaceId])
 
-    expect(await assignFeedItem(ANA, 'item-1', null)).toBe(true)
+    expect(await assignFeedItem(ANA, 'item-1', null, TODAY)).toBe(true)
     expect((await feedRows(ANA)).map((f) => f.spaceId)).toEqual([ana.spaceId])
     expect(await txRows(ANA)).toHaveLength(1)
   })

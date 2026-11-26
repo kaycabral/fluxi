@@ -51,7 +51,7 @@ beforeEach(async () => {
       externalId: 'card',
       itemId: 'item-1',
       institution: 'MeuPluggy',
-      name: 'Cartão BTG',
+      name: 'BTG Cartão',
       type: 'CREDIT',
       subtype: 'CREDIT_CARD',
       balanceCents: 30000,
@@ -87,9 +87,11 @@ describe('mapFeedAccount (Postgres)', () => {
       .from(bankFeedAccounts)
       .where(eq(bankFeedAccounts.id, cardFeedId))
     const [created] = await db().select().from(accounts).where(eq(accounts.id, feed!.accountId!))
-    expect(created).toMatchObject({ name: 'Cartão BTG', type: 'credit', spaceId: ana.spaceId })
+    // Named after the institution derived from the feed ("BTG Cartão"), never "MeuPluggy".
+    expect(created).toMatchObject({ name: 'Cartão', type: 'credit', spaceId: ana.spaceId })
+    expect(feed?.mappingSource).toBe('manual')
     const [bank] = await db().select().from(banks).where(eq(banks.id, created!.bankId))
-    expect(bank?.name).toBe('BTG')
+    expect(bank?.name).toBe('BTG Pactual')
     expect((await entriesOf(ana)).map((e) => e.amountCents).sort()).toEqual([-10000, -2000])
     // Anchored: −300,00 owed today = opening − 120,00.
     expect(created?.openingBalanceCents).toBe(-30000 + 12000)

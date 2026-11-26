@@ -7,8 +7,10 @@ import { BankConnections, connectionName, hasMovement, type FeedAccount } from '
 
 const assignFeedItemAction = vi.fn<(input: unknown) => Promise<ActionResult>>()
 const mapFeedAccountAction = vi.fn<(input: unknown) => Promise<ActionResult>>()
+const createConnectionSpaceAction = vi.fn<(input: unknown) => Promise<ActionResult>>()
 vi.mock('@/features/spaces/adapters/actions/spaces', () => ({
   assignFeedItemAction: (i: unknown) => assignFeedItemAction(i),
+  createConnectionSpaceAction: (i: unknown) => createConnectionSpaceAction(i),
   mapFeedAccountAction: (i: unknown) => mapFeedAccountAction(i),
 }))
 const toast = { success: vi.fn<(m: string) => void>(), error: vi.fn<(m: string) => void>() }
@@ -173,6 +175,45 @@ describe('BankConnections', () => {
       />,
     )
     expect(screen.getByText('••1234', { exact: false })).toBeInTheDocument()
+  })
+
+  it('names a company connection "… Empresas" and creates the suggested space in one click', async () => {
+    createConnectionSpaceAction.mockResolvedValue({ ok: true })
+    render(
+      <BankConnections
+        connections={[
+          {
+            itemId: 'pj',
+            label: 'Nubank Empresas',
+            spaceId: null,
+            suggestedSpaceName: 'ACME Comércio',
+            accounts: [],
+            transactionCount: 0,
+            feedAccounts: [],
+          },
+          {
+            itemId: 'pj-in',
+            label: 'MeuPluggy',
+            spaceId: SHOP.id,
+            spaceSource: 'auto',
+            accounts: ['Nubank'],
+            transactionCount: 0,
+            feedAccounts: [feedAccount({ name: 'Nubank', holderType: 'company' })],
+          },
+        ]}
+        spaces={[PERSONAL, SHOP]}
+      />,
+    )
+    expect(screen.getAllByText('Nubank Empresas')).toHaveLength(2)
+    expect(screen.getByText(/espaço escolhido pelo titular/)).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Criar espaço “ACME Comércio”' }))
+    await waitFor(() =>
+      expect(createConnectionSpaceAction).toHaveBeenCalledWith({
+        itemId: 'pj',
+        name: 'ACME Comércio',
+      }),
+    )
+    expect(toast.success).toHaveBeenCalledWith('Espaço “ACME Comércio” criado.')
   })
 
   it('assigns a connection to another space', async () => {

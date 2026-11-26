@@ -117,6 +117,12 @@ export const updateSpaceSchema = z.object({
 
 export type UpdateSpaceInput = z.infer<typeof updateSpaceSchema>
 
+/** "Criar espaço “…”" of an unassigned company connection: a new space, the connection routed to it. */
+export const createConnectionSpaceSchema = z.object({
+  itemId: z.string().trim().min(1).max(100),
+  name: spaceNameSchema,
+})
+
 export const assignFeedItemSchema = z.object({
   itemId: z.string().trim().min(1).max(100),
   spaceId: spaceIdSchema.nullable(),

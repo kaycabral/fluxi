@@ -19,6 +19,7 @@ import {
 } from '@/features/spaces/adapters/space.repo'
 import {
   assignFeedItemSchema,
+  createConnectionSpaceSchema,
   createSpaceSchema,
   SPACE_COOKIE,
   spaceIdSchema,
@@ -112,6 +113,29 @@ export async function assignFeedItemAction(input: unknown): Promise<ActionResult
   if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) }
   const { itemId, spaceId } = parsed.data
   if (!(await assignFeedItem(user.id, itemId, spaceId, isoDayOf(new Date())))) {
+    return { ok: false, error: 'Conexão ou espaço inválido.' }
+  }
+  return refreshed()
+}
+
+/**
+ * "Criar espaço “…”" on an unassigned company connection (Conexões): create
+ * the space (icon "Empresa") and route the connection to it, as a manual
+ * choice. The current space does not change (the user is in the settings).
+ */
+export async function createConnectionSpaceAction(input: unknown): Promise<ActionResult> {
+  const user = await getServerUser()
+  if (!user) return { ok: false, error: SESSION_EXPIRED }
+  const parsed = createConnectionSpaceSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) }
+  const { itemId, name } = parsed.data
+  const connection = (await listFeedItems(user.id)).find((c) => c.itemId === itemId)
+  if (connection === undefined || connection.spaceId !== null) {
+    return { ok: false, error: 'Conexão inválida. Atualize e tente de novo.' }
+  }
+  const id = randomUUID()
+  await createSpace(user.id, { id, name, icon: 'building-2' })
+  if (!(await assignFeedItem(user.id, itemId, id, isoDayOf(new Date())))) {
     return { ok: false, error: 'Conexão ou espaço inválido.' }
   }
   return refreshed()

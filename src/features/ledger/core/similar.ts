@@ -46,6 +46,12 @@ export type SimilarCandidate = {
   pot: string | null
 }
 
+/** The reference entry and the bank entries that look like it. */
+export type SimilarResult = {
+  reference: { id: string; amountCents: number; description: string }
+  candidates: SimilarCandidate[]
+}
+
 /**
  * Preselected: a similar amount AND nothing classified yet. A candidate that
  * already has a category or pot is never overwritten unless the user checks
@@ -63,4 +69,17 @@ export function isPreselected(referenceCents: number, candidate: SimilarCandidat
 export function ruleRange(amounts: readonly number[]): { minCents: number; maxCents: number } {
   const values = amounts.map((a) => Math.abs(a))
   return { minCents: Math.min(...values), maxCents: Math.max(...values) }
+}
+
+/** A categorization rule as Configurações → Regras lists it. */
+export type CategorizationRule = {
+  id: string
+  /** {@link descriptionKey} it matches. */
+  pattern: string
+  minCents: number
+  maxCents: number
+  categoryId: string | null
+  categoryName: string | null
+  pot: string | null
+  potName: string | null
 }

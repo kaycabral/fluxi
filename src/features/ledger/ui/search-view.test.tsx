@@ -11,6 +11,14 @@ import { LedgerShell } from './ledger-shell'
 import { SearchView } from './search-view'
 import { IDS, sampleData, sampleDataWithBenefit, sampleRefs } from './test-fixtures'
 
+vi.mock('@/features/ledger/adapters/actions/categorize', () => ({
+  findSimilarAction: vi.fn(() =>
+    Promise.resolve({ ok: true, data: { reference: null, candidates: [] } }),
+  ),
+  categorizeEntriesAction: vi.fn(() => Promise.resolve({ ok: true })),
+  loadRulesAction: vi.fn(() => Promise.resolve({ ok: true, data: [] })),
+  deleteRuleAction: vi.fn(() => Promise.resolve({ ok: true })),
+}))
 vi.mock('@/features/ledger/adapters/actions/undo', () => ({
   undoAction: vi.fn(),
   forgetUndoAction: vi.fn(),

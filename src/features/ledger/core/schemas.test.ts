@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_POTS } from './defaults'
 import {
+  categorizeEntriesSchema,
   entryFieldsSchema,
   firstIssue,
   isoDaySchema,
@@ -131,5 +132,21 @@ describe('entryFieldsSchema · repetition rule', () => {
       'Só repetições mensais caem num dia da semana.',
     )
     expect(issue({ repeatEvery: 0 })).toBe('Repita a cada 1 ou mais.')
+  })
+})
+
+describe('categorizeEntriesSchema', () => {
+  const id = '00000000-0000-4000-8000-000000000001'
+  it('needs a category or a pot, and at least one entry', () => {
+    expect(categorizeEntriesSchema.safeParse({ entryIds: [id], pot: 'essential' }).success).toBe(
+      true,
+    )
+    expect(categorizeEntriesSchema.safeParse({ entryIds: [id], categoryId: null }).success).toBe(
+      true,
+    )
+    expect(categorizeEntriesSchema.safeParse({ entryIds: [id] }).success).toBe(false)
+    expect(categorizeEntriesSchema.safeParse({ entryIds: [], pot: 'essential' }).success).toBe(
+      false,
+    )
   })
 })

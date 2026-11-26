@@ -19,6 +19,14 @@ import { IDS, sampleData, sampleRefs } from './test-fixtures'
 
 const replace = vi.fn<(href: string, options?: unknown) => void>()
 const push = vi.fn<(href: string, options?: unknown) => void>()
+vi.mock('@/features/ledger/adapters/actions/categorize', () => ({
+  findSimilarAction: vi.fn(() =>
+    Promise.resolve({ ok: true, data: { reference: null, candidates: [] } }),
+  ),
+  categorizeEntriesAction: vi.fn(() => Promise.resolve({ ok: true })),
+  loadRulesAction: vi.fn(() => Promise.resolve({ ok: true, data: [] })),
+  deleteRuleAction: vi.fn(() => Promise.resolve({ ok: true })),
+}))
 vi.mock('@/features/ledger/adapters/actions/undo', () => ({
   undoAction: vi.fn(),
   forgetUndoAction: vi.fn(),

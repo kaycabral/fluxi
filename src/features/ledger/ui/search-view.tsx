@@ -37,6 +37,7 @@ import { writeBrowserCookie } from '@/lib/browser-cookie'
 import {
   Badge,
   Button,
+  Checkbox,
   cn,
   DateField,
   Field,
@@ -51,11 +52,12 @@ import {
   PopoverTrigger,
   Typography,
 } from '@cbrl/design'
-import { Plus, Search, SlidersHorizontal, X } from 'lucide-react'
+import { ListChecks, Plus, Search, SlidersHorizontal, X } from 'lucide-react'
 import { useDeferredValue, useMemo, useState } from 'react'
 import { BankMark } from './bank-mark'
 import { useLedgerUi } from './ledger-shell'
 import { Money } from './money'
+import { SelectionBar, useEntrySelection } from './selection-bar'
 import { AccountSelect, CategorySelect, OptionSelect, PotSelect } from './selects'
 
 const PAGE_SIZE = 50
@@ -126,6 +128,8 @@ export function SearchView({ data, initialQuery, today }: Props) {
   const { openEdit, openNew } = useLedgerUi()
   const [query, setQuery] = useState(initialQuery)
   const [page, setPage] = useState(1)
+  const { selecting, selected, toggleSelected, setSelecting, stopSelecting, clearSelected } =
+    useEntrySelection()
   // Typing stays instant; filtering a long ledger renders at lower priority.
   const applied = useDeferredValue(query)
 
@@ -201,14 +205,24 @@ export function SearchView({ data, initialQuery, today }: Props) {
             aria-label="Buscar lançamentos"
           />
         </InputGroup>
-        <FiltersPopover
-          data={data}
-          query={query}
-          count={chips.length}
-          range={pickerRange(bounds, today)}
-          onChange={update}
-          onClear={clearFilters}
-        />
+        <div className="flex items-center gap-2 self-end sm:self-auto">
+          <Button
+            variant={selecting ? 'secondary' : 'outline'}
+            size="sm"
+            aria-pressed={selecting}
+            onClick={() => (selecting ? stopSelecting() : setSelecting(true))}
+          >
+            <ListChecks /> {selecting ? 'Concluir' : 'Selecionar'}
+          </Button>
+          <FiltersPopover
+            data={data}
+            query={query}
+            count={chips.length}
+            range={pickerRange(bounds, today)}
+            onChange={update}
+            onClear={clearFilters}
+          />
+        </div>
       </div>
       {chips.length > 0 && (
         <div className="flex flex-wrap items-center gap-2">
@@ -256,8 +270,16 @@ export function SearchView({ data, initialQuery, today }: Props) {
             entry.kind === 'transfer'
               ? `${label(entry.accountId)} → ${label(entry.toAccountId)}`
               : label(entry.accountId)
+          const isSelected = selected.has(entry.id)
           return {
-            leading: (
+            leading: selecting ? (
+              <Checkbox
+                checked={isSelected}
+                aria-label={`Selecionar ${entry.description}`}
+                onClick={(e) => e.stopPropagation()}
+                onCheckedChange={() => toggleSelected(entry.id)}
+              />
+            ) : (
               <span
                 aria-hidden
                 className={cn('size-2.5 shrink-0 rounded-xs', potDot(entry.pot, data.pots))}
@@ -290,10 +312,20 @@ export function SearchView({ data, initialQuery, today }: Props) {
                 <Money cents={valueCents} tone />
               ),
             trailingHint: paid ? paidLabel(landing.amountCents) : undefined,
-            onClick: () => openEdit(targetFor(data, landing)),
+            onClick: selecting
+              ? () => toggleSelected(entry.id)
+              : () => openEdit(targetFor(data, landing)),
           }
         }}
       />
+      {selecting && (
+        <SelectionBar
+          entryIds={[...selected]}
+          categories={data.categories}
+          pots={data.pots}
+          onClear={clearSelected}
+        />
+      )}
     </div>
   )
 }

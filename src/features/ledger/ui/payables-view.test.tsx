@@ -8,6 +8,14 @@ import { IDS, sampleData, sampleDataWithBenefit, sampleRefs } from './test-fixtu
 type Result = { ok: true } | { ok: false; error: string }
 const markPaidAction = vi.fn<(input: unknown) => Promise<Result>>()
 const unmarkPaidAction = vi.fn<(input: unknown) => Promise<Result>>()
+vi.mock('@/features/ledger/adapters/actions/categorize', () => ({
+  findSimilarAction: vi.fn(() =>
+    Promise.resolve({ ok: true, data: { reference: null, candidates: [] } }),
+  ),
+  categorizeEntriesAction: vi.fn(() => Promise.resolve({ ok: true })),
+  loadRulesAction: vi.fn(() => Promise.resolve({ ok: true, data: [] })),
+  deleteRuleAction: vi.fn(() => Promise.resolve({ ok: true })),
+}))
 vi.mock('@/features/ledger/adapters/actions/undo', () => ({
   undoAction: vi.fn(),
   forgetUndoAction: vi.fn(),

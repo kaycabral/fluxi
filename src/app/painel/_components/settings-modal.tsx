@@ -1,7 +1,10 @@
 'use client'
 
 import { loadAccountsAction, type AccountsData } from '@/features/ledger/adapters/actions/accounts'
+import { loadRulesAction } from '@/features/ledger/adapters/actions/categorize'
+import type { CategorizationRule } from '@/features/ledger/core/similar'
 import { AccountsSettings } from '@/features/ledger/ui/accounts-settings'
+import { RulesSettings } from '@/features/ledger/ui/rules-settings'
 import {
   loadConnectionsAction,
   type ConnectionsData,
@@ -41,6 +44,12 @@ const SECTIONS = [
     description:
       'Escolha em qual espaço entram os dados de cada conexão; as contas do banco com movimento entram no Fluxi sozinhas. Sem espaço, a conexão não é sincronizada.',
   },
+  {
+    key: 'regras',
+    label: 'Regras',
+    description:
+      'Lançamentos novos do banco com essa descrição e valor na faixa ganham a categoria e o pote sozinhos. Nunca mudam o que você já classificou.',
+  },
 ] as const
 
 type SectionKey = (typeof SECTIONS)[number]['key']
@@ -55,13 +64,22 @@ function sectionFromHash(hash: string): (typeof SECTIONS)[number] | null {
 
 type Read<T> = { ok: true; data: T } | { ok: false; error: string }
 type Loaded =
-  { key: 'conexoes'; read: Read<ConnectionsData> } | { key: 'contas'; read: Read<AccountsData> }
+  | { key: 'conexoes'; read: Read<ConnectionsData> }
+  | { key: 'contas'; read: Read<AccountsData> }
+  | { key: 'regras'; read: Read<CategorizationRule[]> }
 
 async function loadSection(key: SectionKey): Promise<Loaded> {
   if (key === 'contas') {
     const read = await loadAccountsAction().catch(() => ({
       ok: false as const,
       error: 'Não foi possível carregar as contas.',
+    }))
+    return { key, read }
+  }
+  if (key === 'regras') {
+    const read = await loadRulesAction().catch(() => ({
+      ok: false as const,
+      error: 'Não foi possível carregar as regras.',
     }))
     return { key, read }
   }
@@ -87,6 +105,9 @@ function SectionBody({ loaded, reload }: { loaded: Loaded; reload: () => void })
   if (!loaded.read.ok) return <Failed error={loaded.read.error} reload={reload} />
   if (loaded.key === 'contas') {
     return <AccountsSettings data={loaded.read.data} onChanged={reload} />
+  }
+  if (loaded.key === 'regras') {
+    return <RulesSettings rules={loaded.read.data} onChanged={reload} />
   }
   return <ConnectionsSection data={loaded.read.data} reload={reload} />
 }

@@ -2,6 +2,8 @@
 
 import { feedAccountLabel, institutionOf } from '@/features/bank-feed/core/institution'
 import { compatibleTypes, ledgerBalanceOf } from '@/features/bank-feed/core/mapping'
+import type { CardStatus } from '@/features/bank-feed/core/pluggy'
+import { feedAccountStatusLine } from '@/features/bank-feed/core/status'
 import { BankLogo } from '@/features/bank-feed/ui/bank-logo'
 import { formatMoney } from '@/features/ledger/core/format'
 import { useAction } from '@/features/ledger/ui/budget/shared'
@@ -44,6 +46,10 @@ export type FeedAccount = {
   entryCount: number
   /** Bank transactions stored for it (none and a zero balance = "sem movimento"). */
   transactionCount: number
+  /** Date of its latest stored transaction (`YYYY-MM-DD`); null = none in the last 12 months. */
+  lastMovement?: string | null
+  /** A card's status from Pluggy; null for bank accounts or when unknown. */
+  cardStatus?: CardStatus | null
 }
 
 /** A fluxi account the mapping picker offers (see `MappableAccount`). */
@@ -383,6 +389,12 @@ function FeedAccountRow({
       <p className="text-muted-foreground text-xs">
         {FEED_TYPE_LABELS[feed.type] ?? feed.type} · saldo no banco{' '}
         {formatMoney(ledgerBalanceOf(feed.type, feed.balanceCents))}
+      </p>
+      <p className="text-muted-foreground text-xs">
+        {feedAccountStatusLine({
+          lastMovement: feed.lastMovement ?? null,
+          cardStatus: feed.cardStatus ?? null,
+        })}
       </p>
       <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
         <span className="min-w-0 truncate">{target}</span>

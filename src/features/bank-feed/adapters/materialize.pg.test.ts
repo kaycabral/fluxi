@@ -41,6 +41,7 @@ const checkingFeed: FeedAccountRow = {
   subtype: 'CHECKING_ACCOUNT',
   balanceCents: 100000,
   numberHint: null,
+  cardStatus: null,
 }
 const cardFeed: FeedAccountRow = {
   ...checkingFeed,

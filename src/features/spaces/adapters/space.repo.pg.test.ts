@@ -6,6 +6,7 @@ import {
   bankFeedItems,
   bankTransactions,
 } from '@/db/schema-bank-feed'
+import { listUnlinkedConnectedInstitutions } from '@/features/ledger/adapters/ledger.repo'
 import type { Scope } from '@/features/spaces/core/space'
 import { and, eq } from 'drizzle-orm'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
@@ -260,5 +261,60 @@ describe('space name and icon (Postgres)', () => {
     await expect(
       db().update(spaces).set({ icon: 'rocket' }).where(eq(spaces.id, ana.spaceId)),
     ).rejects.toThrow()
+  })
+})
+
+describe('connection status and connected banks (Postgres)', () => {
+  beforeEach(async () => {
+    await truncateFluxiTables(db())
+    await seedUser(db(), { id: ANA, email: 'ana@example.test' })
+    await seedUser(db(), { id: BIA, email: 'bia@example.test' })
+    ana = await personalScope(db(), ANA)
+    bia = await personalScope(db(), BIA)
+    await db()
+      .insert(bankFeedItems)
+      .values([
+        { userId: ANA, itemId: 'item-1', spaceId: ana.spaceId },
+        { userId: ANA, itemId: 'item-2', spaceId: ana.spaceId, label: 'Inter' },
+        { userId: BIA, itemId: 'item-1', spaceId: bia.spaceId },
+      ])
+  })
+
+  it('reports the latest movement of each feed account, only from its own transactions', async () => {
+    const quiet = await feedAccount(ana, 'item-1', 'acc-quiet', [])
+    const busy = await feedAccount(ana, 'item-1', 'acc-busy', ['t1'])
+    await db()
+      .update(bankFeedAccounts)
+      .set({ cardStatus: 'blocked' })
+      .where(eq(bankFeedAccounts.id, quiet.id))
+    // Bia's newer transaction never leaks into Ana's account.
+    await feedAccount(bia, 'item-1', 'acc-busy', ['t9'])
+    await db()
+      .update(bankTransactions)
+      .set({ date: '2026-11-20' })
+      .where(eq(bankTransactions.userId, BIA))
+    const [item] = await listFeedItems(ANA)
+    const byId = new Map(item!.feedAccounts.map((f) => [f.id, f]))
+    expect(byId.get(busy.id)).toMatchObject({ lastMovement: '2026-10-01', cardStatus: null })
+    expect(byId.get(quiet.id)).toMatchObject({ lastMovement: null, cardStatus: 'blocked' })
+  })
+
+  it('lists the connected institutions of the space that have no linked account', async () => {
+    await feedAccount(ana, 'item-1', 'acc-1', [])
+    await expect(listUnlinkedConnectedInstitutions(ana)).resolves.toEqual(['Banco X', 'Inter'])
+    const [bank] = await db()
+      .insert(banks)
+      .values({ ...ana, name: 'B' })
+      .returning()
+    const [account] = await db()
+      .insert(accounts)
+      .values({ ...ana, bankId: bank!.id, name: 'C', type: 'checking' })
+      .returning()
+    await db()
+      .update(bankFeedAccounts)
+      .set({ accountId: account!.id })
+      .where(eq(bankFeedAccounts.userId, ANA))
+    await expect(listUnlinkedConnectedInstitutions(ana)).resolves.toEqual(['Inter'])
+    await expect(listUnlinkedConnectedInstitutions(bia)).resolves.toEqual([])
   })
 })

@@ -3,6 +3,7 @@ import 'server-only'
 import { personalScope } from '@/db/queries/spaces'
 import { accounts, banks, spaces } from '@/db/schema'
 import { bankFeedAccounts, bankFeedItems, bankTransactions } from '@/db/schema-bank-feed'
+import { cardStatusOf, type CardStatus } from '@/features/bank-feed/core/pluggy'
 import {
   DEFAULT_SPACE_ICON,
   isSpaceIcon,
@@ -129,6 +130,10 @@ export type FeedAccountView = {
   entryCount: number
   /** Bank transactions stored for it (zero with a zero balance = "sem movimento"). */
   transactionCount: number
+  /** Date (`YYYY-MM-DD`) of its latest stored transaction; null = none in the synced window. */
+  lastMovement: string | null
+  /** A card's status from Pluggy; null for bank accounts or when unknown. */
+  cardStatus: CardStatus | null
 }
 
 /** An active fluxi account a feed account can be mapped to. */
@@ -195,6 +200,11 @@ export async function listFeedItems(userId: string): Promise<FeedItem[]> {
       numberHint: bankFeedAccounts.numberHint,
       accountId: bankFeedAccounts.accountId,
       mappingSource: bankFeedAccounts.mappingSource,
+      cardStatus: bankFeedAccounts.cardStatus,
+      lastMovement: sql<string | null>`(
+        select max(t.date)::text from bank_transactions t
+        where t.feed_account_id = "bank_feed_accounts"."id" and t.user_id = ${userId}
+      )`,
       transactionCount: sql<number>`(
         select count(*)::int from bank_transactions t
         where t.feed_account_id = "bank_feed_accounts"."id" and t.user_id = ${userId}
@@ -216,9 +226,10 @@ export async function listFeedItems(userId: string): Promise<FeedItem[]> {
     transactionCount: counts.find((c) => c.itemId === item.itemId)?.count ?? 0,
     feedAccounts: feeds
       .filter((f) => f.itemId === item.itemId && f.spaceId === item.spaceId)
-      .map(({ itemId: _item, spaceId: _space, mappingSource, ...view }) => ({
+      .map(({ itemId: _item, spaceId: _space, mappingSource, cardStatus, ...view }) => ({
         ...view,
         mappingSource: mappingSourceOf(mappingSource),
+        cardStatus: cardStatusOf(cardStatus),
       })),
   }))
 }
@@ -370,6 +381,8 @@ async function copyFeedAccount(
       type: source.type,
       subtype: source.subtype,
       balanceCents: source.balanceCents,
+      numberHint: source.numberHint,
+      cardStatus: source.cardStatus,
       // A fluxi account of the old space cannot be referenced from the new one;
       // the mapping is decided again there (auto-link included).
       accountId: null,

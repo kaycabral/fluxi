@@ -79,6 +79,44 @@ describe('BankConnections', () => {
     expect(hasMovement({ transactionCount: 2, balanceCents: 0 })).toBe(true)
   })
 
+  it('shows each account’s latest movement and a card’s status', () => {
+    render(
+      <BankConnections
+        connections={[
+          {
+            itemId: 'i1',
+            label: 'Nubank',
+            spaceId: PERSONAL.id,
+            accounts: ['Conta', 'Cartão'],
+            transactionCount: 1,
+            feedAccounts: [
+              feedAccount({
+                id: 'f1',
+                name: 'Conta',
+                transactionCount: 1,
+                lastMovement: '2026-11-03',
+              }),
+              feedAccount({
+                id: 'f2',
+                name: 'Cartão',
+                type: 'CREDIT',
+                subtype: 'CREDIT_CARD',
+                balanceCents: 100,
+                cardStatus: 'blocked',
+                lastMovement: null,
+              }),
+            ],
+          },
+        ]}
+        spaces={[PERSONAL]}
+      />,
+    )
+    expect(screen.getByText('Último movimento: 03/11/2026')).toBeInTheDocument()
+    expect(
+      screen.getByText('Cartão bloqueado · Sem movimento nos últimos 12 meses'),
+    ).toBeInTheDocument()
+  })
+
   it('lists each connection as a card with its space, without overflowing', () => {
     render(
       <BankConnections

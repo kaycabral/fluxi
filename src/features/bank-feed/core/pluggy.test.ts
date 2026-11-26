@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  cardStatusOf,
   coveredFrom,
   itemReadiness,
   numberHintOf,
@@ -198,5 +199,32 @@ describe('numberHintOf', () => {
     )
     expect(account.numberHint).toBe('5432')
     expect(JSON.stringify(account)).not.toContain('9876543')
+  })
+})
+
+describe('cardStatusOf', () => {
+  it.each([
+    ['ACTIVE', 'active'],
+    ['BLOCKED', 'blocked'],
+    ['CANCELLED', 'cancelled'],
+    ['SOMETHING_NEW', null],
+    [null, null],
+    [undefined, null],
+  ] as const)('maps %s to %s', (status, expected) => {
+    expect(cardStatusOf(status)).toBe(expected)
+  })
+
+  it('keeps the status of a card only', () => {
+    const base = { id: 'a', itemId: 'i', subtype: 'X', name: 'N', balance: 1, currencyCode: 'BRL' }
+    const card = toFeedAccount(
+      { ...base, type: 'CREDIT', creditData: { status: 'BLOCKED' } },
+      'Banco X',
+    )
+    expect(card.cardStatus).toBe('blocked')
+    const bank = toFeedAccount(
+      { ...base, type: 'BANK', creditData: { status: 'ACTIVE' } },
+      'Banco X',
+    )
+    expect(bank.cardStatus).toBeNull()
   })
 })

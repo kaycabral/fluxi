@@ -80,10 +80,13 @@ test.describe('dashboard and budget', () => {
       `${monthLabel(next)} em diante`,
     )
 
-    // Same window as the dashboard widget: previous, current and the next 3 months.
+    // Adaptive window: as many months as fit the full-width card (more than the
+    // minimum at the E2E viewport), opening one month back.
     const light = page.getByRole('table')
     const firstMonth = light.getByRole('columnheader').nth(1)
-    await expect(light.getByRole('columnheader')).toHaveCount(6)
+    await expect(async () => {
+      expect(await light.getByRole('columnheader').count()).toBeGreaterThan(4)
+    }).toPass()
     await expect(firstMonth).toHaveText(monthLabel(addMonths(THIS_MONTH, -1)))
     await page.getByRole('button', { name: 'Mês anterior' }).click()
     await expect(firstMonth).toHaveText(monthLabel(addMonths(THIS_MONTH, -2)))

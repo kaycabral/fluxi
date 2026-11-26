@@ -323,7 +323,7 @@ describe('BudgetView · semáforo', () => {
       .map((h) => h.textContent)
       .filter((t) => t !== 'Grupo')
 
-  it('opens on the dashboard window (previous, current, next 3) and walks it with the arrows', async () => {
+  it('opens on the default window before measuring (previous, current, next 3) and walks it with the arrows', async () => {
     renderBudget()
     expect(months()).toEqual(['nov/26', 'dez/26', 'jan/27', 'fev/27', 'mar/27'])
     // Same compact presentation as the dashboard widget: no range label, no legend.
@@ -336,6 +336,63 @@ describe('BudgetView · semáforo', () => {
     expect(months()[0]).toBe('dez/26')
     await userEvent.click(screen.getByRole('button', { name: 'Hoje' }))
     expect(months()[0]).toBe('nov/26')
+  })
+
+  describe('once the card is measured', () => {
+    function measureAs(width: number) {
+      vi.stubGlobal(
+        'ResizeObserver',
+        class {
+          private readonly callback: (entries: { contentRect: { width: number } }[]) => void
+          constructor(callback: (entries: { contentRect: { width: number } }[]) => void) {
+            this.callback = callback
+          }
+          observe() {
+            this.callback([{ contentRect: { width } }])
+          }
+          disconnect() {}
+        },
+      )
+    }
+    afterEach(() => {
+      vi.unstubAllGlobals()
+    })
+
+    it('a tight card opens on the current month and the next one', async () => {
+      measureAs(330)
+      renderBudget()
+      await waitFor(() => expect(months()).toEqual(['dez/26', 'jan/27']))
+      await userEvent.click(screen.getByRole('button', { name: 'Mês anterior' }))
+      expect(months()).toEqual(['nov/26', 'dez/26'])
+      await userEvent.click(screen.getByRole('button', { name: 'Hoje' }))
+      expect(months()[0]).toBe('dez/26')
+    })
+
+    it('keeps the default window when the observer reports no size', () => {
+      vi.stubGlobal(
+        'ResizeObserver',
+        class {
+          private readonly callback: (entries: unknown[]) => void
+          constructor(callback: (entries: unknown[]) => void) {
+            this.callback = callback
+          }
+          observe() {
+            this.callback([])
+          }
+          disconnect() {}
+        },
+      )
+      const { unmount } = renderBudget()
+      expect(months()).toEqual(['nov/26', 'dez/26', 'jan/27', 'fev/27', 'mar/27'])
+      unmount()
+    })
+
+    it('a wide card shows more future months, one month back', async () => {
+      measureAs(1150)
+      renderBudget()
+      await waitFor(() => expect(months()).toHaveLength(10))
+      expect(months()[0]).toBe('nov/26')
+    })
   })
 
   it('judges each month by its own version and leaves earlier months without a light', async () => {

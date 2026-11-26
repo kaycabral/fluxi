@@ -1,5 +1,5 @@
-import { fluxiDb, seedUser, truncateFluxiTables } from '@/db'
-import { bankTransactions } from '@/db/schema'
+import { fluxiDb, personalScope, seedUser, truncateFluxiTables } from '@/db'
+import { bankFeedAccounts, bankFeedItems, bankTransactions } from '@/db/schema-bank-feed'
 import { requireEnv } from '@cbrl/env'
 import postgres from 'postgres'
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -106,7 +106,35 @@ describe('pluggy-sync handler (Postgres)', () => {
     expect((await broken.response).status).toBe(500)
   })
 
+  it('records new items as unassigned and stores nothing of them', async () => {
+    const res = await call(authed).response
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({
+      ok: true,
+      accounts: [],
+      skipped: [],
+      unassigned: [
+        { item: 1, institution: 'Banco X' },
+        { item: 2, institution: 'Banco X' },
+      ],
+    })
+    const items = await db().select().from(bankFeedItems)
+    expect(items.map((i) => [i.itemId, i.spaceId, i.label]).sort()).toEqual([
+      ['item-busy', null, 'Banco X'],
+      ['item-ok', null, 'Banco X'],
+    ])
+    expect(await db().select().from(bankFeedAccounts)).toHaveLength(0)
+    expect(await db().select().from(bankTransactions)).toHaveLength(0)
+  })
+
   it('syncs ready items as fluxi_sync, skips the rest and logs aggregates only', async () => {
+    const { spaceId } = await personalScope(db(), ANA)
+    await db()
+      .insert(bankFeedItems)
+      .values([
+        { userId: ANA, itemId: 'item-ok', spaceId },
+        { userId: ANA, itemId: 'item-busy', spaceId },
+      ])
     const { response, log } = call(authed)
     const res = await response
     expect(res.status).toBe(200)
@@ -126,8 +154,10 @@ describe('pluggy-sync handler (Postgres)', () => {
         },
       ],
       skipped: [{ item: 2, institution: 'Banco X', status: 'UPDATING' }],
+      unassigned: [],
     })
     const rows = await db().select().from(bankTransactions)
+    expect(rows.every((r) => r.spaceId === spaceId)).toBe(true)
     expect(rows.map((r) => [r.externalId, r.amountCents]).sort()).toEqual([
       ['t1', -500],
       ['t2', 5000],

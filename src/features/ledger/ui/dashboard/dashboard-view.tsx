@@ -403,7 +403,7 @@ export function DashboardView({
           </CardContent>
         </Card>
 
-        <Card className="h-[22rem] min-w-0">
+        <Card className="min-h-[22rem] min-w-0">
           <CardHeader>
             <CardTitle asChild>
               <h2>Grupos em {monthLabel(month)}</h2>
@@ -415,7 +415,7 @@ export function DashboardView({
               </span>
             </CardDescription>
           </CardHeader>
-          <CardContent className="min-h-0 flex-1 overflow-y-auto">
+          <CardContent>
             <BudgetGroupsThisMonth budgetGroups={budgetGroups} month={budget} />
           </CardContent>
         </Card>

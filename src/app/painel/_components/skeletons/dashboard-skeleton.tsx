@@ -13,6 +13,7 @@ import {
   VisualText,
 } from '@/app/painel/_components/skeletons/parts'
 import { dayLongLabel, monthLabel } from '@/features/ledger/core/format'
+import { BILLS_COUNT_CLASS, BILLS_PREVIEW, BILLS_TABS_CLASS } from '@/features/ledger/core/payments'
 import { useLedgerRefs } from '@/features/ledger/ui/ledger-shell'
 import {
   Card,
@@ -24,6 +25,10 @@ import {
   cn,
   Main,
   Skeleton,
+  Tabs,
+  TabsCount,
+  TabsList,
+  TabsTrigger,
 } from '@cbrl/design'
 import { ArrowRight } from 'lucide-react'
 
@@ -81,7 +86,7 @@ function Stat({
 /** "Contas" (upcoming bills) loading: the tabs line and a column of rows. */
 function BillsSkeleton() {
   return (
-    <Card className="h-[30rem] min-w-0 lg:h-auto lg:contain-size">
+    <Card className="min-w-0">
       <CardHeader>
         <CardTitle asChild>
           <h2>
@@ -89,33 +94,61 @@ function BillsSkeleton() {
           </h2>
         </CardTitle>
       </CardHeader>
-      <CardContent className="min-h-0 flex-1">
-        <div className="flex h-full flex-col gap-3">
-          <div className="border-border flex h-9 w-full items-center gap-4 border-b">
-            {['Atrasadas', '7 dias', 'Este mês', 'Próximo mês'].map((tab) => (
-              <span key={tab} className="text-muted-foreground text-sm font-medium">
-                <VisualText text={tab} />
+      <CardContent>
+        <div className="flex flex-col gap-3">
+          {/* The real tabs primitives (line variant), so every tab keeps its width. */}
+          <Tabs>
+            <TabsList variant="line" className={BILLS_TABS_CLASS}>
+              {['Atrasadas', '7 dias', 'Este mês', 'Próximo mês'].map((tab) => (
+                <TabsTrigger key={tab} value={tab} disabled tabIndex={-1}>
+                  <VisualText text={tab} />
+                  <TabsCount>
+                    <span className={BILLS_COUNT_CLASS}>
+                      <TextSkeleton sample="0" />
+                    </span>
+                  </TabsCount>
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+          <div className="flex flex-col gap-2">
+            <ul className="divide-border @container divide-y">
+              {Array.from({ length: BILLS_PREVIEW }, (_, i) => (
+                // Same boxes as the real row (`BillList`): date column, two text
+                // lines (account left, amount right), the pay button group.
+                <li key={i} className="flex items-center gap-2 py-2">
+                  <span className="w-14 shrink-0 text-xs tabular-nums">
+                    <TextSkeleton sample="00/00/00" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm">
+                      <TextSkeleton sample="Descrição da conta" />
+                    </span>
+                    <span className="flex items-baseline justify-between gap-2 text-xs">
+                      <span className="min-w-0 truncate">
+                        <TextSkeleton sample="Banco · Conta" />
+                      </span>
+                      <span className="shrink-0 font-mono">
+                        <TextSkeleton sample="R$ 0.000,00" />
+                      </span>
+                    </span>
+                  </span>
+                  {/* `PayButton`: compact (icon only) until the list is @sm wide. */}
+                  <Skeleton className="h-7 w-[60px] shrink-0 @sm:w-[124px]" />
+                </li>
+              ))}
+            </ul>
+            {/* The pager: "1–6 de N" and the arrows (outline icon-sm). */}
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs">
+                <TextSkeleton sample="1–6 de 00" />
               </span>
-            ))}
+              <div className="flex items-center gap-1">
+                <Skeleton className="size-7" />
+                <Skeleton className="size-7" />
+              </div>
+            </div>
           </div>
-          <ul className="divide-border -mr-2 min-h-0 flex-1 divide-y overflow-hidden pr-2">
-            {Array.from({ length: 8 }, (_, i) => (
-              <li key={i} className="flex items-center gap-2 py-2">
-                <span className="font-mono text-xs">
-                  <TextSkeleton sample="00/00/00" />
-                </span>
-                <span className="grid min-w-0 flex-1 gap-0.5">
-                  <span className="text-sm">
-                    <TextSkeleton sample="Descrição da conta" />
-                  </span>
-                  <span className="text-xs">
-                    <TextSkeleton sample="Banco · Conta" />
-                  </span>
-                </span>
-                <Skeleton className="h-7 w-[124px]" />
-              </li>
-            ))}
-          </ul>
         </div>
       </CardContent>
     </Card>
@@ -197,7 +230,7 @@ export function DashboardSkeleton() {
               </CardContent>
             </Card>
 
-            <Card className="h-[22rem] min-w-0">
+            <Card className="min-h-[22rem] min-w-0">
               <CardHeader>
                 <CardTitle asChild>
                   <h2>
@@ -213,7 +246,7 @@ export function DashboardSkeleton() {
                   <TextSkeleton sample="0.000,00" />
                 </CardDescription>
               </CardHeader>
-              <CardContent className="min-h-0 flex-1 overflow-hidden">
+              <CardContent>
                 <ul className="grid gap-3">
                   {groups.map((row) => (
                     <li key={row.key} className={cn('grid gap-1', row.hintClass)}>

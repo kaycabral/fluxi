@@ -341,6 +341,22 @@ describe('DashboardView', () => {
     await waitFor(() => expect(markPaidAction).toHaveBeenCalledOnce())
   })
 
+  it('pages the bills with arrows instead of scrolling inside the card', async () => {
+    renderDashboard()
+    const panel = () => screen.getByRole('tabpanel')
+    const back = () => within(panel()).getByRole('button', { name: 'Anteriores' })
+    const next = () => within(panel()).getByRole('button', { name: 'Próximas' })
+    expect(within(panel()).getAllByRole('listitem')).toHaveLength(6)
+    expect(panel()).toHaveTextContent('1–6 de 7')
+    expect(back()).toBeDisabled()
+    await userEvent.click(next())
+    expect(within(panel()).getAllByRole('listitem')).toHaveLength(1)
+    expect(panel()).toHaveTextContent('7–7 de 7')
+    expect(next()).toBeDisabled()
+    await userEvent.click(back())
+    expect(panel()).toHaveTextContent('1–6 de 7')
+  })
+
   it('opens an occurrence in the sheet', async () => {
     renderDashboard()
     const panel = screen.getByRole('tabpanel')

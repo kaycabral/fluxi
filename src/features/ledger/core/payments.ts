@@ -223,3 +223,12 @@ export function splitPayments<P extends OccurrencePayment>(
     return copy === undefined ? [] : [{ ...p, entryId: split.toEntryId, partId: copy.id }]
   })
 }
+
+/** Rows per page of the dashboard's "Contas": it pages with arrows, never scrolls inside the page. */
+export const BILLS_PREVIEW = 6
+
+/** The count box of each "Contas" tab: room for 3 digits, so loading and data line up. */
+export const BILLS_COUNT_CLASS = 'inline-block min-w-[3ch] text-center tabular-nums'
+
+/** The "Contas" tabs line: slides sideways when the card is narrower than the four tabs. */
+export const BILLS_TABS_CLASS = 'max-w-full justify-start overflow-x-auto [scrollbar-width:none]'

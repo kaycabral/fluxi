@@ -18,8 +18,8 @@ importers:
         specifier: ^0.2.0
         version: 0.2.0
       '@cbrl/design':
-        specifier: ^0.6.2
-        version: 0.6.2(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(next-themes@0.4.6(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(tailwindcss@4.3.5)
+        specifier: ^0.6.3
+        version: 0.6.3(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(next-themes@0.4.6(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(tailwindcss@4.3.5)
       '@cbrl/env':
         specifier: ^0.1.1
         version: 0.1.1
@@ -292,8 +292,8 @@ packages:
     peerDependencies:
       '@commitlint/cli': '>=20'
 
-  '@cbrl/design@0.6.2':
-    resolution: {integrity: sha512-W1N8jxW7QCsTBTzjqboetSTU9gq7QrX98CPMBnQ54P8M5gnpH1l24Ul8Cvby61O51tUxUbzpe49uZrAte4NuZw==}
+  '@cbrl/design@0.6.3':
+    resolution: {integrity: sha512-Yk1Z8LThxB0adcBPVk7wdbYEDOaBDPSes373xn9gK4+JlE3f5X+7Bh9QtbmVb0U9IRo4PK0UzvKuV560u0hGSQ==}
     peerDependencies:
       next-themes: ^0.4.0
       react: ^19.0.0
@@ -5405,7 +5405,7 @@ snapshots:
       '@commitlint/cli': 21.2.4(conventional-commits-parser@7.1.4)(typescript@6.0.3)
       '@commitlint/config-conventional': 21.2.4
 
-  '@cbrl/design@0.6.2(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(next-themes@0.4.6(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(tailwindcss@4.3.5)':
+  '@cbrl/design@0.6.3(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(next-themes@0.4.6(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(tailwindcss@4.3.5)':
     dependencies:
       class-variance-authority: 0.7.1
       clsx: 2.1.1

@@ -3,6 +3,9 @@
 import { accountLabel } from '@/features/ledger/core/account-filter'
 import { dueDateLabel } from '@/features/ledger/core/format'
 import {
+  BILLS_COUNT_CLASS,
+  BILLS_PREVIEW,
+  BILLS_TABS_CLASS,
   groupPayables,
   payablesWindow,
   type PayableGroup,
@@ -15,6 +18,7 @@ import {
   type LedgerData,
 } from '@/features/ledger/core/view'
 import {
+  Button,
   Card,
   CardContent,
   CardHeader,
@@ -27,7 +31,8 @@ import {
   TabsList,
   TabsTrigger,
 } from '@cbrl/design'
-import { useMemo } from 'react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { useMemo, useState } from 'react'
 import { useLedgerUi } from '../ledger-shell'
 import { Money } from '../money'
 import { PayButton } from '../paid-controls'
@@ -60,10 +65,16 @@ function BillList({
 }) {
   const { openEdit } = useLedgerUi()
   const label = (id: string | null) => accountLabel(id, data.accounts, data.banks)
+  const pages = Math.max(1, Math.ceil(group.items.length / BILLS_PREVIEW))
+  const [rawPage, setPage] = useState(0)
+  // Paying shrinks the list: never stay past its last page.
+  const page = Math.min(rawPage, pages - 1)
+  const from = page * BILLS_PREVIEW
+  const shown = group.items.slice(from, from + BILLS_PREVIEW)
   return (
-    <div className="flex h-full min-h-0 flex-col gap-2">
-      <ul className="divide-border @container -mr-2 min-h-0 flex-1 divide-y overflow-y-auto pr-2">
-        {group.items.map(({ landing, date }) => {
+    <div className="flex flex-col gap-2">
+      <ul className="divide-border @container divide-y">
+        {shown.map(({ landing, date }) => {
           const { entry } = landing
           const installment = installmentLabel(landing)
           return (
@@ -115,6 +126,31 @@ function BillList({
           )
         })}
       </ul>
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-muted-foreground text-xs tabular-nums">
+          {from + 1}–{from + shown.length} de {group.items.length}
+        </span>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="outline"
+            size="icon-sm"
+            aria-label="Anteriores"
+            disabled={page === 0}
+            onClick={() => setPage(page - 1)}
+          >
+            <ChevronLeft />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon-sm"
+            aria-label="Próximas"
+            disabled={page === pages - 1}
+            onClick={() => setPage(page + 1)}
+          >
+            <ChevronRight />
+          </Button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -141,27 +177,25 @@ export function UpcomingBills({
   const byKey = new Map(groups.map((g) => [g.key, g]))
 
   return (
-    // Fixed height when stacked; beside the budget (lg) it takes the row's height
-    // and never grows it (`contain-size`), scrolling its list instead.
-    <Card className={cn('h-[30rem] min-w-0 lg:h-auto lg:contain-size', className)}>
+    // No inner scroll (it doubled the page's): pages of a few rows, with arrows.
+    <Card className={cn('min-w-0', className)}>
       <CardHeader>
         <CardTitle asChild>
           <h2>Contas</h2>
         </CardTitle>
       </CardHeader>
-      <CardContent className="min-h-0 flex-1">
-        <Tabs defaultValue={initialTab(groups)} className="h-full gap-3">
-          <TabsList variant="line">
+      <CardContent>
+        <Tabs defaultValue={initialTab(groups)} className="gap-3">
+          <TabsList variant="line" className={BILLS_TABS_CLASS}>
             {TABS.map((tab) => {
               const count = byKey.get(tab.key)?.items.length ?? 0
               return (
                 <TabsTrigger key={tab.key} value={tab.key}>
                   {tab.label}
-                  {count > 0 && (
-                    <TabsCount tone={tab.key === 'overdue' ? 'destructive' : 'default'}>
-                      {count}
-                    </TabsCount>
-                  )}
+                  {/* Always there (0 too): the tabs keep their width as the data loads. */}
+                  <TabsCount tone={tab.key === 'overdue' && count > 0 ? 'destructive' : 'default'}>
+                    <span className={BILLS_COUNT_CLASS}>{count}</span>
+                  </TabsCount>
                 </TabsTrigger>
               )
             })}
@@ -169,9 +203,9 @@ export function UpcomingBills({
           {TABS.map((tab) => {
             const group = byKey.get(tab.key)
             return (
-              <TabsContent key={tab.key} value={tab.key} className="min-h-0">
+              <TabsContent key={tab.key} value={tab.key}>
                 {group === undefined ? (
-                  <EmptyState title={tab.empty} className="h-full justify-center py-6" />
+                  <EmptyState title={tab.empty} className="justify-center py-6" />
                 ) : (
                   <BillList group={group} data={data} today={today} />
                 )}

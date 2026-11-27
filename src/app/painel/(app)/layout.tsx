@@ -7,6 +7,12 @@ import { getProfile } from '@/lib/db'
 import { legacyScreensEnabled } from '@/lib/legacy-screens'
 import { readBackend } from '@cbrl/next/server'
 import { cookies } from 'next/headers'
+import { connection } from 'next/server'
+
+// @next-codemod-ignore Cache Components adoption: this segment temporarily allows blocking.
+// Remove this opt-out after verifying the segment passes validation without it.
+// See: https://nextjs.org/docs/app/guides/migrating-to-cache-components
+export const instant = false
 
 /** Who is signed in: the profile (display name, avatar), falling back to the session claims. */
 async function loadAccount(): Promise<MenuAccount> {
@@ -26,6 +32,7 @@ async function loadAccount(): Promise<MenuAccount> {
  * left it, with the space + account menu on top and the current space in the header.
  */
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
+  await connection()
   const defaultOpen = sidebarOpenFrom((await cookies()).get(SIDEBAR_COOKIE)?.value)
   const [scope, account] = await Promise.all([
     readBackend(() => getServerScope(), { label: 'space scope' }),

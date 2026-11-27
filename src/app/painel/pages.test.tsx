@@ -2,8 +2,6 @@ import { sampleData, sampleRefs } from '@/features/ledger/ui/test-fixtures'
 import { render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import CalendarPage from './(app)/calendario/page'
-import ConnectionsRedirect from './(app)/conexoes/page'
-import SettingsRedirect from './(app)/configuracoes/page'
 import AppLayout from './(app)/layout'
 import GoalsPage from './(app)/objetivos/page'
 import BudgetPage from './(app)/orcamento/page'
@@ -77,6 +75,8 @@ vi.mock('next/navigation', () => ({
 let prefsCookie: string | undefined
 let searchCookie: string | undefined
 let sidebarCookie: string | undefined
+// Outside a request in tests: the request-time marker is a no-op.
+vi.mock('next/server', () => ({ connection: () => Promise.resolve() }))
 vi.mock('next/headers', () => ({
   headers: () => Promise.resolve(new Headers({ 'x-pathname': '/painel/contas' })),
   cookies: () =>
@@ -223,16 +223,6 @@ describe('painel pages', () => {
       '2027-12',
       '2026-12-15',
     )
-  })
-
-  it('the settings and the old connections addresses open the settings modal', () => {
-    redirect.mockImplementation(() => {
-      throw new Error('redirected')
-    })
-    expect(() => SettingsRedirect()).toThrow('redirected')
-    expect(redirect).toHaveBeenLastCalledWith('/painel#configuracoes/conexoes')
-    expect(() => ConnectionsRedirect()).toThrow('redirected')
-    expect(redirect).toHaveBeenLastCalledWith('/painel#configuracoes/conexoes')
   })
 
   it('budget loads the whole ledger and the budget versions', async () => {

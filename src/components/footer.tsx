@@ -1,6 +1,8 @@
 import { cn } from '@cbrl/design'
 import Link from 'next/link'
+import { Suspense } from 'react'
 import { BrandMark } from './brand-mark'
+import { CurrentYear } from './current-year'
 
 type FooterProps = {
   className?: string
@@ -22,7 +24,13 @@ export function Footer({ className }: FooterProps) {
             Termos
           </Link>
         </nav>
-        <p className="tabular-nums">© {new Date().getFullYear()} · Fluxi</p>
+        <p className="tabular-nums">
+          ©{' '}
+          <Suspense>
+            <CurrentYear />
+          </Suspense>{' '}
+          · Fluxi
+        </p>
       </div>
     </footer>
   )

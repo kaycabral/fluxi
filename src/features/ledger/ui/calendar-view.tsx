@@ -5,6 +5,7 @@ import { changeDayAction } from '@/features/ledger/adapters/actions/entries'
 import { decisionAccountIds } from '@/features/ledger/core/account-filter'
 import type { CalendarPrefs } from '@/features/ledger/core/calendar-prefs'
 import {
+  balanceKnownFrom,
   CALENDAR_VIEWS,
   dayCells,
   shiftDate,
@@ -19,7 +20,7 @@ import {
 import { describeOccurrenceChange } from '@/features/ledger/core/entry-form'
 import type { Landing } from '@/features/ledger/core/occurrence'
 import type { EditScope } from '@/features/ledger/core/scoped-edit'
-import { projectWindow, targetFor, type LedgerData } from '@/features/ledger/core/view'
+import { projectSpan, targetFor, type LedgerData } from '@/features/ledger/core/view'
 import {
   Button,
   DropdownMenu,
@@ -92,8 +93,11 @@ export function CalendarView({
 
   const projected = useMemo(() => {
     const { from, to } = viewMonths(view, date)
-    return dayCells(projectWindow(data, from, to), decisionAccountIds(account, data.accounts), data)
-  }, [data, view, date, account])
+    const ids = decisionAccountIds(account, data.accounts)
+    const span = projectSpan(data, from, to)
+    const shown = span.filter((m) => m.month >= from)
+    return dayCells(shown, ids, data, balanceKnownFrom(span, ids, today))
+  }, [data, view, date, account, today])
   const cells = useMemo(() => withDateMoves(projected, moves), [projected, moves])
 
   function savePrefs(next: CalendarPrefs) {

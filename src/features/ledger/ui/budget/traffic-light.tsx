@@ -51,13 +51,13 @@ export const LIGHT_LABELS: Record<Light, string> = {
 const NO_VERSION_CLASS = 'bg-muted text-muted-foreground'
 
 /**
- * The window both the dashboard widget and the budget page open on: the
- * previous and current months, then as many future months as fit the card
- * (`monthColumnsFor`; with only the minimum, the current month and the next
- * ones: `monthsBeforeFor`). `span` is the count used before the card is
+ * The window both the dashboard widget and the budget page open on (and
+ * "Hoje" brings back): `before` months before the current one (none: a small
+ * card has no room for the past, one arrow away), then as many future months
+ * as fit the card (`monthColumnsFor`, `monthsBeforeFor`). `span` is the count used before the card is
  * measured (server render, tests).
  */
-export const BUDGET_WINDOW = { span: 5, before: 1 } as const
+export const BUDGET_WINDOW = { span: 5, before: 0 } as const
 
 /** Adaptive month columns: fixed group column, ~100px per month (fits "R$ 10.947,61"), 2 to 12 months. */
 export const MONTH_COLUMNS = { groupWidth: 150, monthWidth: 100, min: 2, max: 12 } as const

@@ -47,7 +47,7 @@ export const GROUP_DOT_CLASSES: Record<BudgetGroupColor, string> = {
 }
 
 /**
- * Row tint per budget group color (like a colored row in Notion): the color at low
+ * Row tint per budget group color (a colored row): the color at low
  * opacity, so the text stays readable in both themes.
  */
 export const GROUP_TINT_CLASSES: Record<BudgetGroupColor, string> = {

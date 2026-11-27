@@ -26,7 +26,6 @@
     "db:migrate:local": "tsx scripts/migrate-local.ts",
     "db:env": "tsx scripts/local-env.ts",
     "db:seed": "tsx scripts/seed.ts",
-    "import:notion": "tsx scripts/import-notion.ts",
     "pluggy:env": "tsx scripts/pluggy-local.ts env",
     "pluggy:serve": "supabase functions serve --workdir . --env-file supabase/functions/.env",
     "pluggy:sync": "tsx scripts/pluggy-local.ts sync",

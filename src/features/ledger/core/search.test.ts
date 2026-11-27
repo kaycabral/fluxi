@@ -9,6 +9,7 @@ import {
   landingBounds,
   landingDay,
   ledgerSpan,
+  monthQuery,
   parseSearchQuery,
   pickerRange,
   searchAccountIds,
@@ -376,6 +377,16 @@ describe('activeFilters', () => {
     expect(
       activeFilters({ ...base, account: 'b:x', category: 'x' }, ctx).map((c) => c.label),
     ).toEqual(['–', '–'])
+  })
+})
+
+describe('monthQuery', () => {
+  it('filters every day of the month, nothing else', () => {
+    expect(monthQuery('2027-02')).toEqual({
+      ...EMPTY_SEARCH_QUERY,
+      from: '2027-02-01',
+      to: '2027-02-28',
+    })
   })
 })
 

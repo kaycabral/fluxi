@@ -100,17 +100,21 @@ const searchQuerySchema = z.object({
   money: z.enum(['', 'available', 'benefit']).catch(''),
 })
 
+/** The query behind a budget month header: every day of `month`, no other filter. */
+export function monthQuery(month: Month): SearchQuery {
+  return {
+    ...EMPTY_SEARCH_QUERY,
+    from: `${month}-01`,
+    to: `${month}-${String(daysInMonth(month)).padStart(2, '0')}`,
+  }
+}
+
 /**
  * The query behind a budget cell: what one budget group planned in `month`
  * (every day of the month, that group only, no other filter).
  */
 export function budgetGroupMonthQuery(budgetGroup: BudgetGroupKey, month: Month): SearchQuery {
-  return {
-    ...EMPTY_SEARCH_QUERY,
-    budgetGroup,
-    from: `${month}-01`,
-    to: `${month}-${String(daysInMonth(month)).padStart(2, '0')}`,
-  }
+  return { ...monthQuery(month), budgetGroup }
 }
 
 /** The remembered query (cookie value); each bad or missing field falls back to "no filter". */

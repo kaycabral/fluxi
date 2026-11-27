@@ -13,7 +13,7 @@ import {
 import { formatMoney, formatPercent, monthLabel } from '@/features/ledger/core/format'
 import { GROUP_DOT_CLASSES } from '@/features/ledger/core/labels'
 import { addMonths, monthRange, type Month } from '@/features/ledger/core/month'
-import { budgetGroupMonthQuery } from '@/features/ledger/core/search'
+import { budgetGroupMonthQuery, monthQuery } from '@/features/ledger/core/search'
 import type { BudgetGroup, BudgetVersion } from '@/features/ledger/core/types'
 import { projectWindow, type LedgerData } from '@/features/ledger/core/view'
 import { formatAmountFromCents } from '@cbrl/br/money'
@@ -211,18 +211,13 @@ export function TrafficLight({
                   )}
                   aria-current={m === today ? 'date' : undefined}
                 >
-                  {versionStarts.has(m) ? (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="cursor-help underline decoration-dotted underline-offset-4">
-                          {monthLabel(m)}
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent>Nova versão do orçamento a partir daqui</TooltipContent>
-                    </Tooltip>
-                  ) : (
-                    monthLabel(m)
-                  )}
+                  <TransactionsLink
+                    query={monthQuery(m)}
+                    className="hover:underline"
+                    aria-label={`${monthLabel(m)}: ver as transações do mês`}
+                  >
+                    {monthLabel(m)}
+                  </TransactionsLink>
                 </TableHead>
               ))}
             </TableRow>

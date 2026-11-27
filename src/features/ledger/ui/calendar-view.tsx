@@ -45,6 +45,7 @@ import {
 import { DayColumns } from './calendar/day-columns'
 import { MonthGrid } from './calendar/month-grid'
 import { ScheduleList } from './calendar/schedule-list'
+import { applyCalendarSkeletonState } from './calendar/skeleton-state'
 import { YearGrid } from './calendar/year-grid'
 import { useLedgerUi } from './ledger-shell'
 
@@ -99,6 +100,10 @@ export function CalendarView({
     return dayCells(shown, ids, data, balanceKnownFrom(span, ids, today))
   }, [data, view, date, account, today])
   const cells = useMemo(() => withDateMoves(projected, moves), [projected, moves])
+  // The next loading skeleton draws this view (see `skeleton-state`).
+  useEffect(() => {
+    applyCalendarSkeletonState(view, prefs.weekends, date)
+  }, [view, prefs.weekends, date])
 
   function savePrefs(next: CalendarPrefs) {
     setPrefs(next)
@@ -192,7 +197,7 @@ export function CalendarView({
       <section
         aria-labelledby="calendar-title"
         data-fills-viewport=""
-        className="flex h-[calc(100svh-3.5rem)] min-h-[32rem] flex-col md:h-svh"
+        className="flex h-[calc(100svh-3.5rem)] flex-col md:h-svh"
       >
         <header className="flex min-h-16 flex-wrap items-center gap-x-2 gap-y-2 px-3 py-2 md:px-4">
           <Button variant="outline" size="lg" asChild>

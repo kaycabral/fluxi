@@ -6,9 +6,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { BudgetView } from './budget-view'
 import { sampleData } from './test-fixtures'
 
-const writeBrowserCookie = vi.hoisted(() => vi.fn())
-vi.mock('@/lib/browser-cookie', () => ({ writeBrowserCookie }))
-
 const actions = {
   createBudgetGroupAction: vi.fn<(input: unknown) => Promise<ActionResult>>(),
   updateBudgetGroupAction: vi.fn<(input: unknown) => Promise<ActionResult>>(),
@@ -341,9 +338,22 @@ describe('BudgetView · semáforo', () => {
       .map((h) => h.textContent)
       .filter((t) => t !== 'Grupo')
 
-  it('opens on the current month and the next 4 before measuring, and walks it with the arrows', async () => {
+  it('opens on the current month with every column before measuring (CSS fits them), and walks it with the arrows', async () => {
     renderBudget()
-    expect(months()).toEqual(['dez/26', 'jan/27', 'fev/27', 'mar/27', 'abr/27'])
+    expect(months()).toEqual([
+      'dez/26',
+      'jan/27',
+      'fev/27',
+      'mar/27',
+      'abr/27',
+      'mai/27',
+      'jun/27',
+      'jul/27',
+      'ago/27',
+      'set/27',
+      'out/27',
+      'nov/27',
+    ])
     // Same compact presentation as the dashboard widget: no range label, no legend.
     expect(screen.queryByText(/ – /)).not.toBeInTheDocument()
     expect(screen.queryByText('Dentro da meta')).not.toBeInTheDocument()
@@ -378,13 +388,16 @@ describe('BudgetView · semáforo', () => {
       name: /^Essencial em dez\/26: .* Ver transações\.$/,
     })[0]
     if (cell === undefined) throw new Error('no Essencial cell')
-    expect(cell).toHaveAttribute('href', '/painel/transacoes')
-    fireEvent.click(cell)
-    expect(writeBrowserCookie).toHaveBeenCalledWith(
-      'fluxi_lancamentos',
-      JSON.stringify({ from: '2026-12-01', to: '2026-12-31', budgetGroup: 'essential' }),
-      { path: '/painel/transacoes' },
+    expect(cell).toHaveAttribute(
+      'href',
+      '/painel/transacoes?de=2026-12-01&ate=2026-12-31&grupo=essential',
     )
+  })
+
+  it('opens Transações on every day of a month from its header', () => {
+    renderBudget()
+    const header = screen.getAllByRole('link', { name: 'dez/26: ver as transações do mês' })[0]
+    expect(header).toHaveAttribute('href', '/painel/transacoes?de=2026-12-01&ate=2026-12-31')
   })
 
   describe('once the card is measured', () => {
@@ -432,7 +445,20 @@ describe('BudgetView · semáforo', () => {
         },
       )
       const { unmount } = renderBudget()
-      expect(months()).toEqual(['dez/26', 'jan/27', 'fev/27', 'mar/27', 'abr/27'])
+      expect(months()).toEqual([
+        'dez/26',
+        'jan/27',
+        'fev/27',
+        'mar/27',
+        'abr/27',
+        'mai/27',
+        'jun/27',
+        'jul/27',
+        'ago/27',
+        'set/27',
+        'out/27',
+        'nov/27',
+      ])
       unmount()
     })
 

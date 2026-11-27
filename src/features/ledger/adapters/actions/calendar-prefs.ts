@@ -19,7 +19,9 @@ export async function saveCalendarPrefsAction(input: unknown): Promise<CalendarP
     path: '/painel',
     maxAge: 60 * 60 * 24 * 365,
     sameSite: 'lax',
-    httpOnly: true,
+    // Readable by the page: the loading shell's inline script draws the
+    // skeleton of this view before the first paint (only view flags).
+    httpOnly: false,
     secure: process.env.NODE_ENV === 'production',
   })
   return parsed.data

@@ -1,2 +1,2 @@
-// A page's place while its data streams in: the content skeleton.
-export { ContentSkeleton as default } from '@/app/painel/_components/painel-skeleton'
+// `/painel/orcamento` while its data streams in: the budget page's own skeleton.
+export { BudgetSkeleton as default } from '@/app/painel/_components/skeletons/budget-skeleton'

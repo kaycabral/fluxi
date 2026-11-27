@@ -7,7 +7,7 @@ import { accountBalancesOn, balanceSnapshot } from './dashboard'
 import { makeEntry, makeOverride } from './fixtures'
 import { monthRange } from './month'
 import { archivedFilter, dailyBalance, projectMonths, type MonthResult } from './projection'
-import { parseSearchQuery, searchOccurrences, searchTotals } from './search'
+import { EMPTY_SEARCH_QUERY, searchOccurrences, searchTotals } from './search'
 
 /**
  * An archived account has no influence anywhere: its opening balance, its
@@ -148,7 +148,7 @@ describe('archived accounts', () => {
   })
 
   it('leave the search and its totals', () => {
-    const occurrences = searchOccurrences([december(true)], parseSearchQuery(''), {
+    const occurrences = searchOccurrences([december(true)], EMPTY_SEARCH_QUERY, {
       accounts: accounts(true).map((a) => ({ ...a, name: a.id, type: 'checking' as const })),
       banks: [{ id: 'b1', name: 'Banco' }],
       categories: [],

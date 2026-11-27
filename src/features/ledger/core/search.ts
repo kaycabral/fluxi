@@ -9,7 +9,7 @@ import { effectOn, type MonthResult } from './projection'
 import type { Account, Bank, BudgetGroup, BudgetGroupKey, Category, Entry } from './types'
 
 /**
- * "Transações": search over OCCURRENCES (landings), newest first, with a
+ * "Transações": search over OCCURRENCES (landings), oldest first, with a
  * day range and filters. The whole ledger is loaded once and filtered on the
  * client, so searching never hits the database.
  */
@@ -35,7 +35,7 @@ export const MONEY_LABELS: Record<Exclude<MoneyFilter, ''>, string> = {
 /** `YYYY-MM-DD`, or `''` for an open end. */
 export type IsoDayOrEmpty = string
 
-/** Date order of the list: newest first (default) or oldest first. */
+/** Date order of the list: oldest first (default, the calendar's natural order) or newest first. */
 export type SortOrder = 'desc' | 'asc'
 
 export const SORT_LABELS: Record<SortOrder, string> = {
@@ -65,7 +65,7 @@ export type SearchQuery = {
 /** No filter at all: every occurrence, from the start to the end of the ledger. */
 export const EMPTY_SEARCH_QUERY: SearchQuery = {
   text: '',
-  sort: 'desc',
+  sort: 'asc',
   from: '',
   to: '',
   kind: '',
@@ -78,17 +78,44 @@ export const EMPTY_SEARCH_QUERY: SearchQuery = {
 }
 
 /**
- * The query is remembered per browser in this cookie (written by the client,
- * read by the server so the page renders already filtered). Only filter
- * choices, never sent anywhere else; scoped to the page's path.
+ * The query lives in the URL of "Transações" (`?q=luz&de=2027-01-01`): links
+ * open the page already filtered, back/forward and shared links work, and the
+ * page never depends on what the browser remembered. Names in pt-BR, like the
+ * routes.
  */
-export const SEARCH_QUERY_COOKIE = 'fluxi_lancamentos'
+export const SEARCH_PARAMS = {
+  text: 'q',
+  sort: 'ordem',
+  from: 'de',
+  to: 'ate',
+  kind: 'tipo',
+  account: 'conta',
+  category: 'categoria',
+  budgetGroup: 'grupo',
+  tag: 'tag',
+  status: 'status',
+  money: 'dinheiro',
+} as const satisfies Record<keyof SearchQuery, string>
+
+const SEARCH_KEYS = [
+  'text',
+  'sort',
+  'from',
+  'to',
+  'kind',
+  'account',
+  'category',
+  'budgetGroup',
+  'tag',
+  'status',
+  'money',
+] as const satisfies readonly (keyof typeof SEARCH_PARAMS)[]
 
 const ISO_DAY = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/
 
 const searchQuerySchema = z.object({
   text: z.string().max(120).catch(''),
-  sort: z.enum(['desc', 'asc']).catch('desc'),
+  sort: z.enum(['asc', 'desc']).catch('asc'),
   from: z.union([z.literal(''), z.string().regex(ISO_DAY)]).catch(''),
   to: z.union([z.literal(''), z.string().regex(ISO_DAY)]).catch(''),
   kind: z.enum(['', 'income', 'expense', 'transfer']).catch(''),
@@ -100,55 +127,46 @@ const searchQuerySchema = z.object({
   money: z.enum(['', 'available', 'benefit']).catch(''),
 })
 
-/**
- * The query behind a budget cell: what one budget group planned in `month`
- * (every day of the month, that group only, no other filter).
- */
-export function budgetGroupMonthQuery(budgetGroup: BudgetGroupKey, month: Month): SearchQuery {
-  return {
-    ...EMPTY_SEARCH_QUERY,
-    budgetGroup,
-    from: `${month}-01`,
-    to: `${month}-${String(daysInMonth(month)).padStart(2, '0')}`,
-  }
-}
-
-/** The remembered query (cookie value); each bad or missing field falls back to "no filter". */
-export function parseSearchQuery(raw: string | undefined): SearchQuery {
-  if (raw === undefined || raw === '') return EMPTY_SEARCH_QUERY
-  let json: unknown
-  try {
-    json = JSON.parse(raw)
-  } catch {
-    return EMPTY_SEARCH_QUERY
-  }
-  if (typeof json !== 'object' || json === null) return EMPTY_SEARCH_QUERY
-  const query = searchQuerySchema.parse({ ...EMPTY_SEARCH_QUERY, ...json })
+/** A period whose end comes before its start ends on its start instead. */
+export function orderedRange(query: SearchQuery): SearchQuery {
   return query.from !== '' && query.to !== '' && query.to < query.from
     ? { ...query, to: query.from }
     : query
 }
 
-/** Cookie value for a query (only what differs from "no filter"). */
-export function serializeSearchQuery(query: SearchQuery): string {
-  const keys = [
-    'text',
-    'sort',
-    'from',
-    'to',
-    'kind',
-    'account',
-    'category',
-    'budgetGroup',
-    'tag',
-    'status',
-    'money',
-  ] as const satisfies readonly (keyof SearchQuery)[]
-  return JSON.stringify(
-    Object.fromEntries(
-      keys.filter((k) => query[k] !== EMPTY_SEARCH_QUERY[k]).map((k) => [k, query[k]]),
-    ),
+/** The query behind a budget month header: every day of `month`, no other filter. */
+export function monthQuery(month: Month): SearchQuery {
+  return {
+    ...EMPTY_SEARCH_QUERY,
+    from: `${month}-01`,
+    to: `${month}-${String(daysInMonth(month)).padStart(2, '0')}`,
+  }
+}
+
+/**
+ * The query behind a budget cell: what one budget group planned in `month`
+ * (every day of the month, that group only, no other filter).
+ */
+export function budgetGroupMonthQuery(budgetGroup: BudgetGroupKey, month: Month): SearchQuery {
+  return { ...monthQuery(month), budgetGroup }
+}
+
+/** The query in a URL; each bad or missing param falls back to "no filter". */
+export function parseSearchParams(params: { get(name: string): string | null }): SearchQuery {
+  const raw = Object.fromEntries(
+    SEARCH_KEYS.map((k) => [k, params.get(SEARCH_PARAMS[k]) ?? EMPTY_SEARCH_QUERY[k]]),
   )
+  return orderedRange(searchQuerySchema.parse(raw))
+}
+
+/** URL search string for a query (only what differs from "no filter"; `''` when nothing). */
+export function searchParamsOf(query: SearchQuery): string {
+  return new URLSearchParams(
+    SEARCH_KEYS.filter((k) => query[k] !== EMPTY_SEARCH_QUERY[k]).map((k) => [
+      SEARCH_PARAMS[k],
+      query[k],
+    ]),
+  ).toString()
 }
 
 /** Last month an entry can land in; null when the series never ends. */
@@ -350,7 +368,8 @@ function periodLabel(from: string, to: string): string {
 export function activeFilters(query: SearchQuery, ctx: SearchContext): ActiveFilter[] {
   const out: ActiveFilter[] = []
   if (query.text !== '') out.push({ key: 'text', label: `"${query.text}"` })
-  if (query.sort !== 'desc') out.push({ key: 'sort', label: SORT_LABELS[query.sort] })
+  if (query.sort !== EMPTY_SEARCH_QUERY.sort)
+    out.push({ key: 'sort', label: SORT_LABELS[query.sort] })
   if (query.from !== '' || query.to !== '') {
     out.push({ key: 'period', label: periodLabel(query.from, query.to) })
   }

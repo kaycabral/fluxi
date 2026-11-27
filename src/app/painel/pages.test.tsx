@@ -76,7 +76,6 @@ vi.mock('next/navigation', () => ({
   usePathname: () => '/painel',
 }))
 let prefsCookie: string | undefined
-let searchCookie: string | undefined
 let sidebarCookie: string | undefined
 // Outside a request in tests: the request-time marker is a no-op.
 vi.mock('next/server', () => ({ connection: () => Promise.resolve() }))
@@ -87,7 +86,6 @@ vi.mock('next/headers', () => ({
       get: (name: string) => {
         const jar: Record<string, string | undefined> = {
           fluxi_calendar: prefsCookie,
-          fluxi_lancamentos: searchCookie,
           fluxi_sidebar: sidebarCookie,
         }
         const value = jar[name]
@@ -101,9 +99,7 @@ vi.mock('@/features/ledger/ui/timeline-view', () => ({
   ),
 }))
 vi.mock('@/features/ledger/ui/search-view', () => ({
-  SearchView: ({ initialQuery }: { initialQuery: { text: string; from: string } }) => (
-    <p>search {`${initialQuery.text}@${initialQuery.from}`}</p>
-  ),
+  SearchView: ({ today }: { today: string }) => <p>search {`@${today}`}</p>,
 }))
 vi.mock('@/features/ledger/ui/payables-view', () => ({
   PayablesView: ({ window, today }: { window: { from: string; to: string }; today: string }) => (
@@ -151,12 +147,16 @@ vi.mock('@/features/ledger/ui/calendar-view', () => ({
   ),
 }))
 vi.mock('@/features/ledger/ui/ledger-shell', () => ({
+  // Before the shell has the refs (the static shell): the skeletons draw the hinted rows.
+  useLedgerRefs: () => null,
   LedgerShell: ({ children, refs }: { children: React.ReactNode; refs: { banks: unknown[] } }) => (
     <section aria-label={`shell com ${refs.banks.length} bancos`}>{children}</section>
   ),
 }))
 vi.mock('./_components/topbar', () => ({ Topbar: () => <header>topbar</header> }))
 vi.mock('./_components/app-sidebar', () => ({
+  SidebarBrand: () => <div>Fluxi</div>,
+  Nav: () => <nav aria-label="Seções" />,
   AppSidebar: ({
     children,
     defaultOpen,
@@ -205,16 +205,14 @@ describe('painel pages', () => {
     expect(screen.getByText('payables 2025-12..2027-01@2026-12-15')).toBeInTheDocument()
   })
 
-  it('search loads the whole ledger with the query this browser left', async () => {
-    searchCookie = JSON.stringify({ text: 'luz', from: '2027-01-01' })
+  it('search loads the whole ledger (the query lives in the URL)', async () => {
     render(await SearchPage())
-    expect(screen.getByText('search luz@2027-01-01')).toBeInTheDocument()
+    expect(screen.getByText('search @2026-12-15')).toBeInTheDocument()
     expect(views.loadLedgerData).toHaveBeenCalledWith(
       SCOPE,
       { from: '1900-01', to: '9999-12' },
       '2026-12-15',
     )
-    searchCookie = undefined
   })
 
   it('accounts load balances from this month to a year later', async () => {
@@ -324,12 +322,20 @@ describe('painel static shell', () => {
   })
 
   it('shows the skeletons while the data loads', () => {
-    const { unmount } = render(<PainelSkeleton />)
-    expect(screen.getByLabelText('Carregando')).toHaveAttribute('aria-busy', 'true')
-    unmount()
-    render(<AppLoading />)
-    expect(screen.getByLabelText('Carregando')).toBeInTheDocument()
-    expect(AppLoading).toBe(ContentSkeleton)
+    // Screen readers hear one status; the drawn skeleton is inert, hidden from
+    // them, and carries no real text (its labels are CSS-only), so nothing
+    // duplicates the page that replaces it.
+    for (const ui of [
+      <PainelSkeleton key="p" />,
+      <AppLoading key="a" />,
+      <ContentSkeleton key="c" />,
+    ]) {
+      const { unmount } = render(ui)
+      expect(screen.getByRole('status')).toHaveTextContent('Carregando…')
+      expect(screen.queryAllByRole('button')).toHaveLength(0)
+      expect(screen.queryByRole('heading')).toBeNull()
+      unmount()
+    }
   })
 })
 

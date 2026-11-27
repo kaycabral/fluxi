@@ -1,7 +1,6 @@
 import {
   EMPTY_SEARCH_QUERY,
-  parseSearchQuery,
-  SEARCH_QUERY_COOKIE,
+  parseSearchParams,
   type SearchQuery,
 } from '@/features/ledger/core/search'
 import { render, screen, within } from '@testing-library/react'
@@ -10,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { LedgerShell } from './ledger-shell'
 import { SearchView } from './search-view'
 import { IDS, sampleData, sampleDataWithBenefit, sampleRefs } from './test-fixtures'
+import { transactionsHref } from './transactions-link'
 
 vi.mock('@/features/ledger/adapters/actions/categorize', () => ({
   findSimilarAction: vi.fn(() =>
@@ -23,7 +23,10 @@ vi.mock('@/features/ledger/adapters/actions/undo', () => ({
   undoAction: vi.fn(),
   forgetUndoAction: vi.fn(),
 }))
-vi.mock('next/navigation', () => ({ useRouter: () => ({ replace: vi.fn(), refresh: vi.fn() }) }))
+vi.mock('next/navigation', async () => ({
+  useRouter: () => ({ replace: vi.fn(), refresh: vi.fn() }),
+  useSearchParams: (await import('./test-navigation')).useTestSearchParams,
+}))
 vi.mock('@/features/ledger/adapters/actions/entries', () => ({
   createEntryAction: vi.fn(),
   updateEntryAction: vi.fn(),
@@ -34,9 +37,10 @@ vi.mock('@/features/ledger/adapters/actions/entries', () => ({
 const TODAY = '2026-12-15'
 
 function renderSearch(query: Partial<SearchQuery> = {}, data = sampleData()) {
+  history.replaceState(null, '', transactionsHref({ ...EMPTY_SEARCH_QUERY, ...query }))
   return render(
     <LedgerShell refs={sampleRefs()}>
-      <SearchView data={data} initialQuery={{ ...EMPTY_SEARCH_QUERY, ...query }} today={TODAY} />
+      <SearchView data={data} today={TODAY} />
     </LedgerShell>,
   )
 }
@@ -49,29 +53,21 @@ function rows() {
   return within(list()).getAllByRole('listitem')
 }
 
-/** The query remembered in the cookie. */
+/** The query in the URL. */
 function remembered(): SearchQuery {
-  const raw = document.cookie
-    .split('; ')
-    .find((c) => c.startsWith(`${SEARCH_QUERY_COOKIE}=`))
-    ?.slice(SEARCH_QUERY_COOKIE.length + 1)
-  return parseSearchQuery(raw === undefined ? undefined : decodeURIComponent(raw))
+  return parseSearchParams(new URLSearchParams(location.search))
 }
 
 async function openFilters() {
   await userEvent.click(screen.getByRole('button', { name: /Filtros/ }))
 }
 
-// The cookie is scoped to the page's path.
-beforeEach(() => window.history.replaceState(null, '', '/painel/transacoes'))
+beforeEach(() => history.replaceState(null, '', '/painel/transacoes'))
 
-afterEach(() => {
-  vi.clearAllMocks()
-  document.cookie = `${SEARCH_QUERY_COOKIE}=; Path=/painel/transacoes; Max-Age=0`
-})
+afterEach(() => vi.clearAllMocks())
 
 describe('SearchView', () => {
-  it('lists the whole ledger, newest first, paged', async () => {
+  it('lists the whole ledger, oldest first, paged', async () => {
     renderSearch()
     expect(screen.getByRole('heading', { name: 'Transações' })).toBeInTheDocument()
     expect(rows()).toHaveLength(50)
@@ -79,7 +75,7 @@ describe('SearchView', () => {
       const d = r.textContent?.match(/\d{2}\/\d{2}\/\d{2}/)?.[0] ?? ''
       return `${d.slice(6, 8)}${d.slice(3, 5)}${d.slice(0, 2)}`
     })
-    expect(iso).toEqual([...iso].sort().reverse())
+    expect(iso).toEqual([...iso].sort())
     await userEvent.click(screen.getByRole('button', { name: 'Próxima página' }))
     expect(rows().length).toBeGreaterThan(0)
   })
@@ -98,21 +94,21 @@ describe('SearchView', () => {
     expect(summary).toHaveTextContent('Saldo-R$ 260,00')
   })
 
-  it('sorts oldest first when asked', async () => {
+  it('sorts newest first when asked', async () => {
     renderSearch()
     await openFilters()
     await userEvent.click(screen.getByLabelText('Ordenar'))
-    await userEvent.click(await screen.findByRole('option', { name: 'Mais antigos primeiro' }))
-    expect(remembered().sort).toBe('asc')
+    await userEvent.click(await screen.findByRole('option', { name: 'Mais recentes primeiro' }))
+    expect(remembered().sort).toBe('desc')
     const iso = rows().map((r) => {
       const d = r.textContent?.match(/\d{2}\/\d{2}\/\d{2}/)?.[0] ?? ''
       return `${d.slice(6, 8)}${d.slice(3, 5)}${d.slice(0, 2)}`
     })
-    expect(iso).toEqual([...iso].sort())
+    expect(iso).toEqual([...iso].sort().reverse())
     await userEvent.click(
-      screen.getByRole('button', { name: 'Remover filtro Mais antigos primeiro' }),
+      screen.getByRole('button', { name: 'Remover filtro Mais recentes primeiro' }),
     )
-    expect(remembered().sort).toBe('desc')
+    expect(remembered().sort).toBe('asc')
   })
 
   it('reaches far-future days', () => {

@@ -74,7 +74,7 @@ describe('DashboardView', () => {
     expect(within(summary).queryByText('–')).not.toBeInTheDocument()
   })
 
-  it('shows five months of the budget, from the current month, and the budget groups of this month', async () => {
+  it('shows the budget months from the current month (every column until measured, CSS fits them) and the budget groups of this month', async () => {
     renderDashboard()
     expect(screen.getByRole('heading', { level: 2, name: 'Orçamento' })).toBeInTheDocument()
     expect(screen.queryByText('Semáforo do orçamento')).not.toBeInTheDocument()
@@ -83,7 +83,20 @@ describe('DashboardView', () => {
         .getAllByRole('columnheader')
         .slice(1)
         .map((h) => h.textContent)
-    expect(months()).toEqual(['dez/26', 'jan/27', 'fev/27', 'mar/27', 'abr/27'])
+    expect(months()).toEqual([
+      'dez/26',
+      'jan/27',
+      'fev/27',
+      'mar/27',
+      'abr/27',
+      'mai/27',
+      'jun/27',
+      'jul/27',
+      'ago/27',
+      'set/27',
+      'out/27',
+      'nov/27',
+    ])
     // No range label and no legend: each cell says its state on hover.
     expect(screen.queryByText(/^\w{3}\/\d{2} – \w{3}\/\d{2}$/)).not.toBeInTheDocument()
     expect(screen.queryByText('Dentro da meta')).not.toBeInTheDocument()
@@ -93,9 +106,35 @@ describe('DashboardView', () => {
     const today = screen.getByRole('button', { name: 'Hoje' })
     expect(today).toBeDisabled()
     await userEvent.click(screen.getByRole('button', { name: 'Próximo mês' }))
-    expect(months()).toEqual(['jan/27', 'fev/27', 'mar/27', 'abr/27', 'mai/27'])
+    expect(months()).toEqual([
+      'jan/27',
+      'fev/27',
+      'mar/27',
+      'abr/27',
+      'mai/27',
+      'jun/27',
+      'jul/27',
+      'ago/27',
+      'set/27',
+      'out/27',
+      'nov/27',
+      'dez/27',
+    ])
     await userEvent.click(today)
-    expect(months()).toEqual(['dez/26', 'jan/27', 'fev/27', 'mar/27', 'abr/27'])
+    expect(months()).toEqual([
+      'dez/26',
+      'jan/27',
+      'fev/27',
+      'mar/27',
+      'abr/27',
+      'mai/27',
+      'jun/27',
+      'jul/27',
+      'ago/27',
+      'set/27',
+      'out/27',
+      'nov/27',
+    ])
 
     expect(screen.getByRole('link', { name: /Orçamento/ })).toHaveAttribute(
       'href',

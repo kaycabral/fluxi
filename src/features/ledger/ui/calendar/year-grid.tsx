@@ -1,28 +1,19 @@
 'use client'
 
-import { cellOf, monthDays, monthWeeks } from '@/features/ledger/core/calendar-views'
+import {
+  cellOf,
+  MONTH_NAMES,
+  monthDays,
+  monthWeeks,
+  WEEKDAY_INITIALS,
+} from '@/features/ledger/core/calendar-views'
 import { dayLongLabel } from '@/features/ledger/core/format'
 import { formatAmountFromCents } from '@cbrl/br/money'
 import { cn, Popover, PopoverContent, PopoverTrigger } from '@cbrl/design'
-import { useEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { CALENDAR_TODAY_EVENT, POPUP_CLASS, POPUP_PLACEMENT, useCalendar } from './context'
 import { DayPanel } from './day-panel'
-
-const MONTH_NAMES = [
-  'Janeiro',
-  'Fevereiro',
-  'Março',
-  'Abril',
-  'Maio',
-  'Junho',
-  'Julho',
-  'Agosto',
-  'Setembro',
-  'Outubro',
-  'Novembro',
-  'Dezembro',
-]
-const WEEKDAY_INITIALS = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S']
+import { centeredScrollTop } from './skeleton-state'
 
 /**
  * Year view: twelve mini months (6 rows each, neighbour days muted, like
@@ -36,15 +27,15 @@ export function YearGrid() {
   const scroller = useRef<HTMLDivElement>(null)
 
   // Like Google Calendar: open with the chosen date's month in view and
-  // focused, and bring today's month back whenever "Hoje" is pressed.
-  useEffect(() => {
+  // focused, and bring today's month back whenever "Hoje" is pressed. Before
+  // the paint (layout effect): the year never shows at January first.
+  useLayoutEffect(() => {
     const reveal = (day: string, smooth: boolean) => {
       const root = scroller.current
       const section = root?.querySelector<HTMLElement>(`[data-month="${day.slice(0, 7)}"]`)
       if (!root || !section) return
-      const top = section.offsetTop - (root.clientHeight - section.offsetHeight) / 2
       root.style.scrollBehavior = smooth ? 'smooth' : 'auto'
-      root.scrollTop = Math.max(0, top)
+      root.scrollTop = centeredScrollTop(root, section)
       section.querySelector<HTMLElement>(`[data-day="${day}"]`)?.focus({ preventScroll: true })
     }
     reveal(date, false)

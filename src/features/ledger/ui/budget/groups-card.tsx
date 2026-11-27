@@ -162,7 +162,8 @@ function VersionEditor({
             }}
           >
             <SelectTrigger size="sm" aria-label="Versão do orçamento" className="w-auto">
-              <SelectValue />
+              {/* Spelled out: the server render already has the label (no width jump). */}
+              <SelectValue>{versionLabel(version, sorted)}</SelectValue>
             </SelectTrigger>
             <SelectContent align="end">
               {[...sorted].reverse().map((p) => (

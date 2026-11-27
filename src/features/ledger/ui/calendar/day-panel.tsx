@@ -1,6 +1,6 @@
 'use client'
 
-import { cellOf, weekdayOf } from '@/features/ledger/core/calendar-views'
+import { cellOf, WEEKDAY_SHORT, weekdayOf } from '@/features/ledger/core/calendar-views'
 import { paymentFor } from '@/features/ledger/core/payments'
 import { formatAmountFromCents } from '@cbrl/br/money'
 import { Button, cn } from '@cbrl/design'
@@ -8,7 +8,7 @@ import { Plus, X } from 'lucide-react'
 import { useCalendar, visibleLandings } from './context'
 import { EventChip } from './event-chip'
 
-export const WEEKDAY_SHORT = ['DOM.', 'SEG.', 'TER.', 'QUA.', 'QUI.', 'SEX.', 'SÁB.']
+export { WEEKDAY_SHORT }
 
 /**
  * Every occurrence of one day, in a popover (Google Calendar's "Mais N" card):

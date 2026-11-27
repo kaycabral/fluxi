@@ -91,7 +91,10 @@ export function AppSidebar({
       <SidebarProvider open={open} onOpenChange={changeOpen}>
         <Sidebar collapsible="icon">
           <SidebarHeader>
-            <div className="flex items-center gap-2 px-2 py-1.5">
+            {/* Open: the mark lines up with the nav icons' left edge. Collapsed
+                (3rem rail): 4px each side centers the 24px mark over the
+                icons. Same 200ms linear as the sidebar width, so it glides. */}
+            <div className="flex items-center gap-2 px-2 py-1.5 transition-[padding] duration-200 ease-linear group-data-[collapsible=icon]:px-1 motion-reduce:transition-none">
               <BrandLink href="/painel" className="text-base font-bold tracking-tight">
                 <span className="group-data-[collapsible=icon]:sr-only">Fluxi</span>
               </BrandLink>

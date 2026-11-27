@@ -188,10 +188,10 @@ export function CalendarView({
       <section
         aria-labelledby="calendar-title"
         data-fills-viewport=""
-        className="flex h-[calc(100svh-3.5rem)] min-h-[32rem] flex-col"
+        className="flex h-[calc(100svh-3.5rem)] min-h-[32rem] flex-col md:h-svh"
       >
-        <header className="flex flex-wrap items-center gap-2 px-3 py-2 md:px-4">
-          <Button variant="outline" className="rounded-full px-5" asChild>
+        <header className="flex min-h-16 flex-wrap items-center gap-x-2 gap-y-2 px-3 py-2 md:px-4">
+          <Button variant="outline" size="lg" asChild>
             <Link
               href={calendarHref(view, null, account)}
               aria-keyshortcuts="T"
@@ -201,7 +201,7 @@ export function CalendarView({
             </Link>
           </Button>
           <div className="flex items-center">
-            <Button variant="ghost" size="icon-sm" className="rounded-full" asChild>
+            <Button variant="ghost" size="icon-lg" asChild>
               <Link
                 href={calendarHref(view, shiftDate(view, date, -1), account)}
                 aria-label="Anterior"
@@ -210,7 +210,7 @@ export function CalendarView({
                 <ChevronLeft />
               </Link>
             </Button>
-            <Button variant="ghost" size="icon-sm" className="rounded-full" asChild>
+            <Button variant="ghost" size="icon-lg" asChild>
               <Link
                 href={calendarHref(view, shiftDate(view, date, 1), account)}
                 aria-label="Próximo"
@@ -220,7 +220,7 @@ export function CalendarView({
               </Link>
             </Button>
           </div>
-          <h1 id="calendar-title" className="text-xl font-normal md:text-2xl">
+          <h1 id="calendar-title" className="ml-1 text-lg font-normal md:text-[22px] md:leading-7">
             {viewTitle(view, date)}
           </h1>
           <div className="ml-auto flex items-center gap-2">
@@ -230,7 +230,7 @@ export function CalendarView({
               onView={(next) => go(next, date)}
               onPrefs={savePrefs}
             />
-            <Button onClick={() => openNew()} aria-keyshortcuts="N">
+            <Button size="lg" onClick={() => openNew()} aria-keyshortcuts="N">
               <Plus /> Nova transação
             </Button>
           </div>
@@ -263,11 +263,7 @@ function ViewMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button
-          variant="outline"
-          className="rounded-full"
-          aria-label={`Visualização: ${VIEW_LABELS[view]}`}
-        >
+        <Button variant="outline" size="lg" aria-label={`Visualização: ${VIEW_LABELS[view]}`}>
           {VIEW_LABELS[view]} <ChevronDown />
         </Button>
       </DropdownMenuTrigger>

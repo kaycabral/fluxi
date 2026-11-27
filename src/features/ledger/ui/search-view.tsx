@@ -188,7 +188,7 @@ export function SearchView({ data, initialQuery, today }: Props) {
           </Typography>
           <Summary count={occurrences.length} totals={totals} />
         </div>
-        <Button onClick={() => openNew()} aria-keyshortcuts="N">
+        <Button size="lg" onClick={() => openNew()} aria-keyshortcuts="N">
           <Plus /> Nova transação
         </Button>
       </div>

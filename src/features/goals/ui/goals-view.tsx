@@ -107,7 +107,7 @@ export function GoalsView({
             {headline(goals.length, late.length, over.length)}
           </p>
         </div>
-        <Button onClick={() => setEditing('purchase')}>
+        <Button size="lg" onClick={() => setEditing('purchase')}>
           <Plus /> Novo objetivo
         </Button>
       </div>

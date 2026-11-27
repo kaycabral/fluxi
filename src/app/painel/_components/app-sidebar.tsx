@@ -131,7 +131,7 @@ export function AppSidebar({
           <SidebarRail />
         </Sidebar>
         <SidebarInset>
-          <header className="border-border bg-card/60 z-30 flex h-14 shrink-0 items-center gap-3 border-b px-4 backdrop-blur md:px-6">
+          <header className="border-border bg-card/60 z-30 flex h-14 shrink-0 items-center gap-3 border-b px-4 backdrop-blur md:hidden">
             <SidebarTrigger className="md:hidden" aria-label="Abrir menu" />
           </header>
           <div

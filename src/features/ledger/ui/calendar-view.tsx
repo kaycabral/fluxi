@@ -187,6 +187,7 @@ export function CalendarView({
     <CalendarProvider value={value}>
       <section
         aria-labelledby="calendar-title"
+        data-fills-viewport=""
         className="flex h-[calc(100svh-3.5rem)] min-h-[32rem] flex-col"
       >
         <header className="flex flex-wrap items-center gap-2 px-3 py-2 md:px-4">

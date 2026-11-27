@@ -136,7 +136,7 @@ export function AppSidebar({
           </header>
           <div
             data-slot="app-scroll"
-            className="min-h-0 flex-1 [scrollbar-gutter:stable] overflow-y-auto overscroll-contain"
+            className="min-h-0 flex-1 [scrollbar-gutter:stable] overflow-y-auto overscroll-contain has-[[data-fills-viewport]]:[scrollbar-gutter:auto]"
           >
             {children}
           </div>

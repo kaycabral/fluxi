@@ -93,8 +93,7 @@ export function AppSidebar({
           <SidebarHeader>
             <div className="flex items-center gap-2 px-2 py-1.5">
               <BrandLink href="/painel" className="text-base font-bold tracking-tight">
-                <span className="group-data-[collapsible=icon]:hidden">Fluxi</span>
-                <span className="hidden group-data-[collapsible=icon]:inline">F</span>
+                <span className="group-data-[collapsible=icon]:sr-only">Fluxi</span>
               </BrandLink>
             </div>
           </SidebarHeader>

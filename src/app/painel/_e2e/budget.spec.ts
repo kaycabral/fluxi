@@ -107,17 +107,17 @@ test.describe('dashboard and budget', () => {
     )
 
     // Adaptive window: as many months as fit the full-width card (more than the
-    // minimum at the E2E viewport), opening one month back.
+    // minimum at the E2E viewport), opening on the current month.
     const light = page.getByRole('table')
     const firstMonth = light.getByRole('columnheader').nth(1)
     await expect(async () => {
       expect(await light.getByRole('columnheader').count()).toBeGreaterThan(4)
     }).toPass()
-    await expect(firstMonth).toHaveText(monthLabel(addMonths(THIS_MONTH, -1)))
+    await expect(firstMonth).toHaveText(monthLabel(THIS_MONTH))
     await page.getByRole('button', { name: 'Mês anterior' }).click()
-    await expect(firstMonth).toHaveText(monthLabel(addMonths(THIS_MONTH, -2)))
-    await page.getByRole('button', { name: 'Hoje' }).click()
     await expect(firstMonth).toHaveText(monthLabel(addMonths(THIS_MONTH, -1)))
+    await page.getByRole('button', { name: 'Hoje' }).click()
+    await expect(firstMonth).toHaveText(monthLabel(THIS_MONTH))
   })
 
   test('old calendar links on /painel still open the calendar', async ({ page }) => {

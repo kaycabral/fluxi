@@ -1,3 +1,4 @@
+import { PainelSkeleton } from '@/app/painel/_components/painel-skeleton'
 import { Unavailable } from '@/app/painel/_components/unavailable'
 import { todayIso } from '@/app/painel/_lib/session'
 import { loadRefs } from '@/features/ledger/adapters/views'
@@ -10,11 +11,7 @@ import type { Metadata } from 'next'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { connection } from 'next/server'
-
-// @next-codemod-ignore Cache Components adoption: this segment temporarily allows blocking.
-// Remove this opt-out after verifying the segment passes validation without it.
-// See: https://nextjs.org/docs/app/guides/migrating-to-cache-components
-export const instant = false
+import { Suspense } from 'react'
 
 export const metadata: Metadata = {
   title: 'Painel — Fluxi',
@@ -25,9 +22,18 @@ export const metadata: Metadata = {
  * lives in the route groups: `(app)` is the new sidebar layout (the calendar),
  * `(legacy)` keeps the MVP screens with their top navigation until they move.
  */
-export default async function PainelLayout({ children }: { children: React.ReactNode }) {
-  // Everything below is per request (session, space, today): the backend reads time
-  // their timeouts before touching cookies, so say so up front.
+export default function PainelLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense fallback={<PainelSkeleton />}>
+      <SignedInPainel>{children}</SignedInPainel>
+    </Suspense>
+  )
+}
+
+/** Everything per request: the session guard, the active space and the ledger refs. */
+export async function SignedInPainel({ children }: { children: React.ReactNode }) {
+  // The backend reads time their timeouts before touching cookies: say up front
+  // that this part runs per request.
   await connection()
   const user = await getServerUser()
   if (!user) {

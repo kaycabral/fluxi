@@ -9,41 +9,19 @@ import {
 import { DashboardView } from '@/features/ledger/ui/dashboard/dashboard-view'
 import { Main } from '@cbrl/design'
 import type { Metadata } from 'next'
-import { redirect } from 'next/navigation'
 import { connection } from 'next/server'
-
-// @next-codemod-ignore Cache Components adoption: this segment temporarily allows blocking.
-// Remove this opt-out after verifying the segment passes validation without it.
-// See: https://nextjs.org/docs/app/guides/migrating-to-cache-components
-export const instant = false
 
 export const metadata: Metadata = { title: 'Painel — Fluxi' }
 
 /** Every month the database can hold: the traffic light walks any month without a round trip. */
 const ALL_TIME = { from: '1900-01', to: '9999-12' }
 
-/** Query params of the calendar when it lived at `/painel`. */
-const CALENDAR_PARAMS = ['modo', 'data', 'mes', 'conta']
-
 /**
  * `/painel`: the dashboard. Old calendar links (`/painel?modo=…`) go on to
- * `/painel/calendario` with their params.
+ * `/painel/calendario` by a `next.config` redirect.
  */
-export default async function DashboardPage({
-  searchParams,
-}: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>
-}) {
+export default async function DashboardPage() {
   await connection()
-  const params = await searchParams
-  const calendar = new URLSearchParams()
-  for (const key of CALENDAR_PARAMS) {
-    const value = params[key]
-    const first = Array.isArray(value) ? value[0] : value
-    if (first !== undefined) calendar.set(key, first)
-  }
-  if (calendar.size > 0) redirect(`/painel/calendario?${calendar.toString()}`)
-
   const scope = await requirePainelScope()
   const [data, versions, connected, health] = await Promise.all([
     loadLedgerData(scope, ALL_TIME, todayIso()),

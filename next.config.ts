@@ -37,6 +37,14 @@ const nextConfig: NextConfig = {
       permanent: true,
     },
     { source: '/painel/conexoes', destination: '/painel#configuracoes/conexoes', permanent: true },
+    // The calendar lived at /painel: its old links (`/painel?modo=…`) go on to it,
+    // query included.
+    ...['modo', 'data', 'mes', 'conta'].map((key) => ({
+      source: '/painel',
+      has: [{ type: 'query' as const, key }],
+      destination: '/painel/calendario',
+      permanent: true,
+    })),
   ],
   images: {
     // The local Supabase stack serves Storage from http://127.0.0.1:54421.

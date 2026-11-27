@@ -1,8 +1,10 @@
 import { sampleData, sampleRefs } from '@/features/ledger/ui/test-fixtures'
 import { render, screen } from '@testing-library/react'
+import { Suspense, type ReactElement } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import CalendarPage from './(app)/calendario/page'
-import AppLayout from './(app)/layout'
+import AppLayout, { SidebarShell } from './(app)/layout'
+import AppLoading from './(app)/loading'
 import GoalsPage from './(app)/objetivos/page'
 import BudgetPage from './(app)/orcamento/page'
 import DashboardPage from './(app)/page'
@@ -11,7 +13,8 @@ import PayablesPage from './(legacy)/a-pagar/page'
 import AccountsPage from './(legacy)/contas/page'
 import LegacyLayout from './(legacy)/layout'
 import TimelinePage from './(legacy)/linha-do-tempo/page'
-import PainelLayout from './layout'
+import { ContentSkeleton, PainelSkeleton } from './_components/painel-skeleton'
+import PainelLayout, { SignedInPainel } from './layout'
 
 type Read<T> = { ok: true; data: T } | { ok: false }
 
@@ -247,14 +250,14 @@ describe('painel pages', () => {
   })
 
   it('dashboard loads the whole ledger and the budget versions with today', async () => {
-    render(await DashboardPage({ searchParams: Promise.resolve({}) }))
+    render(await DashboardPage())
     expect(screen.getByText('dashboard 2@2026-12-15 [Nubank]')).toBeInTheDocument()
     expect(views.loadBudgetVersions).toHaveBeenCalledWith(SCOPE)
   })
 
   it('dashboard still renders when the connected banks cannot be read', async () => {
     connectedBanks.mockResolvedValueOnce({ ok: false })
-    render(await DashboardPage({ searchParams: Promise.resolve({}) }))
+    render(await DashboardPage())
     expect(screen.getByText('dashboard 2@2026-12-15 []')).toBeInTheDocument()
   })
 
@@ -289,19 +292,6 @@ describe('painel pages', () => {
     prefsCookie = undefined
   })
 
-  it('old calendar links on /painel go on to /painel/calendario with their params', async () => {
-    redirect.mockImplementation(() => {
-      throw new Error('redirected')
-    })
-    await expect(
-      DashboardPage({
-        searchParams: Promise.resolve({ mes: ['2027-02', '2027-03'], conta: 'abc', x: '1' }),
-      }),
-    ).rejects.toThrow('redirected')
-    expect(redirect).toHaveBeenLastCalledWith('/painel/calendario?mes=2027-02&conta=abc')
-    expect(views.loadLedgerData).not.toHaveBeenCalled()
-  })
-
   it('degrades every page when the backend is unavailable', async () => {
     views.loadRefs.mockResolvedValue({ ok: false })
     views.loadLedgerData.mockResolvedValue({ ok: false })
@@ -312,7 +302,7 @@ describe('painel pages', () => {
       await AccountsPage(),
       await BudgetPage(),
       await GoalsPage(),
-      await DashboardPage({ searchParams: Promise.resolve({}) }),
+      await DashboardPage(),
       await CalendarPage({ searchParams: Promise.resolve({}) }),
     ]) {
       const { unmount } = render(page)
@@ -322,9 +312,30 @@ describe('painel pages', () => {
   })
 })
 
+describe('painel static shell', () => {
+  it('streams the session and the sidebar behind the painel skeleton', () => {
+    // The layouts render only the boundary: their request reads stay out of the shell.
+    const painel: ReactElement<{ fallback: ReactElement }> = PainelLayout({ children: null })
+    const app: ReactElement<{ fallback: ReactElement }> = AppLayout({ children: null })
+    for (const layout of [painel, app]) {
+      expect(layout.type).toBe(Suspense)
+      expect(layout.props.fallback.type).toBe(PainelSkeleton)
+    }
+  })
+
+  it('shows the skeletons while the data loads', () => {
+    const { unmount } = render(<PainelSkeleton />)
+    expect(screen.getByLabelText('Carregando')).toHaveAttribute('aria-busy', 'true')
+    unmount()
+    render(<AppLoading />)
+    expect(screen.getByLabelText('Carregando')).toBeInTheDocument()
+    expect(AppLoading).toBe(ContentSkeleton)
+  })
+})
+
 describe('painel layouts', () => {
   it('wraps the pages in the ledger shell with the user refs', async () => {
-    render(await PainelLayout({ children: <p>conteúdo</p> }))
+    render(await SignedInPainel({ children: <p>conteúdo</p> }))
     expect(screen.getByRole('region', { name: 'shell com 2 bancos' })).toBeInTheDocument()
     expect(screen.getByText('conteúdo')).toBeInTheDocument()
   })
@@ -339,13 +350,13 @@ describe('painel layouts', () => {
   })
 
   it('the new layout puts the pages in the sidebar shell, as this browser left it', async () => {
-    const { unmount } = render(await AppLayout({ children: <p>calendário</p> }))
+    const { unmount } = render(await SidebarShell({ children: <p>calendário</p> }))
     const shell = screen.getByRole('region', { name: 'menu lateral' })
     expect(shell).toHaveTextContent('calendário')
     expect(shell).toHaveAttribute('data-open', 'true')
     unmount()
     sidebarCookie = 'collapsed'
-    render(await AppLayout({ children: <p>calendário</p> }))
+    render(await SidebarShell({ children: <p>calendário</p> }))
     expect(screen.getByRole('region', { name: 'menu lateral' })).toHaveAttribute(
       'data-open',
       'false',
@@ -356,7 +367,7 @@ describe('painel layouts', () => {
   it('the menu shows the profile, falling back to the session claims', async () => {
     const session = { id: 'u1', email: 'ana@x.test', name: 'Ana G', avatarUrl: 'https://a/p.png' }
     getServerUser.mockResolvedValue(session)
-    const { unmount } = render(await AppLayout({ children: null }))
+    const { unmount } = render(await SidebarShell({ children: null }))
     expect(
       JSON.parse(
         screen.getByRole('region', { name: 'menu lateral' }).getAttribute('data-account') ?? '',
@@ -364,7 +375,7 @@ describe('painel layouts', () => {
     ).toEqual({ name: 'Ana', email: 'ana@x.test', avatarUrl: 'https://a/p.png' })
     unmount()
     getProfile.mockRejectedValue(new Error('db down'))
-    render(await AppLayout({ children: null }))
+    render(await SidebarShell({ children: null }))
     expect(
       JSON.parse(
         screen.getByRole('region', { name: 'menu lateral' }).getAttribute('data-account') ?? '',
@@ -374,7 +385,7 @@ describe('painel layouts', () => {
 
   it('the menu is empty without a session', async () => {
     getServerUser.mockResolvedValue(null)
-    render(await AppLayout({ children: null }))
+    render(await SidebarShell({ children: null }))
     expect(screen.getByRole('region', { name: 'menu lateral' })).toHaveAttribute(
       'data-account',
       JSON.stringify({ name: null, email: null, avatarUrl: null }),
@@ -391,7 +402,7 @@ describe('painel layouts', () => {
 
   it('degrades the painel when the spaces cannot be resolved', async () => {
     getServerScope.mockRejectedValueOnce(new Error('db down'))
-    render(await PainelLayout({ children: <p>conteúdo</p> }))
+    render(await SignedInPainel({ children: <p>conteúdo</p> }))
     expect(screen.queryByText('conteúdo')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Tentar de novo' })).toBeInTheDocument()
     expect(screen.getByRole('region', { name: 'shell com 0 bancos' })).toBeInTheDocument()
@@ -399,19 +410,19 @@ describe('painel layouts', () => {
 
   it('degrades the painel when the session vanishes while resolving the space', async () => {
     getServerScope.mockResolvedValueOnce(null)
-    render(await PainelLayout({ children: <p>conteúdo</p> }))
+    render(await SignedInPainel({ children: <p>conteúdo</p> }))
     expect(screen.queryByText('conteúdo')).not.toBeInTheDocument()
   })
 
   it('keeps the sidebar without the switcher when the spaces cannot be read', async () => {
     getServerScope.mockRejectedValueOnce(new Error('db down'))
-    render(await AppLayout({ children: <p>calendário</p> }))
+    render(await SidebarShell({ children: <p>calendário</p> }))
     expect(screen.getByRole('region', { name: 'menu lateral' })).toHaveTextContent('calendário')
   })
 
   it('falls back to empty refs when the backend is down', async () => {
     views.loadRefs.mockResolvedValue({ ok: false })
-    render(await PainelLayout({ children: null }))
+    render(await SignedInPainel({ children: null }))
     expect(screen.getByRole('region', { name: 'shell com 0 bancos' })).toBeInTheDocument()
   })
 
@@ -420,7 +431,7 @@ describe('painel layouts', () => {
     redirect.mockImplementation(() => {
       throw new Error('redirected')
     })
-    await expect(PainelLayout({ children: null })).rejects.toThrow('redirected')
+    await expect(SignedInPainel({ children: null })).rejects.toThrow('redirected')
     expect(redirect).toHaveBeenCalledWith('/?login=1&next=%2Fpainel%2Fcontas')
   })
 })

@@ -7,11 +7,6 @@ import { Main } from '@cbrl/design'
 import type { Metadata } from 'next'
 import { connection } from 'next/server'
 
-// @next-codemod-ignore Cache Components adoption: this segment temporarily allows blocking.
-// Remove this opt-out after verifying the segment passes validation without it.
-// See: https://nextjs.org/docs/app/guides/migrating-to-cache-components
-export const instant = false
-
 export const metadata: Metadata = { title: 'Objetivos — Fluxi' }
 
 /** `/painel/objetivos`: goals as slices of the `minimum` budget groups (Investimento, Metas). */

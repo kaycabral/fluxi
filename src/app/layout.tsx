@@ -1,5 +1,6 @@
 import { AutoSignIn } from '@/components/auto-sign-in'
 import { WebAnalytics } from '@/components/web-analytics'
+import { siteUrl } from '@/lib/site-url'
 import { ThemeProvider, Toaster } from '@cbrl/design'
 import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
@@ -12,8 +13,22 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
+  metadataBase: siteUrl(),
   title: 'Fluxi — seu fluxo de caixa pessoal',
   description: 'Planeje o fluxo de caixa das suas finanças pessoais.',
+  applicationName: 'Fluxi',
+  openGraph: {
+    type: 'website',
+    locale: 'pt_BR',
+    siteName: 'Fluxi',
+    title: 'Fluxi — seu fluxo de caixa pessoal',
+    description: 'Planeje o fluxo de caixa das suas finanças pessoais.',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Fluxi — seu fluxo de caixa pessoal',
+    description: 'Planeje o fluxo de caixa das suas finanças pessoais.',
+  },
 }
 
 export const viewport: Viewport = {

@@ -1,3 +1,4 @@
+import { BrandMark } from '@/components/brand-mark'
 import { Footer } from '@/components/footer'
 import { getServerUser } from '@/lib/auth/server'
 import { redirect } from 'next/navigation'
@@ -11,6 +12,7 @@ export default async function LandingPage() {
     <div className="bg-background text-foreground flex min-h-screen flex-col">
       <main className="flex flex-1 flex-col items-center justify-center gap-6 p-5 text-center">
         <div className="flex flex-col items-center gap-3">
+          <BrandMark className="size-16" />
           <h1 className="text-4xl font-bold tracking-tight">Fluxi</h1>
           <p className="max-w-[48ch] text-lg">
             Planeje o fluxo de caixa das suas finanças pessoais.

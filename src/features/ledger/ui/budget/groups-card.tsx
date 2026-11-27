@@ -121,9 +121,10 @@ function VersionEditor({
   data: LedgerData
   onSelect: (startsMonth: Month | undefined) => void
 }) {
-  // The numbers beside each group follow the selected version: today in the one in force,
-  // otherwise its first month.
-  const current = useBudgetMonth(data, sorted, isCurrent ? today : version.startsMonth)
+  // The numbers beside each group follow the selected version: today while it is in force,
+  // otherwise its first month (also when the only version starts after today).
+  const inForceNow = isCurrent && version.startsMonth <= today
+  const current = useBudgetMonth(data, sorted, inForceNow ? today : version.startsMonth)
   const [targets, setTargets] = useState<Targets>(version.targets)
   const [renaming, setRenaming] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
@@ -179,10 +180,10 @@ function VersionEditor({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onSelect={() => setDialog('create')}>
-                <CalendarPlus /> Nova versão…
+                <CalendarPlus /> Nova versão
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => setDialog('move')}>
-                <Pencil /> Mudar início…
+                <Pencil /> Mudar início
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem

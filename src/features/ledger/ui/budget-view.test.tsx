@@ -63,6 +63,12 @@ describe('BudgetView · grupos', () => {
     expect(screen.getAllByText(/planejado em jan\/27/).length).toBeGreaterThan(0)
   })
 
+  it('measures in its first month a version that only starts after today', () => {
+    renderBudget([{ ...NEW, startsMonth: '2027-01' }])
+    expect(screen.getAllByText(/planejado em jan\/27/).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/planejado em dez\/26/)).toBeNull()
+  })
+
   it('edits the version in force and saves its targets', async () => {
     renderBudget()
     expect(screen.getByText('10% livre para distribuir')).toBeInTheDocument()

@@ -322,15 +322,20 @@ describe('painel static shell', () => {
   })
 
   it('shows the skeletons while the data loads', () => {
-    const { unmount } = render(<PainelSkeleton />)
-    expect(screen.getByLabelText('Carregando')).toHaveAttribute('aria-busy', 'true')
-    // The screen's own skeleton (here the dashboard's), with its fixed texts.
-    expect(screen.getByRole('heading', { level: 1, name: 'Painel' })).toBeInTheDocument()
-    unmount()
-    render(<AppLoading />)
-    expect(screen.getByLabelText('Carregando')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { level: 2, name: 'Orçamento' })).toBeInTheDocument()
-    render(<ContentSkeleton />)
+    // Screen readers hear one status; the drawn skeleton is inert, hidden from
+    // them, and carries no real text (its labels are CSS-only), so nothing
+    // duplicates the page that replaces it.
+    for (const ui of [
+      <PainelSkeleton key="p" />,
+      <AppLoading key="a" />,
+      <ContentSkeleton key="c" />,
+    ]) {
+      const { unmount } = render(ui)
+      expect(screen.getByRole('status')).toHaveTextContent('Carregando…')
+      expect(screen.queryAllByRole('button')).toHaveLength(0)
+      expect(screen.queryByRole('heading')).toBeNull()
+      unmount()
+    }
   })
 })
 

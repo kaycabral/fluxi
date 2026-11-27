@@ -40,21 +40,53 @@ import { Plus } from 'lucide-react'
  * blank, so the swap to the real content moves nothing.
  */
 
+/*
+ * Skeleton texts are only visual: drawn by CSS (`content: attr(data-text)`),
+ * so they take the very place of the real text but are not in the DOM. While a
+ * page streams, React keeps the pending fallbacks in hidden segments; with real
+ * text those copies would answer text queries and reach assistive tech.
+ */
+
+/** A fixed text of the screen (a title, a label), drawn but not in the DOM. */
+export function VisualText({ text, className }: { text: string; className?: string }) {
+  return (
+    <span
+      aria-hidden
+      data-text={text}
+      className={cn('before:content-[attr(data-text)]', className)}
+    />
+  )
+}
+
 /**
  * A run of text still loading: a pulse behind `sample` set in the surrounding
- * font (the sample is transparent). Inline like text, so it keeps the line
- * height and wraps across lines as the real text of that length would.
+ * font (the sample is transparent and only visual). Inline like text, so it
+ * keeps the line height and wraps across lines as the real text would.
  */
 export function TextSkeleton({ sample, className }: { sample: string; className?: string }) {
   return (
     <Skeleton
       aria-hidden
-      className={cn('inline box-decoration-clone text-transparent select-none', className)}
-    >
-      {sample}
-    </Skeleton>
+      data-text={sample}
+      className={cn(
+        'inline box-decoration-clone text-transparent select-none before:content-[attr(data-text)]',
+        className,
+      )}
+    />
   )
 }
+
+/** The one thing assistive tech hears while a screen loads (the skeleton itself is inert). */
+export function LoadingStatus() {
+  return (
+    <span role="status" className="sr-only">
+      Carregando…
+    </span>
+  )
+}
+
+/** The root attributes of a skeleton: out of the accessibility tree and inert. */
+export const SKELETON_ROOT = { 'aria-hidden': true, inert: true, 'data-skeleton': '' } as const
 
 /** An amount still loading, in `Money`'s monospace font (same line box). */
 export function MoneySkeleton({ sample = 'R$ 00.000,00' }: { sample?: string }) {
@@ -79,7 +111,7 @@ export function ButtonSkeleton({
 }) {
   return (
     <Button variant={variant} size={size} disabled tabIndex={-1} aria-hidden>
-      {icon} {label}
+      {icon} <VisualText text={label} />
     </Button>
   )
 }
@@ -106,7 +138,7 @@ export function PageHeaderSkeleton({
     >
       <div className="grid min-w-0 gap-1">
         <Typography variant="pageTitle" as="h1">
-          {title}
+          <VisualText text={title} />
         </Typography>
         {subtitle !== undefined && (
           <div className="text-muted-foreground text-sm first-letter:uppercase">{subtitle}</div>
@@ -163,7 +195,7 @@ export function GroupName({
       ) : (
         <span className={cn('shrink-0 rounded-xs', size, GROUP_DOT_CLASSES[group.color])} />
       )}
-      {group === null ? <TextSkeleton sample="Investimento" /> : group.name}
+      {group === null ? <TextSkeleton sample="Investimento" /> : <VisualText text={group.name} />}
     </span>
   )
 }
@@ -196,7 +228,9 @@ export function TrafficLightSkeleton({ span, before }: { span: number; before: n
       <Table className={TABLE_CLASS}>
         <TableHeader>
           <TableRow>
-            <TableHead className={GROUP_COLUMN_CLASS}>Grupo</TableHead>
+            <TableHead className={GROUP_COLUMN_CLASS}>
+              <VisualText text="Grupo" />
+            </TableHead>
             {months.map((m, i) => (
               <TableHead
                 key={m ?? i}
@@ -206,14 +240,20 @@ export function TrafficLightSkeleton({ span, before }: { span: number; before: n
                   m !== null && m === today && 'bg-muted/60 text-foreground font-semibold',
                 )}
               >
-                {m === null ? <TextSkeleton sample="nov/26" /> : monthLabel(m)}
+                {m === null ? (
+                  <TextSkeleton sample="nov/26" />
+                ) : (
+                  <VisualText text={monthLabel(m)} />
+                )}
               </TableHead>
             ))}
           </TableRow>
         </TableHeader>
         <TableBody>
           <TableRow className="text-muted-foreground">
-            <TableCell className="bg-card sticky left-0 z-10">Renda</TableCell>
+            <TableCell className="bg-card sticky left-0 z-10">
+              <VisualText text="Renda" />
+            </TableCell>
             {months.map((m, i) => (
               <TableCell
                 key={m ?? i}
@@ -241,9 +281,10 @@ export function TrafficLightSkeleton({ span, before }: { span: number; before: n
                     m !== null && m === today && 'bg-muted/60',
                   )}
                 >
-                  <Skeleton className="inline-block rounded-full px-2 py-0.5 font-mono text-xs text-transparent tabular-nums">
-                    00%
-                  </Skeleton>
+                  <Skeleton
+                    data-text="00%"
+                    className="inline-block rounded-full px-2 py-0.5 font-mono text-xs text-transparent tabular-nums before:content-[attr(data-text)]"
+                  />
                 </TableCell>
               ))}
             </TableRow>

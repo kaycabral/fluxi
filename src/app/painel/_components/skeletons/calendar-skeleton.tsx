@@ -1,6 +1,11 @@
 'use client'
 
-import { TextSkeleton } from '@/app/painel/_components/skeletons/parts'
+import {
+  LoadingStatus,
+  SKELETON_ROOT,
+  TextSkeleton,
+  VisualText,
+} from '@/app/painel/_components/skeletons/parts'
 import {
   CALENDAR_VIEWS,
   MONTH_NAMES,
@@ -67,7 +72,7 @@ function MonthSkeleton() {
               isWeekend(column) && WEEKEND,
             )}
           >
-            {label}
+            <VisualText text={label} />
           </div>
         ))}
       </div>
@@ -116,7 +121,11 @@ function ColumnsSkeleton({ view, count }: { view: 'week' | 'four_days' | 'day'; 
             className={cn('grid justify-items-center gap-0.5 py-2', weekendAware(column))}
           >
             <span className="text-muted-foreground text-[0.7rem] font-medium">
-              {view === 'week' ? WEEKDAY_SHORT[column] : <TextSkeleton sample="SEG." />}
+              {view === 'week' ? (
+                <VisualText text={WEEKDAY_SHORT[column] ?? ''} />
+              ) : (
+                <TextSkeleton sample="SEG." />
+              )}
             </span>
             <Skeleton className="size-11 rounded-full" />
             <span className="h-4 text-[0.7rem]">
@@ -154,7 +163,9 @@ function YearSkeleton() {
       {MONTH_NAMES.map((name, index) => (
         <section key={name} data-month-index={index + 1} className="grid gap-1">
           <div className="flex items-baseline justify-between gap-2 px-1">
-            <h2 className="text-sm font-medium">{name}</h2>
+            <h2 className="text-sm font-medium">
+              <VisualText text={name} />
+            </h2>
             <span className="text-xs">
               <TextSkeleton sample="000.000,00" />
             </span>
@@ -162,7 +173,7 @@ function YearSkeleton() {
           <div className="grid grid-cols-7 text-center text-[0.7rem]">
             {WEEKDAY_INITIALS.map((initial, i) => (
               <span key={`${initial}-${i}`} className="text-muted-foreground py-1">
-                {initial}
+                <VisualText text={initial} />
               </span>
             ))}
             {Array.from({ length: 42 }, (_, i) => (
@@ -204,49 +215,51 @@ function ScheduleSkeleton() {
 /** `/painel/calendario` loading: the toolbar and the grid of the current view, blank. */
 export function CalendarSkeleton() {
   return (
-    <section
-      aria-busy="true"
-      aria-label="Carregando"
-      data-fills-viewport=""
-      className="flex h-[calc(100svh-3.5rem)] flex-col md:h-svh"
-    >
-      <header className="flex min-h-16 flex-wrap items-center gap-x-2 gap-y-2 px-3 py-2 md:px-4">
-        <Button variant="outline" size="lg" disabled tabIndex={-1}>
-          Hoje
-        </Button>
-        <div className="flex items-center">
-          <Button variant="ghost" size="icon-lg" disabled tabIndex={-1} aria-label="Anterior">
-            <ChevronLeft />
-          </Button>
-          <Button variant="ghost" size="icon-lg" disabled tabIndex={-1} aria-label="Próximo">
-            <ChevronRight />
-          </Button>
-        </div>
-        <h1 className="ml-1 text-lg font-normal md:text-[22px] md:leading-7">
-          <TextSkeleton sample="Novembro de 2026" />
-        </h1>
-        <div className="ml-auto flex items-center gap-2">
+    <>
+      <LoadingStatus />
+      <section
+        {...SKELETON_ROOT}
+        data-fills-viewport=""
+        className="flex h-[calc(100svh-3.5rem)] flex-col md:h-svh"
+      >
+        <header className="flex min-h-16 flex-wrap items-center gap-x-2 gap-y-2 px-3 py-2 md:px-4">
           <Button variant="outline" size="lg" disabled tabIndex={-1}>
-            {CALENDAR_VIEWS.map((view) => (
-              <span key={view} className={LABEL_IN_VIEW[view]}>
-                {VIEW_LABELS[view]}
-              </span>
-            ))}
-            <ChevronDown />
+            <VisualText text="Hoje" />
           </Button>
-          <Button size="lg" disabled tabIndex={-1}>
-            <Plus /> Nova transação
-          </Button>
+          <div className="flex items-center">
+            <Button variant="ghost" size="icon-lg" disabled tabIndex={-1}>
+              <ChevronLeft />
+            </Button>
+            <Button variant="ghost" size="icon-lg" disabled tabIndex={-1}>
+              <ChevronRight />
+            </Button>
+          </div>
+          <h1 className="ml-1 text-lg font-normal md:text-[22px] md:leading-7">
+            <TextSkeleton sample="Novembro de 2026" />
+          </h1>
+          <div className="ml-auto flex items-center gap-2">
+            <Button variant="outline" size="lg" disabled tabIndex={-1}>
+              {CALENDAR_VIEWS.map((view) => (
+                <span key={view} className={LABEL_IN_VIEW[view]}>
+                  <VisualText text={VIEW_LABELS[view]} />
+                </span>
+              ))}
+              <ChevronDown />
+            </Button>
+            <Button size="lg" disabled tabIndex={-1}>
+              <Plus /> <VisualText text="Nova transação" />
+            </Button>
+          </div>
+        </header>
+        <div className="bg-card mx-1 mb-1 flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border md:mx-3 md:mb-3">
+          <MonthSkeleton />
+          <ColumnsSkeleton view="week" count={7} />
+          <ColumnsSkeleton view="four_days" count={4} />
+          <ColumnsSkeleton view="day" count={1} />
+          <YearSkeleton />
+          <ScheduleSkeleton />
         </div>
-      </header>
-      <div className="bg-card mx-1 mb-1 flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border md:mx-3 md:mb-3">
-        <MonthSkeleton />
-        <ColumnsSkeleton view="week" count={7} />
-        <ColumnsSkeleton view="four_days" count={4} />
-        <ColumnsSkeleton view="day" count={1} />
-        <YearSkeleton />
-        <ScheduleSkeleton />
-      </div>
-    </section>
+      </section>
+    </>
   )
 }

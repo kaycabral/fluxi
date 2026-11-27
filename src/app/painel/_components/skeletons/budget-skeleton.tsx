@@ -2,9 +2,12 @@
 
 import {
   ButtonSkeleton,
+  LoadingStatus,
+  SKELETON_ROOT,
   TextSkeleton,
   TrafficLightSkeleton,
   useSkeletonGroups,
+  VisualText,
 } from '@/app/painel/_components/skeletons/parts'
 import { GROUP_DOT_CLASSES } from '@/features/ledger/core/labels'
 import {
@@ -32,10 +35,12 @@ function GroupsCardSkeleton() {
     <Card>
       <CardHeader>
         <CardTitle asChild>
-          <h2>Grupos do orçamento</h2>
+          <h2>
+            <VisualText text="Grupos do orçamento" />
+          </h2>
         </CardTitle>
         <CardDescription>
-          Cada grupo recebe uma fatia da renda do mês. A soma não passa de 100%.
+          <VisualText text="Cada grupo recebe uma fatia da renda do mês. A soma não passa de 100%." />
         </CardDescription>
         <CardAction className="flex items-center gap-1">
           <Skeleton className="h-8 w-[167px]" />
@@ -65,7 +70,11 @@ function GroupsCardSkeleton() {
                     />
                   )}
                   <span className="min-w-0 truncate text-sm">
-                    {group === null ? <TextSkeleton sample="Investimento" /> : group.name}
+                    {group === null ? (
+                      <TextSkeleton sample="Investimento" />
+                    ) : (
+                      <VisualText text={group.name} />
+                    )}
                   </span>
                 </div>
                 <Skeleton className="h-2 rounded-full" />
@@ -96,29 +105,33 @@ function GroupsCardSkeleton() {
 /** `/painel/orcamento` loading: the groups card and the traffic light, numbers blank. */
 export function BudgetSkeleton() {
   return (
-    <Main aria-busy="true" aria-label="Carregando">
-      <div className="grid gap-4">
-        <Typography variant="pageTitle" as="h1">
-          Orçamento
-        </Typography>
+    <>
+      <LoadingStatus />
+      <Main {...SKELETON_ROOT}>
         <div className="grid gap-4">
-          <GroupsCardSkeleton />
-          <Card className="min-w-0">
-            <CardHeader>
-              <CardTitle asChild>
-                <h2>Semáforo mensal</h2>
-              </CardTitle>
-              <CardDescription>
-                Planejado ÷ renda do mês, contra a versão do orçamento em vigor naquele mês. Passe o
-                mouse num valor para ver a meta e a situação.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="min-w-0">
-              <TrafficLightSkeleton span={WINDOW.span} before={WINDOW.before} />
-            </CardContent>
-          </Card>
+          <Typography variant="pageTitle" as="h1">
+            <VisualText text="Orçamento" />
+          </Typography>
+          <div className="grid gap-4">
+            <GroupsCardSkeleton />
+            <Card className="min-w-0">
+              <CardHeader>
+                <CardTitle asChild>
+                  <h2>
+                    <VisualText text="Semáforo mensal" />
+                  </h2>
+                </CardTitle>
+                <CardDescription>
+                  <VisualText text="Planejado ÷ renda do mês, contra a versão do orçamento em vigor naquele mês. Passe o mouse num valor para ver a meta e a situação." />
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="min-w-0">
+                <TrafficLightSkeleton span={WINDOW.span} before={WINDOW.before} />
+              </CardContent>
+            </Card>
+          </div>
         </div>
-      </div>
-    </Main>
+      </Main>
+    </>
   )
 }

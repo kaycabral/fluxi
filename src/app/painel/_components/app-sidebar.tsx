@@ -24,31 +24,14 @@ import {
   SidebarTrigger,
   TooltipProvider,
   useSidebar,
-  type NavItem,
 } from '@cbrl/design'
-import {
-  CalendarDays,
-  History,
-  LayoutDashboard,
-  ListIcon,
-  LogOut,
-  PiggyBank,
-  Settings,
-  Target,
-} from 'lucide-react'
+import { History, LogOut, Settings } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
+import { NAV } from './nav'
 import { settingsHash, SettingsModal } from './settings-modal'
 import { SIDEBAR_ATTRIBUTE, SIDEBAR_COOKIE } from './sidebar-state'
-
-const NAV: NavItem[] = [
-  { href: '/painel', label: 'Painel', icon: LayoutDashboard, match: 'exact' },
-  { href: '/painel/calendario', label: 'Calendário', icon: CalendarDays, match: 'prefix' },
-  { href: '/painel/transacoes', label: 'Transações', icon: ListIcon, match: 'prefix' },
-  { href: '/painel/orcamento', label: 'Orçamento', icon: PiggyBank, match: 'prefix' },
-  { href: '/painel/objetivos', label: 'Objetivos', icon: Target, match: 'prefix' },
-]
 
 /**
  * Chrome of the new layout, composed from the `@cbrl/design` sidebar

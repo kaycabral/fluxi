@@ -1,17 +1,23 @@
 'use client'
 
-import { Nav, SidebarBrand } from '@/app/painel/_components/app-sidebar'
+import { NAV } from '@/app/painel/_components/nav'
 import { BudgetSkeleton } from '@/app/painel/_components/skeletons/budget-skeleton'
 import { CalendarSkeleton } from '@/app/painel/_components/skeletons/calendar-skeleton'
 import { DashboardSkeleton } from '@/app/painel/_components/skeletons/dashboard-skeleton'
 import { GoalsSkeleton } from '@/app/painel/_components/skeletons/goals-skeleton'
+import { LoadingStatus, SKELETON_ROOT, VisualText } from '@/app/painel/_components/skeletons/parts'
 import { TransactionsSkeleton } from '@/app/painel/_components/skeletons/transactions-skeleton'
+import { BrandMark } from '@/components/brand-mark'
 import {
   Button,
   cn,
+  isNavItemActive,
   Sidebar,
   SidebarContent,
   SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarHeader,
   SidebarInset,
   SidebarMenu,
   SidebarMenuButton,
@@ -36,39 +42,65 @@ export function RouteSkeleton({ pathname }: { pathname: string }) {
 /** A page's content for screens with no skeleton of their own (the legacy ones). */
 export function GenericContentSkeleton() {
   return (
-    <div className="grid gap-4 p-4 md:p-6" aria-busy="true" aria-label="Carregando">
-      <Skeleton className="h-8 w-48" />
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {Array.from({ length: 4 }, (_, i) => (
-          <Skeleton key={i} className="h-24" />
-        ))}
+    <>
+      <LoadingStatus />
+      <div {...SKELETON_ROOT} className="grid gap-4 p-4 md:p-6">
+        <Skeleton className="h-8 w-48" />
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          {Array.from({ length: 4 }, (_, i) => (
+            <Skeleton key={i} className="h-24" />
+          ))}
+        </div>
+        <Skeleton className="h-80" />
       </div>
-      <Skeleton className="h-80" />
-    </div>
+    </>
   )
 }
 
 /**
- * The sidebar while the session loads, from the real primitives: the brand and
- * the pages (already navigable) are real; the space + account menu is blank.
+ * The sidebar while the session loads: the real primitives (same boxes in both
+ * states), the brand and the pages drawn but inert and only visual (the real
+ * sidebar brings the links), the space + account menu blank.
  */
 function ShellSidebar({ pathname }: { pathname: string }) {
   return (
     <Sidebar collapsible="icon">
-      <SidebarBrand />
+      <SidebarHeader>
+        <div className="flex items-center gap-2 px-2 py-1.5 group-data-[collapsible=icon]:px-1">
+          <span className="inline-flex items-center gap-2 text-base font-bold tracking-tight">
+            <BrandMark />
+            <VisualText text="Fluxi" className="group-data-[collapsible=icon]:sr-only" />
+          </span>
+        </div>
+      </SidebarHeader>
       <SidebarContent>
-        <Nav pathname={pathname} />
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {NAV.map((item) => (
+                <SidebarMenuItem key={item.href}>
+                  <SidebarMenuButton asChild isActive={isNavItemActive(item, pathname)}>
+                    <span>
+                      <item.icon />
+                      <VisualText text={item.label} />
+                    </span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" disabled aria-label="Carregando a conta">
+            <SidebarMenuButton size="lg" disabled tabIndex={-1}>
               <Skeleton className="size-8 shrink-0 rounded-md" />
               <span className="flex min-w-0 flex-1 flex-col gap-1 text-left">
                 <Skeleton className="h-3.5 w-20" />
                 <Skeleton className="h-3 w-24" />
               </span>
-              <ChevronsUpDown aria-hidden className="text-muted-foreground ml-auto size-4" />
+              <ChevronsUpDown className="text-muted-foreground ml-auto size-4" />
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
@@ -88,7 +120,8 @@ export function PainelShellSkeleton() {
   const pathname = usePathname()
   return (
     <TooltipProvider delayDuration={0}>
-      <div className="flex h-dvh w-full overflow-hidden">
+      <LoadingStatus />
+      <div {...SKELETON_ROOT} className="flex h-dvh w-full overflow-hidden">
         <SidebarProvider open className="h-auto w-auto [html[data-sidebar=collapsed]_&]:hidden">
           <ShellSidebar pathname={pathname} />
         </SidebarProvider>
@@ -100,7 +133,7 @@ export function PainelShellSkeleton() {
         </SidebarProvider>
         <SidebarInset>
           <header className="border-border bg-card/60 z-30 flex h-14 shrink-0 items-center gap-3 border-b px-4 backdrop-blur md:hidden">
-            <Button variant="ghost" size="icon-sm" disabled aria-label="Abrir menu">
+            <Button variant="ghost" size="icon-sm" disabled tabIndex={-1}>
               <PanelLeftIcon />
             </Button>
           </header>

@@ -85,9 +85,10 @@ function Stat({
 /** Month-end balance of the next 12 months as bars (red below zero). */
 function BalanceChart({ balances, today }: { balances: MonthBalance[]; today: Month }) {
   const values = balances.map((b) => b.closingCents)
-  const max = Math.max(1, ...values.map((v) => Math.abs(v)))
-  const hasNegative = values.some((v) => v < 0)
-  const hasPositive = values.some((v) => v > 0)
+  // Each side of the zero line takes height in proportion to its largest bar, so a small
+  // negative month no longer reserves half the chart.
+  const up = Math.max(0, ...values)
+  const down = Math.max(0, ...values.map((v) => -v))
   return (
     <TooltipProvider delayDuration={150}>
       <div className="flex min-h-0 flex-1 flex-col gap-2">
@@ -100,17 +101,17 @@ function BalanceChart({ balances, today }: { balances: MonthBalance[]; today: Mo
         >
           {balances.map((b) => {
             const cents = b.closingCents
-            const height = `${(Math.abs(cents) / max) * 100}%`
+            const height = `${(Math.abs(cents) / (cents > 0 ? up : down)) * 100}%`
             return (
               <Tooltip key={b.month}>
                 <TooltipTrigger asChild>
                   <div className="flex min-w-0 flex-1 flex-col">
                     {/* Upper half: positive bars grow up from the zero line. */}
-                    <div className={cn('flex flex-1 items-end', !hasPositive && 'hidden')}>
+                    <div className="flex items-end" style={{ flexGrow: up, flexBasis: 0 }}>
                       {cents > 0 && (
                         <div
                           className={cn(
-                            'bg-primary/70 w-full rounded-t-sm',
+                            'bg-primary/70 min-h-1 w-full rounded-t-sm',
                             b.month === today && 'bg-primary',
                           )}
                           style={{ height }}
@@ -118,9 +119,12 @@ function BalanceChart({ balances, today }: { balances: MonthBalance[]; today: Mo
                       )}
                     </div>
                     <div className="bg-border h-px" />
-                    <div className={cn('flex flex-1 items-start', !hasNegative && 'hidden')}>
+                    <div className="flex items-start" style={{ flexGrow: down, flexBasis: 0 }}>
                       {cents < 0 && (
-                        <div className="bg-destructive/80 w-full rounded-b-sm" style={{ height }} />
+                        <div
+                          className="bg-destructive/80 min-h-1 w-full rounded-b-sm"
+                          style={{ height }}
+                        />
                       )}
                     </div>
                   </div>
@@ -388,7 +392,7 @@ export function DashboardView({
               </span>
             </CardDescription>
           </CardHeader>
-          <CardContent className="-mr-2 min-h-0 flex-1 overflow-y-auto pr-2">
+          <CardContent className="min-h-0 flex-1 overflow-y-auto">
             <BudgetGroupsThisMonth budgetGroups={budgetGroups} month={budget} />
           </CardContent>
         </Card>

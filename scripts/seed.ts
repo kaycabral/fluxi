@@ -7,7 +7,9 @@
 // target the local stack.
 
 import { fluxiDb, fluxiSchema, personalScope } from '@/db'
+import { seedDemoGoals } from '@/db/demo-goals'
 import { seedDemoLedger } from '@/db/demo-ledger'
+import * as fluxiSchemaGoals from '@/db/schema-goals'
 import { monthOf } from '@/features/ledger/core/format'
 import { readLocalSupabase } from '@cbrl/supabase/local'
 
@@ -41,6 +43,12 @@ async function main(): Promise<void> {
     // Demo data shaped like the prototype, counting from the current month.
     const seeded = banks.length === 0
     if (seeded) await seedDemoLedger(db, scope, monthOf(new Date()))
+    const goals = await db
+      .select({ id: fluxiSchemaGoals.goals.id })
+      .from(fluxiSchemaGoals.goals)
+      .where(eq(fluxiSchemaGoals.goals.userId, userId))
+      .limit(1)
+    if (goals.length === 0) await seedDemoGoals(db, scope, monthOf(new Date()))
     const line = '─'.repeat(64)
     console.log(`\n${line}`)
     console.log(

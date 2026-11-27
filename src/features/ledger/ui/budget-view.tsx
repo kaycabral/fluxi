@@ -5,7 +5,7 @@ import type { BudgetVersion } from '@/features/ledger/core/types'
 import type { LedgerData } from '@/features/ledger/core/view'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, Typography } from '@cbrl/design'
 import { BudgetGroupsCard } from './budget/groups-card'
-import { BUDGET_WINDOW, TrafficLight, useBudgetMonth } from './budget/traffic-light'
+import { BUDGET_WINDOW, TrafficLight } from './budget/traffic-light'
 
 /**
  * "Orçamento": the monthly traffic light, full width with the dashboard
@@ -23,8 +23,6 @@ export function BudgetView({
   /** Current month. */
   today: Month
 }) {
-  const current = useBudgetMonth(data, versions, today)
-
   return (
     <div className="grid gap-4">
       <Typography variant="pageTitle" as="h1">
@@ -35,7 +33,7 @@ export function BudgetView({
           budgetGroups={data.budgetGroups}
           versions={versions}
           today={today}
-          current={current}
+          data={data}
         />
         <Card className="min-w-0">
           <CardHeader>

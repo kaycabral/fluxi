@@ -180,11 +180,11 @@ test.describe('ledger critical flow', () => {
     await details.getByRole('button', { name: 'Fechar' }).click()
     await expect(chip).toHaveClass(/opacity-50/)
 
-    // The week view (W) shows it too; "Criar" opens the full sheet.
+    // The week view (W) shows it too; "Nova transação" opens the full sheet.
     await page.keyboard.press('w')
     await expect(page.getByRole('button', { name: 'Visualização: Semana' })).toBeVisible()
     await expect(page.getByRole('button', { name: /42,90 Padaria E2E/ })).toBeVisible()
-    await page.getByRole('button', { name: 'Criar', exact: true }).click()
+    await page.getByRole('button', { name: 'Nova transação', exact: true }).click()
     await expect(page.getByRole('dialog', { name: 'Nova transação' })).toBeVisible()
   })
 

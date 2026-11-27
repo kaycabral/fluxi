@@ -1,0 +1,216 @@
+<title>Fluxi Objetivos</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* VOICE work, money tool
+   IDEA o orçamento em % é a fonte: os objetivos são fatias dos potes Investimento e Metas
+   PICTURE faixa da renda dividida em grupos; cada pote abre em fatias; projeção do objetivo selecionado
+   COLOUR verde profundo #00463c, branco, lima #e6f5c8, coral #ff6f59 para risco
+   TYPE Inter Tight 700 + Inter
+   LAYOUT topo verde com renda→grupos; dois potes lado a lado; detalhe/simulador abaixo; celular empilha */
+:root{color-scheme:light dark;--bg:light-dark(#ffffff,#0a1613);--ink:light-dark(#0b1a17,#e8f2ee);--mut:light-dark(#5a6b66,#93a8a1);--line:light-dark(#e3eae7,#1f302b);--g2:light-dark(#0a7a63,#3fcfa4);--coral:#ff6f59;--amb:#e0a100;--card:light-dark(#f6faf8,#101f1b);--pur:light-dark(#5b4bd6,#a99cff)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Inter,system-ui,sans-serif;overflow-x:clip}
+h1,h2,h3{font-family:"Inter Tight",Inter,sans-serif;letter-spacing:-.02em;line-height:1.08;margin:0}
+.band{padding-block:clamp(24px,4vw,44px);padding-left:max(5vw,16px,env(safe-area-inset-left,0px));padding-right:max(5vw,16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1240px;margin:0 auto}
+.top{background:#00463c;color:#fff;margin-top:calc(-1*env(safe-area-inset-top,0px));padding-top:calc(env(safe-area-inset-top,0px) + 32px)}
+.top h1{font-size:clamp(28px,4.2vw,44px);max-width:22ch}
+.sub{color:#bfe0d4;max-width:62ch;margin:10px 0 22px}
+.groups{display:flex;height:56px;border-radius:10px;overflow:hidden;gap:2px}
+.groups div{display:flex;flex-direction:column;justify-content:center;padding:0 10px;font-size:13px;color:#00332b;white-space:nowrap;overflow:hidden}
+.groups b{font-size:14px}
+.groups .dim{background:#0d5a4d;color:#bfe0d4}
+.src{font-size:13px;color:#9cc7b8;margin-top:12px}
+.pots{display:grid;grid-template-columns:minmax(0,1fr);gap:20px}
+@media(min-width:860px){.pots{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+.pot{border:1px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:10px}
+.poth{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+.poth h2{font-size:24px}
+.poth span{color:var(--mut);font-size:14px;white-space:nowrap}
+.slices{display:flex;height:12px;border-radius:9px;overflow:hidden;background:var(--line)}
+.slices i{display:block;height:100%}
+.potnote{font-size:14px;padding:8px 12px;border-radius:8px}
+.goal{all:unset;box-sizing:border-box;display:grid;grid-template-columns:auto 1fr auto;gap:2px 12px;align-items:center;padding:12px;border:1px solid var(--line);border-radius:12px;cursor:pointer}
+.goal:hover{border-color:var(--g2)}
+.goal:focus-visible{outline:2px solid var(--g2)}
+.goal[aria-pressed=true]{border-color:var(--g2);background:var(--card);box-shadow:inset 3px 0 0 var(--g2)}
+.dot{width:12px;height:12px;border-radius:4px;grid-row:span 2}
+.goal h3{font-size:16px}
+.amt{font-weight:600;white-space:nowrap;text-align:right}
+.meta{font-size:13px;color:var(--mut);grid-column:2/4;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.bar{grid-column:2/4;height:5px;border-radius:9px;background:var(--line);overflow:hidden;margin-top:6px}
+.bar i{display:block;height:100%;background:var(--g2)}
+.pill{font-size:12px;font-weight:600;padding:2px 8px;border-radius:99px;white-space:nowrap}
+.ok{background:color-mix(in srgb,var(--g2) 18%,transparent);color:var(--g2)}
+.warn{background:color-mix(in srgb,var(--amb) 22%,transparent);color:light-dark(#8a6200,#ffcf4d)}
+.bad{background:color-mix(in srgb,var(--coral) 20%,transparent);color:light-dark(#b23a28,#ff9a88)}
+.auto{background:color-mix(in srgb,var(--pur) 16%,transparent);color:var(--pur)}
+.panel{border:1px solid var(--line);border-radius:14px;padding:20px}
+.ph{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px;align-items:baseline}
+.ph h2{font-size:clamp(24px,3vw,32px)}
+.det{display:grid;grid-template-columns:minmax(0,1fr);gap:24px}
+@media(min-width:900px){.det{grid-template-columns:minmax(0,1.5fr) minmax(0,1fr)}}
+.fig{position:relative;height:280px;margin:12px 0}
+.fig svg{position:absolute;inset:0;width:100%;height:100%}
+svg text{font:13px Inter,sans-serif;fill:var(--mut);paint-order:stroke;stroke:var(--bg);stroke-width:4px}
+.ctrls{display:grid;grid-template-columns:repeat(auto-fit,minmax(13em,1fr));gap:14px}
+label{font-size:14px;color:var(--mut);display:flex;justify-content:space-between;gap:8px}
+label b{color:var(--ink);white-space:nowrap}
+input[type=range]{width:100%;accent-color:var(--g2);height:28px}
+input:disabled{opacity:.4}
+.verdict{padding:14px 16px;border-radius:10px;background:var(--card);font-size:15px}
+.verdict strong{font-family:"Inter Tight";font-size:18px;display:block;margin-bottom:4px}
+.opts{display:grid;gap:8px;margin-top:10px}
+.opt{padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:14px;background:var(--bg)}
+.opt b{color:var(--ink)}
+.side h3{font-size:17px;margin:0 0 8px}
+.ladder{list-style:none;padding:0;margin:0;display:grid;gap:8px}
+.ladder li{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;font-size:14px;padding:10px 12px;border-radius:10px;background:var(--card)}
+.ladder em{font-style:normal;color:var(--mut);white-space:nowrap}
+.ladder .n{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:13px;background:var(--line)}
+.ladder .done .n{background:var(--g2);color:#fff}
+.tx{width:100%;border-collapse:collapse;font-size:14px}
+.tx td{padding:8px 4px;border-bottom:1px solid var(--line)}
+.tx td:last-child{text-align:right;white-space:nowrap}
+.princ{display:grid;grid-template-columns:repeat(auto-fit,minmax(16em,1fr));gap:20px 32px}
+.princ h3{font-size:18px;margin-bottom:6px}
+.princ p{margin:0;color:var(--mut);font-size:15px}
+.alt{background:var(--card)}
+.note{font-size:13px;color:var(--mut);margin:0}
+</style>
+
+<section class="band top"><div class="wrap">
+  <h1 id="headline">Seus 25% de investimento estão no trilho. Metas precisam de ajuste.</h1>
+  <p class="sub">O orçamento divide a renda em grupos. Investimento e Metas viram potes, e cada objetivo é uma fatia deles. Mudou o %, mudou a renda: tudo recalcula.</p>
+  <div class="groups" id="groups"></div>
+  <div class="src">Renda líquida média de 6 meses: R$ 14.200 · versão do orçamento: nov/2026 · juro real 5,5% a.a. (CDI 14,15% − IPCA 4,6%, exemplo). Dados de exemplo.</div>
+</div></section>
+
+<section class="band"><div class="wrap pots" id="pots"></div></section>
+
+<section class="band" style="padding-top:0"><div class="wrap panel" id="panel"></div></section>
+
+<section class="band alt"><div class="wrap">
+  <h2 style="font-size:28px;margin-bottom:20px">As regras por trás</h2>
+  <div class="princ">
+    <div><h3>Objetivo é fatia de um pote</h3><p>Investimento guarda patrimônio (reserva, independência). Metas guarda consumo planejado (viagem, carro, casamento). Metas já vem como grupo padrão em conta nova.</p></div>
+    <div><h3>Nada fica sem destino</h3><p>O que não está alocado no pote Investimento vai pra independência financeira. No pote Metas, sobra aparece como espaço pra uma meta nova.</p></div>
+    <div><h3>Reserva puxa do essencial real</h3><p>6 × a média do que caiu no grupo Essencial. Ela tem prioridade até encher; cheia, sua fatia volta pra independência. Se usar, recompor volta a ser prioridade.</p></div>
+    <div><h3>Independência no padrão de vida atual</h3><p>Meta = gasto mensal médio fora de Investimento e Metas × 12 ÷ 4%. O degrau "só essencial" aparece no caminho como marco.</p></div>
+    <div><h3>Gasto pago pelo fundo não conta duas vezes</h3><p>Lançamentos marcados como "pago por Viagem" saem do saldo do objetivo e não estouram o limite de Livre do mês.</p></div>
+    <div><h3>Progresso vem da conta</h3><p>Cada objetivo aponta pra uma conta ou investimento conectado via Open Finance. Sem lançar aporte à mão.</p></div>
+  </div>
+</div></section>
+
+<script>
+{
+const INC=14200,R=0.055,rm=(1+R)**(1/12)-1,ESS=6900,LIVRE=2100,SWR=0.04;
+const fmt=v=>'R$ '+Math.round(v).toLocaleString('pt-BR');
+const mil=v=>v>=1e6?'R$ '+(v/1e6).toFixed(2).replace('.',',')+' mi':'R$ '+Math.round(v/1000)+' mil';
+const groups=[
+ {k:'ess',name:'Essencial',pct:50,c:'#c9e6da'},
+ {k:'inv',name:'Investimento',pct:25,c:'#e6f5c8'},
+ {k:'met',name:'Metas',pct:10,c:'#ffd27a'},
+ {k:'liv',name:'Livre',pct:15,c:'#9fd6c2'}];
+const pot=k=>INC*groups.find(g=>g.k===k).pct/100;
+const goals=[
+ {id:'res',pot:'inv',name:'Reserva de emergência',kind:'res',c:'#0a7a63',target:ESS*6,saved:33000,months:8,acct:'Tesouro Selic · Nubank'},
+ {id:'fi',pot:'inv',name:'Independência financeira',kind:'fi',c:'#5b4bd6',target:(ESS+LIVRE)*12/SWR,saved:140000,months:0,acct:'Carteira · XP + Nubank'},
+ {id:'via',pot:'met',name:'Viagem anual',kind:'rec',c:'#e0a100',target:12000,saved:7500,months:5,acct:'Caixinha Viagem · Inter',pmt:700},
+ {id:'car',pot:'met',name:'Carro',kind:'marco',c:'#ff6f59',target:95000,saved:18000,months:48,acct:'CDB 110% CDI · Inter',pmt:500},
+ {id:'cas',pot:'met',name:'Casamento',kind:'marco',c:'#c2557a',target:60000,saved:9000,months:30,acct:'Caixinha Casamento · Inter',pmt:400}];
+let sel='car';
+const G=id=>goals.find(g=>g.id===id);
+const need=g=>{const n=g.months,f=(1+rm)**n;return n<=0?0:Math.max(0,(g.target-g.saved*f)*rm/(f-1))};
+const pmt=g=>{
+ if(g.kind==='res')return g.saved>=g.target?0:(g.pmt??Math.ceil(need(g)/50)*50);
+ if(g.kind==='fi')return Math.max(0,pot('inv')-pmt(G('res')));
+ return g.pmt??0};
+const monthsTo=(s,t,p)=>{let v=s,i=0;while(v<t&&i<840){v=v*(1+rm)+p;i++}return i};
+const status=g=>{
+ if(g.kind==='fi')return['auto','Recebe o resto'];
+ const p=pmt(g),n=need(g);return p>=n*0.98?['ok','No trilho']:p>=n*0.8?['warn','Apertado']:['bad','Fora do prazo']};
+const yrs=m=>m>=24?`${(m/12).toFixed(1).replace('.',',')} anos`:`${m} meses`;
+const potUsed=k=>goals.filter(g=>g.pot===k).reduce((s,g)=>s+pmt(g),0);
+
+function renderTop(){
+ document.getElementById('groups').innerHTML=groups.map(g=>`<div style="flex:${g.pct};background:${g.c}" class="${g.k==='ess'||g.k==='liv'?'':''}"><b>${g.name} ${g.pct}%</b>${fmt(INC*g.pct/100)}</div>`).join('');
+ const over=potUsed('met')-pot('met'),bad=goals.some(g=>g.pot==='met'&&status(g)[0]==='bad');
+ const invOk=status(G('res'))[0]!=='bad';
+ document.getElementById('headline').textContent=(invOk?'Seus 25% de investimento estão no trilho. ':'Investimento precisa de atenção. ')+(over>0?`Metas pedem ${fmt(over)} a mais por mês.`:bad?'Metas cabem no pote, mas uma está fora do prazo.':'Metas cabem no pote.');
+}
+function renderPots(){
+ const cards=[['inv','Investimento','patrimônio'],['met','Metas','consumo planejado']].map(([k,name,sub])=>{
+  const P=pot(k),used=potUsed(k),list=goals.filter(g=>g.pot===k),base=Math.max(P,used),free=P-used;
+  const note=k==='inv'?`<div class="potnote ok">Reserva tem prioridade até ${fmt(G('res').target)} (6 × essencial). Depois a fatia dela vai pra independência.</div>`
+   :free<0?`<div class="potnote bad">Alocado ${fmt(used)} num pote de ${fmt(P)}: faltam ${fmt(-free)}/mês. Ajuste fatias ou suba o % de Metas.</div>`
+   :`<div class="potnote ok">${fmt(free)}/mês livres no pote pra uma meta nova.</div>`;
+  return `<div class="pot"><div class="poth"><h2>${name}</h2><span>${fmt(P)}/mês · ${sub}</span></div>
+  <div class="slices">${list.map(g=>`<i style="width:${pmt(g)/base*100}%;background:${g.c}"></i>`).join('')}</div>${note}
+  ${list.map(g=>{const [c,t]=status(g),pr=Math.min(100,g.saved/g.target*100);
+   const when=g.kind==='rec'?`próxima em ${g.months} meses · todo ano`:g.kind==='fi'?`chega em ${yrs(monthsTo(g.saved,g.target,pmt(g)))}`:`prazo ${yrs(g.months)}`;
+   return `<button class="goal" data-id="${g.id}" aria-pressed="${g.id===sel}"><span class="dot" style="background:${g.c}"></span><h3>${g.name}</h3><span class="amt">${fmt(pmt(g))}</span>
+   <span class="meta"><span>${mil(g.saved)} de ${mil(g.target)} · ${when}</span><span class="pill ${c}">${t}</span></span><span class="bar"><i style="width:${pr}%;background:${g.c}"></i></span></button>`}).join('')}</div>`});
+ document.getElementById('pots').innerHTML=cards.join('');
+ document.querySelectorAll('.goal').forEach(b=>b.onclick=()=>{sel=b.dataset.id;renderAll()});
+}
+function side(g){
+ if(g.kind==='fi'){const lean=ESS*12/SWR,res=G('res'),p=pmt(g);
+  const st=[['Reserva de emergência',res.target,res.saved>=res.target],['Independência só no essencial',lean,g.saved>=lean],['Independência no padrão atual',g.target,g.saved>=g.target]];
+  return `<h3>O caminho</h3><ul class="ladder">${st.map((s,i)=>`<li class="${s[2]?'done':''}"><span class="n">${i+1}</span><span>${s[0]}<br><em>${mil(s[1])}</em></span><em>${s[2]?'feito':i?yrs(monthsTo(g.saved,s[1],p)):yrs(monthsTo(res.saved,res.target,pmt(res)))}</em></li>`).join('')}</ul>
+  <p class="note" style="margin-top:10px">Degrau 2 = essencial ${fmt(ESS)} × 12 ÷ 4%. Degrau 3 = essencial + livre (${fmt(ESS+LIVRE)}/mês). Seu gasto sobe, a meta sobe junto.</p>`}
+ if(g.kind==='rec')return `<h3>Ciclo de 2026</h3><table class="tx"><tr><td>Passagens · Latam</td><td>− R$ 4.180</td></tr><tr><td>Hotel · Booking</td><td>− R$ 3.950</td></tr><tr><td>Passeios e jantares</td><td>− R$ 2.640</td></tr><tr><td><b>Pago pelo fundo</b></td><td><b>R$ 10.770</b></td></tr></table>
+  <p class="note" style="margin-top:10px">Marcados como "pago por Viagem": saíram do fundo e não entraram no limite de Livre de abril. Ritmo pra 1 viagem/ano desse porte: ${fmt(g.target/12)}/mês.</p>`;
+ if(g.kind==='res')return `<h3>De onde vem a meta</h3><p class="note">Média do grupo Essencial nos últimos 6 meses: <b>${fmt(ESS)}</b>. × 6 meses = <b>${fmt(g.target)}</b>. Se o essencial mudar, a meta muda sozinha e o Fluxi avisa.</p>`;
+ const o=[...goals.filter(x=>x.pot==='met'&&x.id!==g.id)].map(x=>`<li>${x.name} <em>${fmt(pmt(x))}</em></li>`).join('');
+ return `<h3>Divide o pote Metas com</h3><ul class="ladder">${goals.filter(x=>x.pot==='met'&&x.id!==g.id).map(x=>`<li><span class="dot" style="background:${x.c};width:12px;height:12px;border-radius:4px"></span><span>${x.name}</span><em>${fmt(pmt(x))}</em></li>`).join('')}</ul><p class="note" style="margin-top:10px">Aumentar aqui tira de outra meta, ou exige subir o % de Metas no orçamento (nova versão a partir do mês seguinte).</p>`;
+}
+function renderPanel(focus){
+ const g=G(sel),p=pmt(g),n=need(g),[c,t]=status(g);
+ const reach=monthsTo(g.saved,g.target,p),isFi=g.kind==='fi';
+ let verdict;
+ if(isFi)verdict=`<strong>Independência no padrão atual em ${yrs(reach)}.</strong>Recebe ${fmt(p)}/mês: tudo do pote Investimento que a reserva não usa.`;
+ else if(c==='ok')verdict=`<strong>Chega lá em ${yrs(reach)}.</strong>Fatia de ${fmt(p)} cobre os ${fmt(n)} necessários.`;
+ else{const ex=Math.ceil((n-p)/50)*50,fr=pot(g.pot)-potUsed(g.pot);
+  verdict=`<strong>Precisa de ${fmt(n)}/mês pra cumprir o prazo.</strong>Hoje a fatia é ${fmt(p)}. O que cede:<div class="opts">
+  <div class="opt"><b>Prazo:</b> com ${fmt(p)}/mês chega em ${yrs(reach)}</div>
+  <div class="opt"><b>Fatia:</b> +${fmt(ex)}/mês ${fr>=ex?'(cabe no pote livre)':'tirando de outra meta'}</div>
+  <div class="opt"><b>Orçamento:</b> Metas de 10% pra ${Math.ceil((pot('met')+Math.max(ex-fr,0))/INC*100)}% em nova versão</div></div>`}
+ document.getElementById('panel').innerHTML=`<div class="ph"><h2>${g.name}</h2><span class="pill ${c}">${t}</span></div>
+ <p class="note" style="margin-top:6px">Pote ${g.pot==='inv'?'Investimento':'Metas'} · progresso automático de <b>${g.acct}</b></p>
+ <div class="det"><div><div class="fig"><svg id="chart"></svg></div>
+ <div class="ctrls">
+  <div><label for="pmt">Fatia mensal <b>${fmt(p)}</b></label><input id="pmt" type="range" min="0" max="${isFi?pot('inv'):g.pot==='inv'?pot('inv'):Math.max(3000,Math.ceil(n*1.5/100)*100)}" step="50" value="${p}" ${isFi?'disabled':''}></div>
+  <div><label for="mo">${g.kind==='rec'?'Próxima viagem em':'Prazo'} <b>${isFi?'—':yrs(g.months)}</b></label><input id="mo" type="range" min="3" max="${g.kind==='rec'?12:72}" step="1" value="${g.months}" ${isFi?'disabled':''}></div>
+ </div>
+ <div class="verdict" style="margin-top:14px">${verdict}</div></div>
+ <div class="side">${side(g)}</div></div>`;
+ const pr=document.getElementById('pmt'),mo=document.getElementById('mo');
+ pr.oninput=()=>{g.pmt=+pr.value;renderAll('pmt')};
+ mo.oninput=()=>{g.months=+mo.value;renderAll('mo')};
+ if(focus)document.getElementById(focus)?.focus();
+ drawChart(g,p);
+}
+function drawChart(g,p){
+ const s=document.getElementById('chart');
+ const draw=()=>{const W=s.clientWidth,H=s.clientHeight,L=8,Rm=W<520?64:96,T=22,B=26;
+  const reach=monthsTo(g.saved,g.target,p),n=Math.max(12,g.kind==='fi'?Math.min(reach+12,600):Math.max(g.months,Math.min(reach,g.months*2)));
+  const a=[g.saved];for(let i=1;i<=n;i++)a.push(a[i-1]*(1+rm)+p);
+  const mx=Math.max(g.target*1.08,...a),x=i=>L+i/n*(W-L-Rm),y=v=>T+(1-v/mx)*(H-T-B);
+  const pts=a.map((v,i)=>`${x(i)},${y(v)}`).join(' ');
+  const lines=[[g.target,'meta']];if(g.kind==='fi')lines.push([ESS*12/SWR,'só essencial']);
+  const step=n>240?120:n>120?60:n>36?12:6;let ticks='';
+  for(let i=0;i<=n;i+=step){const d=new Date();d.setMonth(d.getMonth()+i);ticks+=`<text x="${x(i)}" y="${H-6}" text-anchor="middle">${n>36?d.getFullYear():d.toLocaleDateString('pt-BR',{month:'short'}).replace('.','')+'/'+String(d.getFullYear()).slice(2)}</text>`}
+  const dl=g.kind==='fi'?'':`<line x1="${x(g.months)}" x2="${x(g.months)}" y1="${T}" y2="${H-B}" stroke="${reach<=g.months?'var(--g2)':'var(--coral)'}" stroke-width="1.5"/><text x="${x(g.months)}" y="${T-6}" text-anchor="middle">prazo</text>`;
+  s.innerHTML=`<polygon points="${x(0)},${y(0)} ${pts} ${x(n)},${y(0)}" fill="${g.c}" opacity=".16"/><polyline points="${pts}" fill="none" stroke="${g.c}" stroke-width="2.5"/>
+  ${lines.map(([v,l])=>`<line x1="${L}" x2="${W-Rm+6}" y1="${y(v)}" y2="${y(v)}" stroke="var(--ink)" stroke-dasharray="4 4" opacity=".5"/><text x="${W-Rm+10}" y="${y(v)+4}">${l}</text>`).join('')}
+  ${dl}<circle cx="${x(n)}" cy="${y(a[n])}" r="4" fill="${g.c}"/>${ticks}`};
+ if(window._ro)window._ro.disconnect();window._ro=new ResizeObserver(draw);window._ro.observe(s);
+}
+function renderAll(focus){renderTop();renderPots();renderPanel(focus)}
+renderAll();
+}
+</script>

@@ -142,7 +142,9 @@ describe('default seeding (auth trigger)', () => {
     const versions = await listBudgetVersions(biaScope)
     expect(versions).toHaveLength(1)
     expect(versions[0]?.targets).toEqual(
-      Object.fromEntries(DEFAULT_BUDGET_GROUPS.map((p) => [p.key, p.targetBps])),
+      Object.fromEntries(
+        DEFAULT_BUDGET_GROUPS.filter((p) => p.targetBps > 0).map((p) => [p.key, p.targetBps]),
+      ),
     )
     const expected = DEFAULT_CATEGORY_GROUPS.flatMap((g) =>
       g.names.map((name) => ({
@@ -302,6 +304,7 @@ describe('space isolation', () => {
       ['Livre', 'limit'],
       ['Educação', 'limit'],
       ['Investimento', 'minimum'],
+      ['Metas', 'minimum'],
     ])
     const versions = await listBudgetVersions(work)
     expect(versions).toHaveLength(1)

@@ -121,7 +121,7 @@ export function MonthDetail({ result, data }: { result: MonthResult; data: Ledge
             onValueChange={setFilter}
           />
           <Button variant="outline" size="sm" onClick={() => openNew({ month: result.month })}>
-            <Plus /> Transação
+            <Plus /> Nova transação
           </Button>
         </div>
       </CardHeader>

@@ -13,13 +13,13 @@ import {
   sameTargets,
   sortVersions,
   versionFor,
-  type BudgetMonth,
   type Targets,
 } from '@/features/ledger/core/budget'
 import { formatMoney, formatPercent, monthLabel } from '@/features/ledger/core/format'
 import { GROUP_DOT_CLASSES } from '@/features/ledger/core/labels'
 import type { Month } from '@/features/ledger/core/month'
 import type { BudgetGroup, BudgetVersion } from '@/features/ledger/core/types'
+import type { LedgerData } from '@/features/ledger/core/view'
 import { formatAmountFromCents } from '@cbrl/br/money'
 import {
   AlertDialog,
@@ -63,6 +63,7 @@ import {
 import { useState } from 'react'
 import { BudgetGroupMenu, BudgetGroupName, ColorPicker, NewBudgetGroupRow } from './group-controls'
 import { useAction, versionLabel } from './shared'
+import { useBudgetMonth } from './traffic-light'
 import { VersionStartDialog } from './version-start-dialog'
 
 /**
@@ -74,13 +75,12 @@ export function BudgetGroupsCard({
   budgetGroups,
   versions,
   today,
-  current,
+  data,
 }: {
   budgetGroups: readonly BudgetGroup[]
   versions: readonly BudgetVersion[]
   today: Month
-  /** Budget numbers of the current month (planned and the target in reais). */
-  current: BudgetMonth
+  data: LedgerData
 }) {
   const sorted = sortVersions(versions)
   const inForce = versionFor(today, sorted) ?? sorted.at(-1)
@@ -96,7 +96,7 @@ export function BudgetGroupsCard({
       versions={sorted}
       isCurrent={version.id === inForce.id}
       today={today}
-      current={current}
+      data={data}
       onSelect={setSelectedStart}
     />
   )
@@ -110,7 +110,7 @@ function VersionEditor({
   versions: sorted,
   isCurrent,
   today,
-  current,
+  data,
   onSelect,
 }: {
   budgetGroups: readonly BudgetGroup[]
@@ -118,9 +118,13 @@ function VersionEditor({
   versions: readonly BudgetVersion[]
   isCurrent: boolean
   today: Month
-  current: BudgetMonth
+  data: LedgerData
   onSelect: (startsMonth: Month | undefined) => void
 }) {
+  // The numbers beside each group follow the selected version: today while it is in force,
+  // otherwise its first month (also when the only version starts after today).
+  const inForceNow = isCurrent && version.startsMonth <= today
+  const current = useBudgetMonth(data, sorted, inForceNow ? today : version.startsMonth)
   const [targets, setTargets] = useState<Targets>(version.targets)
   const [renaming, setRenaming] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
@@ -176,10 +180,10 @@ function VersionEditor({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onSelect={() => setDialog('create')}>
-                <CalendarPlus /> Nova versão…
+                <CalendarPlus /> Nova versão
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => setDialog('move')}>
-                <Pencil /> Mudar início…
+                <Pencil /> Mudar início
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem

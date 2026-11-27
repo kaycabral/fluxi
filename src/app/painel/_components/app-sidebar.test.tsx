@@ -70,7 +70,7 @@ function renderSidebar(legacyScreens = true, defaultOpen = true, current: Space 
 }
 
 describe('AppSidebar', () => {
-  it('lists the dashboard, calendar, entries and budget, marking the current page', () => {
+  it('lists the dashboard, calendar, entries, budget and goals, marking the current page', () => {
     renderSidebar()
     const nav = screen.getByRole('navigation', { name: 'Seções' })
     const links = within(nav).getAllByRole('link')
@@ -79,6 +79,7 @@ describe('AppSidebar', () => {
       'Calendário',
       'Transações',
       'Orçamento',
+      'Objetivos',
     ])
     expect(links[0]).toHaveAttribute('href', '/painel')
     expect(links[1]).toHaveAttribute('href', '/painel/calendario')
@@ -159,10 +160,10 @@ describe('AppSidebar', () => {
     expect(screen.queryByRole('menuitem', { name: 'Telas antigas' })).not.toBeInTheDocument()
   })
 
-  it('creates an entry from the header', async () => {
+  it('leaves creating entries to the pages (no "Criar" in the header)', () => {
     renderSidebar()
-    await userEvent.click(screen.getByRole('button', { name: 'Criar' }))
-    expect(await screen.findByRole('dialog', { name: 'Nova transação' })).toBeInTheDocument()
+    const header = screen.getByRole('banner')
+    expect(within(header).queryByRole('button', { name: /Criar|Nova transação/ })).toBeNull()
   })
 
   it('has no collapse button in the header besides the mobile-only trigger', () => {
@@ -170,7 +171,7 @@ describe('AppSidebar', () => {
     const header = screen.getByRole('banner')
     const toggle = within(header).getByRole('button', { name: 'Abrir menu' })
     expect(toggle).toHaveClass('md:hidden')
-    expect(within(header).getAllByRole('button')).toHaveLength(2)
+    expect(within(header).getAllByRole('button')).toHaveLength(1)
   })
 
   it('remembers each toggle of the sidebar (rail) in this browser', async () => {

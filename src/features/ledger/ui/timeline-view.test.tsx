@@ -158,7 +158,7 @@ describe('TimelineView', () => {
     expect(await screen.findByRole('dialog', { name: 'Editar transação' })).toBeInTheDocument()
     await userEvent.keyboard('{Escape}')
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-    await userEvent.click(screen.getByRole('button', { name: 'Transação' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Nova transação' }))
     expect(await screen.findByLabelText('Data')).toHaveValue('15/12/2026')
   })
 

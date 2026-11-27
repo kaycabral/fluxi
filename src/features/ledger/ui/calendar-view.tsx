@@ -30,7 +30,7 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from '@cbrl/design'
-import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useOptimistic, useState, useTransition } from 'react'
@@ -187,10 +187,11 @@ export function CalendarView({
     <CalendarProvider value={value}>
       <section
         aria-labelledby="calendar-title"
-        className="flex h-[calc(100svh-3.5rem)] min-h-[32rem] flex-col"
+        data-fills-viewport=""
+        className="flex h-[calc(100svh-3.5rem)] min-h-[32rem] flex-col md:h-svh"
       >
-        <header className="flex flex-wrap items-center gap-2 px-3 py-2 md:px-4">
-          <Button variant="outline" className="rounded-full px-5" asChild>
+        <header className="flex min-h-16 flex-wrap items-center gap-x-2 gap-y-2 px-3 py-2 md:px-4">
+          <Button variant="outline" size="lg" asChild>
             <Link
               href={calendarHref(view, null, account)}
               aria-keyshortcuts="T"
@@ -200,7 +201,7 @@ export function CalendarView({
             </Link>
           </Button>
           <div className="flex items-center">
-            <Button variant="ghost" size="icon-sm" className="rounded-full" asChild>
+            <Button variant="ghost" size="icon-lg" asChild>
               <Link
                 href={calendarHref(view, shiftDate(view, date, -1), account)}
                 aria-label="Anterior"
@@ -209,7 +210,7 @@ export function CalendarView({
                 <ChevronLeft />
               </Link>
             </Button>
-            <Button variant="ghost" size="icon-sm" className="rounded-full" asChild>
+            <Button variant="ghost" size="icon-lg" asChild>
               <Link
                 href={calendarHref(view, shiftDate(view, date, 1), account)}
                 aria-label="Próximo"
@@ -219,7 +220,7 @@ export function CalendarView({
               </Link>
             </Button>
           </div>
-          <h1 id="calendar-title" className="text-xl font-normal md:text-2xl">
+          <h1 id="calendar-title" className="ml-1 text-lg font-normal md:text-[22px] md:leading-7">
             {viewTitle(view, date)}
           </h1>
           <div className="ml-auto flex items-center gap-2">
@@ -229,6 +230,9 @@ export function CalendarView({
               onView={(next) => go(next, date)}
               onPrefs={savePrefs}
             />
+            <Button size="lg" onClick={() => openNew()} aria-keyshortcuts="N">
+              <Plus /> Nova transação
+            </Button>
           </div>
         </header>
         <div className="bg-card mx-1 mb-1 flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border md:mx-3 md:mb-3">
@@ -259,11 +263,7 @@ function ViewMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button
-          variant="outline"
-          className="rounded-full"
-          aria-label={`Visualização: ${VIEW_LABELS[view]}`}
-        >
+        <Button variant="outline" size="lg" aria-label={`Visualização: ${VIEW_LABELS[view]}`}>
           {VIEW_LABELS[view]} <ChevronDown />
         </Button>
       </DropdownMenuTrigger>

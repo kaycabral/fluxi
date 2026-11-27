@@ -232,23 +232,7 @@ export function SearchView({ data, initialQuery, today }: Props) {
         getKey={({ landing }, index) =>
           `${landing.entry.id}-${landing.month}-${landing.part?.id ?? 'whole'}-${index}`
         }
-        empty={
-          anyFilter
-            ? {
-                title: 'Nenhuma transação encontrada',
-                description: 'Tente outra busca ou limpe os filtros.',
-              }
-            : data.accounts.length === 0
-              ? {
-                  title: 'Nenhuma conta ainda',
-                  description: 'Crie uma conta para lançar a primeira entrada ou saída.',
-                  action: { label: 'Criar conta', href: '#configuracoes/contas' },
-                }
-              : {
-                  title: 'Nenhuma transação ainda',
-                  description: 'Use "Nova transação" para lançar a primeira entrada ou saída.',
-                }
-        }
+        empty={emptyList(anyFilter, data.accounts.length > 0)}
         pagination={{
           page: current,
           pageCount,
@@ -334,6 +318,27 @@ export function SearchView({ data, initialQuery, today }: Props) {
  * Count and sum of what the filters left: the net first (what the selection
  * adds up to), then money in and out, right under the title.
  */
+/** What the empty list says: nothing matched, no account to start with, or no transaction yet. */
+function emptyList(anyFilter: boolean, hasAccounts: boolean) {
+  if (anyFilter) {
+    return {
+      title: 'Nenhuma transação encontrada',
+      description: 'Tente outra busca ou limpe os filtros.',
+    }
+  }
+  if (!hasAccounts) {
+    return {
+      title: 'Nenhuma conta ainda',
+      description: 'Crie uma conta para lançar a primeira entrada ou saída.',
+      action: { label: 'Criar conta', href: '#configuracoes/contas' },
+    }
+  }
+  return {
+    title: 'Nenhuma transação ainda',
+    description: 'Use "Nova transação" para lançar a primeira entrada ou saída.',
+  }
+}
+
 function Summary({ count, totals }: { count: number; totals: SearchTotals }) {
   return (
     // A polite live region: screen readers hear the new count and sums as filters change.

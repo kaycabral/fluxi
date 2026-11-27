@@ -23,6 +23,7 @@ import {
 } from '@/features/ledger/core/format'
 import { GROUP_DOT_CLASSES } from '@/features/ledger/core/labels'
 import { addMonths, type Month } from '@/features/ledger/core/month'
+import { budgetGroupMonthQuery } from '@/features/ledger/core/search'
 import type { BudgetGroup, BudgetVersion } from '@/features/ledger/core/types'
 import { projectWindow, type LedgerData } from '@/features/ledger/core/view'
 import { formatAmountFromCents } from '@cbrl/br/money'
@@ -47,6 +48,7 @@ import Link from 'next/link'
 import { useMemo } from 'react'
 import { BUDGET_WINDOW, TrafficLight, useBudgetMonth } from '../budget/traffic-light'
 import { Money, toneOf } from '../money'
+import { TransactionsLink } from '../transactions-link'
 import { BankAvatars } from './bank-avatars'
 import { UpcomingBills } from './upcoming-bills'
 
@@ -196,7 +198,13 @@ function BudgetGroupsThisMonth({
                     GROUP_DOT_CLASSES[budgetGroup.color],
                   )}
                 />
-                <span className="truncate">{budgetGroup.name}</span>
+                <TransactionsLink
+                  query={budgetGroupMonthQuery(budgetGroup.key, month.month)}
+                  aria-label={`${budgetGroup.name}: ver transações de ${monthLabel(month.month)}`}
+                  className="truncate underline-offset-4 hover:underline"
+                >
+                  {budgetGroup.name}
+                </TransactionsLink>
               </span>
               <span
                 className="text-muted-foreground shrink-0 font-mono text-xs tabular-nums"

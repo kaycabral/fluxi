@@ -10,12 +10,10 @@ import {
   landingBounds,
   ledgerSpan,
   pickerRange,
-  SEARCH_QUERY_COOKIE,
   searchAccountIds,
   searchOccurrences,
   searchTotals,
   searchWindow,
-  serializeSearchQuery,
   SORT_LABELS,
   type ActiveFilter,
   type KindFilter,
@@ -33,7 +31,6 @@ import {
   targetFor,
   type LedgerData,
 } from '@/features/ledger/core/view'
-import { writeBrowserCookie } from '@/lib/browser-cookie'
 import {
   Badge,
   Button,
@@ -59,6 +56,7 @@ import { useLedgerUi } from './ledger-shell'
 import { Money } from './money'
 import { SelectionBar, useEntrySelection } from './selection-bar'
 import { AccountSelect, BudgetGroupSelect, CategorySelect, OptionSelect } from './selects'
+import { rememberSearchQuery } from './transactions-link'
 
 const PAGE_SIZE = 50
 
@@ -111,13 +109,6 @@ type Props = {
   today: string
 }
 
-/** Remember the query in this browser (read back by the server on the next visit). */
-function rememberQuery(query: SearchQuery) {
-  writeBrowserCookie(SEARCH_QUERY_COOKIE, serializeSearchQuery(query), {
-    path: '/painel/transacoes',
-  })
-}
-
 /**
  * "Transações": every occurrence of the ledger as a flat list, newest first,
  * with a live search box and the other filters behind a "Filtros" button.
@@ -139,7 +130,7 @@ export function SearchView({ data, initialQuery, today }: Props) {
       next.from !== '' && next.to !== '' && next.to < next.from ? { ...next, to: next.from } : next
     setQuery(fixed)
     setPage(1)
-    rememberQuery(fixed)
+    rememberSearchQuery(fixed)
   }
 
   const ctx = useMemo(

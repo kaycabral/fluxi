@@ -12,6 +12,7 @@ import {
 import { formatMoney, formatPercent, monthLabel } from '@/features/ledger/core/format'
 import { GROUP_DOT_CLASSES } from '@/features/ledger/core/labels'
 import { addMonths, monthRange, type Month } from '@/features/ledger/core/month'
+import { budgetGroupMonthQuery } from '@/features/ledger/core/search'
 import type { BudgetGroup, BudgetVersion } from '@/features/ledger/core/types'
 import { projectWindow, type LedgerData } from '@/features/ledger/core/view'
 import { formatAmountFromCents } from '@cbrl/br/money'
@@ -32,6 +33,7 @@ import {
 } from '@cbrl/design'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import { TransactionsLink } from '../transactions-link'
 
 export const LIGHT_CLASSES: Record<Light, string> = {
   good: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400',
@@ -125,7 +127,8 @@ function cellTitle(budgetGroup: BudgetGroup, month: BudgetMonth, cell: BudgetGro
  * "Semáforo mensal": each budget group's planned share of the month's income against
  * the budget version in force that month (so changing the proportions never
  * repaints earlier months). Arrows walk the months; the current month is
- * highlighted and the month a new version starts is marked.
+ * highlighted and the month a new version starts is marked. Each cell opens
+ * "Transações" filtered by that budget group and month.
  */
 export function TrafficLight({
   data,
@@ -268,18 +271,20 @@ export function TrafficLight({
                     >
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <button
-                            type="button"
-                            aria-label={label}
+                          <TransactionsLink
+                            query={budgetGroupMonthQuery(budgetGroup.key, m.month)}
+                            aria-label={`${label} Ver transações.`}
                             className={cn(
-                              'focus-visible:ring-ring inline-block cursor-default rounded-full px-2 py-0.5 font-mono text-xs tabular-nums outline-none focus-visible:ring-2',
+                              'focus-visible:ring-ring hover:ring-foreground/20 inline-block rounded-full px-2 py-0.5 font-mono text-xs tabular-nums outline-none hover:ring-1 focus-visible:ring-2',
                               cell.light === null ? NO_VERSION_CLASS : LIGHT_CLASSES[cell.light],
                             )}
                           >
                             {formatPercent(cell.ratio)}
-                          </button>
+                          </TransactionsLink>
                         </TooltipTrigger>
-                        <TooltipContent className="max-w-64">{label}</TooltipContent>
+                        <TooltipContent className="max-w-64">
+                          {label} Clique para ver as transações.
+                        </TooltipContent>
                       </Tooltip>
                     </TableCell>
                   )

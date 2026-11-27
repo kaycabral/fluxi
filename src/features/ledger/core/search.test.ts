@@ -4,6 +4,7 @@ import { monthRange } from './month'
 import { projectMonths } from './projection'
 import {
   activeFilters,
+  budgetGroupMonthQuery,
   EMPTY_SEARCH_QUERY,
   landingBounds,
   landingDay,
@@ -375,5 +376,16 @@ describe('activeFilters', () => {
     expect(
       activeFilters({ ...base, account: 'b:x', category: 'x' }, ctx).map((c) => c.label),
     ).toEqual(['–', '–'])
+  })
+})
+
+describe('budgetGroupMonthQuery', () => {
+  it('filters one budget group over every day of the month, nothing else', () => {
+    expect(budgetGroupMonthQuery('essential', '2027-02')).toEqual({
+      ...EMPTY_SEARCH_QUERY,
+      budgetGroup: 'essential',
+      from: '2027-02-01',
+      to: '2027-02-28',
+    })
   })
 })

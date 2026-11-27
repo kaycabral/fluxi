@@ -6,6 +6,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { BudgetView } from './budget-view'
 import { sampleData } from './test-fixtures'
 
+const writeBrowserCookie = vi.hoisted(() => vi.fn())
+vi.mock('@/lib/browser-cookie', () => ({ writeBrowserCookie }))
+
 const actions = {
   createBudgetGroupAction: vi.fn<(input: unknown) => Promise<ActionResult>>(),
   updateBudgetGroupAction: vi.fn<(input: unknown) => Promise<ActionResult>>(),
@@ -351,6 +354,21 @@ describe('BudgetView · semáforo', () => {
     expect(months()[0]).toBe('dez/26')
     await userEvent.click(screen.getByRole('button', { name: 'Hoje' }))
     expect(months()[0]).toBe('nov/26')
+  })
+
+  it('opens Transações filtered by the cell: that budget group, every day of that month', async () => {
+    renderBudget()
+    const cell = screen.getAllByRole('link', {
+      name: /^Essencial em dez\/26: .* Ver transações\.$/,
+    })[0]
+    if (cell === undefined) throw new Error('no Essencial cell')
+    expect(cell).toHaveAttribute('href', '/painel/transacoes')
+    fireEvent.click(cell)
+    expect(writeBrowserCookie).toHaveBeenCalledWith(
+      'fluxi_lancamentos',
+      JSON.stringify({ from: '2026-12-01', to: '2026-12-31', budgetGroup: 'essential' }),
+      { path: '/painel/transacoes' },
+    )
   })
 
   describe('once the card is measured', () => {

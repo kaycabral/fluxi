@@ -11,9 +11,25 @@ const inter = Inter({
   display: 'swap',
 })
 
+const productionHost = process.env.VERCEL_PROJECT_PRODUCTION_URL
+
 export const metadata: Metadata = {
+  metadataBase: new URL(productionHost ? `https://${productionHost}` : 'http://localhost:3000'),
   title: 'Fluxi — seu fluxo de caixa pessoal',
   description: 'Planeje o fluxo de caixa das suas finanças pessoais.',
+  applicationName: 'Fluxi',
+  openGraph: {
+    type: 'website',
+    locale: 'pt_BR',
+    siteName: 'Fluxi',
+    title: 'Fluxi — seu fluxo de caixa pessoal',
+    description: 'Planeje o fluxo de caixa das suas finanças pessoais.',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Fluxi — seu fluxo de caixa pessoal',
+    description: 'Planeje o fluxo de caixa das suas finanças pessoais.',
+  },
 }
 
 export const viewport: Viewport = {

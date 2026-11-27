@@ -100,6 +100,13 @@ const searchQuerySchema = z.object({
   money: z.enum(['', 'available', 'benefit']).catch(''),
 })
 
+/** A period whose end comes before its start ends on its start instead. */
+export function orderedRange(query: SearchQuery): SearchQuery {
+  return query.from !== '' && query.to !== '' && query.to < query.from
+    ? { ...query, to: query.from }
+    : query
+}
+
 /** The query behind a budget month header: every day of `month`, no other filter. */
 export function monthQuery(month: Month): SearchQuery {
   return {

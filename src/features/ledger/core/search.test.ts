@@ -10,6 +10,7 @@ import {
   landingDay,
   ledgerSpan,
   monthQuery,
+  orderedRange,
   parseSearchQuery,
   pickerRange,
   searchAccountIds,
@@ -377,6 +378,14 @@ describe('activeFilters', () => {
     expect(
       activeFilters({ ...base, account: 'b:x', category: 'x' }, ctx).map((c) => c.label),
     ).toEqual(['–', '–'])
+  })
+})
+
+describe('orderedRange', () => {
+  it('ends a reversed period on its start and keeps the rest', () => {
+    const q = { ...EMPTY_SEARCH_QUERY, from: '2027-02-10', to: '2027-02-01' }
+    expect(orderedRange(q).to).toBe('2027-02-10')
+    expect(orderedRange({ ...q, to: '' })).toEqual({ ...q, to: '' })
   })
 })
 

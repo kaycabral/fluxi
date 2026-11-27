@@ -9,6 +9,7 @@ import {
   EMPTY_SEARCH_QUERY,
   landingBounds,
   ledgerSpan,
+  orderedRange,
   pickerRange,
   searchAccountIds,
   searchOccurrences,
@@ -56,7 +57,7 @@ import { useLedgerUi } from './ledger-shell'
 import { Money } from './money'
 import { SelectionBar, useEntrySelection } from './selection-bar'
 import { AccountSelect, BudgetGroupSelect, CategorySelect, OptionSelect } from './selects'
-import { rememberSearchQuery } from './transactions-link'
+import { rememberSearchQuery, useRememberedQuery } from './transactions-link'
 
 const PAGE_SIZE = 50
 
@@ -125,13 +126,12 @@ export function SearchView({ data, initialQuery, today }: Props) {
   const applied = useDeferredValue(query)
 
   const update = (patch: Partial<SearchQuery>) => {
-    const next = { ...query, ...patch }
-    const fixed =
-      next.from !== '' && next.to !== '' && next.to < next.from ? { ...next, to: next.from } : next
+    const fixed = orderedRange({ ...query, ...patch })
     setQuery(fixed)
     setPage(1)
     rememberSearchQuery(fixed)
   }
+  useRememberedQuery(query, update)
 
   const ctx = useMemo(
     () => ({

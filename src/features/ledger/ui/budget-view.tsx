@@ -46,7 +46,13 @@ export function BudgetView({
             </CardDescription>
           </CardHeader>
           <CardContent className="min-w-0">
-            <TrafficLight data={data} versions={versions} today={today} span={BUDGET_WINDOW.span} />
+            <TrafficLight
+              data={data}
+              versions={versions}
+              today={today}
+              span={BUDGET_WINDOW.span}
+              before={BUDGET_WINDOW.before}
+            />
           </CardContent>
         </Card>
       </div>

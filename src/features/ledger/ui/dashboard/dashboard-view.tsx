@@ -370,7 +370,13 @@ export function DashboardView({
             </CardAction>
           </CardHeader>
           <CardContent className="min-w-0">
-            <TrafficLight data={data} versions={versions} today={month} span={BUDGET_WINDOW.span} />
+            <TrafficLight
+              data={data}
+              versions={versions}
+              today={month}
+              span={BUDGET_WINDOW.span}
+              before={BUDGET_WINDOW.before}
+            />
           </CardContent>
         </Card>
 

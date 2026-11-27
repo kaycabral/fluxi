@@ -52,11 +52,12 @@ const NO_VERSION_CLASS = 'bg-muted text-muted-foreground'
 
 /**
  * The window both the dashboard widget and the budget page open on (and
- * "Hoje" brings back): the current month and as many next months as fit the
- * card (`monthColumnsFor`); the past is one arrow away. `span` is the count
- * used before the card is measured (server render, tests).
+ * "Hoje" brings back): `before` months before the current one (none: a small
+ * card has no room for the past, one arrow away), then as many future months
+ * as fit the card (`monthColumnsFor`, `monthsBeforeFor`). `span` is the count used before the card is
+ * measured (server render, tests).
  */
-export const BUDGET_WINDOW = { span: 5 } as const
+export const BUDGET_WINDOW = { span: 5, before: 0 } as const
 
 /** Adaptive month columns: fixed group column, ~100px per month (fits "R$ 10.947,61"), 2 to 12 months. */
 export const MONTH_COLUMNS = { groupWidth: 150, monthWidth: 100, min: 2, max: 12 } as const
@@ -71,6 +72,24 @@ export function monthColumnsFor(width: number): number | null {
   if (!Number.isFinite(width) || width <= 0) return null
   const fit = Math.floor((width - MONTH_COLUMNS.groupWidth) / MONTH_COLUMNS.monthWidth)
   return Math.min(MONTH_COLUMNS.max, Math.max(MONTH_COLUMNS.min, fit))
+}
+
+/**
+ * Months before today the window opens on: on tight cards (up to
+ * `TIGHT_COLUMNS`) the previous month would take too much of the table, so
+ * they open on the current month and what comes next; roomier ones keep
+ * `before` for context.
+ */
+/** Up to this many columns the window opens on the current month. */
+export const TIGHT_COLUMNS = 3
+
+export function monthsBeforeFor(columns: number, before: number): number {
+  return columns <= TIGHT_COLUMNS ? 0 : before
+}
+
+/** First month shown by default: `before` months before today (default: the window ends two months after today). */
+export function defaultFirstMonth(today: Month, span: number, before = span - 3): Month {
+  return addMonths(today, -before)
 }
 
 /** Budget months (income, spending per budget group, version in force) over `[from, to]`. */
@@ -120,6 +139,7 @@ export function TrafficLight({
   versions,
   today,
   span,
+  before,
   className,
 }: {
   data: LedgerData
@@ -128,13 +148,17 @@ export function TrafficLight({
   today: Month
   /** How many months the window shows until the card is measured (then: as many as fit). */
   span: number
+  /** Months before today in the default window (and on "Hoje") when the card has room. */
+  before: number
   className?: string
 }) {
   const [measure, { width }] = useElementSize()
   const columns = monthColumnsFor(width) ?? span
-  // The arrows move an offset from the current month: "Hoje" brings it back.
+  // The default window depends on the measured width, so the arrows move an
+  // offset from it (not a fixed first month): "Hoje" and resizes stay right.
+  const initial = defaultFirstMonth(today, columns, monthsBeforeFor(columns, before))
   const [offset, setOffset] = useState(0)
-  const first = addMonths(today, offset)
+  const first = addMonths(initial, offset)
   const last = addMonths(first, columns - 1)
   const months = useBudgetMonths(data, versions, first, last)
   const budgetGroups = visibleBudgetGroups(data.budgetGroups, months)

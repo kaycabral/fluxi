@@ -7,7 +7,6 @@ import {
   entries,
   entryOverrides,
   entryParts,
-  importLinks,
 } from '@/db/schema'
 import { DEFAULT_BUDGET_GROUPS, DEFAULT_CATEGORY_GROUPS } from '@/features/ledger/core/defaults'
 import { archiveSpace, createSpace, resolveScope } from '@/features/spaces/adapters/space.repo'
@@ -627,18 +626,6 @@ describe('check constraints', () => {
       db().execute(sql`update budget_group_targets set target_bps = 10001 where user_id = ${ANA}`),
     )
     expect(budgetGroup.constraint).toBe('budget_group_targets_bps_range')
-    const link = await rejection(
-      db()
-        .insert(importLinks)
-        .values({
-          ...anaScope,
-          source: 'notion',
-          externalId: 'page-1',
-          entryId: ana.entryId,
-          month: '2027-02-02',
-        }),
-    )
-    expect(link.constraint).toBe('import_links_month_first_day')
   })
 
   it('keeps category names unique per user but not across users', async () => {

@@ -5,7 +5,7 @@ import type { FluxiDb } from '../db'
 /**
  * The scope of `userId`'s personal space (created and seeded by the auth
  * trigger; `ensure_personal_space` heals a missing one and leaves an existing
- * one untouched). For scripts (Notion import, dev seed), tests and E2E: the
+ * one untouched). For scripts (dev seed), tests and E2E: the
  * app resolves its scope from the session (`getServerScope`).
  */
 export async function personalScope(db: FluxiDb, userId: string): Promise<Scope> {

@@ -5,7 +5,9 @@ import {
   connectionHealth,
   connectionStatusOf,
   healthByBank,
+  lastSyncLabel,
   NEVER_CHECKED,
+  oldestCheck,
   updatedLabel,
   worstHealth,
   type ConnectionStatus,
@@ -35,6 +37,7 @@ describe('connectionHealth', () => {
       reason: 'Atualizada hoje às 06:02',
       inProgress: false,
       next: 'Próxima atualização: amanhã às 06:00',
+      checkedAt: '2026-11-26T09:30:00.000Z',
     })
   })
 
@@ -207,5 +210,30 @@ describe('worstHealth', () => {
     expect(worstHealth([ok, error, warn])).toBe(error)
     expect(worstHealth([ok, warn])).toBe(warn)
     expect(worstHealth([])).toBeNull()
+  })
+})
+
+describe('lastSyncLabel', () => {
+  it('says today and yesterday with the time, the full date past that', () => {
+    // 06:00 in São Paulo.
+    expect(lastSyncLabel('2026-11-26T09:00:00.000Z', '2026-11-26')).toBe('hoje, 06:00')
+    expect(lastSyncLabel('2026-11-26T09:00:00.000Z', '2026-11-27')).toBe('ontem, 06:00')
+    expect(lastSyncLabel('2026-11-26T09:00:00.000Z', '2026-11-29')).toBe('26/11 às 06:00')
+    expect(lastSyncLabel('2025-12-30T09:00:00.000Z', '2026-01-05')).toBe('30/12/2025 às 06:00')
+  })
+
+  it('uses the São Paulo day, not UTC', () => {
+    // 02:30 UTC on the 27th is 23:30 of the 26th in São Paulo.
+    expect(lastSyncLabel('2026-11-27T02:30:00.000Z', '2026-11-27')).toBe('ontem, 23:30')
+  })
+})
+
+describe('oldestCheck', () => {
+  it('is the oldest instant, or null when one was never read', () => {
+    expect(oldestCheck(['2026-11-26T09:00:00.000Z', '2026-11-25T09:00:00.000Z'])).toBe(
+      '2026-11-25T09:00:00.000Z',
+    )
+    expect(oldestCheck(['2026-11-26T09:00:00.000Z', null])).toBeNull()
+    expect(oldestCheck([])).toBeNull()
   })
 })

@@ -9,6 +9,7 @@ const OK: ConnectionHealth = {
   reason: 'Atualizada hoje às 06:02',
   inProgress: false,
   next: 'Próxima atualização: amanhã às 06:00',
+  checkedAt: '2026-11-26T09:30:00.000Z',
 }
 
 describe('ConnectionHealthDot', () => {
@@ -26,7 +27,13 @@ describe('ConnectionHealthDot', () => {
   it('maps levels to tones and pulses while updating', () => {
     render(
       <HealthDot
-        health={{ level: 'warn', reason: 'Atualizando agora…', inProgress: true, next: null }}
+        health={{
+          level: 'warn',
+          reason: 'Atualizando agora…',
+          inProgress: true,
+          next: null,
+          checkedAt: null,
+        }}
       />,
     )
     const dot = screen.getByRole('img', { name: 'Conexão: Atualizando agora…' })

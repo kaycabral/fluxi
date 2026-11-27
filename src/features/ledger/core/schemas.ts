@@ -189,6 +189,13 @@ export const createAccountSchema = z.object({
   type: accountTypeSchema,
   openingBalanceCents: centsSchema,
 })
+/**
+ * Configurações → "Nova conta": an account in an existing bank, or in a new
+ * bank named `newBankName` (created with the id `bankId`).
+ */
+export const addAccountSchema = createAccountSchema.extend({
+  newBankName: nameSchema.nullable(),
+})
 export const renameAccountSchema = z.object({ id: idSchema, name: nameSchema })
 export const archiveAccountSchema = z.object({ id: idSchema, archived: z.boolean() })
 

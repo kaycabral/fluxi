@@ -236,10 +236,16 @@ export function SearchView({ data, initialQuery, today }: Props) {
                 title: 'Nenhuma transação encontrada',
                 description: 'Tente outra busca ou limpe os filtros.',
               }
-            : {
-                title: 'Nenhuma transação ainda',
-                description: 'Use "Criar" para lançar a primeira entrada ou saída.',
-              }
+            : data.accounts.length === 0
+              ? {
+                  title: 'Nenhuma conta ainda',
+                  description: 'Crie uma conta para lançar a primeira entrada ou saída.',
+                  action: { label: 'Criar conta', href: '#configuracoes/contas' },
+                }
+              : {
+                  title: 'Nenhuma transação ainda',
+                  description: 'Use "Nova transação" para lançar a primeira entrada ou saída.',
+                }
         }
         pagination={{
           page: current,

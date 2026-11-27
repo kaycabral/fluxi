@@ -1,12 +1,13 @@
 'use client'
 
 import {
+  addAccountAction,
   renameAccountAction,
   setAccountArchivedAction,
   type AccountsData,
   type ManagedAccount,
 } from '@/features/ledger/adapters/actions/accounts'
-import { formatMoney } from '@/features/ledger/core/format'
+import { formatMoney, parseSignedMoneyInput } from '@/features/ledger/core/format'
 import { ACCOUNT_TYPE_LABELS } from '@/features/ledger/core/labels'
 import {
   AlertDialog,
@@ -22,17 +23,20 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
   Input,
+  Label,
   cn,
 } from '@cbrl/design'
-import { ChevronDown, Link2 } from 'lucide-react'
+import { ChevronDown, Link2, Plus } from 'lucide-react'
 import { useState } from 'react'
 import { focusOnMount, useAction } from './budget/shared'
+import { OptionSelect } from './selects'
 
 /**
  * Configurações → Contas: the current space's accounts by bank, with today's
  * balance. Rename inline, archive (with what it means) and bring back from
  * "Arquivadas". A connected account (a bank feed is mapped to it) cannot be
- * archived until it is unmapped in Conexões.
+ * archived until it is unmapped in Conexões. "Nova conta" adds one, in an
+ * existing bank or a new one (the way a first account gets in).
  */
 export function AccountsSettings({
   data,
@@ -58,7 +62,9 @@ export function AccountsSettings({
   return (
     <div className="grid gap-6">
       {active.length === 0 ? (
-        <p className="text-muted-foreground text-sm">Nenhuma conta ativa neste espaço.</p>
+        <p className="text-muted-foreground text-sm">
+          Nenhuma conta ativa neste espaço. Crie a primeira para começar a lançar transações.
+        </p>
       ) : (
         banks.map((bank) => (
           <section key={bank.id} aria-label={bank.name} className="grid gap-1">
@@ -85,6 +91,8 @@ export function AccountsSettings({
           </section>
         ))
       )}
+
+      <NewAccount banks={data.banks} startOpen={active.length === 0} onChanged={onChanged} />
 
       {archived.length > 0 && (
         <Collapsible className="grid gap-2">
@@ -232,5 +240,164 @@ function AccountRow({
         </p>
       )}
     </li>
+  )
+}
+
+const NEW_BANK = '__new__'
+const TYPE_OPTIONS = Object.entries(ACCOUNT_TYPE_LABELS)
+
+/** "Nova conta": a button that opens the form (open from the start while the space has no account). */
+function NewAccount({
+  banks,
+  startOpen,
+  onChanged,
+}: {
+  banks: AccountsData['banks']
+  startOpen: boolean
+  onChanged?: () => void
+}) {
+  const [open, setOpen] = useState(startOpen)
+  if (!open) {
+    return (
+      <Button variant="outline" size="sm" className="w-fit" onClick={() => setOpen(true)}>
+        <Plus /> Nova conta
+      </Button>
+    )
+  }
+  return (
+    <NewAccountForm
+      banks={banks}
+      onCancel={() => setOpen(false)}
+      onCreated={() => {
+        setOpen(false)
+        onChanged?.()
+      }}
+    />
+  )
+}
+
+function NewAccountForm({
+  banks,
+  onCancel,
+  onCreated,
+}: {
+  banks: AccountsData['banks']
+  onCancel: () => void
+  onCreated: () => void
+}) {
+  const [pending, run] = useAction()
+  const [bank, setBank] = useState(banks.at(-1)?.id ?? NEW_BANK)
+  const [bankName, setBankName] = useState('')
+  const [name, setName] = useState('')
+  const [type, setType] = useState('checking')
+  const [opening, setOpening] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const isNewBank = bank === NEW_BANK
+
+  const submit = () => {
+    const openingBalanceCents = parseSignedMoneyInput(opening === '' ? '0' : opening)
+    if (openingBalanceCents === null) {
+      setError('Saldo inicial inválido.')
+      return
+    }
+    setError(null)
+    run(
+      () =>
+        addAccountAction({
+          id: crypto.randomUUID(),
+          bankId: isNewBank ? crypto.randomUUID() : bank,
+          newBankName: isNewBank ? bankName : null,
+          name,
+          type,
+          openingBalanceCents,
+        }),
+      'Conta criada.',
+      onCreated,
+    )
+  }
+
+  return (
+    <form
+      aria-label="Nova conta"
+      className="grid gap-3 rounded-md border p-3"
+      onSubmit={(event) => {
+        event.preventDefault()
+        submit()
+      }}
+    >
+      <div className="grid gap-3 sm:grid-cols-2">
+        {banks.length > 0 && (
+          <div className="grid gap-1">
+            <Label htmlFor="new-account-bank">Banco</Label>
+            <OptionSelect
+              id="new-account-bank"
+              options={[...banks.map((b) => [b.id, b.name] as const), [NEW_BANK, 'Novo banco…']]}
+              value={bank}
+              onValueChange={setBank}
+            />
+          </div>
+        )}
+        {isNewBank && (
+          <div className="grid gap-1">
+            <Label htmlFor="new-account-bank-name">
+              {banks.length > 0 ? 'Nome do banco' : 'Banco'}
+            </Label>
+            <Input
+              id="new-account-bank-name"
+              ref={focusOnMount}
+              value={bankName}
+              onChange={(e) => setBankName(e.target.value)}
+              placeholder="Ex.: Nubank"
+              required
+            />
+          </div>
+        )}
+        <div className="grid gap-1">
+          <Label htmlFor="new-account-name">Nome da conta</Label>
+          <Input
+            id="new-account-name"
+            ref={isNewBank ? undefined : focusOnMount}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Ex.: Conta corrente"
+            required
+          />
+        </div>
+        <div className="grid gap-1">
+          <Label htmlFor="new-account-type">Tipo</Label>
+          <OptionSelect
+            id="new-account-type"
+            options={TYPE_OPTIONS}
+            value={type}
+            onValueChange={setType}
+          />
+        </div>
+        <div className="grid gap-1">
+          <Label htmlFor="new-account-opening">Saldo inicial</Label>
+          <Input
+            id="new-account-opening"
+            inputMode="decimal"
+            value={opening}
+            onChange={(e) => setOpening(e.target.value)}
+            placeholder="0,00"
+            aria-invalid={error !== null}
+            aria-describedby={error === null ? undefined : 'new-account-error'}
+          />
+        </div>
+      </div>
+      {error !== null && (
+        <p id="new-account-error" className="text-destructive text-sm">
+          {error}
+        </p>
+      )}
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="ghost" size="sm" onClick={onCancel} disabled={pending}>
+          Cancelar
+        </Button>
+        <Button type="submit" size="sm" disabled={pending}>
+          Criar conta
+        </Button>
+      </div>
+    </form>
   )
 }

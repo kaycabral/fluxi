@@ -292,6 +292,7 @@ export function DashboardView({
         <EmptyState
           title="Cadastre seu primeiro banco e conta"
           description="O painel resume saldos, contas a pagar e o orçamento assim que houver contas e transações."
+          action={{ label: 'Criar conta', href: '#configuracoes/contas' }}
         />
       </div>
     )

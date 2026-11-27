@@ -283,4 +283,13 @@ describe('SearchView', () => {
     renderSearch({}, { ...sampleData(), entries: [] })
     expect(screen.getByText('Nenhuma transação ainda')).toBeInTheDocument()
   })
+
+  it('points to account creation when the space has no account', () => {
+    renderSearch({}, { ...sampleData(), entries: [], accounts: [] })
+    expect(screen.getByText('Nenhuma conta ainda')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Criar conta' })).toHaveAttribute(
+      'href',
+      '#configuracoes/contas',
+    )
+  })
 })

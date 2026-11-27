@@ -1,6 +1,7 @@
 'use client'
 
 import { accountLabel } from '@/features/ledger/core/account-filter'
+import { dueDateLabel } from '@/features/ledger/core/format'
 import {
   groupPayables,
   payablesWindow,
@@ -48,7 +49,15 @@ export function initialTab(groups: readonly Pick<PayableGroup, 'key'>[]): TabKey
   return TABS.find((t) => has(t.key))?.key ?? 'next7'
 }
 
-function BillList({ group, data }: { group: PayableGroup; data: LedgerData }) {
+function BillList({
+  group,
+  data,
+  today,
+}: {
+  group: PayableGroup
+  data: LedgerData
+  today: string
+}) {
   const { openEdit } = useLedgerUi()
   const label = (id: string | null) => accountLabel(id, data.accounts, data.banks)
   return (
@@ -64,13 +73,13 @@ function BillList({ group, data }: { group: PayableGroup; data: LedgerData }) {
             >
               <span
                 className={cn(
-                  'w-10 shrink-0 text-xs tabular-nums',
+                  'w-14 shrink-0 text-xs tabular-nums',
                   group.key === 'overdue'
                     ? 'text-destructive font-medium'
                     : 'text-muted-foreground',
                 )}
               >
-                {date.slice(8, 10)}/{date.slice(5, 7)}
+                {dueDateLabel(date, today)}
               </span>
               <button
                 type="button"
@@ -164,7 +173,7 @@ export function UpcomingBills({
                 {group === undefined ? (
                   <EmptyState title={tab.empty} className="h-full justify-center py-6" />
                 ) : (
-                  <BillList group={group} data={data} />
+                  <BillList group={group} data={data} today={today} />
                 )}
               </TabsContent>
             )

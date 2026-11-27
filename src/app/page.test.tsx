@@ -5,6 +5,8 @@ import LandingPage from './page'
 const getServerUser = vi.fn<() => Promise<{ id: string } | null>>()
 vi.mock('@/lib/auth/server', () => ({ getServerUser: () => getServerUser() }))
 const redirect = vi.fn<(url: string) => never>()
+// Outside a request in tests: the request-time marker is a no-op.
+vi.mock('next/server', () => ({ connection: () => Promise.resolve() }))
 vi.mock('next/navigation', () => ({ redirect: (url: string) => redirect(url) }))
 vi.mock('./_components/sign-in-button', () => ({
   SignInButton: () => <button type="button">Entrar com Google</button>,

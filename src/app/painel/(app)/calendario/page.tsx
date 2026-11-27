@@ -7,6 +7,12 @@ import { isoDaySchema, monthSchema } from '@/features/ledger/core/schemas'
 import { CalendarView } from '@/features/ledger/ui/calendar-view'
 import type { Metadata } from 'next'
 import { cookies } from 'next/headers'
+import { connection } from 'next/server'
+
+// @next-codemod-ignore Cache Components adoption: this segment temporarily allows blocking.
+// Remove this opt-out after verifying the segment passes validation without it.
+// See: https://nextjs.org/docs/app/guides/migrating-to-cache-components
+export const instant = false
 
 export const metadata: Metadata = { title: 'Calendário — Fluxi' }
 
@@ -32,6 +38,7 @@ export default async function CalendarPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
+  await connection()
   const scope = await requirePainelScope()
   const params = await searchParams
   const today = todayIso()

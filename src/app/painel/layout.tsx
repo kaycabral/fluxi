@@ -9,6 +9,12 @@ import { readBackend } from '@cbrl/next/server'
 import type { Metadata } from 'next'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
+import { connection } from 'next/server'
+
+// @next-codemod-ignore Cache Components adoption: this segment temporarily allows blocking.
+// Remove this opt-out after verifying the segment passes validation without it.
+// See: https://nextjs.org/docs/app/guides/migrating-to-cache-components
+export const instant = false
 
 export const metadata: Metadata = {
   title: 'Painel — Fluxi',
@@ -20,6 +26,9 @@ export const metadata: Metadata = {
  * `(legacy)` keeps the MVP screens with their top navigation until they move.
  */
 export default async function PainelLayout({ children }: { children: React.ReactNode }) {
+  // Everything below is per request (session, space, today): the backend reads time
+  // their timeouts before touching cookies, so say so up front.
+  await connection()
   const user = await getServerUser()
   if (!user) {
     const next = (await headers()).get('x-pathname') ?? '/painel'

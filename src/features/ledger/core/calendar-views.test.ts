@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   addDays,
+  balanceKnownFrom,
   cellOf,
   columnDays,
   dayCells,
@@ -117,6 +118,27 @@ describe('dayCells', () => {
     expect(cellOf(cells, '2026-12-03').landings.map((l) => l.entry.id)).toEqual(['rent'])
     expect(cellOf(cells, '2026-12-03').endBalanceCents).toBe(70000)
     expect(cellOf(cells, '2026-12-08').skipped.map((l) => l.entry.id)).toEqual(['gym'])
+  })
+
+  it('has no balance before the day it is known from', () => {
+    const cells = dayCells(results, null, source, '2026-12-03')
+    expect(cellOf(cells, '2026-12-02').endBalanceCents).toBeNull()
+    expect(cellOf(cells, '2026-12-03').endBalanceCents).toBe(70000)
+  })
+
+  it('knows the balance from the first movement of the accounts, never after today', () => {
+    const empty = projectMonths({
+      entries: [rent],
+      parts: [],
+      overrides: [],
+      accounts: [{ id: 'cc', openingBalanceCents: 100000 }],
+      months: ['2026-11', '2026-12'],
+    }).map((m) => (m.month === '2026-11' ? { ...m, landings: [] } : m))
+    expect(balanceKnownFrom(results, null, '2027-05-01')).toBe('2026-12-03')
+    expect(balanceKnownFrom(empty, null, '2027-05-01')).toBe('2026-12-03')
+    expect(balanceKnownFrom(results, ['nu'], '2027-05-01')).toBe('2027-05-01')
+    expect(balanceKnownFrom(results, null, '2026-12-01')).toBe('2026-12-01')
+    expect(balanceKnownFrom([], null, '2026-12-01')).toBe('2026-12-01')
   })
 
   it('filters by account, ignored occurrences included', () => {

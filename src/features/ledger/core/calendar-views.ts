@@ -208,7 +208,10 @@ export type DayCell = {
   landings: Landing[]
   /** Skipped occurrences that would land on this day ("ignorados"); they never count. */
   skipped: Landing[]
-  /** Balance of the selected accounts at the end of the day; null when its month was not loaded. */
+  /**
+   * Balance of the selected accounts at the end of the day; null when its
+   * month was not loaded or the balance is not known yet on it.
+   */
   endBalanceCents: number | null
 }
 
@@ -221,13 +224,36 @@ export type SkipSource = {
 }
 
 /**
+ * First day the balance of the accounts `ids` (null = every account) is known:
+ * the day of their first counted movement in `results`, never after `today`
+ * (an account with only an opening balance is known from today). Before it,
+ * the balance would be an extrapolation of today's back past any history
+ * (e.g. before the bank feed starts), not a real balance.
+ */
+export function balanceKnownFrom(
+  results: readonly MonthResult[],
+  ids: readonly string[] | null,
+  today: string,
+): string {
+  for (const result of [...results].sort((a, b) => a.month.localeCompare(b.month))) {
+    const days = result.landings.filter((l) => entryMatchesAccounts(l.entry, ids)).map((l) => l.day)
+    if (days.length === 0) continue
+    const date = `${result.month}-${String(Math.min(...days)).padStart(2, '0')}`
+    return date < today ? date : today
+  }
+  return today
+}
+
+/**
  * Every day of the projected months, keyed by date, for the accounts `ids`
  * (null = every account). Days outside them are missing (see {@link cellOf}).
+ * Days before `knownFrom` (see {@link balanceKnownFrom}) have no balance.
  */
 export function dayCells(
   results: readonly MonthResult[],
   ids: readonly string[] | null,
   source: SkipSource,
+  knownFrom: string | null = null,
 ): Map<string, DayCell> {
   const cells = new Map<string, DayCell>()
   const active = archivedFilter(source.accounts ?? [])
@@ -239,7 +265,7 @@ export function dayCells(
         date,
         landings: day.landings,
         skipped: [],
-        endBalanceCents: day.endBalanceCents,
+        endBalanceCents: knownFrom !== null && date < knownFrom ? null : day.endBalanceCents,
       })
     }
     for (const entry of source.entries) {

@@ -76,9 +76,18 @@ jobs:
   # scoped PAT with `edge_functions_write` (+ `edge_functions_read`,
   # `projects_read`), see docs/production.md. Function config (verify_jwt off,
   # import map) comes from supabase/config.toml.
+  #
+  # It redeploys only when the push changed one of the function's inputs:
+  # scripts/edge-function-changed.ts reads the module graph from `deno info`
+  # (the same graph the deploy bundles, including the shared src/ modules) plus
+  # deno.json/deno.lock and supabase/config.toml. UI, docs or migration-only
+  # pushes don't redeploy. `always()` + the explicit result check: `checks` is
+  # usually skipped (provenance), and a skipped ancestor would otherwise skip
+  # this job silently.
   deploy-edge-functions:
     name: deploy-edge-functions
     needs: migrate-production
+    if: always() && needs.migrate-production.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: production
@@ -88,16 +97,24 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          # The diff needs the previous main head (github.event.before).
+          fetch-depth: 0
       - uses: kaycabral/toolkit/.github/actions/setup@0dd0a4fa17c44d7ac401f8cc96bd0c4615cb56c1 # main
+      - name: Did pluggy-sync change?
+        id: changed
+        env:
+          BASE: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+        run: pnpm exec tsx scripts/edge-function-changed.ts "$BASE" "$HEAD_SHA"
       - name: Deploy pluggy-sync
+        if: steps.changed.outputs.deploy == 'true'
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
-        # Until a scoped PAT is configured, deploys are manual (docs/production.md);
-        # skip with a visible warning instead of failing main.
+        # A needed deploy never passes silently: missing credentials fail the job.
         run: |
           if [ -z "$SUPABASE_ACCESS_TOKEN" ] || [ -z "$SUPABASE_PROJECT_REF" ]; then
-            echo "::warning::SUPABASE_ACCESS_TOKEN/SUPABASE_PROJECT_REF not set: pluggy-sync not deployed (manual deploy, see docs/production.md)"
-            exit 0
+            echo "::error::SUPABASE_ACCESS_TOKEN/SUPABASE_PROJECT_REF not set: pluggy-sync changed but cannot be deployed (see docs/production.md)"
+            exit 1
           fi
           pnpm exec supabase functions deploy pluggy-sync --workdir . --remote="$SUPABASE_PROJECT_REF" --use-api --yes

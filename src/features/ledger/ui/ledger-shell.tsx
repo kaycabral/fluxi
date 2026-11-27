@@ -16,6 +16,7 @@ import { Dialog, DialogContent } from '@cbrl/design'
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { EntryForm } from './entry-sheet'
 import { ScopeDialog, type ScopeRequest } from './scope-dialog'
+import { rememberShapeHint } from './skeleton-shape-hint'
 import { useUndo } from './undo'
 
 type LedgerUi = {
@@ -47,6 +48,14 @@ export function useLedgerUi(): LedgerUi {
   return value
 }
 
+/**
+ * The space's refs when inside `<LedgerShell>`, else `null`: for the loading
+ * skeletons, which also render before the shell (static shell).
+ */
+export function useLedgerRefs(): LedgerRefs | null {
+  return useContext(LedgerUiContext)?.refs ?? null
+}
+
 /** First active checking account in bank order (else any active account). */
 export function defaultAccountOf(refs: Pick<LedgerRefs, 'banks' | 'accounts'>): string {
   const active = refs.banks.flatMap((bank) =>
@@ -67,6 +76,14 @@ function isTyping(target: EventTarget | null): boolean {
  * Calendar's event page), the scope dialog, the N shortcut and "Desfazer" (Z), and exposes them to the views through {@link useLedgerUi}.
  */
 export function LedgerShell({ refs, children }: { refs: LedgerRefs; children: React.ReactNode }) {
+  // How many rows the next cold load's skeletons draw (counts only).
+  useEffect(() => {
+    const active = refs.budgetGroups.filter((g) => !g.archived)
+    rememberShapeHint({
+      groups: active.length,
+      pots: active.filter((g) => g.goal === 'minimum').length,
+    })
+  }, [refs.budgetGroups])
   const [session, setSession] = useState<SheetSession | null>(null)
   const [open, setOpen] = useState(false)
   const [scopeRequest, setScopeRequest] = useState<ScopeRequest | null>(null)

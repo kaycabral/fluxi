@@ -40,7 +40,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
 import { settingsHash, SettingsModal } from './settings-modal'
-import { SIDEBAR_COOKIE } from './sidebar-state'
+import { SIDEBAR_ATTRIBUTE, SIDEBAR_COOKIE } from './sidebar-state'
 
 const NAV: NavItem[] = [
   { href: '/painel', label: 'Painel', icon: LayoutDashboard, match: 'exact' },
@@ -82,6 +82,8 @@ export function AppSidebar({
   const changeOpen = (next: boolean) => {
     setOpen(next)
     writeBrowserCookie(SIDEBAR_COOKIE, next ? 'open' : 'collapsed', { path: '/painel' })
+    // The loading shell reads the state from here (see `SidebarStateScript`).
+    document.documentElement.dataset[SIDEBAR_ATTRIBUTE] = next ? 'open' : 'collapsed'
   }
   const pathname = usePathname()
   const signOut = useSignOut()
@@ -90,16 +92,7 @@ export function AppSidebar({
     <TooltipProvider delayDuration={0}>
       <SidebarProvider open={open} onOpenChange={changeOpen}>
         <Sidebar collapsible="icon">
-          <SidebarHeader>
-            {/* Open: the mark lines up with the nav icons' left edge. Collapsed
-                (3rem rail): 4px each side centers the 24px mark over the
-                icons. Same 200ms linear as the sidebar width, so it glides. */}
-            <div className="flex items-center gap-2 px-2 py-1.5 transition-[padding] duration-200 ease-linear group-data-[collapsible=icon]:px-1 motion-reduce:transition-none">
-              <BrandLink href="/painel" className="text-base font-bold tracking-tight">
-                <span className="group-data-[collapsible=icon]:sr-only">Fluxi</span>
-              </BrandLink>
-            </div>
-          </SidebarHeader>
+          <SidebarBrand />
           <SidebarContent>
             <Nav pathname={pathname} />
           </SidebarContent>
@@ -149,7 +142,24 @@ export function AppSidebar({
   )
 }
 
-function Nav({ pathname }: { pathname: string }) {
+/** The brand on top of the sidebar (also drawn by the loading shell). */
+export function SidebarBrand() {
+  return (
+    <SidebarHeader>
+      {/* Open: the mark lines up with the nav icons' left edge. Collapsed
+          (3rem rail): 4px each side centers the 24px mark over the
+          icons. Same 200ms linear as the sidebar width, so it glides. */}
+      <div className="flex items-center gap-2 px-2 py-1.5 transition-[padding] duration-200 ease-linear group-data-[collapsible=icon]:px-1 motion-reduce:transition-none">
+        <BrandLink href="/painel" className="text-base font-bold tracking-tight">
+          <span className="group-data-[collapsible=icon]:sr-only">Fluxi</span>
+        </BrandLink>
+      </div>
+    </SidebarHeader>
+  )
+}
+
+/** The pages (also drawn by the loading shell, already navigable). */
+export function Nav({ pathname }: { pathname: string }) {
   const { setOpenMobile } = useSidebar()
   return (
     <nav aria-label="Seções">

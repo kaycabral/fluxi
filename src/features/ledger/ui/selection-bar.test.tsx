@@ -90,10 +90,14 @@ describe('selection mode in Transações', () => {
     )
     await userEvent.click(screen.getByRole('button', { name: /Selecionar/ }))
     // Two rows of different entries (selection is per entry, not occurrence).
-    const boxes = within(screen.getByRole('list')).getAllByRole('checkbox')
-    const name = (box: HTMLElement) => box.closest('li')?.textContent?.split(/\d/)[0]
-    const first = boxes[0]
-    const second = boxes.find((box) => first !== undefined && name(box) !== name(first))
+    const items = within(screen.getByRole('list')).getAllByRole('listitem')
+    const name = (item: HTMLElement) => item.textContent?.split(/\d/)[0]
+    const firstItem = items[0]
+    const secondItem = items.find(
+      (item) => firstItem !== undefined && name(item) !== name(firstItem),
+    )
+    const first = firstItem && within(firstItem).getByRole('checkbox')
+    const second = secondItem && within(secondItem).getByRole('checkbox')
     if (first === undefined || second === undefined) throw new Error('rows missing')
     await userEvent.click(first)
     await userEvent.click(second)

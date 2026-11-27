@@ -1,2 +1,2 @@
-// A page's place while its data streams in: the content skeleton.
-export { ContentSkeleton as default } from '@/app/painel/_components/painel-skeleton'
+// `/painel/calendario` while its data streams in: the calendar's own skeleton.
+export { CalendarSkeleton as default } from '@/app/painel/_components/skeletons/calendar-skeleton'

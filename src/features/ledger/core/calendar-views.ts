@@ -323,3 +323,25 @@ export function withDateMoves(
   }
   return next
 }
+
+/** Short weekday labels, Sunday first (`weekdayOf` indexes them). */
+export const WEEKDAY_SHORT = ['DOM.', 'SEG.', 'TER.', 'QUA.', 'QUI.', 'SEX.', 'SÁB.']
+
+/** Month names as the year view titles them. */
+export const MONTH_NAMES = [
+  'Janeiro',
+  'Fevereiro',
+  'Março',
+  'Abril',
+  'Maio',
+  'Junho',
+  'Julho',
+  'Agosto',
+  'Setembro',
+  'Outubro',
+  'Novembro',
+  'Dezembro',
+]
+
+/** One-letter weekdays, Sunday first (the year view's mini months). */
+export const WEEKDAY_INITIALS = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S']

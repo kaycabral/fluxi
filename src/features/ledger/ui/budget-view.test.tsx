@@ -338,9 +338,22 @@ describe('BudgetView · semáforo', () => {
       .map((h) => h.textContent)
       .filter((t) => t !== 'Grupo')
 
-  it('opens on the current month and the next 4 before measuring, and walks it with the arrows', async () => {
+  it('opens on the current month with every column before measuring (CSS fits them), and walks it with the arrows', async () => {
     renderBudget()
-    expect(months()).toEqual(['dez/26', 'jan/27', 'fev/27', 'mar/27', 'abr/27'])
+    expect(months()).toEqual([
+      'dez/26',
+      'jan/27',
+      'fev/27',
+      'mar/27',
+      'abr/27',
+      'mai/27',
+      'jun/27',
+      'jul/27',
+      'ago/27',
+      'set/27',
+      'out/27',
+      'nov/27',
+    ])
     // Same compact presentation as the dashboard widget: no range label, no legend.
     expect(screen.queryByText(/ – /)).not.toBeInTheDocument()
     expect(screen.queryByText('Dentro da meta')).not.toBeInTheDocument()
@@ -432,7 +445,20 @@ describe('BudgetView · semáforo', () => {
         },
       )
       const { unmount } = renderBudget()
-      expect(months()).toEqual(['dez/26', 'jan/27', 'fev/27', 'mar/27', 'abr/27'])
+      expect(months()).toEqual([
+        'dez/26',
+        'jan/27',
+        'fev/27',
+        'mar/27',
+        'abr/27',
+        'mai/27',
+        'jun/27',
+        'jul/27',
+        'ago/27',
+        'set/27',
+        'out/27',
+        'nov/27',
+      ])
       unmount()
     })
 

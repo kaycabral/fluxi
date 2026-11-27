@@ -54,8 +54,8 @@ const NO_VERSION_CLASS = 'bg-muted text-muted-foreground'
  * The window both the dashboard widget and the budget page open on (and
  * "Hoje" brings back): `before` months before the current one (none: a small
  * card has no room for the past, one arrow away), then as many future months
- * as fit the card (`monthColumnsFor`, `monthsBeforeFor`). `span` is the count used before the card is
- * measured (server render, tests).
+ * as fit the card (`monthColumnsFor`, `monthsBeforeFor`). `span` is the
+ * count the window opens on (its first month) before the card is measured.
  */
 export const BUDGET_WINDOW = { span: 5, before: 0 } as const
 
@@ -73,6 +73,36 @@ export function monthColumnsFor(width: number): number | null {
   const fit = Math.floor((width - MONTH_COLUMNS.groupWidth) / MONTH_COLUMNS.monthWidth)
   return Math.min(MONTH_COLUMNS.max, Math.max(MONTH_COLUMNS.min, fit))
 }
+
+/**
+ * Fixed layout: the group column is `groupWidth` and the months share the
+ * rest, so no value (or a value arriving) ever resizes a column; below
+ * `groupWidth + min × monthWidth` the table scrolls.
+ */
+export const TABLE_CLASS = 'min-w-[350px] table-fixed text-sm'
+export const GROUP_COLUMN_CLASS = 'bg-card sticky left-0 z-10 w-[150px]'
+
+/**
+ * Before the card is measured (server render, first paint) the table carries
+ * every column and a container query shows the ones `monthColumnsFor` would
+ * keep, so the measurement that follows changes nothing on screen. Literal
+ * classes (Tailwind), one per column: the first `min` always show; column `i`
+ * needs `groupWidth + (i + 1) × monthWidth` px.
+ */
+export const COLUMN_FIT_CLASSES: readonly string[] = [
+  '',
+  '',
+  'hidden @min-[450px]:table-cell',
+  'hidden @min-[550px]:table-cell',
+  'hidden @min-[650px]:table-cell',
+  'hidden @min-[750px]:table-cell',
+  'hidden @min-[850px]:table-cell',
+  'hidden @min-[950px]:table-cell',
+  'hidden @min-[1050px]:table-cell',
+  'hidden @min-[1150px]:table-cell',
+  'hidden @min-[1250px]:table-cell',
+  'hidden @min-[1350px]:table-cell',
+]
 
 /**
  * Months before today the window opens on: on tight cards (up to
@@ -131,7 +161,7 @@ function cellTitle(budgetGroup: BudgetGroup, month: BudgetMonth, cell: BudgetGro
  * "Semáforo mensal": each budget group's planned share of the month's income against
  * the budget version in force that month (so changing the proportions never
  * repaints earlier months). Arrows walk the months; the current month is
- * highlighted and the month a new version starts is marked. Each cell opens
+ * highlighted. Each cell opens
  * "Transações" filtered by that budget group and month.
  */
 export function TrafficLight({
@@ -153,21 +183,24 @@ export function TrafficLight({
   className?: string
 }) {
   const [measure, { width }] = useElementSize()
-  const columns = monthColumnsFor(width) ?? span
+  const measured = monthColumnsFor(width)
+  // Unmeasured: every column, fitted by CSS (`COLUMN_FIT_CLASSES`).
+  const columns = measured ?? MONTH_COLUMNS.max
+  const fit = (i: number) => (measured === null ? COLUMN_FIT_CLASSES[i] : undefined)
   // The default window depends on the measured width, so the arrows move an
   // offset from it (not a fixed first month): "Hoje" and resizes stay right.
-  const initial = defaultFirstMonth(today, columns, monthsBeforeFor(columns, before))
+  const opening = measured ?? span
+  const initial = defaultFirstMonth(today, opening, monthsBeforeFor(opening, before))
   const [offset, setOffset] = useState(0)
   const first = addMonths(initial, offset)
   const last = addMonths(first, columns - 1)
   const months = useBudgetMonths(data, versions, first, last)
   const budgetGroups = visibleBudgetGroups(data.budgetGroups, months)
-  const versionStarts = new Set(versions.map((p) => p.startsMonth))
   const range = monthRange(first, last)
 
   return (
     <TooltipProvider delayDuration={150}>
-      <div ref={measure} className={cn('grid gap-3', className)}>
+      <div ref={measure} className={cn('@container grid gap-3', className)}>
         <div className="flex items-center justify-end gap-2">
           <div className="flex items-center gap-1">
             <Button
@@ -197,17 +230,17 @@ export function TrafficLight({
           </div>
         </div>
 
-        <Table className="text-sm">
+        <Table className={TABLE_CLASS}>
           <TableHeader>
             <TableRow>
-              <TableHead className="bg-card sticky left-0 z-10">Grupo</TableHead>
-              {range.map((m) => (
+              <TableHead className={GROUP_COLUMN_CLASS}>Grupo</TableHead>
+              {range.map((m, i) => (
                 <TableHead
                   key={m}
                   className={cn(
                     'px-1.5 text-right whitespace-nowrap',
+                    fit(i),
                     m === today && 'bg-muted/60 text-foreground font-semibold',
-                    versionStarts.has(m) && 'border-primary/60 border-l-2',
                   )}
                   aria-current={m === today ? 'date' : undefined}
                 >
@@ -225,13 +258,13 @@ export function TrafficLight({
           <TableBody>
             <TableRow className="text-muted-foreground">
               <TableCell className="bg-card sticky left-0 z-10">Renda</TableCell>
-              {months.map((m) => (
+              {months.map((m, i) => (
                 <TableCell
                   key={m.month}
                   className={cn(
                     'px-1.5 text-right font-mono text-xs whitespace-nowrap tabular-nums',
+                    fit(i),
                     m.month === today && 'bg-muted/60',
-                    versionStarts.has(m.month) && 'border-primary/60 border-l-2',
                   )}
                   title={`Renda: ${formatMoney(m.incomeCents)}`}
                 >
@@ -242,7 +275,7 @@ export function TrafficLight({
             {budgetGroups.map((budgetGroup) => (
               <TableRow key={budgetGroup.key}>
                 <TableCell className="bg-card sticky left-0 z-10 whitespace-nowrap">
-                  <span className="flex items-center gap-2">
+                  <span className="flex min-w-0 items-center gap-2">
                     <span
                       className={cn(
                         'size-2.5 shrink-0 rounded-xs',
@@ -250,23 +283,19 @@ export function TrafficLight({
                       )}
                       aria-hidden
                     />
-                    {budgetGroup.name}
+                    <span className="truncate">{budgetGroup.name}</span>
                     {budgetGroup.archived && (
                       <span className="text-muted-foreground text-xs">(arquivado)</span>
                     )}
                   </span>
                 </TableCell>
-                {months.map((m) => {
+                {months.map((m, i) => {
                   const cell = budgetGroupCell(budgetGroup, m)
                   const label = cellTitle(budgetGroup, m, cell)
                   return (
                     <TableCell
                       key={m.month}
-                      className={cn(
-                        'px-1 text-right',
-                        m.month === today && 'bg-muted/60',
-                        versionStarts.has(m.month) && 'border-primary/60 border-l-2',
-                      )}
+                      className={cn('px-1 text-right', fit(i), m.month === today && 'bg-muted/60')}
                     >
                       <Tooltip>
                         <TooltipTrigger asChild>

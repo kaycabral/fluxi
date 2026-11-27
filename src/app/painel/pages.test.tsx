@@ -147,12 +147,16 @@ vi.mock('@/features/ledger/ui/calendar-view', () => ({
   ),
 }))
 vi.mock('@/features/ledger/ui/ledger-shell', () => ({
+  // Before the shell has the refs (the static shell): the skeletons draw the hinted rows.
+  useLedgerRefs: () => null,
   LedgerShell: ({ children, refs }: { children: React.ReactNode; refs: { banks: unknown[] } }) => (
     <section aria-label={`shell com ${refs.banks.length} bancos`}>{children}</section>
   ),
 }))
 vi.mock('./_components/topbar', () => ({ Topbar: () => <header>topbar</header> }))
 vi.mock('./_components/app-sidebar', () => ({
+  SidebarBrand: () => <div>Fluxi</div>,
+  Nav: () => <nav aria-label="Seções" />,
   AppSidebar: ({
     children,
     defaultOpen,
@@ -320,10 +324,13 @@ describe('painel static shell', () => {
   it('shows the skeletons while the data loads', () => {
     const { unmount } = render(<PainelSkeleton />)
     expect(screen.getByLabelText('Carregando')).toHaveAttribute('aria-busy', 'true')
+    // The screen's own skeleton (here the dashboard's), with its fixed texts.
+    expect(screen.getByRole('heading', { level: 1, name: 'Painel' })).toBeInTheDocument()
     unmount()
     render(<AppLoading />)
     expect(screen.getByLabelText('Carregando')).toBeInTheDocument()
-    expect(AppLoading).toBe(ContentSkeleton)
+    expect(screen.getByRole('heading', { level: 2, name: 'Orçamento' })).toBeInTheDocument()
+    render(<ContentSkeleton />)
   })
 })
 

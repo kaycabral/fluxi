@@ -9,3 +9,16 @@ export const SIDEBAR_COOKIE = 'fluxi_sidebar'
 export function sidebarOpenFrom(value: string | undefined): boolean {
   return value !== 'collapsed'
 }
+
+/**
+ * `<html data-sidebar>`: the state as the loading shell needs it before the
+ * first paint (the static shell cannot read cookies). Set from the cookie by
+ * `SidebarStateScript` and on each toggle.
+ */
+export const SIDEBAR_ATTRIBUTE = 'sidebar'
+
+/**
+ * Inline script (runs before the shell paints): copies the cookie onto
+ * `<html data-sidebar>`. Same rule as `sidebarOpenFrom`.
+ */
+export const SIDEBAR_STATE_SCRIPT = `try{document.documentElement.dataset.${SIDEBAR_ATTRIBUTE}=/(?:^|; )${SIDEBAR_COOKIE}=collapsed(?:;|$)/.test(document.cookie)?'collapsed':'open'}catch(e){}`

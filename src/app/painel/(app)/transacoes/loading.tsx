@@ -1,2 +1,2 @@
-// A page's place while its data streams in: the content skeleton.
-export { ContentSkeleton as default } from '@/app/painel/_components/painel-skeleton'
+// `/painel/transacoes` while its data streams in: the list's own skeleton.
+export { TransactionsSkeleton as default } from '@/app/painel/_components/skeletons/transactions-skeleton'

@@ -66,6 +66,8 @@ export type ConnectionHealth = {
   inProgress: boolean
   /** "Próxima atualização: 27/11 às 06:00", when Pluggy scheduled one. */
   next: string | null
+  /** When the Fluxi sync last read the connection (ISO instant); null = never. */
+  checkedAt: string | null
 }
 
 const HOUR = 3_600_000
@@ -113,6 +115,14 @@ const dayMonth = (date: Date) =>
     timeZone: TIME_ZONE,
     day: '2-digit',
     month: '2-digit',
+  }).format(date)
+
+const dayMonthYear = (date: Date) =>
+  new Intl.DateTimeFormat('pt-BR', {
+    timeZone: TIME_ZONE,
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
   }).format(date)
 
 /** Calendar days from `a` to `b` in São Paulo. */
@@ -210,7 +220,32 @@ export function connectionHealth(status: ConnectionStatus, now: Date): Connectio
     reason: verdict.reason,
     inProgress: verdict.inProgress ?? false,
     next,
+    checkedAt: checkedAt?.toISOString() ?? null,
   }
+}
+
+/** The oldest of `instants` (ISO), null when any is null (never read) or there are none. */
+export function oldestCheck(instants: readonly (string | null)[]): string | null {
+  if (instants.length === 0 || instants.includes(null)) return null
+  return instants.reduce((oldest, at) =>
+    at !== null && oldest !== null && at < oldest ? at : oldest,
+  )
+}
+
+/**
+ * When the Fluxi last read the banks, for the label next to "Saldo hoje":
+ * "hoje, 06:00" and "ontem, 06:00" for the recent days, the full date past
+ * that ("23/11 às 06:00", with the year when it is not `today`'s). `today` is
+ * `YYYY-MM-DD` in São Paulo, so server and client render the same text.
+ */
+export function lastSyncLabel(checkedAt: string, today: string): string {
+  const at = new Date(checkedAt)
+  const day = dayKey(at)
+  const days = Math.round((Date.parse(today) - Date.parse(day)) / DAY)
+  if (days <= 0) return `hoje, ${hourMinute(at)}`
+  if (days === 1) return `ontem, ${hourMinute(at)}`
+  const date = day.slice(0, 4) === today.slice(0, 4) ? dayMonth(at) : dayMonthYear(at)
+  return `${date} às ${hourMinute(at)}`
 }
 
 const SEVERITY: Record<HealthLevel, number> = { unknown: 0, ok: 1, warn: 2, error: 3 }
@@ -254,7 +289,9 @@ export function healthByBank(
   const out: Record<string, ConnectionHealth> = {}
   for (const [key, healths] of byKey) {
     const worst = worstHealth(healths)
-    if (worst !== null) out[key] = worst
+    // A bank fed by several connections is as fresh as the oldest of them.
+    if (worst !== null)
+      out[key] = { ...worst, checkedAt: oldestCheck(healths.map((h) => h.checkedAt)) }
   }
   return out
 }

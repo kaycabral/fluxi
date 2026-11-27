@@ -188,6 +188,37 @@ describe('DashboardView', () => {
     )
   })
 
+  it('says when the connected banks were last read, beside the avatars', () => {
+    const at = (checkedAt: string | null) =>
+      connectionHealth(
+        { ...NEVER_CHECKED, itemStatus: 'UPDATED', lastUpdatedAt: checkedAt, checkedAt },
+        new Date('2026-12-15T12:00:00.000Z'),
+      )
+    const view = (health: Record<string, ReturnType<typeof at>>) => (
+      <LedgerShell refs={sampleRefs()}>
+        <DashboardView
+          data={sampleData()}
+          versions={[PLAN]}
+          today="2026-12-15"
+          connectedBanks={['Nubank Empresas']}
+          bankHealth={health}
+        />
+      </LedgerShell>
+    )
+    // 06:00 in São Paulo.
+    const { rerender } = render(
+      view({ [connectionBankKey('Nubank Empresas')]: at('2026-12-15T09:00:00.000Z') }),
+    )
+    const summary = screen.getByRole('region', { name: 'Resumo' })
+    expect(within(summary).getByText('Atualizado hoje, 06:00')).toBeInTheDocument()
+    rerender(view({ [connectionBankKey('Nubank Empresas')]: at('2026-12-10T09:00:00.000Z') }))
+    expect(within(summary).getByText('Atualizado 10/12 às 06:00')).toBeInTheDocument()
+    rerender(view({ [connectionBankKey('Nubank Empresas')]: at(null) }))
+    expect(within(summary).getByText('Aguardando a 1ª atualização')).toBeInTheDocument()
+    rerender(view({}))
+    expect(within(summary).queryByText(/^Atualizado|^Aguardando/)).toBeNull()
+  })
+
   it('shows a bank connected in the space with no linked account at R$ 0,00', async () => {
     render(
       <LedgerShell refs={sampleRefs()}>

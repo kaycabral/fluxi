@@ -305,7 +305,11 @@ export function DashboardView({
         <Stat
           label="Saldo hoje"
           cents={snapshot.todayCents}
-          hint={banks.length > 0 ? <BankAvatars banks={banks} health={bankHealth} /> : undefined}
+          hint={
+            banks.length > 0 ? (
+              <BankAvatars banks={banks} health={bankHealth} today={today} />
+            ) : undefined
+          }
         />
         <Stat
           label={`Fim de ${monthLabel(month)}`}

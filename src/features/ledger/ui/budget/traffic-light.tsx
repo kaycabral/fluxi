@@ -3,6 +3,7 @@
 import {
   budgetGroupCell,
   budgetMonths,
+  hasIncome,
   versionFor,
   visibleBudgetGroups,
   type BudgetGroupCell,
@@ -115,6 +116,9 @@ export function useBudgetMonth(
 }
 
 function cellTitle(budgetGroup: BudgetGroup, month: BudgetMonth, cell: BudgetGroupCell): string {
+  if (month.version !== null && !hasIncome(month)) {
+    return `${budgetGroup.name} em ${monthLabel(month.month)}: sem renda prevista, não dá para medir o grupo (${formatMoney(cell.plannedCents)} planejado).`
+  }
   const planned = `${formatMoney(cell.plannedCents)} planejado (${formatPercent(cell.ratio)} da renda)`
   if (cell.targetBps === null || cell.light === null) {
     return `${budgetGroup.name} em ${monthLabel(month.month)}: ${planned}. Sem meta: mês antes da primeira versão do orçamento.`
@@ -279,7 +283,7 @@ export function TrafficLight({
                               cell.light === null ? NO_VERSION_CLASS : LIGHT_CLASSES[cell.light],
                             )}
                           >
-                            {formatPercent(cell.ratio)}
+                            {m.version !== null && !hasIncome(m) ? '–' : formatPercent(cell.ratio)}
                           </TransactionsLink>
                         </TooltipTrigger>
                         <TooltipContent className="max-w-64">

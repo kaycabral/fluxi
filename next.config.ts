@@ -29,6 +29,14 @@ const nextConfig: NextConfig = {
   // "Lançamentos" became "Transações": old links and bookmarks keep working.
   redirects: async () => [
     { source: '/painel/lancamentos', destination: '/painel/transacoes', permanent: true },
+    // The settings are a modal over the painel, addressed by the fragment; the
+    // old pages redirect at the HTTP level so the browser loads the fragment.
+    {
+      source: '/painel/configuracoes',
+      destination: '/painel#configuracoes/conexoes',
+      permanent: true,
+    },
+    { source: '/painel/conexoes', destination: '/painel#configuracoes/conexoes', permanent: true },
   ],
   images: {
     // The local Supabase stack serves Storage from http://127.0.0.1:54421.

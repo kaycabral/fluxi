@@ -43,6 +43,14 @@ export type LedgerRefs = {
  * entry lands in when that is earlier and drops the months before `from`.
  */
 export function projectWindow(data: LedgerData, from: Month, to: Month): MonthResult[] {
+  return projectSpan(data, from, to).filter((m) => m.month >= from)
+}
+
+/**
+ * {@link projectWindow} without dropping the months before `from`: every month
+ * from the first landing (or `from`, if earlier) to `to`.
+ */
+export function projectSpan(data: LedgerData, from: Month, to: Month): MonthResult[] {
   const first = firstLandingMonth(data.entries)
   const start = first !== null && first < from ? first : from
   return projectMonths({
@@ -52,7 +60,7 @@ export function projectWindow(data: LedgerData, from: Month, to: Month): MonthRe
     accounts: data.accounts,
     months: monthRange(start, to),
     feed: data.feed,
-  }).filter((m) => m.month >= from)
+  })
 }
 
 /** The sheet target for the occurrence a landing belongs to. */

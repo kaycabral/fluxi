@@ -171,9 +171,11 @@ export function SearchView({ data, initialQuery, today }: Props) {
   }
 
   return (
-    <div className="grid gap-4">
+    // One column that may shrink below its content: the list rows truncate
+    // instead of widening the page on a phone.
+    <div className="grid grid-cols-1 gap-4">
       <div className="flex items-start justify-between gap-3">
-        <div className="grid gap-1">
+        <div className="grid min-w-0 gap-1">
           <Typography variant="pageTitle" as="h1">
             Transações
           </Typography>
@@ -346,19 +348,19 @@ function Summary({ count, totals }: { count: number; totals: SearchTotals }) {
           {count} {count === 1 ? 'transação' : 'transações'}
         </dd>
       </div>
-      <div className="flex gap-1.5">
+      <div className="flex gap-1.5 whitespace-nowrap">
         <dt>Saldo</dt>
         <dd>
           <Money cents={totals.netCents} tone className="font-semibold" />
         </dd>
       </div>
-      <div className="flex gap-1.5">
+      <div className="flex gap-1.5 whitespace-nowrap">
         <dt>Entradas</dt>
         <dd>
           <Money cents={totals.incomeCents} tone />
         </dd>
       </div>
-      <div className="flex gap-1.5">
+      <div className="flex gap-1.5 whitespace-nowrap">
         <dt>Saídas</dt>
         <dd>
           <Money cents={totals.expenseCents} tone />

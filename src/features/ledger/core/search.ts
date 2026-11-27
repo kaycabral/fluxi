@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { accountIdsOf, accountLabel, bankIdOf, entryMatchesAccounts } from './account-filter'
 import { accountIdsInBucket, type MoneyBucket } from './bucket'
 import { budgetGroupName } from './labels'
-import { addMonths, type Month } from './month'
+import { addMonths, daysInMonth, type Month } from './month'
 import { installmentCount, type Landing } from './occurrence'
 import { paymentFor, type OccurrencePayment } from './payments'
 import { effectOn, type MonthResult } from './projection'
@@ -99,6 +99,19 @@ const searchQuerySchema = z.object({
   status: z.enum(['', 'paid', 'unpaid']).catch(''),
   money: z.enum(['', 'available', 'benefit']).catch(''),
 })
+
+/**
+ * The query behind a budget cell: what one budget group planned in `month`
+ * (every day of the month, that group only, no other filter).
+ */
+export function budgetGroupMonthQuery(budgetGroup: BudgetGroupKey, month: Month): SearchQuery {
+  return {
+    ...EMPTY_SEARCH_QUERY,
+    budgetGroup,
+    from: `${month}-01`,
+    to: `${month}-${String(daysInMonth(month)).padStart(2, '0')}`,
+  }
+}
 
 /** The remembered query (cookie value); each bad or missing field falls back to "no filter". */
 export function parseSearchQuery(raw: string | undefined): SearchQuery {

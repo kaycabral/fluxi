@@ -88,7 +88,7 @@ describe('DashboardView', () => {
     expect(screen.queryByText(/^\w{3}\/\d{2} – \w{3}\/\d{2}$/)).not.toBeInTheDocument()
     expect(screen.queryByText('Dentro da meta')).not.toBeInTheDocument()
     expect(screen.queryByText('Sem meta no mês')).not.toBeInTheDocument()
-    expect(screen.getAllByRole('button', { name: /^Essencial em dez\/26: .*meta/ })).toHaveLength(1)
+    expect(screen.getAllByRole('link', { name: /^Essencial em dez\/26: .*meta/ })).toHaveLength(1)
 
     const today = screen.getByRole('button', { name: 'Hoje' })
     expect(today).toBeDisabled()

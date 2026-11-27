@@ -30,7 +30,7 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from '@cbrl/design'
-import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useOptimistic, useState, useTransition } from 'react'
@@ -223,6 +223,9 @@ export function CalendarView({
             {viewTitle(view, date)}
           </h1>
           <div className="ml-auto flex items-center gap-2">
+            <Button onClick={() => openNew()} aria-keyshortcuts="N">
+              <Plus /> Nova transação
+            </Button>
             <ViewMenu
               view={view}
               prefs={prefs}

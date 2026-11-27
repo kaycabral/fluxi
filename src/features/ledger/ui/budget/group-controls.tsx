@@ -252,7 +252,7 @@ export function NewBudgetGroupRow({
       />
       <Button type="submit" size="sm" disabled={pending || name.trim() === ''}>
         {pending && <Loader2 className="animate-spin" />}
-        Criar
+        Criar grupo
       </Button>
       <Button type="button" size="sm" variant="ghost" onClick={onCancel}>
         Cancelar

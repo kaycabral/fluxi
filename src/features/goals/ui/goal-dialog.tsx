@@ -71,12 +71,16 @@ const NO_ACCOUNT = 'none'
 const cents = (value: string) => parseBRLInput(value) ?? 0
 const typed = (c: number | null) => (c === null || c === 0 ? '' : brl(c).replace('R$', '').trim())
 
-function draftOf(goal: Goal | null, groups: readonly BudgetGroup[], today: Month): Draft {
-  const fallback = groups.find((g) => g.key === 'goals' && !g.archived)?.key ?? ''
+function draftOf(
+  goal: Goal | null,
+  kind: GoalKind,
+  groups: readonly BudgetGroup[],
+  today: Month,
+): Draft {
   return {
-    kind: goal?.kind ?? 'purchase',
-    name: goal?.name ?? '',
-    budgetGroup: goal?.budgetGroup ?? fallback,
+    kind: goal?.kind ?? kind,
+    name: goal?.name ?? defaultName(kind),
+    budgetGroup: goal?.budgetGroup ?? groupFor(kind, groups, ''),
     target: typed(goal?.targetCents ?? null),
     targetMonth: goal?.targetMonth ?? addMonths(today, 12),
     monthly: typed(goal?.monthlyCents ?? null),
@@ -94,6 +98,7 @@ function groupFor(kind: GoalKind, groups: readonly BudgetGroup[], current: strin
 
 export function GoalDialog({
   goal,
+  kind,
   groups,
   accounts,
   base,
@@ -102,6 +107,8 @@ export function GoalDialog({
   onClose,
 }: {
   goal: Goal | null
+  /** Kind a new goal starts as (a suggestion adjusted opens on its kind). */
+  kind: GoalKind
   groups: readonly BudgetGroup[]
   accounts: readonly LedgerData['accounts'][number][]
   base: Baseline
@@ -109,7 +116,7 @@ export function GoalDialog({
   today: Month
   onClose: () => void
 }) {
-  const [draft, setDraft] = useState<Draft>(() => draftOf(goal, groups, today))
+  const [draft, setDraft] = useState<Draft>(() => draftOf(goal, kind, groups, today))
   const [pending, run] = useAction()
   const set = (patch: Partial<Draft>) => setDraft((d) => ({ ...d, ...patch }))
   const potGroups = groups.filter(

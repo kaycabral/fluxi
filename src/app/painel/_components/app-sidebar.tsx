@@ -1,13 +1,11 @@
 'use client'
 
 import { BrandLink } from '@/components/brand-link'
-import { useLedgerUi } from '@/features/ledger/ui/ledger-shell'
 import type { Space } from '@/features/spaces/core/space'
 import { SpaceAccountMenu, type MenuAccount } from '@/features/spaces/ui/space-account-menu'
 import { useSignOut } from '@/hooks/use-sign-out'
 import { writeBrowserCookie } from '@/lib/browser-cookie'
 import {
-  Button,
   DropdownMenuItem,
   DropdownMenuSeparator,
   isNavItemActive,
@@ -35,7 +33,6 @@ import {
   ListIcon,
   LogOut,
   PiggyBank,
-  Plus,
   Settings,
   Target,
 } from 'lucide-react'
@@ -44,9 +41,6 @@ import { usePathname } from 'next/navigation'
 import { useState } from 'react'
 import { settingsHash, SettingsModal } from './settings-modal'
 import { SIDEBAR_COOKIE } from './sidebar-state'
-
-/** Pages that put "Criar" beside their title instead of the header. */
-const OWN_CREATE_BUTTON = new Set(['/painel/transacoes'])
 
 const NAV: NavItem[] = [
   { href: '/painel', label: 'Painel', icon: LayoutDashboard, match: 'exact' },
@@ -91,7 +85,6 @@ export function AppSidebar({
   }
   const pathname = usePathname()
   const signOut = useSignOut()
-  const { openNew } = useLedgerUi()
 
   return (
     <TooltipProvider delayDuration={0}>
@@ -140,14 +133,6 @@ export function AppSidebar({
         <SidebarInset>
           <header className="border-border bg-card/60 z-30 flex h-14 shrink-0 items-center gap-3 border-b px-4 backdrop-blur md:px-6">
             <SidebarTrigger className="md:hidden" aria-label="Abrir menu" />
-            <div className="ml-auto flex items-center gap-2">
-              {/* Pages with their own "Criar" beside the title leave the header empty. */}
-              {!OWN_CREATE_BUTTON.has(pathname) && (
-                <Button size="sm" onClick={() => openNew()} aria-keyshortcuts="N">
-                  <Plus /> Criar
-                </Button>
-              )}
-            </div>
           </header>
           <div data-slot="app-scroll" className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
             {children}

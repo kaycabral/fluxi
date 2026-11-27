@@ -4,11 +4,13 @@ import {
   baseline,
   capitalFor,
   envelopeBalances,
+  isGoalKind,
   monthlyNeeded,
   monthsBetween,
   monthsToReach,
   nextDue,
   planGoal,
+  planningVersion,
   summarize,
   type Goal,
 } from './goals'
@@ -95,7 +97,7 @@ describe('envelopes', () => {
     })
     const fi = goal({ id: 'f', kind: 'independence', budgetGroup: 'investment' })
     const balances = envelopeBalances(
-      { goals: [fi, emergency], months, current: '2026-11', accountBalances: {} },
+      { goals: [fi, emergency], months, current: '2026-11', accountBalances: {}, version },
       base,
     )
     // Target 2.4M: 2.2M + 100k + 100k, then full; independence takes the other 250k × 6 − 200k.
@@ -108,7 +110,7 @@ describe('envelopes', () => {
     const car = goal({ id: 'c', accountId: 'acc', targetCents: 1, targetMonth: '2028-01' })
     expect(
       envelopeBalances(
-        { goals: [car], months, current: '2026-11', accountBalances: { acc: 5_000 } },
+        { goals: [car], months, current: '2026-11', accountBalances: { acc: 5_000 }, version },
         base,
       ).c,
     ).toBe(5_000)
@@ -138,7 +140,7 @@ describe('plans', () => {
       }),
     ]
     const { pots } = summarize(
-      { goals, months: ms, current: '2026-11', accountBalances: {} },
+      { goals, months: ms, current: '2026-11', accountBalances: {}, version: v2 },
       groups,
     )
     const [investment, metas] = pots
@@ -165,7 +167,7 @@ describe('edges', () => {
       initialCents: 100,
       monthlyCents: 5,
     })
-    const input = { goals: [emergency], months, current: '2026-11', accountBalances: {} }
+    const input = { goals: [emergency], months, current: '2026-11', accountBalances: {}, version }
     const { pots } = summarize(input, groups)
     expect(pots[0]?.plans[0]).toMatchObject({ status: 'done', monthlyCents: 0, targetCents: 100 })
     expect(planGoal(emergency, { saved: 0, monthly: 0 }, base, '2026-11').status).toBe('late')
@@ -184,7 +186,38 @@ describe('edges', () => {
 
   it('keeps an archived budget group only while a goal still uses it', () => {
     const archived = groups.map((g) => (g.key === 'goals' ? { ...g, archived: true } : g))
-    const input = { goals: [], months, current: '2026-11', accountBalances: {} }
+    const input = { goals: [], months, current: '2026-11', accountBalances: {}, version }
     expect(summarize(input, archived).pots.map((p) => p.group)).toEqual(['investment'])
+  })
+})
+
+describe('priority', () => {
+  it('splits goals of the same priority in the user order', () => {
+    const v2 = { ...version, targets: { ...version.targets, goals: 1000 } }
+    const car = goal({ id: 'c', targetCents: 1, targetMonth: '2027-01', monthlyCents: 1, sort: 1 })
+    const trip = goal({ id: 't', targetCents: 1, targetMonth: '2027-01', monthlyCents: 1, sort: 0 })
+    const input = {
+      goals: [car, trip],
+      months,
+      current: '2026-11',
+      accountBalances: {},
+      version: v2,
+    }
+    expect(summarize(input, groups).pots[1]?.plans.map((p) => p.goal.id)).toEqual(['t', 'c'])
+  })
+})
+
+describe('isGoalKind', () => {
+  it('accepts only the four kinds', () => {
+    expect(isGoalKind('recurring')).toBe(true)
+    expect(isGoalKind('dividends')).toBe(false)
+  })
+})
+
+describe('planningVersion', () => {
+  it('plans with the latest version, even one starting next month', () => {
+    const next = { ...version, id: 'v2', startsMonth: '2026-12' }
+    expect(planningVersion([next, version])?.id).toBe('v2')
+    expect(planningVersion([])).toBeNull()
   })
 })

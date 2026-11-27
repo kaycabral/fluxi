@@ -188,8 +188,8 @@ export function SearchView({ data, initialQuery, today }: Props) {
           </Typography>
           <Summary count={occurrences.length} totals={totals} />
         </div>
-        <Button size="sm" onClick={() => openNew()} aria-keyshortcuts="N">
-          <Plus /> Criar
+        <Button onClick={() => openNew()} aria-keyshortcuts="N">
+          <Plus /> Nova transação
         </Button>
       </div>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

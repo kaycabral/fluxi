@@ -1,10 +1,13 @@
 'use client'
 
+import { saveGoalAction } from '@/features/goals/adapters/actions/goals'
 import {
-  REAL_RETURN_YEAR,
+  EMERGENCY_MONTHS,
+  planningVersion,
   summarize,
   type Baseline,
   type Goal,
+  type GoalKind,
   type GoalPlan,
   type GoalStatus,
   type PotSummary,
@@ -15,6 +18,7 @@ import { GROUP_DOT_CLASSES } from '@/features/ledger/core/labels'
 import { addMonths, type Month } from '@/features/ledger/core/month'
 import type { BudgetGroup, BudgetVersion } from '@/features/ledger/core/types'
 import { projectWindow, type LedgerData } from '@/features/ledger/core/view'
+import { useAction } from '@/features/ledger/ui/budget/shared'
 import {
   Badge,
   Button,
@@ -76,12 +80,16 @@ export function GoalsView({
   today: Month
 }) {
   const { months, balances } = useGoalsModel(data, versions, today)
+  const version = useMemo(() => planningVersion(versions), [versions])
   const { base, pots } = useMemo(
     () =>
-      summarize({ goals, months, current: today, accountBalances: balances }, data.budgetGroups),
-    [goals, data.budgetGroups, months, today, balances],
+      summarize(
+        { goals, months, current: today, accountBalances: balances, version },
+        data.budgetGroups,
+      ),
+    [goals, data.budgetGroups, months, today, balances, version],
   )
-  const [editing, setEditing] = useState<Goal | 'new' | null>(null)
+  const [editing, setEditing] = useState<Goal | GoalKind | null>(null)
   const groupOf = (key: string) => data.budgetGroups.find((g) => g.key === key)
   const late = pots
     .flatMap((p) => p.plans)
@@ -90,7 +98,7 @@ export function GoalsView({
 
   return (
     <div className="grid gap-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+      <div className="flex items-start justify-between gap-3">
         <div className="grid gap-1">
           <Typography variant="pageTitle" as="h1">
             Objetivos
@@ -99,12 +107,20 @@ export function GoalsView({
             {headline(goals.length, late.length, over.length)}
           </p>
         </div>
-        <Button onClick={() => setEditing('new')}>
+        <Button onClick={() => setEditing('purchase')}>
           <Plus /> Novo objetivo
         </Button>
       </div>
 
-      <BaselineStrip base={base} />
+      <BaselineStrip base={base} version={version} />
+
+      <Suggestions
+        goals={goals}
+        groups={data.budgetGroups}
+        base={base}
+        pots={pots}
+        onAdjust={(kind) => setEditing(kind)}
+      />
 
       <div className="grid gap-4 lg:grid-cols-2">
         {pots.map((pot) => {
@@ -121,15 +137,10 @@ export function GoalsView({
         })}
       </div>
 
-      <p className="text-muted-foreground text-xs">
-        Valores em dinheiro de hoje, crescendo {Math.round(REAL_RETURN_YEAR * 100)}% ao ano acima da
-        inflação. Saldos vêm do que entrou de fato em cada grupo desde a criação do objetivo, ou da
-        conta vinculada.
-      </p>
-
       {editing !== null && (
         <GoalDialog
-          goal={editing === 'new' ? null : editing}
+          goal={typeof editing === 'string' ? null : editing}
+          kind={typeof editing === 'string' ? editing : editing.kind}
           groups={data.budgetGroups}
           accounts={data.accounts.filter((a) => !a.archived)}
           base={base}
@@ -142,6 +153,95 @@ export function GoalsView({
   )
 }
 
+/**
+ * Emergency fund and independence offered ready-made while missing: computed
+ * from the averages, accepted in one click or adjusted in the dialog. Nothing
+ * is offered before a complete month with income (the numbers would be made up).
+ */
+function Suggestions({
+  goals,
+  groups,
+  base,
+  pots,
+  onAdjust,
+}: {
+  goals: readonly Goal[]
+  groups: readonly BudgetGroup[]
+  base: Baseline
+  pots: readonly PotSummary[]
+  onAdjust: (kind: GoalKind) => void
+}) {
+  const [pending, run] = useAction()
+  const investment = groups.some((g) => g.key === 'investment' && !g.archived)
+  if (base.months === 0 || !investment) return null
+  const has = (kind: GoalKind) => goals.some((g) => g.kind === kind)
+  const offers = suggestedGoals(base, pots).filter((o) => !has(o.kind))
+  if (offers.length === 0) return null
+  return (
+    <section aria-label="Sugestões" className="grid gap-2 sm:grid-cols-2">
+      {offers.map((offer) => (
+        <div
+          key={offer.kind}
+          className="border-primary/40 bg-primary/5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-dashed p-3"
+        >
+          <div className="grid min-w-0 gap-0.5">
+            <span className="text-muted-foreground text-xs">Sugestão</span>
+            <span className="font-medium">{offer.name}</span>
+            <span className="text-muted-foreground text-sm">{offer.detail}</span>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="ghost" size="sm" onClick={() => onAdjust(offer.kind)}>
+              Ajustar
+            </Button>
+            <Button
+              size="sm"
+              disabled={pending}
+              onClick={() => run(() => saveGoalAction(offer.input), 'Objetivo criado.')}
+            >
+              Aceitar
+            </Button>
+          </div>
+        </div>
+      ))}
+    </section>
+  )
+}
+
+function suggestedGoals(base: Baseline, pots: readonly PotSummary[]) {
+  const pot = pots.find((p) => p.group === 'investment')?.potCents ?? 0
+  const target = base.essentialCents * EMERGENCY_MONTHS
+  // Fill the fund in about a year, never past the whole pot.
+  const slice = Math.min(pot, Math.ceil(target / 12 / 100) * 100)
+  const common = {
+    id: null,
+    budgetGroup: 'investment',
+    targetCents: null,
+    targetMonth: null,
+    initialCents: 0,
+    withdrawalBps: 400,
+    accountId: null,
+  }
+  return [
+    {
+      kind: 'emergency' as const,
+      name: 'Reserva de emergência',
+      detail: `${short(target)} (${EMERGENCY_MONTHS} × essencial) · ${brl(slice)}/mês`,
+      input: { ...common, name: 'Reserva de emergência', kind: 'emergency', monthlyCents: slice },
+    },
+    {
+      kind: 'independence' as const,
+      name: 'Independência financeira',
+      detail: `Viver com ${brl(base.lifestyleCents)}/mês · recebe o resto do Investimento`,
+      input: {
+        ...common,
+        name: 'Independência financeira',
+        kind: 'independence',
+        monthlyCents: null,
+      },
+    },
+  ]
+}
+
 function headline(count: number, late: number, over: number): string {
   if (count === 0) return 'Diga o quê e quando; o Fluxi calcula quanto guardar com o seu orçamento.'
   if (over > 0) return 'Os objetivos pedem mais do que o orçamento separa. Veja o que cede.'
@@ -150,7 +250,7 @@ function headline(count: number, late: number, over: number): string {
   return `${count === 1 ? 'Seu objetivo está' : `Os ${count} objetivos estão`} no trilho.`
 }
 
-function BaselineStrip({ base }: { base: Baseline }) {
+function BaselineStrip({ base, version }: { base: Baseline; version: BudgetVersion | null }) {
   if (base.months === 0) {
     return (
       <p className="bg-muted rounded-md px-3 py-2 text-sm">
@@ -173,7 +273,10 @@ function BaselineStrip({ base }: { base: Baseline }) {
       ))}
       <div className="grid">
         <span className="text-muted-foreground text-xs">Base</span>
-        <span className="text-sm">últimos {base.months} meses</span>
+        <span className="text-sm">
+          últimos {base.months} meses
+          {version === null ? '' : ` · orçamento de ${monthLabel(version.startsMonth)} em diante`}
+        </span>
       </div>
     </div>
   )

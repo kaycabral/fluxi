@@ -86,7 +86,7 @@ describe('SearchView', () => {
 
   it('creates an entry from beside the title', async () => {
     renderSearch()
-    await userEvent.click(screen.getByRole('button', { name: 'Criar' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Nova transação' }))
     expect(await screen.findByRole('dialog', { name: 'Nova transação' })).toBeInTheDocument()
   })
 

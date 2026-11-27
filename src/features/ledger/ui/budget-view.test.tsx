@@ -55,6 +55,14 @@ beforeEach(() => {
 afterEach(() => vi.clearAllMocks())
 
 describe('BudgetView · grupos', () => {
+  it('measures each group in the month of the selected version', async () => {
+    renderBudget([OLD, { ...NEW, startsMonth: '2027-01' }])
+    expect(screen.getAllByText(/planejado em dez\/26/).length).toBeGreaterThan(0)
+    await userEvent.click(screen.getByRole('combobox', { name: 'Versão do orçamento' }))
+    await userEvent.click(await screen.findByRole('option', { name: 'jan/27 em diante' }))
+    expect(screen.getAllByText(/planejado em jan\/27/).length).toBeGreaterThan(0)
+  })
+
   it('edits the version in force and saves its targets', async () => {
     renderBudget()
     expect(screen.getByText('10% livre para distribuir')).toBeInTheDocument()

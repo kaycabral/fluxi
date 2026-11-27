@@ -1,6 +1,6 @@
 import type { BudgetMonth } from '@/features/ledger/core/budget'
 import { addMonths, type Month } from '@/features/ledger/core/month'
-import type { BudgetGroup, BudgetGroupKey } from '@/features/ledger/core/types'
+import type { BudgetGroup, BudgetGroupKey, BudgetVersion } from '@/features/ledger/core/types'
 
 /**
  * Goals ("Objetivos"): monthly slices of a `minimum` budget group. Everything
@@ -85,14 +85,22 @@ export function baseline(
   }
 }
 
-/** The budget group's money per month: average income × its target in the version of `month`. */
+/** The budget group's money per month: average income × its target in `version`. */
 export function potCents(
   group: BudgetGroupKey,
-  month: BudgetMonth | undefined,
+  version: BudgetVersion | null,
   base: Baseline,
 ): number {
-  const bps = month?.version?.targets[group] ?? 0
+  const bps = version?.targets[group] ?? 0
   return Math.round((base.incomeCents * bps) / 10000)
+}
+
+/**
+ * The budget version goals plan with: the latest one, even when it starts after
+ * this month (goals look ahead; a version made for next month already counts).
+ */
+export function planningVersion(versions: readonly BudgetVersion[]): BudgetVersion | null {
+  return [...versions].sort((a, b) => a.startsMonth.localeCompare(b.startsMonth)).at(-1) ?? null
 }
 
 /** Target in cents (for independence: the capital that pays the income). */
@@ -123,9 +131,8 @@ export function nextDue(goal: Goal, current: Month): Month | null {
 
 /** Whole months from `from` until `to` (0 when `to` is not after `from`). */
 export function monthsBetween(from: Month, to: Month): number {
-  const [fy, fm] = from.split('-').map(Number)
-  const [ty, tm] = to.split('-').map(Number)
-  return Math.max(0, ((ty ?? 0) - (fy ?? 0)) * 12 + ((tm ?? 0) - (fm ?? 0)))
+  const index = (m: Month) => Number(m.slice(0, 4)) * 12 + Number(m.slice(5, 7))
+  return Math.max(0, index(to) - index(from))
 }
 
 /** Monthly deposit that turns `saved` into `target` in `months` (0 when already there). */
@@ -204,6 +211,8 @@ export type GoalsInput = {
   current: Month
   /** Balance per account now (dedicated accounts win over the envelope). */
   accountBalances: Record<string, number>
+  /** Budget version the pots come from ({@link planningVersion}). */
+  version: BudgetVersion | null
 }
 
 /**
@@ -293,16 +302,15 @@ export function summarize(
 ): { base: Baseline; pots: PotSummary[] } {
   const { goals, months, current } = input
   const base = baseline(months, groups, current)
-  const month = months.find((m) => m.month === current)
   const balances = envelopeBalances(input, base)
-  const sliceOf = slices(goals, (g) => potCents(g, month, base), balances, base)
+  const sliceOf = slices(goals, (g) => potCents(g, input.version, base), balances, base)
   const pots = [...groups]
     .filter(
       (g) => g.goal === 'minimum' && (!g.archived || goals.some((x) => x.budgetGroup === g.key)),
     )
     .sort((a, b) => a.sort - b.sort)
     .map((group) => {
-      const pot = potCents(group.key, month, base)
+      const pot = potCents(group.key, input.version, base)
       const own = byPriority(goals.filter((g) => g.budgetGroup === group.key))
       const plans = own.map((g) =>
         planGoal(g, { saved: balances[g.id] ?? 0, monthly: sliceOf[g.id] ?? 0 }, base, current),

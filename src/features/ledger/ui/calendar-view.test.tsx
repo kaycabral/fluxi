@@ -137,6 +137,12 @@ describe('CalendarView · month', () => {
     )
   })
 
+  it('creates an entry from beside the title', async () => {
+    renderCalendar()
+    await userEvent.click(screen.getByRole('button', { name: 'Nova transação' }))
+    expect(await screen.findByRole('dialog', { name: 'Nova transação' })).toBeInTheDocument()
+  })
+
   it('links today and the previous/next month, keeping the account', () => {
     renderCalendar({ account: IDS.nucc })
     expect(screen.getByRole('link', { name: 'Hoje' })).toHaveAttribute(

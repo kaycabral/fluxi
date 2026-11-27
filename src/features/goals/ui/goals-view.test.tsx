@@ -1,8 +1,8 @@
 import type { Goal } from '@/features/goals/core/goals'
 import type { ActionResult } from '@/features/ledger/core/action-result'
 import type { BudgetVersion } from '@/features/ledger/core/types'
-import { sampleData } from '@/features/ledger/ui/test-fixtures'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { IDS, sampleData } from '@/features/ledger/ui/test-fixtures'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { duration, short } from './format'
@@ -184,6 +184,103 @@ describe('GoalsView', () => {
       />,
     )
     expect(screen.getByText(/Ainda não há meses completos/)).toBeInTheDocument()
+  })
+
+  it('offers the emergency fund and independence ready-made, accepted or adjusted', async () => {
+    renderGoals([])
+    const offers = screen.getByRole('region', { name: 'Sugestões' })
+    expect(offers).toHaveTextContent('Reserva de emergência')
+    expect(offers).toHaveTextContent('Independência financeira')
+    await userEvent.click(within(offers).getAllByRole('button', { name: 'Aceitar' })[0]!)
+    await waitFor(() => expect(actions.saveGoalAction).toHaveBeenCalledOnce(), SLOW)
+    expect(actions.saveGoalAction.mock.calls[0]?.[0]).toMatchObject({
+      kind: 'emergency',
+      budgetGroup: 'investment',
+      targetCents: null,
+    })
+    await userEvent.click(within(offers).getAllByRole('button', { name: 'Ajustar' })[1]!)
+    expect(screen.getByLabelText('Nome')).toHaveValue('Independência financeira')
+  })
+
+  it('hides a suggestion once the goal exists, and plans with the latest version', () => {
+    const next = {
+      ...VERSION,
+      id: 'v2',
+      startsMonth: '2027-04',
+      targets: { ...VERSION.targets, goals: 0 },
+    }
+    renderGoals([EMERGENCY, FI, TRIP], [VERSION, next])
+    expect(screen.queryByRole('region', { name: 'Sugestões' })).toBeNull()
+    expect(screen.getByText(/orçamento de abr\/27 em diante/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Defina um % no Orçamento' })).toBeInTheDocument()
+  })
+
+  it('moves a goal to another group, links a dedicated account and changes its month', async () => {
+    renderGoals([TRIP])
+    await userEvent.click(screen.getByRole('button', { name: /Viagem anual/ }))
+    await userEvent.click(screen.getByRole('combobox', { name: 'Sai do grupo' }))
+    await userEvent.click(await screen.findByRole('option', { name: 'Investimento' }))
+    await userEvent.click(screen.getByRole('combobox', { name: 'Conta dedicada (opcional)' }))
+    await userEvent.click(await screen.findByRole('option', { name: 'Conta' }))
+    expect(screen.getByLabelText('Já tenho guardado')).toBeDisabled()
+    fireEvent.change(screen.getByLabelText('Próxima vez'), { target: { value: '2027-09' } })
+    await userEvent.click(screen.getByRole('button', { name: 'Salvar' }))
+    await waitFor(() => expect(actions.saveGoalAction).toHaveBeenCalledOnce(), SLOW)
+    expect(actions.saveGoalAction.mock.calls[0]?.[0]).toMatchObject({
+      budgetGroup: 'investment',
+      accountId: IDS.cc,
+      targetMonth: '2027-09',
+    })
+  })
+
+  it('says when the only goal is on track, and works without any budget version', () => {
+    const { unmount } = renderGoals([
+      {
+        ...TRIP,
+        kind: 'purchase',
+        targetCents: 900_000,
+        targetMonth: '2029-03',
+        monthlyCents: 40_000,
+      },
+    ])
+    expect(screen.getByText('Seu objetivo está no trilho.')).toBeInTheDocument()
+    unmount()
+    renderGoals([TRIP], [])
+    expect(screen.queryByText(/em diante/)).toBeNull()
+  })
+
+  it('keeps a typed name across kinds and falls back to 4% on an invalid rate', async () => {
+    renderGoals([FI])
+    await userEvent.click(screen.getByRole('button', { name: /Novo objetivo/ }))
+    await userEvent.type(screen.getByLabelText('Nome'), 'Liberdade')
+    await userEvent.click(screen.getByRole('radio', { name: /Independência/ }))
+    expect(screen.getByLabelText('Nome')).toHaveValue('Liberdade')
+    fireEvent.change(screen.getByLabelText('Taxa de retirada (% ao ano)'), {
+      target: { value: 'abc' },
+    })
+    await userEvent.click(screen.getByRole('button', { name: 'Salvar' }))
+    await waitFor(() => expect(actions.saveGoalAction).toHaveBeenCalledOnce(), SLOW)
+    expect(actions.saveGoalAction.mock.calls[0]?.[0]).toMatchObject({
+      name: 'Liberdade',
+      withdrawalBps: 400,
+      monthlyCents: null,
+    })
+  })
+
+  it('asks for a group when Metas is archived', async () => {
+    const groups = sampleData().budgetGroups.map((g) =>
+      g.key === 'goals' ? { ...g, archived: true } : g,
+    )
+    render(
+      <GoalsView
+        data={sampleData({ budgetGroups: groups })}
+        versions={[VERSION]}
+        goals={[]}
+        today="2027-03"
+      />,
+    )
+    await userEvent.click(screen.getByRole('button', { name: /Novo objetivo/ }))
+    expect(screen.getByRole('button', { name: 'Salvar' })).toBeDisabled()
   })
 
   it('deletes a goal', async () => {

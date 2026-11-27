@@ -356,6 +356,21 @@ describe('BudgetView · semáforo', () => {
     expect(months()[0]).toBe('nov/26')
   })
 
+  it('shows "–" with no light where a month has no income to measure against', () => {
+    render(
+      <BudgetView
+        data={{ ...sampleData(), entries: sampleData().entries.filter((e) => e.kind !== 'income') }}
+        versions={[OLD, NEW]}
+        today="2026-12"
+      />,
+    )
+    const cell = screen.getAllByRole('link', {
+      name: /^Essencial em dez\/26: sem renda prevista, não dá para medir o grupo/,
+    })[0]
+    if (cell === undefined) throw new Error('no Essencial cell')
+    expect(cell).toHaveTextContent('–')
+  })
+
   it('opens Transações filtered by the cell: that budget group, every day of that month', () => {
     renderBudget()
     const cell = screen.getAllByRole('link', {

@@ -4,6 +4,7 @@ import {
   budgetMonths,
   clampTarget,
   freeBps,
+  hasIncome,
   lightSummary,
   maxBpsFor,
   newBudgetGroupKey,
@@ -168,6 +169,15 @@ describe('budgetMonths', () => {
     expect(budgetGroupCell(essential, before)).toMatchObject({ targetBps: null, light: null })
     // A budget group the version leaves out has a 0% target.
     expect(budgetGroupCell({ key: 'comfort', goal: 'limit' }, november).targetBps).toBe(0)
+  })
+
+  it('gives no light to a month with no income, and leaves it out of the summary', () => {
+    const noIncome: BudgetMonth = { ...december, incomeCents: 0 }
+    const minimum = { key: 'investment', goal: 'minimum' } as const
+    expect(hasIncome(noIncome)).toBe(false)
+    expect(hasIncome(december)).toBe(true)
+    expect(budgetGroupCell(minimum, noIncome).light).toBeNull()
+    expect(lightSummary(budgetGroups, noIncome)).toEqual({ good: 0, warn: 0, bad: 0 })
   })
 
   it('shows a budget group that refunds took below zero as nothing spent', () => {

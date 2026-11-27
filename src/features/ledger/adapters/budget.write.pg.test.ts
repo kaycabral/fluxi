@@ -79,10 +79,10 @@ describe('budgetGroups', () => {
       name: 'Viagens',
       color: 'sky',
       goal: 'limit',
-      sort: 5,
+      sort: 6,
       archived: false,
     })
-    await expect(listBudgetGroups(biaScope)).resolves.toHaveLength(5)
+    await expect(listBudgetGroups(biaScope)).resolves.toHaveLength(6)
   })
 
   it('renames, recolors and changes the goal; never another user’s budget group', async () => {

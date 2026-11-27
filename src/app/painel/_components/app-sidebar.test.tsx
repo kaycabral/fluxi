@@ -70,7 +70,7 @@ function renderSidebar(legacyScreens = true, defaultOpen = true, current: Space 
 }
 
 describe('AppSidebar', () => {
-  it('lists the dashboard, calendar, entries and budget, marking the current page', () => {
+  it('lists the dashboard, calendar, entries, budget and goals, marking the current page', () => {
     renderSidebar()
     const nav = screen.getByRole('navigation', { name: 'Seções' })
     const links = within(nav).getAllByRole('link')
@@ -79,6 +79,7 @@ describe('AppSidebar', () => {
       'Calendário',
       'Transações',
       'Orçamento',
+      'Objetivos',
     ])
     expect(links[0]).toHaveAttribute('href', '/painel')
     expect(links[1]).toHaveAttribute('href', '/painel/calendario')

@@ -5,6 +5,7 @@ import CalendarPage from './(app)/calendario/page'
 import ConnectionsRedirect from './(app)/conexoes/page'
 import SettingsRedirect from './(app)/configuracoes/page'
 import AppLayout from './(app)/layout'
+import GoalsPage from './(app)/objetivos/page'
 import BudgetPage from './(app)/orcamento/page'
 import DashboardPage from './(app)/page'
 import SearchPage from './(app)/transacoes/page'
@@ -109,6 +110,13 @@ vi.mock('@/features/ledger/ui/payables-view', () => ({
 vi.mock('@/features/ledger/ui/accounts-view', () => ({
   AccountsView: ({ firstMonth }: { firstMonth: string }) => <p>accounts {firstMonth}</p>,
 }))
+const loadGoals = vi.fn<(scope: unknown) => Promise<Read<unknown>>>()
+vi.mock('@/features/goals/adapters/goals.repo', () => ({ loadGoals: (u: unknown) => loadGoals(u) }))
+vi.mock('@/features/goals/ui/goals-view', () => ({
+  GoalsView: ({ goals, today }: { goals: unknown[]; today: string }) => (
+    <p>goals {`${goals.length}@${today}`}</p>
+  ),
+}))
 vi.mock('@/features/ledger/ui/budget-view', () => ({
   BudgetView: ({ versions, today }: { versions: unknown[]; today: string }) => (
     <p>budget {`${versions.length}@${today}`}</p>
@@ -172,6 +180,7 @@ beforeEach(() => {
   views.loadRefs.mockResolvedValue(ok(sampleRefs()))
   views.loadLedgerData.mockResolvedValue(ok(sampleData()))
   views.loadBudgetVersions.mockResolvedValue(ok([{}, {}]))
+  loadGoals.mockResolvedValue(ok([{}]))
   views.loadAccountBalances.mockResolvedValue(ok({ firstMonth: '2026-11' }))
   getServerUser.mockResolvedValue({ id: 'u1' })
   getProfile.mockResolvedValue({ id: 'u1', displayName: 'Ana', avatarUrl: null })
@@ -234,6 +243,17 @@ describe('painel pages', () => {
       { from: '1900-01', to: '9999-12' },
       '2026-12-15',
     )
+  })
+
+  it('goals load the ledger up to this month, the budget versions and the goals', async () => {
+    render(await GoalsPage())
+    expect(screen.getByText('goals 1@2026-12')).toBeInTheDocument()
+    expect(views.loadLedgerData).toHaveBeenCalledWith(
+      SCOPE,
+      { from: '2026-12', to: '2026-12' },
+      '2026-12-15',
+    )
+    expect(loadGoals).toHaveBeenCalledWith(SCOPE)
   })
 
   it('dashboard loads the whole ledger and the budget versions with today', async () => {
@@ -301,6 +321,7 @@ describe('painel pages', () => {
       await SearchPage(),
       await AccountsPage(),
       await BudgetPage(),
+      await GoalsPage(),
       await DashboardPage({ searchParams: Promise.resolve({}) }),
       await CalendarPage({ searchParams: Promise.resolve({}) }),
     ]) {

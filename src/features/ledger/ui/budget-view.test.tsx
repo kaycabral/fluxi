@@ -299,7 +299,8 @@ describe('BudgetView · mais ações', () => {
 
   it('measures a minimum budget group back as a spending limit', async () => {
     renderBudget()
-    expect(screen.getByText(/^guardar ao menos \d/)).toBeInTheDocument()
+    // Investimento and Metas are both `minimum` budget groups.
+    expect(screen.getAllByText(/^guardar ao menos \d/)).toHaveLength(2)
     await userEvent.click(screen.getByRole('button', { name: 'Ações do grupo Investimento' }))
     await userEvent.click(await screen.findByRole('menuitemradio', { name: 'Limite de gasto' }))
     await waitFor(() =>

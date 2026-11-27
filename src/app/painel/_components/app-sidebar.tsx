@@ -37,6 +37,7 @@ import {
   PiggyBank,
   Plus,
   Settings,
+  Target,
 } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -52,6 +53,7 @@ const NAV: NavItem[] = [
   { href: '/painel/calendario', label: 'Calendário', icon: CalendarDays, match: 'prefix' },
   { href: '/painel/transacoes', label: 'Transações', icon: ListIcon, match: 'prefix' },
   { href: '/painel/orcamento', label: 'Orçamento', icon: PiggyBank, match: 'prefix' },
+  { href: '/painel/objetivos', label: 'Objetivos', icon: Target, match: 'prefix' },
 ]
 
 /**

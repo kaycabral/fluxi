@@ -14,7 +14,7 @@ import { defineConfig } from 'drizzle-kit'
  */
 export default defineConfig({
   dialect: 'postgresql',
-  schema: ['./src/db/schema.ts', './src/db/schema-bank-feed.ts'],
+  schema: ['./src/db/schema.ts', './src/db/schema-bank-feed.ts', './src/db/schema-goals.ts'],
   out: './drizzle',
   schemaFilter: ['public'],
   dbCredentials: drizzleKitCredentials('POSTGRES_URL_NON_POOLING', 'POSTGRES_URL'),

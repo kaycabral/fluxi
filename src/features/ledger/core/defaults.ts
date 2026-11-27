@@ -2,7 +2,7 @@ import type { BudgetGroupColor, BudgetGroupGoal, BudgetGroupKey } from './types'
 
 /**
  * Defaults every new space starts with. The database seeds them with
- * `public.seed_space_defaults` (latest version: migration `0027_space_icon_and_defaults`), called by the
+ * `public.seed_space_defaults` (latest version: migration `0032_goals`), called by the
  * `on_auth_user_created` trigger for the personal space and by the app for
  * every space the user creates; the Postgres suite asserts the seeded rows
  * equal these constants, so a change here needs a new migration that replaces
@@ -20,6 +20,8 @@ export const DEFAULT_BUDGET_GROUPS: readonly {
   { key: 'guilt_free', name: 'Livre', color: 'pink', goal: 'limit', targetBps: 1000 },
   { key: 'education', name: 'Educação', color: 'emerald', goal: 'limit', targetBps: 500 },
   { key: 'investment', name: 'Investimento', color: 'blue', goal: 'minimum', targetBps: 2500 },
+  // Planned spending (trips, a car); starts at 0% and the first goal in it proposes the share.
+  { key: 'goals', name: 'Metas', color: 'amber', goal: 'minimum', targetBps: 0 },
 ]
 
 export type DefaultCategoryGroup = {

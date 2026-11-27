@@ -225,6 +225,13 @@
       "when": 1795734555826,
       "tag": "0031_drop_count_from_month",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1795753570005,
+      "tag": "0032_goals",
+      "breakpoints": true
     }
   ]
 }

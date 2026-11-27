@@ -1,6 +1,7 @@
 import { fluxiDb } from '@/db'
 import { accounts, banks, spaces } from '@/db/schema'
 import { expect, test } from '@e2e/fixtures'
+import { expectHydrated } from '@e2e/hydration'
 import { and, eq } from 'drizzle-orm'
 
 const SPACE = 'Freela E2E'
@@ -74,6 +75,8 @@ test.describe('spaces', () => {
       page.getByRole('button', { name: `Espaço: ${SPACE}. Trocar de espaço e abrir a conta` }),
     ).toBeVisible()
 
+    // The page streams in before it hydrates: the shortcut listens once it has.
+    await expectHydrated(page.locator('[data-slot="sidebar-wrapper"]'))
     await page.keyboard.press('n')
     const sheet = page.getByRole('dialog', { name: 'Nova transação' })
     await expect(sheet).toBeVisible()
@@ -93,6 +96,7 @@ test.describe('spaces', () => {
       page.getByRole('button', { name: 'Espaço: Pessoal. Trocar de espaço e abrir a conta' }),
     ).toBeVisible()
     await expect(page.getByText('Nota fiscal E2E')).toHaveCount(0)
+    await expectHydrated(page.locator('[data-slot="sidebar-wrapper"]'))
     await page.keyboard.press('n')
     const personal = page.getByRole('dialog', { name: 'Nova transação' })
     await expect(personal).toBeVisible()

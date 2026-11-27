@@ -5,6 +5,7 @@ import { addMonths, diffMonths, monthToDate } from '@/features/ledger/core/month
 import type { Scope } from '@/features/spaces/core/space'
 import { formatAmountFromCents, parseBRLInput } from '@cbrl/br/money'
 import { expect, test } from '@e2e/fixtures'
+import { expectHydrated } from '@e2e/hydration'
 import type { Page } from '@playwright/test'
 
 const THIS_MONTH = monthOf(new Date())
@@ -101,6 +102,8 @@ test.describe('ledger critical flow', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Linha do tempo' })).toBeVisible()
 
     // Create a monthly expense through the N shortcut.
+    // The page streams in before it hydrates: the shortcut listens once it has.
+    await expectHydrated(page.getByRole('heading', { level: 1, name: 'Linha do tempo' }))
     await page.keyboard.press('n')
     const sheet = page.getByRole('dialog', { name: 'Nova transação' })
     await expect(sheet).toBeVisible()

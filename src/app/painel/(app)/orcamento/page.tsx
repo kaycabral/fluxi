@@ -4,6 +4,12 @@ import { loadBudgetVersions, loadLedgerData } from '@/features/ledger/adapters/v
 import { BudgetView } from '@/features/ledger/ui/budget-view'
 import { Main } from '@cbrl/design'
 import type { Metadata } from 'next'
+import { connection } from 'next/server'
+
+// @next-codemod-ignore Cache Components adoption: this segment temporarily allows blocking.
+// Remove this opt-out after verifying the segment passes validation without it.
+// See: https://nextjs.org/docs/app/guides/migrating-to-cache-components
+export const instant = false
 
 export const metadata: Metadata = { title: 'Orçamento — Fluxi' }
 
@@ -12,6 +18,7 @@ const ALL_TIME = { from: '1900-01', to: '9999-12' }
 
 /** `/painel/orcamento`: budget groups, budget versions and the monthly traffic light. */
 export default async function BudgetPage() {
+  await connection()
   const scope = await requirePainelScope()
   const [data, versions] = await Promise.all([
     loadLedgerData(scope, ALL_TIME, todayIso()),

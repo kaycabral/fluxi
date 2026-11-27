@@ -2,10 +2,18 @@ import { BrandMark } from '@/components/brand-mark'
 import { Footer } from '@/components/footer'
 import { getServerUser } from '@/lib/auth/server'
 import { redirect } from 'next/navigation'
+import { connection } from 'next/server'
 import { Suspense } from 'react'
 import { SignInButton } from './_components/sign-in-button'
 
+// @next-codemod-ignore Cache Components adoption: this segment temporarily allows blocking.
+// Remove this opt-out after verifying the segment passes validation without it.
+// See: https://nextjs.org/docs/app/guides/migrating-to-cache-components
+export const instant = false
+
 export default async function LandingPage() {
+  // A signed-in visitor goes to the painel: the page depends on the request.
+  await connection()
   if (await getServerUser()) redirect('/painel')
 
   return (

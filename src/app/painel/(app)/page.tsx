@@ -10,6 +10,12 @@ import { DashboardView } from '@/features/ledger/ui/dashboard/dashboard-view'
 import { Main } from '@cbrl/design'
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
+import { connection } from 'next/server'
+
+// @next-codemod-ignore Cache Components adoption: this segment temporarily allows blocking.
+// Remove this opt-out after verifying the segment passes validation without it.
+// See: https://nextjs.org/docs/app/guides/migrating-to-cache-components
+export const instant = false
 
 export const metadata: Metadata = { title: 'Painel — Fluxi' }
 
@@ -28,6 +34,7 @@ export default async function DashboardPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
+  await connection()
   const params = await searchParams
   const calendar = new URLSearchParams()
   for (const key of CALENDAR_PARAMS) {

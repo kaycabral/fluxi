@@ -77,6 +77,8 @@ vi.mock('next/navigation', () => ({
 let prefsCookie: string | undefined
 let searchCookie: string | undefined
 let sidebarCookie: string | undefined
+// Outside a request in tests: the request-time marker is a no-op.
+vi.mock('next/server', () => ({ connection: () => Promise.resolve() }))
 vi.mock('next/headers', () => ({
   headers: () => Promise.resolve(new Headers({ 'x-pathname': '/painel/contas' })),
   cookies: () =>

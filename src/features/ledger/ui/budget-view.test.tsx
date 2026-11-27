@@ -341,19 +341,20 @@ describe('BudgetView · semáforo', () => {
       .map((h) => h.textContent)
       .filter((t) => t !== 'Grupo')
 
-  it('opens on the default window before measuring (previous, current, next 3) and walks it with the arrows', async () => {
+  it('opens on the current month and the next 4 before measuring, and walks it with the arrows', async () => {
     renderBudget()
-    expect(months()).toEqual(['nov/26', 'dez/26', 'jan/27', 'fev/27', 'mar/27'])
+    expect(months()).toEqual(['dez/26', 'jan/27', 'fev/27', 'mar/27', 'abr/27'])
     // Same compact presentation as the dashboard widget: no range label, no legend.
     expect(screen.queryByText(/ – /)).not.toBeInTheDocument()
     expect(screen.queryByText('Dentro da meta')).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Mês anterior' }))
-    expect(months()[0]).toBe('out/26')
-    await userEvent.click(screen.getByRole('button', { name: 'Próximo mês' }))
-    await userEvent.click(screen.getByRole('button', { name: 'Próximo mês' }))
-    expect(months()[0]).toBe('dez/26')
-    await userEvent.click(screen.getByRole('button', { name: 'Hoje' }))
     expect(months()[0]).toBe('nov/26')
+    await userEvent.click(screen.getByRole('button', { name: 'Próximo mês' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Próximo mês' }))
+    expect(months()[0]).toBe('jan/27')
+    // "Hoje" brings the window back to the current month, never the past.
+    await userEvent.click(screen.getByRole('button', { name: 'Hoje' }))
+    expect(months()[0]).toBe('dez/26')
   })
 
   it('shows "–" with no light where a month has no income to measure against', () => {
@@ -431,22 +432,23 @@ describe('BudgetView · semáforo', () => {
         },
       )
       const { unmount } = renderBudget()
-      expect(months()).toEqual(['nov/26', 'dez/26', 'jan/27', 'fev/27', 'mar/27'])
+      expect(months()).toEqual(['dez/26', 'jan/27', 'fev/27', 'mar/27', 'abr/27'])
       unmount()
     })
 
-    it('a wide card shows more future months, one month back', async () => {
+    it('a wide card shows more future months, still from the current month', async () => {
       measureAs(1150)
       renderBudget()
       await waitFor(() => expect(months()).toHaveLength(10))
-      expect(months()[0]).toBe('nov/26')
+      expect(months()[0]).toBe('dez/26')
     })
   })
 
   it('judges each month by its own version and leaves earlier months without a light', async () => {
     renderBudget()
-    expect(screen.getByLabelText(/^Essencial em nov\/26: .*meta 50%/)).toBeInTheDocument()
     expect(screen.getByLabelText(/^Essencial em dez\/26: .*meta 33%/)).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Mês anterior' }))
+    expect(screen.getByLabelText(/^Essencial em nov\/26: .*meta 50%/)).toBeInTheDocument()
     for (let i = 0; i < 6; i++) {
       await userEvent.click(screen.getByRole('button', { name: 'Mês anterior' }))
     }

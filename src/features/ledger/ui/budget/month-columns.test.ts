@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { MONTH_COLUMNS, monthColumnsFor, monthsBeforeFor } from './traffic-light'
+import { MONTH_COLUMNS, monthColumnsFor } from './traffic-light'
 
 describe('monthColumnsFor', () => {
   it('is unknown until the card is measured', () => {
@@ -22,14 +22,5 @@ describe('monthColumnsFor', () => {
   it('stops at a year ahead: wider cards keep 12 months', () => {
     expect(monthColumnsFor(MONTH_COLUMNS.groupWidth + 12 * MONTH_COLUMNS.monthWidth)).toBe(12)
     expect(monthColumnsFor(4000)).toBe(12)
-  })
-})
-
-describe('monthsBeforeFor', () => {
-  it('opens tight cards on the current month and roomier ones one month back', () => {
-    expect(monthsBeforeFor(2, 1)).toBe(0)
-    expect(monthsBeforeFor(3, 1)).toBe(0)
-    expect(monthsBeforeFor(4, 1)).toBe(1)
-    expect(monthsBeforeFor(12, 1)).toBe(1)
   })
 })

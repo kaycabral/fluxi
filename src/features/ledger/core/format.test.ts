@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   centsToInput,
   dayLongLabel,
+  dueDateLabel,
   formatMoney,
   formatPercent,
   formatSignedMoney,
@@ -124,5 +125,13 @@ describe('dayLongLabel', () => {
   it('names the weekday, day and month', () => {
     expect(dayLongLabel('2026-12-03')).toBe('quinta-feira, 3 de dezembro')
     expect(dayLongLabel('2027-01-31')).toBe('domingo, 31 de janeiro')
+  })
+})
+
+describe('dueDateLabel', () => {
+  it('omits the year only in the current year', () => {
+    expect(dueDateLabel('2026-12-19', '2026-11-27')).toBe('19/12')
+    expect(dueDateLabel('2025-12-19', '2026-11-27')).toBe('19/12/25')
+    expect(dueDateLabel('2027-01-05', '2026-11-27')).toBe('05/01/27')
   })
 })

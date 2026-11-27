@@ -318,6 +318,11 @@ describe('DashboardView', () => {
   it('asks for a first account before anything else', () => {
     renderDashboard(sampleData({ accounts: [] }))
     expect(screen.getByText('Cadastre seu primeiro banco e conta')).toBeInTheDocument()
+    // Opens Configurações → Contas, where the first account is created.
+    expect(screen.getByRole('link', { name: 'Criar conta' })).toHaveAttribute(
+      'href',
+      '#configuracoes/contas',
+    )
   })
 })
 

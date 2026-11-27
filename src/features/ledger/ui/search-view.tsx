@@ -171,9 +171,11 @@ export function SearchView({ data, initialQuery, today }: Props) {
   }
 
   return (
-    <div className="grid gap-4">
+    // One column that may shrink below its content: the list rows truncate
+    // instead of widening the page on a phone.
+    <div className="grid grid-cols-1 gap-4">
       <div className="flex items-start justify-between gap-3">
-        <div className="grid gap-1">
+        <div className="grid min-w-0 gap-1">
           <Typography variant="pageTitle" as="h1">
             Transações
           </Typography>
@@ -230,17 +232,7 @@ export function SearchView({ data, initialQuery, today }: Props) {
         getKey={({ landing }, index) =>
           `${landing.entry.id}-${landing.month}-${landing.part?.id ?? 'whole'}-${index}`
         }
-        empty={
-          anyFilter
-            ? {
-                title: 'Nenhuma transação encontrada',
-                description: 'Tente outra busca ou limpe os filtros.',
-              }
-            : {
-                title: 'Nenhuma transação ainda',
-                description: 'Use "Criar" para lançar a primeira entrada ou saída.',
-              }
-        }
+        empty={emptyList(anyFilter, data.accounts.length > 0)}
         pagination={{
           page: current,
           pageCount,
@@ -326,6 +318,27 @@ export function SearchView({ data, initialQuery, today }: Props) {
  * Count and sum of what the filters left: the net first (what the selection
  * adds up to), then money in and out, right under the title.
  */
+/** What the empty list says: nothing matched, no account to start with, or no transaction yet. */
+function emptyList(anyFilter: boolean, hasAccounts: boolean) {
+  if (anyFilter) {
+    return {
+      title: 'Nenhuma transação encontrada',
+      description: 'Tente outra busca ou limpe os filtros.',
+    }
+  }
+  if (!hasAccounts) {
+    return {
+      title: 'Nenhuma conta ainda',
+      description: 'Crie uma conta para lançar a primeira entrada ou saída.',
+      action: { label: 'Criar conta', href: '#configuracoes/contas' },
+    }
+  }
+  return {
+    title: 'Nenhuma transação ainda',
+    description: 'Use "Nova transação" para lançar a primeira entrada ou saída.',
+  }
+}
+
 function Summary({ count, totals }: { count: number; totals: SearchTotals }) {
   return (
     // A polite live region: screen readers hear the new count and sums as filters change.
@@ -340,19 +353,19 @@ function Summary({ count, totals }: { count: number; totals: SearchTotals }) {
           {count} {count === 1 ? 'transação' : 'transações'}
         </dd>
       </div>
-      <div className="flex gap-1.5">
+      <div className="flex gap-1.5 whitespace-nowrap">
         <dt>Saldo</dt>
         <dd>
           <Money cents={totals.netCents} tone className="font-semibold" />
         </dd>
       </div>
-      <div className="flex gap-1.5">
+      <div className="flex gap-1.5 whitespace-nowrap">
         <dt>Entradas</dt>
         <dd>
           <Money cents={totals.incomeCents} tone />
         </dd>
       </div>
-      <div className="flex gap-1.5">
+      <div className="flex gap-1.5 whitespace-nowrap">
         <dt>Saídas</dt>
         <dd>
           <Money cents={totals.expenseCents} tone />

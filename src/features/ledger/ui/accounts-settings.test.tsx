@@ -6,7 +6,9 @@ import { AccountsSettings } from './accounts-settings'
 
 const renameAccountAction = vi.fn<(input: unknown) => Promise<ActionResult>>()
 const setAccountArchivedAction = vi.fn<(input: unknown) => Promise<ActionResult>>()
+const addAccountAction = vi.fn<(input: unknown) => Promise<ActionResult>>()
 vi.mock('@/features/ledger/adapters/actions/accounts', () => ({
+  addAccountAction: (i: unknown) => addAccountAction(i),
   renameAccountAction: (i: unknown) => renameAccountAction(i),
   setAccountArchivedAction: (i: unknown) => setAccountArchivedAction(i),
 }))
@@ -30,9 +32,53 @@ const account = (
 afterEach(() => vi.resetAllMocks())
 
 describe('AccountsSettings', () => {
-  it('says when the space has no active account', () => {
-    render(<AccountsSettings data={{ banks: [BANK], accounts: [] }} />)
-    expect(screen.getByText('Nenhuma conta ativa neste espaço.')).toBeInTheDocument()
+  it('says when the space has no active account and opens the form for the first one', () => {
+    render(<AccountsSettings data={{ banks: [], accounts: [] }} />)
+    expect(screen.getByText(/^Nenhuma conta ativa neste espaço\./)).toBeInTheDocument()
+    const form = screen.getByRole('form', { name: 'Nova conta' })
+    // No bank yet: the bank is typed, not picked.
+    expect(within(form).getByLabelText('Banco')).toHaveRole('textbox')
+  })
+
+  it('creates the first account in a new bank', async () => {
+    addAccountAction.mockResolvedValue({ ok: true })
+    const onChanged = vi.fn()
+    render(<AccountsSettings data={{ banks: [], accounts: [] }} onChanged={onChanged} />)
+    await userEvent.type(screen.getByLabelText('Banco'), 'Nubank')
+    await userEvent.type(screen.getByLabelText('Nome da conta'), 'Conta corrente')
+    await userEvent.type(screen.getByLabelText('Saldo inicial'), '-12,50')
+    await userEvent.click(screen.getByRole('button', { name: 'Criar conta' }))
+    await waitFor(() => expect(onChanged).toHaveBeenCalled())
+    expect(addAccountAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        newBankName: 'Nubank',
+        name: 'Conta corrente',
+        type: 'checking',
+        openingBalanceCents: -1250,
+      }),
+    )
+  })
+
+  it('adds an account to an existing bank from "Nova conta", refusing a bad opening balance', async () => {
+    addAccountAction.mockResolvedValue({ ok: true })
+    render(<AccountsSettings data={{ banks: [BANK], accounts: [account({})] }} />)
+    expect(screen.queryByRole('form', { name: 'Nova conta' })).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Nova conta' }))
+    await userEvent.type(screen.getByLabelText('Nome da conta'), 'Poupança')
+    await userEvent.type(screen.getByLabelText('Saldo inicial'), 'abc')
+    await userEvent.click(screen.getByRole('button', { name: 'Criar conta' }))
+    expect(screen.getByText('Saldo inicial inválido.')).toBeInTheDocument()
+    expect(addAccountAction).not.toHaveBeenCalled()
+    await userEvent.clear(screen.getByLabelText('Saldo inicial'))
+    await userEvent.click(screen.getByRole('button', { name: 'Criar conta' }))
+    await waitFor(() =>
+      expect(addAccountAction).toHaveBeenCalledWith(
+        expect.objectContaining({ bankId: 'b1', newBankName: null, openingBalanceCents: 0 }),
+      ),
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Nova conta' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
+    expect(screen.queryByRole('form', { name: 'Nova conta' })).not.toBeInTheDocument()
   })
 
   it('keeps the name on Escape or blank, and explains a connected account', async () => {

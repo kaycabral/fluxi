@@ -231,11 +231,13 @@ function MonthDay({
           <QuickAddForm date={date} onDone={() => openQuick(null)} />
         </PopoverContent>
       </Popover>
-      {/* First row: room for the day number (drawn by the button), the end balance on the right. */}
+      {/* First row: room for the day number (drawn by the button), the end balance on the right
+          (from `sm` up: a phone's cell has no room for it, and a cut value would mislead; the
+          day's panel still shows it). */}
       <div className="pointer-events-none relative flex h-6 shrink-0 items-center justify-end pl-10">
         <span
           className={cn(
-            'text-muted-foreground truncate text-[0.7rem] tabular-nums',
+            'text-muted-foreground hidden truncate text-[0.7rem] tabular-nums sm:inline',
             negative && 'text-destructive font-medium',
           )}
         >

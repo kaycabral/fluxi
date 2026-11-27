@@ -27,6 +27,7 @@ import {
 import { accountBalancesOn } from '@/features/ledger/core/dashboard'
 import { isoDayOf, parseSignedMoneyInput } from '@/features/ledger/core/format'
 import {
+  addAccountSchema,
   archiveAccountSchema,
   createAccountSchema,
   createBankSchema,
@@ -166,6 +167,24 @@ export async function renameAccountAction(input: unknown): Promise<ActionResult>
   const parsed = renameAccountSchema.safeParse(input)
   if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) }
   return result(await renameAccount(scope, parsed.data))
+}
+
+/**
+ * Configurações → "Nova conta": the account, in an existing bank or in a new
+ * one (created first, with the given id). Everything is validated before
+ * anything is written; ids come from the client, so a retry is a no-op.
+ */
+export async function addAccountAction(input: unknown): Promise<ActionResult> {
+  const scope = await getServerScope()
+  if (!scope) return { ok: false, error: SESSION_EXPIRED }
+  const parsed = addAccountSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) }
+  const { newBankName, ...account } = parsed.data
+  if (newBankName !== null) {
+    const bank = await createBank(scope, { id: account.bankId, name: newBankName })
+    if (!bank.ok) return result(bank)
+  }
+  return result(await createAccount(scope, account))
 }
 
 /** Archive or unarchive an account of the current space (a connected one is refused). */

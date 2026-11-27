@@ -117,6 +117,15 @@ export function shortDate(month: Month, day: number): string {
   return `${String(day).padStart(2, '0')}/${month.slice(5, 7)}/${month.slice(2, 4)}`
 }
 
+/**
+ * A due date in a short list: `19/12` in `today`'s year, `19/12/25` in any
+ * other (an overdue bill from last year must not read as a coming one).
+ */
+export function dueDateLabel(date: string, today: string): string {
+  const dayMonth = `${date.slice(8, 10)}/${date.slice(5, 7)}`
+  return date.slice(0, 4) === today.slice(0, 4) ? dayMonth : `${dayMonth}/${date.slice(2, 4)}`
+}
+
 /** The month of `date` in São Paulo, where the ledger's users live. */
 export function monthOf(date: Date, timeZone = 'America/Sao_Paulo'): Month {
   return isoDayOf(date, timeZone).slice(0, 7)

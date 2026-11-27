@@ -236,15 +236,10 @@ export function balanceKnownFrom(
   today: string,
 ): string {
   for (const result of [...results].sort((a, b) => a.month.localeCompare(b.month))) {
-    let first: number | null = null
-    for (const landing of result.landings) {
-      if (!entryMatchesAccounts(landing.entry, ids)) continue
-      if (first === null || landing.day < first) first = landing.day
-    }
-    if (first !== null) {
-      const date = `${result.month}-${String(first).padStart(2, '0')}`
-      return date < today ? date : today
-    }
+    const days = result.landings.filter((l) => entryMatchesAccounts(l.entry, ids)).map((l) => l.day)
+    if (days.length === 0) continue
+    const date = `${result.month}-${String(Math.min(...days)).padStart(2, '0')}`
+    return date < today ? date : today
   }
   return today
 }

@@ -10,6 +10,7 @@ import {
   landingBounds,
   ledgerSpan,
   orderedRange,
+  parseSearchParams,
   pickerRange,
   searchAccountIds,
   searchOccurrences,
@@ -51,19 +52,20 @@ import {
   Typography,
 } from '@cbrl/design'
 import { ListChecks, Plus, Search, SlidersHorizontal, X } from 'lucide-react'
+import { useSearchParams } from 'next/navigation'
 import { useDeferredValue, useMemo, useState } from 'react'
 import { BankMark } from './bank-mark'
 import { useLedgerUi } from './ledger-shell'
 import { Money } from './money'
 import { SelectionBar, useEntrySelection } from './selection-bar'
 import { AccountSelect, BudgetGroupSelect, CategorySelect, OptionSelect } from './selects'
-import { rememberSearchQuery, useRememberedQuery } from './transactions-link'
+import { transactionsHref } from './transactions-link'
 
 const PAGE_SIZE = 50
 
 const SORT_OPTIONS = [
-  ['desc', SORT_LABELS.desc],
   ['asc', SORT_LABELS.asc],
+  ['desc', SORT_LABELS.desc],
 ] as const
 
 function isSort(value: string): value is SortOrder {
@@ -104,34 +106,31 @@ function isMoney(value: string): value is MoneyFilter {
 type Props = {
   /** The whole ledger (the list filters it on the client). */
   data: LedgerData
-  /** The query this browser left last time (cookie). */
-  initialQuery: SearchQuery
   /** `YYYY-MM-DD`. */
   today: string
 }
 
 /**
- * "Transações": every occurrence of the ledger as a flat list, newest first,
+ * "Transações": every occurrence of the ledger as a flat list, oldest first,
  * with a live search box and the other filters behind a "Filtros" button.
- * Everything runs on the client over the loaded ledger, so typing never
- * reaches the server; the query is remembered per browser.
+ * Runs on the client over the loaded ledger; the query lives in the URL
+ * (`SEARCH_PARAMS`), replaced in place: no history entry, no server request.
  */
-export function SearchView({ data, initialQuery, today }: Props) {
+export function SearchView({ data, today }: Props) {
   const { openEdit, openNew } = useLedgerUi()
-  const [query, setQuery] = useState(initialQuery)
-  const [page, setPage] = useState(1)
+  const queryKey = useSearchParams().toString()
+  const query = useMemo(() => parseSearchParams(new URLSearchParams(queryKey)), [queryKey])
+  // The page number belongs to one query: a new query starts on page 1.
+  const [paging, setPaging] = useState({ queryKey, page: 1 })
+  const page = paging.queryKey === queryKey ? paging.page : 1
+  const setPage = (next: number) => setPaging({ queryKey, page: next })
   const { selecting, selected, toggleSelected, setSelecting, stopSelecting, clearSelected } =
     useEntrySelection()
   // Typing stays instant; filtering a long ledger renders at lower priority.
   const applied = useDeferredValue(query)
 
-  const update = (patch: Partial<SearchQuery>) => {
-    const fixed = orderedRange({ ...query, ...patch })
-    setQuery(fixed)
-    setPage(1)
-    rememberSearchQuery(fixed)
-  }
-  useRememberedQuery(query, update)
+  const update = (patch: Partial<SearchQuery>) =>
+    history.replaceState(null, '', transactionsHref(orderedRange({ ...query, ...patch })))
 
   const ctx = useMemo(
     () => ({

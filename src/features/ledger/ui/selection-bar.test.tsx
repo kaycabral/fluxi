@@ -1,4 +1,3 @@
-import { EMPTY_SEARCH_QUERY } from '@/features/ledger/core/search'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -23,7 +22,10 @@ vi.mock('@/features/ledger/adapters/actions/undo', () => ({
   undoAction: vi.fn(),
   forgetUndoAction: vi.fn(),
 }))
-vi.mock('next/navigation', () => ({ useRouter: () => ({ replace: vi.fn(), refresh: vi.fn() }) }))
+vi.mock('next/navigation', async () => ({
+  useRouter: () => ({ replace: vi.fn(), refresh: vi.fn() }),
+  useSearchParams: (await import('./test-navigation')).useTestSearchParams,
+}))
 
 beforeEach(() => categorize.mockResolvedValue({ ok: true }))
 afterEach(() => vi.clearAllMocks())
@@ -83,12 +85,15 @@ describe('selection mode in Transações', () => {
   it('toggles rows instead of opening them and shows the bar', async () => {
     render(
       <LedgerShell refs={sampleRefs()}>
-        <SearchView data={sampleData()} initialQuery={EMPTY_SEARCH_QUERY} today="2026-12-15" />
+        <SearchView data={sampleData()} today="2026-12-15" />
       </LedgerShell>,
     )
     await userEvent.click(screen.getByRole('button', { name: /Selecionar/ }))
+    // Two rows of different entries (selection is per entry, not occurrence).
     const boxes = within(screen.getByRole('list')).getAllByRole('checkbox')
-    const [first, second] = boxes
+    const name = (box: HTMLElement) => box.closest('li')?.textContent?.split(/\d/)[0]
+    const first = boxes[0]
+    const second = boxes.find((box) => first !== undefined && name(box) !== name(first))
     if (first === undefined || second === undefined) throw new Error('rows missing')
     await userEvent.click(first)
     await userEvent.click(second)

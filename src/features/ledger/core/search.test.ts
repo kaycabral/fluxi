@@ -11,13 +11,13 @@ import {
   ledgerSpan,
   monthQuery,
   orderedRange,
-  parseSearchQuery,
+  parseSearchParams,
   pickerRange,
   searchAccountIds,
   searchOccurrences,
+  searchParamsOf,
   searchTotals,
   searchWindow,
-  serializeSearchQuery,
   type SearchContext,
   type SearchQuery,
 } from './search'
@@ -103,39 +103,37 @@ const months = projectMonths({
 
 const base = EMPTY_SEARCH_QUERY
 
-describe('remembered search query (cookie)', () => {
+describe('search query in the URL', () => {
+  const parse = (search: string) => parseSearchParams(new URLSearchParams(search))
+
   it('starts with no filter at all', () => {
-    expect(parseSearchQuery(undefined)).toEqual(EMPTY_SEARCH_QUERY)
-    expect(parseSearchQuery('')).toEqual(EMPTY_SEARCH_QUERY)
-    expect(parseSearchQuery('not json')).toEqual(EMPTY_SEARCH_QUERY)
-    expect(parseSearchQuery('42')).toEqual(EMPTY_SEARCH_QUERY)
+    expect(parse('')).toEqual(EMPTY_SEARCH_QUERY)
+    expect(searchParamsOf(EMPTY_SEARCH_QUERY)).toBe('')
   })
 
-  it('round-trips a query and drops bad fields', () => {
+  it('round-trips a query with only what differs from no filter', () => {
     const query = {
       ...EMPTY_SEARCH_QUERY,
-      text: 'luz',
+      text: 'luz & gás',
       from: '2027-01-05',
       to: '2027-03-31',
+      budgetGroup: 'essential',
       status: 'paid' as const,
       money: 'available' as const,
     }
-    expect(JSON.parse(serializeSearchQuery(query))).toEqual({
-      text: 'luz',
-      from: '2027-01-05',
-      to: '2027-03-31',
-      status: 'paid',
-      money: 'available',
-    })
-    expect(parseSearchQuery(serializeSearchQuery(query))).toEqual(query)
-    expect(
-      parseSearchQuery(
-        JSON.stringify({ budgetGroup: 'No pe!', from: '2027-13-01', kind: 'expense' }),
-      ),
-    ).toEqual({ ...EMPTY_SEARCH_QUERY, kind: 'expense' })
-    expect(parseSearchQuery(JSON.stringify({ from: '2027-05-10', to: '2027-01-01' })).to).toBe(
-      '2027-05-10',
+    const search = searchParamsOf(query)
+    expect(search).toBe(
+      'q=luz+%26+g%C3%A1s&de=2027-01-05&ate=2027-03-31&grupo=essential&status=paid&dinheiro=available',
     )
+    expect(parse(search)).toEqual(query)
+  })
+
+  it('drops bad params and orders a reversed period', () => {
+    expect(parse('grupo=No+pe!&de=2027-13-01&tipo=expense&ordem=x')).toEqual({
+      ...EMPTY_SEARCH_QUERY,
+      kind: 'expense',
+    })
+    expect(parse('de=2027-05-10&ate=2027-01-01').to).toBe('2027-05-10')
   })
 })
 
@@ -222,24 +220,24 @@ describe('searchOccurrences', () => {
     expect(count({ to: '2026-12-31' })).toBe(4)
   })
 
-  it('sorts oldest first on request, and sums what it lists', () => {
-    const asc = searchOccurrences(months, { ...base, sort: 'asc' }, ctx)
-    const days = asc.map((o) => landingDay(o.landing))
-    expect(days).toEqual([...days].sort())
-    expect(activeFilters({ ...base, sort: 'asc' }, ctx)).toEqual([
-      { key: 'sort', label: 'Mais antigos primeiro' },
+  it('sorts newest first on request, and sums what it lists', () => {
+    const desc = searchOccurrences(months, { ...base, sort: 'desc' }, ctx)
+    const days = desc.map((o) => landingDay(o.landing))
+    expect(days).toEqual([...days].sort().reverse())
+    expect(activeFilters({ ...base, sort: 'desc' }, ctx)).toEqual([
+      { key: 'sort', label: 'Mais recentes primeiro' },
     ])
-    expect(searchTotals(asc)).toEqual({
+    expect(searchTotals(desc)).toEqual({
       incomeCents: 2400000,
       expenseCents: -119000,
       netCents: 2400000 - 119000,
     })
   })
 
-  it('filters by day and lists newest first', () => {
+  it('filters by day and lists oldest first', () => {
     const all = searchOccurrences(months, base, ctx)
     const days = all.map((o) => landingDay(o.landing))
-    expect(days).toEqual([...days].sort().reverse())
+    expect(days).toEqual([...days].sort())
     const one = searchOccurrences(months, { ...base, from: days[0] ?? '', to: days[0] ?? '' }, ctx)
     expect(one.length).toBeGreaterThan(0)
     expect(one.every((o) => landingDay(o.landing) === days[0])).toBe(true)
@@ -252,8 +250,8 @@ describe('searchOccurrences', () => {
     ]
     const paid = searchOccurrences(months, { ...base, status: 'paid' }, { ...ctx, payments })
     expect(paid.map((o) => [o.landing.entry.id, o.landing.part?.id ?? null])).toEqual([
-      ['salary', 'salary-a'],
       ['power', null],
+      ['salary', 'salary-a'],
     ])
     expect(
       searchOccurrences(months, { ...base, status: 'unpaid' }, { ...ctx, payments }),

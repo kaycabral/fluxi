@@ -76,7 +76,6 @@ vi.mock('next/navigation', () => ({
   usePathname: () => '/painel',
 }))
 let prefsCookie: string | undefined
-let searchCookie: string | undefined
 let sidebarCookie: string | undefined
 // Outside a request in tests: the request-time marker is a no-op.
 vi.mock('next/server', () => ({ connection: () => Promise.resolve() }))
@@ -87,7 +86,6 @@ vi.mock('next/headers', () => ({
       get: (name: string) => {
         const jar: Record<string, string | undefined> = {
           fluxi_calendar: prefsCookie,
-          fluxi_lancamentos: searchCookie,
           fluxi_sidebar: sidebarCookie,
         }
         const value = jar[name]
@@ -101,9 +99,7 @@ vi.mock('@/features/ledger/ui/timeline-view', () => ({
   ),
 }))
 vi.mock('@/features/ledger/ui/search-view', () => ({
-  SearchView: ({ initialQuery }: { initialQuery: { text: string; from: string } }) => (
-    <p>search {`${initialQuery.text}@${initialQuery.from}`}</p>
-  ),
+  SearchView: ({ today }: { today: string }) => <p>search {`@${today}`}</p>,
 }))
 vi.mock('@/features/ledger/ui/payables-view', () => ({
   PayablesView: ({ window, today }: { window: { from: string; to: string }; today: string }) => (
@@ -205,16 +201,14 @@ describe('painel pages', () => {
     expect(screen.getByText('payables 2025-12..2027-01@2026-12-15')).toBeInTheDocument()
   })
 
-  it('search loads the whole ledger with the query this browser left', async () => {
-    searchCookie = JSON.stringify({ text: 'luz', from: '2027-01-01' })
+  it('search loads the whole ledger (the query lives in the URL)', async () => {
     render(await SearchPage())
-    expect(screen.getByText('search luz@2027-01-01')).toBeInTheDocument()
+    expect(screen.getByText('search @2026-12-15')).toBeInTheDocument()
     expect(views.loadLedgerData).toHaveBeenCalledWith(
       SCOPE,
       { from: '1900-01', to: '9999-12' },
       '2026-12-15',
     )
-    searchCookie = undefined
   })
 
   it('accounts load balances from this month to a year later', async () => {

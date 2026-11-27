@@ -4,11 +4,6 @@ import { Footer } from '@/components/footer'
 import { legacyScreensEnabled } from '@/lib/legacy-screens'
 import { notFound } from 'next/navigation'
 
-// @next-codemod-ignore Cache Components adoption: this segment temporarily allows blocking.
-// Remove this opt-out after verifying the segment passes validation without it.
-// See: https://nextjs.org/docs/app/guides/migrating-to-cache-components
-export const instant = false
-
 /**
  * MVP screens, kept with their top navigation until each one moves to the new
  * layout. Not in production (404 there).

@@ -281,7 +281,9 @@ test.describe('ledger critical flow', () => {
     await page.setViewportSize({ width: 390, height: 844 })
     await page.goto('/painel/calendario?modo=mes')
     // The day's chips may cover its middle: click the day itself, wherever it is free.
-    await page.locator('button[aria-current="date"]').dispatchEvent('click')
+    const day = page.locator('button[aria-current="date"]')
+    await expectHydrated(day)
+    await day.dispatchEvent('click')
     await expect.poll(() => isOnScreen(page, quickAdd)).toBe(true)
   })
 

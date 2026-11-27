@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { SignedInRedirect } from './_components/signed-in-redirect'
 import LandingPage from './page'
 
 const getServerUser = vi.fn<() => Promise<{ id: string } | null>>()
@@ -17,9 +18,8 @@ describe('landing page', () => {
     vi.clearAllMocks()
   })
 
-  it('explains Fluxi and offers the Google sign-in to a signed-out visitor', async () => {
-    getServerUser.mockResolvedValue(null)
-    render(await LandingPage())
+  it('explains Fluxi and offers the Google sign-in to a signed-out visitor', () => {
+    render(<LandingPage />)
 
     expect(screen.getByRole('heading', { level: 1, name: 'Fluxi' })).toBeInTheDocument()
     expect(screen.getByText(/transações recorrentes/)).toBeInTheDocument()
@@ -31,12 +31,18 @@ describe('landing page', () => {
     expect(screen.getByRole('link', { name: 'Termos' })).toHaveAttribute('href', '/termos')
   })
 
+  it('lets a signed-out visitor stay', async () => {
+    getServerUser.mockResolvedValue(null)
+    await expect(SignedInRedirect()).resolves.toBeNull()
+    expect(redirect).not.toHaveBeenCalled()
+  })
+
   it('sends a signed-in user to the painel', async () => {
     getServerUser.mockResolvedValue({ id: 'u1' })
     redirect.mockImplementation(() => {
       throw new Error('redirected')
     })
-    await expect(LandingPage()).rejects.toThrow('redirected')
+    await expect(SignedInRedirect()).rejects.toThrow('redirected')
     expect(redirect).toHaveBeenCalledWith('/painel')
   })
 })

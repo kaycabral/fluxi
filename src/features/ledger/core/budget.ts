@@ -117,7 +117,13 @@ export type BudgetGroupCell = {
   /** Null when no version covers the month. */
   targetBps: number | null
   targetCents: number | null
+  /** Null when no version covers the month or it has no income (nothing to measure against). */
   light: Light | null
+}
+
+/** A month with no income has no share to measure: its cells show "–" and get no light. */
+export function hasIncome(month: Pick<BudgetMonth, 'incomeCents'>): boolean {
+  return month.incomeCents > 0
 }
 
 /** One budget group in one month: planned spending, its share of income and the light against the version. */
@@ -137,7 +143,7 @@ export function budgetGroupCell(
     ratio,
     targetBps,
     targetCents: Math.round((month.incomeCents * targetBps) / 10000),
-    light: trafficLight(budgetGroup.goal, ratio, targetBps / 10000),
+    light: hasIncome(month) ? trafficLight(budgetGroup.goal, ratio, targetBps / 10000) : null,
   }
 }
 

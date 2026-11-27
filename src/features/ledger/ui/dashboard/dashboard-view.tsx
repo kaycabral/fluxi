@@ -3,6 +3,7 @@
 import type { ConnectionHealth } from '@/features/bank-feed/core/health'
 import {
   budgetGroupCell,
+  hasIncome,
   lightSummary,
   visibleBudgetGroups,
   type BudgetMonth,
@@ -232,6 +233,17 @@ function BudgetGroupsThisMonth({
   )
 }
 
+/** The budget card's line: how many groups are within, near or off target this month. */
+function budgetSummary(
+  budget: BudgetMonth,
+  lights: { good: number; warn: number; bad: number },
+  monthName: string,
+): string {
+  if (budget.version === null) return 'Planejado ÷ renda do mês, por grupo.'
+  if (!hasIncome(budget)) return `${monthName}: sem renda prevista, nada a medir.`
+  return `${monthName}: ${lights.good} dentro, ${lights.warn} perto e ${lights.bad} fora da meta.`
+}
+
 /**
  * "Painel": the quick look. Balance cards, the traffic light of the budget,
  * the bills coming up, the month-end balance ahead and each budget group this month.
@@ -347,9 +359,7 @@ export function DashboardView({
               <h2>Orçamento</h2>
             </CardTitle>
             <CardDescription>
-              {budget.version === null
-                ? 'Planejado ÷ renda do mês, por grupo.'
-                : `${monthLongLabel(month)}: ${lights.good} dentro, ${lights.warn} perto e ${lights.bad} fora da meta.`}
+              {budgetSummary(budget, lights, monthLongLabel(month))}
             </CardDescription>
             <CardAction>
               <Button variant="ghost" size="sm" asChild>

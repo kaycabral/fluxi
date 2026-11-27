@@ -356,7 +356,7 @@ describe('BudgetView · semáforo', () => {
     expect(months()[0]).toBe('nov/26')
   })
 
-  it('opens Transações filtered by the cell: that budget group, every day of that month', async () => {
+  it('opens Transações filtered by the cell: that budget group, every day of that month', () => {
     renderBudget()
     const cell = screen.getAllByRole('link', {
       name: /^Essencial em dez\/26: .* Ver transações\.$/,

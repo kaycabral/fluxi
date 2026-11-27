@@ -133,16 +133,26 @@ function editOne(state: SeriesState, month: Month, patch: OccurrencePatch): Scop
   }
 }
 
-function editAll(state: SeriesState, patch: OccurrencePatch): ScopedEditResult {
-  const { entry } = state
-  const overrides = state.overrides
-    .filter((o) => o.entryId === entry.id)
+/** `overrides` without the fields `patch` sets (dropping the ones left empty): the patch wins over them. */
+function clearPatched(
+  overrides: readonly EntryOverride[],
+  patch: OccurrencePatch,
+): EntryOverride[] {
+  return overrides
     .map((o) => ({
       ...o,
       amountCents: patch.amountCents === undefined ? o.amountCents : null,
       day: patch.day === undefined ? o.day : null,
     }))
     .filter((o) => !isEmptyOverride(o))
+}
+
+function editAll(state: SeriesState, patch: OccurrencePatch): ScopedEditResult {
+  const { entry } = state
+  const overrides = clearPatched(
+    state.overrides.filter((o) => o.entryId === entry.id),
+    patch,
+  )
   return { entries: [patchEntry(entry, patch)], parts: patchedParts(state, patch), overrides }
 }
 
@@ -181,7 +191,7 @@ function editFuture(
     return {
       entries: [patchEntry(entry, patch)],
       parts: patchedParts(state, patch),
-      overrides: own,
+      overrides: clearPatched(own, patch),
     }
   }
 
@@ -213,7 +223,10 @@ function editFuture(
     parts: [...ownParts(state), ...copiedParts],
     overrides: [
       ...own.filter((o) => o.month < month),
-      ...own.filter((o) => o.month >= month).map((o) => ({ ...o, entryId: after.id })),
+      ...clearPatched(
+        own.filter((o) => o.month >= month),
+        patch,
+      ).map((o) => ({ ...o, entryId: after.id })),
     ],
   }
 }

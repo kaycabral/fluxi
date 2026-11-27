@@ -94,7 +94,25 @@ describe('applyScopedEdit: future', () => {
       ids(),
     )
     expect(result.entries).toEqual([{ ...monthly, amountCents: 2000 }])
-    expect(result.overrides).toHaveLength(3)
+    // The new amount wins over the old per-month amount; other overrides stay.
+    expect(result.overrides).toEqual([
+      makeOverride({ month: '2026-12', day: 3 }),
+      makeOverride({ month: '2027-01', skipped: true }),
+    ])
+  })
+
+  it('moves an occurrence whose month has its own day (a drag on the calendar)', () => {
+    const result = applyScopedEdit(
+      state,
+      { month: '2026-12', patch: { day: 20 }, scope: 'future' },
+      ids(),
+    )
+    const after = result.entries[1]
+    const own = result.overrides.filter((o) => o.entryId === after?.id)
+    expect(after?.day).toBe(20)
+    expect(own).toEqual([makeOverride({ entryId: 'new-1', month: '2027-01', skipped: true })])
+    if (after === undefined) throw new Error('no new series')
+    expect(landingsIn(after, [], own, '2026-12').map((l) => l.day)).toEqual([20])
   })
 
   it('splits a monthly series: old ends the month before, new starts with the patch', () => {

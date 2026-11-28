@@ -130,7 +130,7 @@ export function MonthDetail({ result, data }: { result: MonthResult; data: Ledge
           <Badge variant="outline">começa com {formatMoney(daily.openingCents)}</Badge>
           <Badge
             variant={daily.minBalanceCents < 0 ? 'destructive' : 'secondary'}
-            className={cn(daily.minBalanceCents >= 0 && 'text-emerald-700 dark:text-emerald-400')}
+            className={cn(daily.minBalanceCents >= 0 && 'text-positive')}
           >
             menor saldo {formatMoney(daily.minBalanceCents)} no dia {daily.minDay}
           </Badge>
@@ -179,7 +179,7 @@ export function MonthDetail({ result, data }: { result: MonthResult; data: Ledge
                   className={cn(
                     'cursor-pointer',
                     budgetGroupTint(entry.budgetGroup, data.budgetGroups),
-                    row.balanceAfterCents === daily.minBalanceCents && 'bg-amber-500/10',
+                    row.balanceAfterCents === daily.minBalanceCents && 'bg-warning-muted',
                   )}
                   onClick={() => openEdit(targetFor(data, landing))}
                   onKeyDown={(e) => {

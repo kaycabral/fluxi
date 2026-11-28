@@ -62,15 +62,15 @@ export function landingTitle(landing: Landing): string {
 /** Color square/dot of an entry: its budget group, green for income, blue for transfers. */
 export function entryColor(landing: Landing, budgetGroups: readonly BudgetGroup[]): string {
   const { entry } = landing
-  if (entry.kind === 'income') return 'bg-emerald-500 dark:bg-emerald-400'
-  if (entry.kind === 'transfer' || entry.budgetGroup === null) return 'bg-sky-500 dark:bg-sky-400'
+  if (entry.kind === 'income') return 'bg-positive'
+  if (entry.kind === 'transfer' || entry.budgetGroup === null) return 'bg-info'
   return budgetGroupDot(entry.budgetGroup, budgetGroups)
 }
 
 function chipColors(landing: Landing, budgetGroups: readonly BudgetGroup[]): string | undefined {
   const { entry } = landing
-  if (entry.kind === 'income') return 'bg-emerald-500/15 text-emerald-900 dark:text-emerald-200'
-  if (entry.kind === 'transfer') return 'bg-sky-500/15 text-sky-900 dark:text-sky-200'
+  if (entry.kind === 'income') return 'bg-success-muted text-success-muted-foreground'
+  if (entry.kind === 'transfer') return 'bg-info-muted text-info-muted-foreground'
   return budgetGroupTint(entry.budgetGroup, budgetGroups) ?? 'bg-muted'
 }
 
@@ -264,7 +264,7 @@ export function EventDetails({
             disabled={pending}
             onClick={togglePaid}
           >
-            <CircleCheck className={cn(payment !== undefined && 'text-emerald-600')} />
+            <CircleCheck className={cn(payment !== undefined && 'text-success')} />
           </Button>
         )}
         <Button variant="ghost" size="icon-sm" aria-label="Fechar" onClick={onClose}>

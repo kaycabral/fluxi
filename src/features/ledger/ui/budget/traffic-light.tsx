@@ -37,8 +37,8 @@ import { useMemo, useState } from 'react'
 import { TransactionsLink } from '../transactions-link'
 
 export const LIGHT_CLASSES: Record<Light, string> = {
-  good: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400',
-  warn: 'bg-amber-500/15 text-amber-700 dark:text-amber-400',
+  good: 'bg-success-muted text-success-muted-foreground',
+  warn: 'bg-warning-muted text-warning-muted-foreground',
   bad: 'bg-destructive/15 text-destructive',
 }
 

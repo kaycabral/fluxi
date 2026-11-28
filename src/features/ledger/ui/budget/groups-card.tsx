@@ -217,15 +217,7 @@ function VersionEditor({
           <p className="text-muted-foreground text-xs">
             {isCurrent ? 'Versão em vigor' : 'Versão'} de {versionLabel(version, sorted)}
           </p>
-          <Badge
-            variant="secondary"
-            className={
-              free > 0
-                ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400'
-                : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
-            }
-            aria-live="polite"
-          >
+          <Badge variant="secondary" tone={free > 0 ? 'warning' : 'success'} aria-live="polite">
             {free > 0 ? `${formatPercent(free / 10000)} livre para distribuir` : '100% distribuído'}
           </Badge>
         </div>

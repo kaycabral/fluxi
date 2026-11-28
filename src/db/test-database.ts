@@ -1,6 +1,9 @@
+import { supabaseSsl } from '@cbrl/pg'
+import { createDrizzleDatabase } from '@cbrl/pg/drizzle'
 import { sql } from 'drizzle-orm'
 import pg from 'pg'
-import { fluxiDb, type FluxiDb } from './db'
+import { fluxiDb, fluxiSchemaModules, type FluxiDb } from './db'
+import { LOCAL_APP_LOGIN } from './local-app-role'
 
 /**
  * Dedicated database for the Postgres integration suite, in the SAME local
@@ -29,6 +32,20 @@ export function testDatabaseUrl(baseUrl: string): string {
   return url.toString()
 }
 
+/**
+ * The owner of the test database (`POSTGRES_OWNER_URL`), for what the runtime
+ * role must not do: migrate, seed `auth.users`, truncate, `set role` to the
+ * sync or API roles. The code under test uses `fluxiDb` (`POSTGRES_URL`), which
+ * the suite points at the runtime role (`fluxi_app`), as in production.
+ */
+export const ownerDb = createDrizzleDatabase({
+  connectionStringEnvVar: 'POSTGRES_OWNER_URL',
+  database: 'fluxi-owner',
+  ssl: supabaseSsl,
+  schema: fluxiSchemaModules,
+  migrationsFolder: new URL('../../drizzle', import.meta.url),
+})
+
 /** Throws unless `url` is the local test database. */
 export function assertTestDatabaseUrl(raw: string | undefined): void {
   const url = raw === undefined || raw === '' ? null : new URL(raw)
@@ -46,7 +63,7 @@ export function assertTestDatabaseUrl(raw: string | undefined): void {
  * env cannot redirect a wipe to the dev database.
  */
 export async function assertTestDatabase(db: FluxiDb): Promise<void> {
-  assertTestDatabaseUrl(process.env.POSTGRES_URL)
+  assertTestDatabaseUrl(process.env.POSTGRES_OWNER_URL ?? process.env.POSTGRES_URL)
   const result = await db.execute<{ name: string }>(sql`select current_database() as name`)
   const name = result.rows[0]?.name
   if (name !== TEST_DATABASE) {
@@ -107,7 +124,8 @@ const DUPLICATE_DATABASE = '42P04'
 
 /**
  * Create (if missing) and migrate {@link TEST_DATABASE} next to `baseUrl`'s
- * database. Idempotent; returns the test database URL.
+ * database (as the owner), and let the runtime role log in with its local
+ * password (`LOCAL_APP_LOGIN`). Idempotent; returns the test database URL.
  */
 export async function prepareTestDatabase(baseUrl: string): Promise<string> {
   const testUrl = testDatabaseUrl(baseUrl)
@@ -129,6 +147,6 @@ export async function prepareTestDatabase(baseUrl: string): Promise<string> {
   })
   await withClient(testUrl, (client) => client.query(AUTH_STUB))
   await fluxiDb.migrate({ connectionString: testUrl })
-  await withClient(testUrl, (client) => client.query(API_GRANTS))
+  await withClient(testUrl, (client) => client.query(`${API_GRANTS}\n${LOCAL_APP_LOGIN}`))
   return testUrl
 }

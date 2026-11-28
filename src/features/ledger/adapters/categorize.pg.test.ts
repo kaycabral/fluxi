@@ -6,6 +6,7 @@ import {
   bankTransactions,
   categorizationRules,
 } from '@/db/schema-bank-feed'
+import { ownerDb } from '@/db/test-database'
 import type { Scope } from '@/features/spaces/core/space'
 import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
@@ -126,10 +127,10 @@ const rowOf = async (id: string) => {
 }
 
 beforeEach(async () => {
-  await truncateFluxiTables(db())
+  await truncateFluxiTables(ownerDb.db())
   feedAccountId = null
-  await seedUser(db(), { id: ANA, email: 'ana@example.test' })
-  await seedUser(db(), { id: BIA, email: 'bia@example.test' })
+  await seedUser(ownerDb.db(), { id: ANA, email: 'ana@example.test' })
+  await seedUser(ownerDb.db(), { id: BIA, email: 'bia@example.test' })
   ana = await personalScope(db(), ANA)
   bia = await personalScope(db(), BIA)
   accountId = await seedAccount(ana, 'Conta')

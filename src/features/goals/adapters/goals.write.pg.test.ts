@@ -1,11 +1,12 @@
 import { fluxiDb, personalScope, seedUser, truncateFluxiTables } from '@/db'
 import { accounts } from '@/db/schema'
+import { ownerDb } from '@/db/test-database'
 import type { GoalInput } from '@/features/goals/core/schemas'
 import { createAccount, createBank } from '@/features/ledger/adapters/ledger.write'
 import type { Scope } from '@/features/spaces/core/space'
 import { eq } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { listGoals } from './goals.repo'
 import { deleteGoal, saveGoal } from './goals.write'
 
@@ -44,14 +45,10 @@ async function anaAccount(): Promise<string> {
   return accountId
 }
 
-beforeAll(async () => {
-  await fluxiDb.migrate()
-})
-
 beforeEach(async () => {
-  await truncateFluxiTables(db())
-  await seedUser(db(), { id: ANA, email: 'ana@example.com' })
-  await seedUser(db(), { id: BIA, email: 'bia@example.com' })
+  await truncateFluxiTables(ownerDb.db())
+  await seedUser(ownerDb.db(), { id: ANA, email: 'ana@example.com' })
+  await seedUser(ownerDb.db(), { id: BIA, email: 'bia@example.com' })
   anaScope = await personalScope(db(), ANA)
   biaScope = await personalScope(db(), BIA)
 })

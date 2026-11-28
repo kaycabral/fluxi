@@ -1,11 +1,12 @@
 import { prepareTestDatabase } from './src/db/test-database'
 
 /**
- * Create + migrate the dedicated test database before the suite (idempotent).
- * `vitest.pg.config.ts` already pointed `POSTGRES_URL` at it.
+ * Create + migrate the dedicated test database before the suite (idempotent),
+ * as the owner. `vitest.pg.config.ts` already pointed `POSTGRES_OWNER_URL` at
+ * it and `POSTGRES_URL` at the runtime role.
  */
 export default async function setup(): Promise<void> {
-  const url = process.env.POSTGRES_URL
-  if (url === undefined) throw new Error('POSTGRES_URL is not set')
-  await prepareTestDatabase(url)
+  const ownerUrl = process.env.POSTGRES_OWNER_URL
+  if (ownerUrl === undefined) throw new Error('POSTGRES_OWNER_URL is not set')
+  await prepareTestDatabase(ownerUrl)
 }

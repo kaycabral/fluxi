@@ -1,6 +1,7 @@
 import { fluxiDb, personalScope, seedUser, truncateFluxiTables } from '@/db'
 import { accounts, banks, entries, spaces } from '@/db/schema'
 import { bankFeedAccounts } from '@/db/schema-bank-feed'
+import { ownerDb } from '@/db/test-database'
 import {
   feedAccountShortLabel,
   INSTITUTION_SAMPLES,
@@ -21,7 +22,7 @@ const TODAY = '2026-11-25'
 
 const db = () => fluxiDb.db()
 /** Exactly like the Edge Function: postgres.js as the `fluxi_sync` role. */
-const asSync = postgres(requireEnv('POSTGRES_URL'), { prepare: false, max: 1 })
+const asSync = postgres(requireEnv('POSTGRES_OWNER_URL'), { prepare: false, max: 1 })
 
 let ana: Scope
 let bia: Scope
@@ -102,9 +103,9 @@ beforeAll(async () => {
 })
 
 beforeEach(async () => {
-  await truncateFluxiTables(db())
-  await seedUser(db(), { id: ANA, email: 'ana@example.test' })
-  await seedUser(db(), { id: BIA, email: 'bia@example.test' })
+  await truncateFluxiTables(ownerDb.db())
+  await seedUser(ownerDb.db(), { id: ANA, email: 'ana@example.test' })
+  await seedUser(ownerDb.db(), { id: BIA, email: 'bia@example.test' })
   ana = await personalScope(db(), ANA)
   bia = await personalScope(db(), BIA)
   const [space] = await db()
@@ -115,7 +116,7 @@ beforeEach(async () => {
 })
 
 afterAll(async () => {
-  await truncateFluxiTables(db())
+  await truncateFluxiTables(ownerDb.db())
   await asSync.end()
 })
 
@@ -126,7 +127,7 @@ describe('institution rules (SQL = TS)', () => {
       const institution = institutionOf(sample.names, holders)
       const names = `{${sample.names.map((n) => JSON.stringify(n)).join(',')}}`
       const types = `{${holders.map((h) => (h === null ? 'NULL' : h)).join(',')}}`
-      const { rows } = await db().execute<{ institution: string; label: string }>(sql`
+      const { rows } = await ownerDb.db().execute<{ institution: string; label: string }>(sql`
         select private.feed_holder_institution(${names}::text[], ${types}::text[]) as institution,
           private.feed_account_short_label(${institution}, ${sample.feed.name},
             ${sample.feed.type}, ${sample.feed.subtype}) as label`)

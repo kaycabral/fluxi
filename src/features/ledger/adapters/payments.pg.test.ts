@@ -1,10 +1,11 @@
 import { fluxiDb, personalScope, seedUser, truncateFluxiTables } from '@/db'
 import { entries, entryParts, occurrencePayments } from '@/db/schema'
+import { ownerDb } from '@/db/test-database'
 import type { EntryFields } from '@/features/ledger/core/schemas'
 import type { Scope } from '@/features/spaces/core/space'
 import { asc, eq, sql } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { loadLedger } from './ledger.repo'
 import {
   changeOccurrenceDay,
@@ -108,14 +109,10 @@ let anaAccount: string
 let biaAccount: string
 let entryId: string
 
-beforeAll(async () => {
-  await fluxiDb.migrate()
-})
-
 beforeEach(async () => {
-  await truncateFluxiTables(db())
-  await seedUser(db(), { id: ANA, email: 'ana@example.com' })
-  await seedUser(db(), { id: BIA, email: 'bia@example.com' })
+  await truncateFluxiTables(ownerDb.db())
+  await seedUser(ownerDb.db(), { id: ANA, email: 'ana@example.com' })
+  await seedUser(ownerDb.db(), { id: BIA, email: 'bia@example.com' })
   anaScope = await personalScope(db(), ANA)
   biaScope = await personalScope(db(), BIA)
   anaAccount = await setupUser(anaScope)
@@ -358,7 +355,7 @@ describe('payments under scoped edits and deletes', () => {
       partId: null,
       paidOn: '2026-12-10',
     })
-    await db().execute(sql`delete from auth.users where id = ${ANA}`)
+    await ownerDb.db().execute(sql`delete from auth.users where id = ${ANA}`)
     expect((await paymentRows()).map((p) => p.userId)).toEqual([BIA])
   })
 })

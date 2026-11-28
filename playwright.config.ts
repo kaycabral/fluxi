@@ -3,6 +3,7 @@ import { defineE2EConfig } from '@cbrl/testing/playwright'
 import { defineConfig } from '@playwright/test'
 
 import { BASE_URL, E2E_PORT } from './e2e/constants'
+import { localAppUrl } from './src/db/local-app-role'
 
 // E2E runs against the LOCAL Supabase stack (`pnpm db:start`). Its URL, keys and
 // database come from `supabase status`; setting them on process.env here makes
@@ -30,6 +31,9 @@ export default defineConfig(
     testMatch: '**/_e2e/**/*.spec.ts',
     webServerEnv: {
       ...supabaseEnv,
+      // The app runs as its runtime role, like production; the fixtures keep
+      // the owner (`POSTGRES_URL` of this process).
+      POSTGRES_URL: localAppUrl(local.dbUrl),
       ENABLE_TEST_AUTH: 'true',
       NEXT_PUBLIC_SITE_URL: BASE_URL,
     },

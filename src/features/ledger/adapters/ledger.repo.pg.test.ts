@@ -8,13 +8,14 @@ import {
   entryOverrides,
   entryParts,
 } from '@/db/schema'
+import { ownerDb } from '@/db/test-database'
 import { DEFAULT_BUDGET_GROUPS, DEFAULT_CATEGORY_GROUPS } from '@/features/ledger/core/defaults'
 import { archiveSpace, createSpace, resolveScope } from '@/features/spaces/adapters/space.repo'
 import type { Scope } from '@/features/spaces/core/space'
 import { pgErrorOf } from '@cbrl/pg'
 import { sql } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import {
   listAccounts,
   listBanks,
@@ -108,14 +109,10 @@ async function rejection(
 let ana: Fixture
 let bia: Fixture
 
-beforeAll(async () => {
-  await fluxiDb.migrate()
-})
-
 beforeEach(async () => {
-  await truncateFluxiTables(db())
-  await seedUser(db(), { id: ANA, email: 'ana@example.com' })
-  await seedUser(db(), { id: BIA, email: 'bia@example.com' })
+  await truncateFluxiTables(ownerDb.db())
+  await seedUser(ownerDb.db(), { id: ANA, email: 'ana@example.com' })
+  await seedUser(ownerDb.db(), { id: BIA, email: 'bia@example.com' })
   anaScope = await personalScope(db(), ANA)
   biaScope = await personalScope(db(), BIA)
   ana = await seedLedger(anaScope, 1000000)
@@ -169,14 +166,14 @@ describe('default seeding (auth trigger)', () => {
 
   it('is not callable through the public API roles', async () => {
     const error = await rejection(
-      db().transaction(async (tx) => {
+      ownerDb.db().transaction(async (tx) => {
         await tx.execute(sql`set local role authenticated`)
         await tx.execute(sql`select public.seed_space_defaults(${biaScope.spaceId}::uuid)`)
       }),
     )
     expect(error.code).toBe('42501')
     const budget = await rejection(
-      db().transaction(async (tx) => {
+      ownerDb.db().transaction(async (tx) => {
         await tx.execute(sql`set local role authenticated`)
         await tx.execute(sql`select public.ensure_personal_space(${BIA}::uuid)`)
       }),
@@ -266,7 +263,7 @@ describe('user isolation', () => {
   })
 
   it('exposes nothing to the public API roles', async () => {
-    const rows = await db().transaction(async (tx) => {
+    const rows = await ownerDb.db().transaction(async (tx) => {
       await tx.execute(sql`set local role anon`)
       const result = await tx.execute(
         sql`select (select count(*) from entries) + (select count(*) from accounts) + (select count(*) from categories) as n`,
@@ -277,7 +274,7 @@ describe('user isolation', () => {
   })
 
   it('cascades a user’s ledger away with the auth user, leaving others intact', async () => {
-    await db().execute(sql`delete from auth.users where id = ${ANA}`)
+    await ownerDb.db().execute(sql`delete from auth.users where id = ${ANA}`)
     await expect(loadLedger(anaScope, WINDOW)).resolves.toMatchObject({
       entries: [],
       accounts: [],

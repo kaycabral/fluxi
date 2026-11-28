@@ -1,6 +1,7 @@
 import { fluxiDb, personalScope, seedUser, truncateFluxiTables } from '@/db'
 import { accounts, banks, entries, occurrencePayments } from '@/db/schema'
 import { bankEntryLinks, bankFeedAccounts, bankTransactions } from '@/db/schema-bank-feed'
+import { ownerDb } from '@/db/test-database'
 import type { FeedAccountRow, FeedTransactionRow } from '@/features/bank-feed/core/pluggy'
 import { loadLedger } from '@/features/ledger/adapters/ledger.repo'
 import {
@@ -26,7 +27,7 @@ const TODAY = '2026-11-25'
 
 const db = () => fluxiDb.db()
 /** Exactly like the Edge Function: postgres.js as the `fluxi_sync` role. */
-const asSync = postgres(requireEnv('POSTGRES_URL'), { prepare: false, max: 1 })
+const asSync = postgres(requireEnv('POSTGRES_OWNER_URL'), { prepare: false, max: 1 })
 
 let ana: Scope
 let checkingId: string
@@ -130,9 +131,9 @@ beforeAll(async () => {
 })
 
 beforeEach(async () => {
-  await truncateFluxiTables(db())
-  await seedUser(db(), { id: ANA, email: 'ana@example.test' })
-  await seedUser(db(), { id: BIA, email: 'bia@example.test' })
+  await truncateFluxiTables(ownerDb.db())
+  await seedUser(ownerDb.db(), { id: ANA, email: 'ana@example.test' })
+  await seedUser(ownerDb.db(), { id: BIA, email: 'bia@example.test' })
   ana = await personalScope(db(), ANA)
   const ids = await seedAccounts(ana)
   checkingId = ids.checking
@@ -140,7 +141,7 @@ beforeEach(async () => {
 })
 
 afterAll(async () => {
-  await truncateFluxiTables(db())
+  await truncateFluxiTables(ownerDb.db())
   await asSync.end()
 })
 
@@ -398,7 +399,7 @@ describe('materialize_bank_feed (Postgres)', () => {
     expect(await materialize(bia)).toMatchObject({ created: 0, anchored: 0 })
     expect(await entriesOf(ana)).toHaveLength(0)
 
-    const asApi = postgres(requireEnv('POSTGRES_URL'), { prepare: false, max: 1 })
+    const asApi = postgres(requireEnv('POSTGRES_OWNER_URL'), { prepare: false, max: 1 })
     try {
       await asApi`set role authenticated`
       await expect(

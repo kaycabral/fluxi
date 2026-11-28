@@ -1,11 +1,12 @@
 import { fluxiDb, personalScope, seedUser, truncateFluxiTables } from '@/db'
 import { accounts, banks, entries, entryOverrides, entryParts } from '@/db/schema'
+import { ownerDb } from '@/db/test-database'
 import type { EntryFields } from '@/features/ledger/core/schemas'
 import type { Scope } from '@/features/spaces/core/space'
 import { pgErrorOf } from '@cbrl/pg'
 import { eq } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { listAccounts, listBanks } from './ledger.repo'
 import {
   changeOccurrenceDay,
@@ -93,14 +94,10 @@ async function expenseByMonth(scope: Scope): Promise<Record<string, number>> {
 let ana: Setup
 let bia: Setup
 
-beforeAll(async () => {
-  await fluxiDb.migrate()
-})
-
 beforeEach(async () => {
-  await truncateFluxiTables(db())
-  await seedUser(db(), { id: ANA, email: 'ana@example.com' })
-  await seedUser(db(), { id: BIA, email: 'bia@example.com' })
+  await truncateFluxiTables(ownerDb.db())
+  await seedUser(ownerDb.db(), { id: ANA, email: 'ana@example.com' })
+  await seedUser(ownerDb.db(), { id: BIA, email: 'bia@example.com' })
   anaScope = await personalScope(db(), ANA)
   biaScope = await personalScope(db(), BIA)
   ana = await setupUser(anaScope)

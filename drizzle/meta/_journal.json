@@ -239,6 +239,13 @@
       "when": 1795805111135,
       "tag": "0033_drop_import_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1795874527981,
+      "tag": "0034_app_role",
+      "breakpoints": true
     }
   ]
 }

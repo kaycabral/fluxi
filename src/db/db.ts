@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 import * as ledgerSchema from './schema'
 import * as bankFeedSchema from './schema-bank-feed'
 
-const schema = { ...ledgerSchema, ...bankFeedSchema }
+export const fluxiSchemaModules = { ...ledgerSchema, ...bankFeedSchema }
 
 /**
  * Postgres for fluxi (Supabase in production, the local Supabase stack in
@@ -25,7 +25,7 @@ export const fluxiDb = createDrizzleDatabase({
   connectionStringEnvVar: 'POSTGRES_URL',
   database: 'fluxi',
   ssl: supabaseSsl,
-  schema,
+  schema: fluxiSchemaModules,
   migrationsFolder: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../drizzle'),
 })
 

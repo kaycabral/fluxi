@@ -18,8 +18,8 @@ importers:
         specifier: ^0.2.0
         version: 0.2.0
       '@cbrl/design':
-        specifier: ^0.6.3
-        version: 0.6.3(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(next-themes@0.4.6(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(tailwindcss@4.3.5)
+        specifier: ^0.7.0
+        version: 0.7.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(next-themes@0.4.6(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react-dom@19.3.1(react@19.3.1))(react-hook-form@7.92.0(@types/react@19.3.0)(react@19.3.1))(react@19.3.1)(tailwindcss@4.3.5)
       '@cbrl/env':
         specifier: ^0.1.1
         version: 0.1.1
@@ -27,8 +27,8 @@ importers:
         specifier: ^0.1.0
         version: 0.1.0
       '@cbrl/next':
-        specifier: ^0.2.0
-        version: 0.2.0(next@16.4.6(@babel/core@7.29.13)(@opentelemetry/api@1.9.1)(@playwright/test@1.65.1)(@types/node@26.6.6)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))
+        specifier: ^0.3.0
+        version: 0.3.0(@cbrl/design@0.7.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(next-themes@0.4.6(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react-dom@19.3.1(react@19.3.1))(react-hook-form@7.92.0(@types/react@19.3.0)(react@19.3.1))(react@19.3.1)(tailwindcss@4.3.5))(lucide-react@1.77.0(@types/react@19.3.0)(react@19.3.1))(next@16.4.6(@babel/core@7.29.13)(@opentelemetry/api@1.9.1)(@playwright/test@1.65.1)(@types/node@26.6.6)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1)
       '@cbrl/pg':
         specifier: ^0.3.0
         version: 0.3.0(drizzle-orm@0.45.4(@opentelemetry/api@1.9.1)(@types/pg@8.23.1)(pg@8.23.1)(postgres@3.4.9))(pg@8.23.1)
@@ -292,13 +292,17 @@ packages:
     peerDependencies:
       '@commitlint/cli': '>=20'
 
-  '@cbrl/design@0.6.3':
-    resolution: {integrity: sha512-Yk1Z8LThxB0adcBPVk7wdbYEDOaBDPSes373xn9gK4+JlE3f5X+7Bh9QtbmVb0U9IRo4PK0UzvKuV560u0hGSQ==}
+  '@cbrl/design@0.7.0':
+    resolution: {integrity: sha512-cZ+Tx2qiXPEi1oPCi+6s52QllpnkaQlzBYtX2BoPxUOka38aaKWZOmWX4TuKQ5EFralLTQgLLgXHxMztBzYS9g==}
     peerDependencies:
       next-themes: ^0.4.0
       react: ^19.0.0
       react-dom: ^19.0.0
+      react-hook-form: ^7.55.0
       tailwindcss: ^4.0.0
+    peerDependenciesMeta:
+      react-hook-form:
+        optional: true
 
   '@cbrl/env@0.1.1':
     resolution: {integrity: sha512-Xx/Nq044pBFgiZJRx8nlFNX+PiHUSkuMW5moQs8hfv1VbTnJUiv2dSPdGNVtm1iXQkATDxonSVXcg/VzxImoHg==}
@@ -312,10 +316,20 @@ packages:
   '@cbrl/log@0.1.0':
     resolution: {integrity: sha512-pAjbG2+lKHGW7C4EFXCrJA5be/xveqH8pl1OKp7vVwgG0J0aezrE+O/VIJ/nE5LGJUm73OXwE9AtcVKlFb5+lQ==}
 
-  '@cbrl/next@0.2.0':
-    resolution: {integrity: sha512-uuAF3F+SiFJz75EPYSFL1Iv8742sq+qVaPUtoom50HgR6h82PKyu2Wj+w8aNEQk12CHYDGI8QqEYf80nltiUPQ==}
+  '@cbrl/next@0.3.0':
+    resolution: {integrity: sha512-AxbmvC15xM6OkvzLIaX2c9fwsJbhMqxoexdDKZSK0x+IbQTmDNgHd0AzKCd2qyBbWbRlq7+T7mEargvAXf0dig==}
     peerDependencies:
+      '@cbrl/design': '>=0.7.0'
+      lucide-react: '>=0.400.0'
       next: ^16.0.0
+      react: ^19.0.0
+    peerDependenciesMeta:
+      '@cbrl/design':
+        optional: true
+      lucide-react:
+        optional: true
+      react:
+        optional: true
 
   '@cbrl/pg@0.3.0':
     resolution: {integrity: sha512-lKyRAzjspak74wAk72U+mkXapn/HokrC+ZMxQr47fOCjtHO1GVSQ3kX60mtw99YtLlf4F2vapie4KbLdXyg29g==}
@@ -5405,7 +5419,7 @@ snapshots:
       '@commitlint/cli': 21.2.4(conventional-commits-parser@7.1.4)(typescript@6.0.3)
       '@commitlint/config-conventional': 21.2.4
 
-  '@cbrl/design@0.6.3(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(next-themes@0.4.6(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(tailwindcss@4.3.5)':
+  '@cbrl/design@0.7.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(next-themes@0.4.6(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react-dom@19.3.1(react@19.3.1))(react-hook-form@7.92.0(@types/react@19.3.0)(react@19.3.1))(react@19.3.1)(tailwindcss@4.3.5)':
     dependencies:
       class-variance-authority: 0.7.1
       clsx: 2.1.1
@@ -5419,6 +5433,8 @@ snapshots:
       tailwind-merge: 3.7.1
       tailwindcss: 4.3.5
       tw-animate-css: 1.4.0
+    optionalDependencies:
+      react-hook-form: 7.92.0(@types/react@19.3.0)(react@19.3.1)
     transitivePeerDependencies:
       - '@types/react'
       - '@types/react-dom'
@@ -5446,10 +5462,14 @@ snapshots:
 
   '@cbrl/log@0.1.0': {}
 
-  '@cbrl/next@0.2.0(next@16.4.6(@babel/core@7.29.13)(@opentelemetry/api@1.9.1)(@playwright/test@1.65.1)(@types/node@26.6.6)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))':
+  '@cbrl/next@0.3.0(@cbrl/design@0.7.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(next-themes@0.4.6(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react-dom@19.3.1(react@19.3.1))(react-hook-form@7.92.0(@types/react@19.3.0)(react@19.3.1))(react@19.3.1)(tailwindcss@4.3.5))(lucide-react@1.77.0(@types/react@19.3.0)(react@19.3.1))(next@16.4.6(@babel/core@7.29.13)(@opentelemetry/api@1.9.1)(@playwright/test@1.65.1)(@types/node@26.6.6)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1)':
     dependencies:
       '@cbrl/log': 0.1.0
       next: 16.4.6(@babel/core@7.29.13)(@opentelemetry/api@1.9.1)(@playwright/test@1.65.1)(@types/node@26.6.6)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+    optionalDependencies:
+      '@cbrl/design': 0.7.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(next-themes@0.4.6(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react-dom@19.3.1(react@19.3.1))(react-hook-form@7.92.0(@types/react@19.3.0)(react@19.3.1))(react@19.3.1)(tailwindcss@4.3.5)
+      lucide-react: 1.77.0(@types/react@19.3.0)(react@19.3.1)
+      react: 19.3.1
 
   '@cbrl/pg@0.3.0(drizzle-orm@0.45.4(@opentelemetry/api@1.9.1)(@types/pg@8.23.1)(pg@8.23.1)(postgres@3.4.9))(pg@8.23.1)':
     dependencies:

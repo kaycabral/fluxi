@@ -1,7 +1,7 @@
 import { fluxiDb, personalScope, seedUser, truncateFluxiTables } from '@/db'
+import { ownerDb } from '@/db/owner'
 import { accounts, banks, entries, spaces } from '@/db/schema'
 import { bankFeedAccounts } from '@/db/schema-bank-feed'
-import { ownerDb } from '@/db/test-database'
 import {
   feedAccountShortLabel,
   INSTITUTION_SAMPLES,
@@ -22,7 +22,7 @@ const TODAY = '2026-11-25'
 
 const db = () => fluxiDb.db()
 /** Exactly like the Edge Function: postgres.js as the `fluxi_sync` role. */
-const asSync = postgres(requireEnv('POSTGRES_OWNER_URL'), { prepare: false, max: 1 })
+const asSync = postgres(requireEnv('POSTGRES_URL'), { prepare: false, max: 1 })
 
 let ana: Scope
 let bia: Scope

@@ -1,4 +1,5 @@
 import { fluxiDb, personalScope, seedUser, truncateFluxiTables } from '@/db'
+import { ownerDb } from '@/db/owner'
 import { accounts, banks, entries, spaces } from '@/db/schema'
 import {
   bankEntryLinks,
@@ -6,7 +7,6 @@ import {
   bankFeedItems,
   bankTransactions,
 } from '@/db/schema-bank-feed'
-import { ownerDb } from '@/db/test-database'
 import {
   listSpaceConnections,
   listUnlinkedConnectedInstitutions,

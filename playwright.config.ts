@@ -31,9 +31,7 @@ export default defineConfig(
     testMatch: '**/_e2e/**/*.spec.ts',
     webServerEnv: {
       ...supabaseEnv,
-      // The app runs as its runtime role, like production; the fixtures keep
-      // the owner (`POSTGRES_URL` of this process).
-      POSTGRES_URL: localAppUrl(local.dbUrl),
+      FLUXI_DATABASE_URL: localAppUrl(local.dbUrl),
       ENABLE_TEST_AUTH: 'true',
       NEXT_PUBLIC_SITE_URL: BASE_URL,
     },

@@ -18,15 +18,13 @@ const require = createRequire(import.meta.url)
 // Files share that database, hence no file parallelism.
 //
 // The code under test connects as the app's runtime role `fluxi_app` (migration
-// 0034), as in production: `POSTGRES_URL` is that role (local password,
-// `src/db/local-app-role.ts`); `POSTGRES_OWNER_URL` is the owner, used only by the setup
-// and the fixtures (`ownerDb`).
-const ownerUrl = testDatabaseUrl(
-  process.env.POSTGRES_OWNER_URL || process.env.POSTGRES_URL || readLocalSupabase().dbUrl,
-)
+// 0034), as in production: `FLUXI_DATABASE_URL` is that role (local password,
+// `src/db/local-app-role.ts`); `POSTGRES_URL` is the owner, used only by the
+// setup and the fixtures (`ownerDb`).
+const ownerUrl = testDatabaseUrl(process.env.POSTGRES_URL || readLocalSupabase().dbUrl)
 const appUrl = localAppUrl(ownerUrl)
-process.env.POSTGRES_OWNER_URL = ownerUrl
-process.env.POSTGRES_URL = appUrl
+process.env.POSTGRES_URL = ownerUrl
+process.env.FLUXI_DATABASE_URL = appUrl
 
 export default defineConfig({
   resolve: {
@@ -41,7 +39,7 @@ export default defineConfig({
     include: ['src/**/*.pg.test.ts'],
     globalSetup: ['./vitest.pg.setup.ts'],
     setupFiles: ['./vitest.pg.files.ts'],
-    env: { POSTGRES_URL: appUrl, POSTGRES_OWNER_URL: ownerUrl },
+    env: { POSTGRES_URL: ownerUrl, FLUXI_DATABASE_URL: appUrl },
     testTimeout: 30_000,
     hookTimeout: 30_000,
     fileParallelism: false,

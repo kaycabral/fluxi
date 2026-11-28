@@ -110,43 +110,27 @@
         "accounts_user_id_profiles_id_fk": {
           "name": "accounts_user_id_profiles_id_fk",
           "tableFrom": "accounts",
-          "columnsFrom": [
-            "user_id"
-          ],
+          "columnsFrom": ["user_id"],
           "tableTo": "profiles",
-          "columnsTo": [
-            "id"
-          ],
+          "columnsTo": ["id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         },
         "accounts_space_fk": {
           "name": "accounts_space_fk",
           "tableFrom": "accounts",
-          "columnsFrom": [
-            "space_id",
-            "user_id"
-          ],
+          "columnsFrom": ["space_id", "user_id"],
           "tableTo": "spaces",
-          "columnsTo": [
-            "id",
-            "user_id"
-          ],
+          "columnsTo": ["id", "user_id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         },
         "accounts_bank_fk": {
           "name": "accounts_bank_fk",
           "tableFrom": "accounts",
-          "columnsFrom": [
-            "bank_id",
-            "space_id"
-          ],
+          "columnsFrom": ["bank_id", "space_id"],
           "tableTo": "banks",
-          "columnsTo": [
-            "id",
-            "space_id"
-          ],
+          "columnsTo": ["id", "space_id"],
           "onUpdate": "no action",
           "onDelete": "no action"
         }
@@ -155,10 +139,7 @@
       "uniqueConstraints": {
         "accounts_id_space_id_unique": {
           "name": "accounts_id_space_id_unique",
-          "columns": [
-            "id",
-            "space_id"
-          ],
+          "columns": ["id", "space_id"],
           "nullsNotDistinct": false
         }
       },
@@ -250,28 +231,18 @@
         "banks_user_id_profiles_id_fk": {
           "name": "banks_user_id_profiles_id_fk",
           "tableFrom": "banks",
-          "columnsFrom": [
-            "user_id"
-          ],
+          "columnsFrom": ["user_id"],
           "tableTo": "profiles",
-          "columnsTo": [
-            "id"
-          ],
+          "columnsTo": ["id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         },
         "banks_space_fk": {
           "name": "banks_space_fk",
           "tableFrom": "banks",
-          "columnsFrom": [
-            "space_id",
-            "user_id"
-          ],
+          "columnsFrom": ["space_id", "user_id"],
           "tableTo": "spaces",
-          "columnsTo": [
-            "id",
-            "user_id"
-          ],
+          "columnsTo": ["id", "user_id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         }
@@ -280,10 +251,7 @@
       "uniqueConstraints": {
         "banks_id_space_id_unique": {
           "name": "banks_id_space_id_unique",
-          "columns": [
-            "id",
-            "space_id"
-          ],
+          "columns": ["id", "space_id"],
           "nullsNotDistinct": false
         }
       },
@@ -331,58 +299,36 @@
         "budget_group_targets_user_id_profiles_id_fk": {
           "name": "budget_group_targets_user_id_profiles_id_fk",
           "tableFrom": "budget_group_targets",
-          "columnsFrom": [
-            "user_id"
-          ],
+          "columnsFrom": ["user_id"],
           "tableTo": "profiles",
-          "columnsTo": [
-            "id"
-          ],
+          "columnsTo": ["id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         },
         "budget_group_targets_version_fk": {
           "name": "budget_group_targets_version_fk",
           "tableFrom": "budget_group_targets",
-          "columnsFrom": [
-            "version_id",
-            "space_id"
-          ],
+          "columnsFrom": ["version_id", "space_id"],
           "tableTo": "budget_versions",
-          "columnsTo": [
-            "id",
-            "space_id"
-          ],
+          "columnsTo": ["id", "space_id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         },
         "budget_group_targets_budget_group_fk": {
           "name": "budget_group_targets_budget_group_fk",
           "tableFrom": "budget_group_targets",
-          "columnsFrom": [
-            "budget_group",
-            "space_id"
-          ],
+          "columnsFrom": ["budget_group", "space_id"],
           "tableTo": "budget_groups",
-          "columnsTo": [
-            "key",
-            "space_id"
-          ],
+          "columnsTo": ["key", "space_id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         },
         "budget_group_targets_space_fk": {
           "name": "budget_group_targets_space_fk",
           "tableFrom": "budget_group_targets",
-          "columnsFrom": [
-            "space_id",
-            "user_id"
-          ],
+          "columnsFrom": ["space_id", "user_id"],
           "tableTo": "spaces",
-          "columnsTo": [
-            "id",
-            "user_id"
-          ],
+          "columnsTo": ["id", "user_id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         }
@@ -390,10 +336,7 @@
       "compositePrimaryKeys": {
         "budget_group_targets_pk": {
           "name": "budget_group_targets_pk",
-          "columns": [
-            "version_id",
-            "budget_group"
-          ]
+          "columns": ["version_id", "budget_group"]
         }
       },
       "uniqueConstraints": {},
@@ -480,28 +423,18 @@
         "budget_groups_user_id_profiles_id_fk": {
           "name": "budget_groups_user_id_profiles_id_fk",
           "tableFrom": "budget_groups",
-          "columnsFrom": [
-            "user_id"
-          ],
+          "columnsFrom": ["user_id"],
           "tableTo": "profiles",
-          "columnsTo": [
-            "id"
-          ],
+          "columnsTo": ["id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         },
         "budget_groups_space_fk": {
           "name": "budget_groups_space_fk",
           "tableFrom": "budget_groups",
-          "columnsFrom": [
-            "space_id",
-            "user_id"
-          ],
+          "columnsFrom": ["space_id", "user_id"],
           "tableTo": "spaces",
-          "columnsTo": [
-            "id",
-            "user_id"
-          ],
+          "columnsTo": ["id", "user_id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         }
@@ -509,10 +442,7 @@
       "compositePrimaryKeys": {
         "budget_groups_pk": {
           "name": "budget_groups_pk",
-          "columns": [
-            "space_id",
-            "key"
-          ]
+          "columns": ["space_id", "key"]
         }
       },
       "uniqueConstraints": {},
@@ -582,28 +512,18 @@
         "budget_versions_user_id_profiles_id_fk": {
           "name": "budget_versions_user_id_profiles_id_fk",
           "tableFrom": "budget_versions",
-          "columnsFrom": [
-            "user_id"
-          ],
+          "columnsFrom": ["user_id"],
           "tableTo": "profiles",
-          "columnsTo": [
-            "id"
-          ],
+          "columnsTo": ["id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         },
         "budget_versions_space_fk": {
           "name": "budget_versions_space_fk",
           "tableFrom": "budget_versions",
-          "columnsFrom": [
-            "space_id",
-            "user_id"
-          ],
+          "columnsFrom": ["space_id", "user_id"],
           "tableTo": "spaces",
-          "columnsTo": [
-            "id",
-            "user_id"
-          ],
+          "columnsTo": ["id", "user_id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         }
@@ -612,18 +532,12 @@
       "uniqueConstraints": {
         "budget_versions_id_space_id_unique": {
           "name": "budget_versions_id_space_id_unique",
-          "columns": [
-            "id",
-            "space_id"
-          ],
+          "columns": ["id", "space_id"],
           "nullsNotDistinct": false
         },
         "budget_versions_space_starts_unique": {
           "name": "budget_versions_space_starts_unique",
-          "columns": [
-            "space_id",
-            "starts_month"
-          ],
+          "columns": ["space_id", "starts_month"],
           "nullsNotDistinct": false
         }
       },
@@ -710,43 +624,27 @@
         "categories_user_id_profiles_id_fk": {
           "name": "categories_user_id_profiles_id_fk",
           "tableFrom": "categories",
-          "columnsFrom": [
-            "user_id"
-          ],
+          "columnsFrom": ["user_id"],
           "tableTo": "profiles",
-          "columnsTo": [
-            "id"
-          ],
+          "columnsTo": ["id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         },
         "categories_space_fk": {
           "name": "categories_space_fk",
           "tableFrom": "categories",
-          "columnsFrom": [
-            "space_id",
-            "user_id"
-          ],
+          "columnsFrom": ["space_id", "user_id"],
           "tableTo": "spaces",
-          "columnsTo": [
-            "id",
-            "user_id"
-          ],
+          "columnsTo": ["id", "user_id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         },
         "categories_default_budget_group_fk": {
           "name": "categories_default_budget_group_fk",
           "tableFrom": "categories",
-          "columnsFrom": [
-            "default_budget_group",
-            "space_id"
-          ],
+          "columnsFrom": ["default_budget_group", "space_id"],
           "tableTo": "budget_groups",
-          "columnsTo": [
-            "key",
-            "space_id"
-          ],
+          "columnsTo": ["key", "space_id"],
           "onUpdate": "no action",
           "onDelete": "no action"
         }
@@ -755,19 +653,12 @@
       "uniqueConstraints": {
         "categories_id_space_id_unique": {
           "name": "categories_id_space_id_unique",
-          "columns": [
-            "id",
-            "space_id"
-          ],
+          "columns": ["id", "space_id"],
           "nullsNotDistinct": false
         },
         "categories_space_group_name_unique": {
           "name": "categories_space_group_name_unique",
-          "columns": [
-            "space_id",
-            "group_name",
-            "name"
-          ],
+          "columns": ["space_id", "group_name", "name"],
           "nullsNotDistinct": false
         }
       },
@@ -1002,88 +893,54 @@
         "entries_user_id_profiles_id_fk": {
           "name": "entries_user_id_profiles_id_fk",
           "tableFrom": "entries",
-          "columnsFrom": [
-            "user_id"
-          ],
+          "columnsFrom": ["user_id"],
           "tableTo": "profiles",
-          "columnsTo": [
-            "id"
-          ],
+          "columnsTo": ["id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         },
         "entries_space_fk": {
           "name": "entries_space_fk",
           "tableFrom": "entries",
-          "columnsFrom": [
-            "space_id",
-            "user_id"
-          ],
+          "columnsFrom": ["space_id", "user_id"],
           "tableTo": "spaces",
-          "columnsTo": [
-            "id",
-            "user_id"
-          ],
+          "columnsTo": ["id", "user_id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         },
         "entries_account_fk": {
           "name": "entries_account_fk",
           "tableFrom": "entries",
-          "columnsFrom": [
-            "account_id",
-            "space_id"
-          ],
+          "columnsFrom": ["account_id", "space_id"],
           "tableTo": "accounts",
-          "columnsTo": [
-            "id",
-            "space_id"
-          ],
+          "columnsTo": ["id", "space_id"],
           "onUpdate": "no action",
           "onDelete": "no action"
         },
         "entries_to_account_fk": {
           "name": "entries_to_account_fk",
           "tableFrom": "entries",
-          "columnsFrom": [
-            "to_account_id",
-            "space_id"
-          ],
+          "columnsFrom": ["to_account_id", "space_id"],
           "tableTo": "accounts",
-          "columnsTo": [
-            "id",
-            "space_id"
-          ],
+          "columnsTo": ["id", "space_id"],
           "onUpdate": "no action",
           "onDelete": "no action"
         },
         "entries_category_fk": {
           "name": "entries_category_fk",
           "tableFrom": "entries",
-          "columnsFrom": [
-            "category_id",
-            "space_id"
-          ],
+          "columnsFrom": ["category_id", "space_id"],
           "tableTo": "categories",
-          "columnsTo": [
-            "id",
-            "space_id"
-          ],
+          "columnsTo": ["id", "space_id"],
           "onUpdate": "no action",
           "onDelete": "no action"
         },
         "entries_budget_group_fk": {
           "name": "entries_budget_group_fk",
           "tableFrom": "entries",
-          "columnsFrom": [
-            "budget_group",
-            "space_id"
-          ],
+          "columnsFrom": ["budget_group", "space_id"],
           "tableTo": "budget_groups",
-          "columnsTo": [
-            "key",
-            "space_id"
-          ],
+          "columnsTo": ["key", "space_id"],
           "onUpdate": "no action",
           "onDelete": "no action"
         }
@@ -1092,10 +949,7 @@
       "uniqueConstraints": {
         "entries_id_space_id_unique": {
           "name": "entries_id_space_id_unique",
-          "columns": [
-            "id",
-            "space_id"
-          ],
+          "columns": ["id", "space_id"],
           "nullsNotDistinct": false
         }
       },
@@ -1240,43 +1094,27 @@
         "entry_overrides_user_id_profiles_id_fk": {
           "name": "entry_overrides_user_id_profiles_id_fk",
           "tableFrom": "entry_overrides",
-          "columnsFrom": [
-            "user_id"
-          ],
+          "columnsFrom": ["user_id"],
           "tableTo": "profiles",
-          "columnsTo": [
-            "id"
-          ],
+          "columnsTo": ["id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         },
         "entry_overrides_entry_fk": {
           "name": "entry_overrides_entry_fk",
           "tableFrom": "entry_overrides",
-          "columnsFrom": [
-            "entry_id",
-            "space_id"
-          ],
+          "columnsFrom": ["entry_id", "space_id"],
           "tableTo": "entries",
-          "columnsTo": [
-            "id",
-            "space_id"
-          ],
+          "columnsTo": ["id", "space_id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         },
         "entry_overrides_space_fk": {
           "name": "entry_overrides_space_fk",
           "tableFrom": "entry_overrides",
-          "columnsFrom": [
-            "space_id",
-            "user_id"
-          ],
+          "columnsFrom": ["space_id", "user_id"],
           "tableTo": "spaces",
-          "columnsTo": [
-            "id",
-            "user_id"
-          ],
+          "columnsTo": ["id", "user_id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         }
@@ -1284,10 +1122,7 @@
       "compositePrimaryKeys": {
         "entry_overrides_pk": {
           "name": "entry_overrides_pk",
-          "columns": [
-            "entry_id",
-            "month"
-          ]
+          "columns": ["entry_id", "month"]
         }
       },
       "uniqueConstraints": {},
@@ -1430,43 +1265,27 @@
         "entry_parts_user_id_profiles_id_fk": {
           "name": "entry_parts_user_id_profiles_id_fk",
           "tableFrom": "entry_parts",
-          "columnsFrom": [
-            "user_id"
-          ],
+          "columnsFrom": ["user_id"],
           "tableTo": "profiles",
-          "columnsTo": [
-            "id"
-          ],
+          "columnsTo": ["id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         },
         "entry_parts_entry_fk": {
           "name": "entry_parts_entry_fk",
           "tableFrom": "entry_parts",
-          "columnsFrom": [
-            "entry_id",
-            "space_id"
-          ],
+          "columnsFrom": ["entry_id", "space_id"],
           "tableTo": "entries",
-          "columnsTo": [
-            "id",
-            "space_id"
-          ],
+          "columnsTo": ["id", "space_id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         },
         "entry_parts_space_fk": {
           "name": "entry_parts_space_fk",
           "tableFrom": "entry_parts",
-          "columnsFrom": [
-            "space_id",
-            "user_id"
-          ],
+          "columnsFrom": ["space_id", "user_id"],
           "tableTo": "spaces",
-          "columnsTo": [
-            "id",
-            "user_id"
-          ],
+          "columnsTo": ["id", "user_id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         }
@@ -1475,10 +1294,7 @@
       "uniqueConstraints": {
         "entry_parts_id_entry_id_unique": {
           "name": "entry_parts_id_entry_id_unique",
-          "columns": [
-            "id",
-            "entry_id"
-          ],
+          "columns": ["id", "entry_id"],
           "nullsNotDistinct": false
         }
       },
@@ -1592,58 +1408,36 @@
         "occurrence_payments_user_id_profiles_id_fk": {
           "name": "occurrence_payments_user_id_profiles_id_fk",
           "tableFrom": "occurrence_payments",
-          "columnsFrom": [
-            "user_id"
-          ],
+          "columnsFrom": ["user_id"],
           "tableTo": "profiles",
-          "columnsTo": [
-            "id"
-          ],
+          "columnsTo": ["id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         },
         "occurrence_payments_entry_fk": {
           "name": "occurrence_payments_entry_fk",
           "tableFrom": "occurrence_payments",
-          "columnsFrom": [
-            "entry_id",
-            "space_id"
-          ],
+          "columnsFrom": ["entry_id", "space_id"],
           "tableTo": "entries",
-          "columnsTo": [
-            "id",
-            "space_id"
-          ],
+          "columnsTo": ["id", "space_id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         },
         "occurrence_payments_space_fk": {
           "name": "occurrence_payments_space_fk",
           "tableFrom": "occurrence_payments",
-          "columnsFrom": [
-            "space_id",
-            "user_id"
-          ],
+          "columnsFrom": ["space_id", "user_id"],
           "tableTo": "spaces",
-          "columnsTo": [
-            "id",
-            "user_id"
-          ],
+          "columnsTo": ["id", "user_id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         },
         "occurrence_payments_part_fk": {
           "name": "occurrence_payments_part_fk",
           "tableFrom": "occurrence_payments",
-          "columnsFrom": [
-            "part_id",
-            "entry_id"
-          ],
+          "columnsFrom": ["part_id", "entry_id"],
           "tableTo": "entry_parts",
-          "columnsTo": [
-            "id",
-            "entry_id"
-          ],
+          "columnsTo": ["id", "entry_id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         }
@@ -1652,11 +1446,7 @@
       "uniqueConstraints": {
         "occurrence_payments_occurrence_unique": {
           "name": "occurrence_payments_occurrence_unique",
-          "columns": [
-            "entry_id",
-            "month",
-            "part_id"
-          ],
+          "columns": ["entry_id", "month", "part_id"],
           "nullsNotDistinct": true
         }
       },
@@ -1711,14 +1501,10 @@
         "profiles_id_users_id_fk": {
           "name": "profiles_id_users_id_fk",
           "tableFrom": "profiles",
-          "columnsFrom": [
-            "id"
-          ],
+          "columnsFrom": ["id"],
           "tableTo": "users",
           "schemaTo": "auth",
-          "columnsTo": [
-            "id"
-          ],
+          "columnsTo": ["id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         }
@@ -1816,13 +1602,9 @@
         "spaces_user_id_profiles_id_fk": {
           "name": "spaces_user_id_profiles_id_fk",
           "tableFrom": "spaces",
-          "columnsFrom": [
-            "user_id"
-          ],
+          "columnsFrom": ["user_id"],
           "tableTo": "profiles",
-          "columnsTo": [
-            "id"
-          ],
+          "columnsTo": ["id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         }
@@ -1831,10 +1613,7 @@
       "uniqueConstraints": {
         "spaces_id_user_id_unique": {
           "name": "spaces_id_user_id_unique",
-          "columns": [
-            "id",
-            "user_id"
-          ],
+          "columns": ["id", "user_id"],
           "nullsNotDistinct": false
         }
       },
@@ -1927,28 +1706,18 @@
         "undo_snapshots_user_id_profiles_id_fk": {
           "name": "undo_snapshots_user_id_profiles_id_fk",
           "tableFrom": "undo_snapshots",
-          "columnsFrom": [
-            "user_id"
-          ],
+          "columnsFrom": ["user_id"],
           "tableTo": "profiles",
-          "columnsTo": [
-            "id"
-          ],
+          "columnsTo": ["id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         },
         "undo_snapshots_space_fk": {
           "name": "undo_snapshots_space_fk",
           "tableFrom": "undo_snapshots",
-          "columnsFrom": [
-            "space_id",
-            "user_id"
-          ],
+          "columnsFrom": ["space_id", "user_id"],
           "tableTo": "spaces",
-          "columnsTo": [
-            "id",
-            "user_id"
-          ],
+          "columnsTo": ["id", "user_id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         }
@@ -1995,28 +1764,18 @@
         "user_settings_user_id_profiles_id_fk": {
           "name": "user_settings_user_id_profiles_id_fk",
           "tableFrom": "user_settings",
-          "columnsFrom": [
-            "user_id"
-          ],
+          "columnsFrom": ["user_id"],
           "tableTo": "profiles",
-          "columnsTo": [
-            "id"
-          ],
+          "columnsTo": ["id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         },
         "user_settings_space_fk": {
           "name": "user_settings_space_fk",
           "tableFrom": "user_settings",
-          "columnsFrom": [
-            "space_id",
-            "user_id"
-          ],
+          "columnsFrom": ["space_id", "user_id"],
           "tableTo": "spaces",
-          "columnsTo": [
-            "id",
-            "user_id"
-          ],
+          "columnsTo": ["id", "user_id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         }
@@ -2128,58 +1887,36 @@
         "bank_entry_links_user_id_profiles_id_fk": {
           "name": "bank_entry_links_user_id_profiles_id_fk",
           "tableFrom": "bank_entry_links",
-          "columnsFrom": [
-            "user_id"
-          ],
+          "columnsFrom": ["user_id"],
           "tableTo": "profiles",
-          "columnsTo": [
-            "id"
-          ],
+          "columnsTo": ["id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         },
         "bank_entry_links_space_fk": {
           "name": "bank_entry_links_space_fk",
           "tableFrom": "bank_entry_links",
-          "columnsFrom": [
-            "space_id",
-            "user_id"
-          ],
+          "columnsFrom": ["space_id", "user_id"],
           "tableTo": "spaces",
-          "columnsTo": [
-            "id",
-            "user_id"
-          ],
+          "columnsTo": ["id", "user_id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         },
         "bank_entry_links_transaction_fk": {
           "name": "bank_entry_links_transaction_fk",
           "tableFrom": "bank_entry_links",
-          "columnsFrom": [
-            "bank_transaction_id",
-            "space_id"
-          ],
+          "columnsFrom": ["bank_transaction_id", "space_id"],
           "tableTo": "bank_transactions",
-          "columnsTo": [
-            "id",
-            "space_id"
-          ],
+          "columnsTo": ["id", "space_id"],
           "onUpdate": "no action",
           "onDelete": "set null"
         },
         "bank_entry_links_entry_fk": {
           "name": "bank_entry_links_entry_fk",
           "tableFrom": "bank_entry_links",
-          "columnsFrom": [
-            "entry_id",
-            "space_id"
-          ],
+          "columnsFrom": ["entry_id", "space_id"],
           "tableTo": "entries",
-          "columnsTo": [
-            "id",
-            "space_id"
-          ],
+          "columnsTo": ["id", "space_id"],
           "onUpdate": "no action",
           "onDelete": "set null"
         }
@@ -2360,43 +2097,27 @@
         "bank_feed_accounts_user_id_profiles_id_fk": {
           "name": "bank_feed_accounts_user_id_profiles_id_fk",
           "tableFrom": "bank_feed_accounts",
-          "columnsFrom": [
-            "user_id"
-          ],
+          "columnsFrom": ["user_id"],
           "tableTo": "profiles",
-          "columnsTo": [
-            "id"
-          ],
+          "columnsTo": ["id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         },
         "bank_feed_accounts_space_fk": {
           "name": "bank_feed_accounts_space_fk",
           "tableFrom": "bank_feed_accounts",
-          "columnsFrom": [
-            "space_id",
-            "user_id"
-          ],
+          "columnsFrom": ["space_id", "user_id"],
           "tableTo": "spaces",
-          "columnsTo": [
-            "id",
-            "user_id"
-          ],
+          "columnsTo": ["id", "user_id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         },
         "bank_feed_accounts_account_fk": {
           "name": "bank_feed_accounts_account_fk",
           "tableFrom": "bank_feed_accounts",
-          "columnsFrom": [
-            "account_id",
-            "space_id"
-          ],
+          "columnsFrom": ["account_id", "space_id"],
           "tableTo": "accounts",
-          "columnsTo": [
-            "id",
-            "space_id"
-          ],
+          "columnsTo": ["id", "space_id"],
           "onUpdate": "no action",
           "onDelete": "set null"
         }
@@ -2405,19 +2126,12 @@
       "uniqueConstraints": {
         "bank_feed_accounts_id_space_id_unique": {
           "name": "bank_feed_accounts_id_space_id_unique",
-          "columns": [
-            "id",
-            "space_id"
-          ],
+          "columns": ["id", "space_id"],
           "nullsNotDistinct": false
         },
         "bank_feed_accounts_external_unique": {
           "name": "bank_feed_accounts_external_unique",
-          "columns": [
-            "space_id",
-            "source",
-            "external_id"
-          ],
+          "columns": ["space_id", "source", "external_id"],
           "nullsNotDistinct": false
         }
       },
@@ -2554,28 +2268,18 @@
         "bank_feed_items_user_id_profiles_id_fk": {
           "name": "bank_feed_items_user_id_profiles_id_fk",
           "tableFrom": "bank_feed_items",
-          "columnsFrom": [
-            "user_id"
-          ],
+          "columnsFrom": ["user_id"],
           "tableTo": "profiles",
-          "columnsTo": [
-            "id"
-          ],
+          "columnsTo": ["id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         },
         "bank_feed_items_space_fk": {
           "name": "bank_feed_items_space_fk",
           "tableFrom": "bank_feed_items",
-          "columnsFrom": [
-            "space_id",
-            "user_id"
-          ],
+          "columnsFrom": ["space_id", "user_id"],
           "tableTo": "spaces",
-          "columnsTo": [
-            "id",
-            "user_id"
-          ],
+          "columnsTo": ["id", "user_id"],
           "onUpdate": "no action",
           "onDelete": "no action"
         }
@@ -2583,10 +2287,7 @@
       "compositePrimaryKeys": {
         "bank_feed_items_pk": {
           "name": "bank_feed_items_pk",
-          "columns": [
-            "user_id",
-            "item_id"
-          ]
+          "columns": ["user_id", "item_id"]
         }
       },
       "uniqueConstraints": {},
@@ -2764,43 +2465,27 @@
         "bank_transactions_user_id_profiles_id_fk": {
           "name": "bank_transactions_user_id_profiles_id_fk",
           "tableFrom": "bank_transactions",
-          "columnsFrom": [
-            "user_id"
-          ],
+          "columnsFrom": ["user_id"],
           "tableTo": "profiles",
-          "columnsTo": [
-            "id"
-          ],
+          "columnsTo": ["id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         },
         "bank_transactions_feed_account_fk": {
           "name": "bank_transactions_feed_account_fk",
           "tableFrom": "bank_transactions",
-          "columnsFrom": [
-            "feed_account_id",
-            "space_id"
-          ],
+          "columnsFrom": ["feed_account_id", "space_id"],
           "tableTo": "bank_feed_accounts",
-          "columnsTo": [
-            "id",
-            "space_id"
-          ],
+          "columnsTo": ["id", "space_id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         },
         "bank_transactions_space_fk": {
           "name": "bank_transactions_space_fk",
           "tableFrom": "bank_transactions",
-          "columnsFrom": [
-            "space_id",
-            "user_id"
-          ],
+          "columnsFrom": ["space_id", "user_id"],
           "tableTo": "spaces",
-          "columnsTo": [
-            "id",
-            "user_id"
-          ],
+          "columnsTo": ["id", "user_id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         }
@@ -2809,19 +2494,12 @@
       "uniqueConstraints": {
         "bank_transactions_external_unique": {
           "name": "bank_transactions_external_unique",
-          "columns": [
-            "user_id",
-            "feed_account_id",
-            "external_id"
-          ],
+          "columns": ["user_id", "feed_account_id", "external_id"],
           "nullsNotDistinct": false
         },
         "bank_transactions_id_space_id_unique": {
           "name": "bank_transactions_id_space_id_unique",
-          "columns": [
-            "id",
-            "space_id"
-          ],
+          "columns": ["id", "space_id"],
           "nullsNotDistinct": false
         }
       },
@@ -2932,58 +2610,36 @@
         "categorization_rules_user_id_profiles_id_fk": {
           "name": "categorization_rules_user_id_profiles_id_fk",
           "tableFrom": "categorization_rules",
-          "columnsFrom": [
-            "user_id"
-          ],
+          "columnsFrom": ["user_id"],
           "tableTo": "profiles",
-          "columnsTo": [
-            "id"
-          ],
+          "columnsTo": ["id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         },
         "categorization_rules_space_fk": {
           "name": "categorization_rules_space_fk",
           "tableFrom": "categorization_rules",
-          "columnsFrom": [
-            "space_id",
-            "user_id"
-          ],
+          "columnsFrom": ["space_id", "user_id"],
           "tableTo": "spaces",
-          "columnsTo": [
-            "id",
-            "user_id"
-          ],
+          "columnsTo": ["id", "user_id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         },
         "categorization_rules_category_fk": {
           "name": "categorization_rules_category_fk",
           "tableFrom": "categorization_rules",
-          "columnsFrom": [
-            "category_id",
-            "space_id"
-          ],
+          "columnsFrom": ["category_id", "space_id"],
           "tableTo": "categories",
-          "columnsTo": [
-            "id",
-            "space_id"
-          ],
+          "columnsTo": ["id", "space_id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         },
         "categorization_rules_budget_group_fk": {
           "name": "categorization_rules_budget_group_fk",
           "tableFrom": "categorization_rules",
-          "columnsFrom": [
-            "budget_group",
-            "space_id"
-          ],
+          "columnsFrom": ["budget_group", "space_id"],
           "tableTo": "budget_groups",
-          "columnsTo": [
-            "key",
-            "space_id"
-          ],
+          "columnsTo": ["key", "space_id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         }
@@ -3143,58 +2799,36 @@
         "goals_user_id_profiles_id_fk": {
           "name": "goals_user_id_profiles_id_fk",
           "tableFrom": "goals",
-          "columnsFrom": [
-            "user_id"
-          ],
+          "columnsFrom": ["user_id"],
           "tableTo": "profiles",
-          "columnsTo": [
-            "id"
-          ],
+          "columnsTo": ["id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         },
         "goals_space_fk": {
           "name": "goals_space_fk",
           "tableFrom": "goals",
-          "columnsFrom": [
-            "space_id",
-            "user_id"
-          ],
+          "columnsFrom": ["space_id", "user_id"],
           "tableTo": "spaces",
-          "columnsTo": [
-            "id",
-            "user_id"
-          ],
+          "columnsTo": ["id", "user_id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         },
         "goals_budget_group_fk": {
           "name": "goals_budget_group_fk",
           "tableFrom": "goals",
-          "columnsFrom": [
-            "budget_group",
-            "space_id"
-          ],
+          "columnsFrom": ["budget_group", "space_id"],
           "tableTo": "budget_groups",
-          "columnsTo": [
-            "key",
-            "space_id"
-          ],
+          "columnsTo": ["key", "space_id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         },
         "goals_account_fk": {
           "name": "goals_account_fk",
           "tableFrom": "goals",
-          "columnsFrom": [
-            "account_id",
-            "space_id"
-          ],
+          "columnsFrom": ["account_id", "space_id"],
           "tableTo": "accounts",
-          "columnsTo": [
-            "id",
-            "space_id"
-          ],
+          "columnsTo": ["id", "space_id"],
           "onUpdate": "no action",
           "onDelete": "set null"
         }
@@ -3243,49 +2877,27 @@
     "public.account_type": {
       "name": "account_type",
       "schema": "public",
-      "values": [
-        "checking",
-        "credit",
-        "benefit",
-        "investment",
-        "loan"
-      ]
+      "values": ["checking", "credit", "benefit", "investment", "loan"]
     },
     "public.entry_kind": {
       "name": "entry_kind",
       "schema": "public",
-      "values": [
-        "income",
-        "expense",
-        "transfer"
-      ]
+      "values": ["income", "expense", "transfer"]
     },
     "public.month_by": {
       "name": "month_by",
       "schema": "public",
-      "values": [
-        "day",
-        "weekday",
-        "last_weekday"
-      ]
+      "values": ["day", "weekday", "last_weekday"]
     },
     "public.recurrence": {
       "name": "recurrence",
       "schema": "public",
-      "values": [
-        "none",
-        "monthly",
-        "yearly",
-        "installments"
-      ]
+      "values": ["none", "monthly", "yearly", "installments"]
     },
     "public.space_kind": {
       "name": "space_kind",
       "schema": "public",
-      "values": [
-        "personal",
-        "business"
-      ]
+      "values": ["personal", "business"]
     }
   },
   "schemas": {},

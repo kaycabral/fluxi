@@ -1,6 +1,6 @@
 import { fluxiDb, personalScope, seedUser, truncateFluxiTables } from '@/db'
+import { ownerDb } from '@/db/owner'
 import { accounts, banks, entries, entryOverrides, entryParts } from '@/db/schema'
-import { ownerDb } from '@/db/test-database'
 import type { EntryFields } from '@/features/ledger/core/schemas'
 import type { Scope } from '@/features/spaces/core/space'
 import { pgErrorOf } from '@cbrl/pg'

@@ -10,7 +10,8 @@ import pg from 'pg'
 
 async function main(): Promise<void> {
   const { dbUrl } = readLocalSupabase()
-  localAppUrl(dbUrl) // refuses a non-local stack
+  // Refuses a non-local stack before touching it.
+  localAppUrl(dbUrl)
   await fluxiDb.migrate({ connectionString: dbUrl })
   const client = new pg.Client({ connectionString: dbUrl })
   await client.connect()

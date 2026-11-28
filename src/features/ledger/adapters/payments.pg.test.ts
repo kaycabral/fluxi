@@ -1,6 +1,6 @@
 import { fluxiDb, personalScope, seedUser, truncateFluxiTables } from '@/db'
+import { ownerDb } from '@/db/owner'
 import { entries, entryParts, occurrencePayments } from '@/db/schema'
-import { ownerDb } from '@/db/test-database'
 import type { EntryFields } from '@/features/ledger/core/schemas'
 import type { Scope } from '@/features/spaces/core/space'
 import { asc, eq, sql } from 'drizzle-orm'

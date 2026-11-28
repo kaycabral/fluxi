@@ -1,7 +1,7 @@
 import { fluxiDb, personalScope, seedUser, truncateFluxiTables } from '@/db'
+import { ownerDb } from '@/db/owner'
 import { accounts, banks, categories, entries } from '@/db/schema'
 import { bankEntryLinks, bankFeedAccounts, categorizationRules } from '@/db/schema-bank-feed'
-import { ownerDb } from '@/db/test-database'
 import type { FeedAccountRow, FeedTransactionRow } from '@/features/bank-feed/core/pluggy'
 import { TRANSFER_SIGNAL_EXAMPLES } from '@/features/bank-feed/core/transfer'
 import { descriptionKey } from '@/features/ledger/core/similar'
@@ -19,7 +19,7 @@ const BIA = '22222222-2222-4222-8222-222222222222'
 const TODAY = '2026-11-25'
 
 const db = () => fluxiDb.db()
-const asSync = postgres(requireEnv('POSTGRES_OWNER_URL'), { prepare: false, max: 1 })
+const asSync = postgres(requireEnv('POSTGRES_URL'), { prepare: false, max: 1 })
 
 let ana: Scope
 let checkingId: string

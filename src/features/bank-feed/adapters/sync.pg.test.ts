@@ -1,7 +1,7 @@
 import { fluxiDb, personalScope, seedUser, truncateFluxiTables } from '@/db'
+import { ownerDb } from '@/db/owner'
 import { spaces } from '@/db/schema'
 import { bankFeedAccounts, bankFeedItems, bankTransactions } from '@/db/schema-bank-feed'
-import { ownerDb } from '@/db/test-database'
 import { requireEnv } from '@cbrl/env'
 import { sql } from 'drizzle-orm'
 import postgres from 'postgres'
@@ -17,7 +17,7 @@ const env = {
   PLUGGY_CLIENT_SECRET: 'secret',
   PLUGGY_ITEM_IDS: 'item-ok, item-busy',
   FLUXI_SYNC_USER_ID: ANA,
-  FLUXI_SYNC_DB_URL: requireEnv('POSTGRES_OWNER_URL'),
+  FLUXI_SYNC_DB_URL: requireEnv('POSTGRES_URL'),
   FLUXI_SYNC_TOKEN: TOKEN,
   FLUXI_HOLDER_KEY_SECRET: 'k'.repeat(64),
 }

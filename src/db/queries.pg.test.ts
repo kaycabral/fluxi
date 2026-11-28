@@ -1,4 +1,4 @@
-import { ownerDb } from '@/db/test-database'
+import { ownerDb } from '@/db/owner'
 import { sql } from 'drizzle-orm'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { fluxiDb, getProfile, seedUser, truncateFluxiTables } from './index'
@@ -7,7 +7,6 @@ const USER = '11111111-1111-4111-8111-111111111111'
 const OTHER = '22222222-2222-4222-8222-222222222222'
 
 beforeEach(async () => {
-  const db = fluxiDb.db()
   await truncateFluxiTables(ownerDb.db())
   await seedUser(ownerDb.db(), {
     id: USER,

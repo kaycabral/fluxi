@@ -1,4 +1,5 @@
 import { fluxiDb, personalScope, seedUser, truncateFluxiTables } from '@/db'
+import { ownerDb } from '@/db/owner'
 import {
   accounts,
   banks,
@@ -8,7 +9,6 @@ import {
   entryOverrides,
   entryParts,
 } from '@/db/schema'
-import { ownerDb } from '@/db/test-database'
 import { DEFAULT_BUDGET_GROUPS, DEFAULT_CATEGORY_GROUPS } from '@/features/ledger/core/defaults'
 import { archiveSpace, createSpace, resolveScope } from '@/features/spaces/adapters/space.repo'
 import type { Scope } from '@/features/spaces/core/space'

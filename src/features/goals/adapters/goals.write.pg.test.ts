@@ -1,6 +1,6 @@
 import { fluxiDb, personalScope, seedUser, truncateFluxiTables } from '@/db'
+import { ownerDb } from '@/db/owner'
 import { accounts } from '@/db/schema'
-import { ownerDb } from '@/db/test-database'
 import type { GoalInput } from '@/features/goals/core/schemas'
 import { createAccount, createBank } from '@/features/ledger/adapters/ledger.write'
 import type { Scope } from '@/features/spaces/core/space'

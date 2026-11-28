@@ -1,6 +1,6 @@
 import { fluxiDb, personalScope, seedUser, truncateFluxiTables } from '@/db'
+import { ownerDb } from '@/db/owner'
 import { categories, entries } from '@/db/schema'
-import { ownerDb } from '@/db/test-database'
 import type { Scope } from '@/features/spaces/core/space'
 import { eq } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'

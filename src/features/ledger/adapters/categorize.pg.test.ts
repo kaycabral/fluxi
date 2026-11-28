@@ -1,4 +1,5 @@
 import { fluxiDb, personalScope, seedUser, truncateFluxiTables } from '@/db'
+import { ownerDb } from '@/db/owner'
 import { accounts, banks, budgetGroups, categories, entries } from '@/db/schema'
 import {
   bankEntryLinks,
@@ -6,7 +7,6 @@ import {
   bankTransactions,
   categorizationRules,
 } from '@/db/schema-bank-feed'
-import { ownerDb } from '@/db/test-database'
 import type { Scope } from '@/features/spaces/core/space'
 import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'

@@ -1,7 +1,7 @@
 import { fluxiDb, personalScope, seedUser, truncateFluxiTables } from '@/db'
+import { ownerDb } from '@/db/owner'
 import { accounts, banks, spaces } from '@/db/schema'
 import { bankFeedAccounts, bankTransactions } from '@/db/schema-bank-feed'
-import { ownerDb } from '@/db/test-database'
 import type { FeedAccountRow, FeedTransactionRow } from '@/features/bank-feed/core/pluggy'
 import type { Scope } from '@/features/spaces/core/space'
 import { requireEnv } from '@cbrl/env'
@@ -21,7 +21,7 @@ const db = () => fluxiDb.db()
  * statements, as the least-privileged `fluxi_sync` role (one connection, so
  * `set role` covers every statement of the suite).
  */
-const asSync = postgres(requireEnv('POSTGRES_OWNER_URL'), { prepare: false, max: 1 })
+const asSync = postgres(requireEnv('POSTGRES_URL'), { prepare: false, max: 1 })
 const sync = (scope: Scope, acc: FeedAccountRow, transactions: FeedTransactionRow[]) =>
   syncFeedAccount(asSync, scope, {
     source: 'pluggy',
@@ -90,7 +90,7 @@ describe('bank feed sync (Postgres)', () => {
 
   it('stays invisible to the API roles (RLS without policies for them)', async () => {
     await sync(anaScope, account, [tx('a')])
-    const asApi = postgres(requireEnv('POSTGRES_OWNER_URL'), { prepare: false, max: 1 })
+    const asApi = postgres(requireEnv('POSTGRES_URL'), { prepare: false, max: 1 })
     try {
       await asApi`set role authenticated`
       expect(await asApi`select 1 from bank_transactions`).toHaveLength(0)

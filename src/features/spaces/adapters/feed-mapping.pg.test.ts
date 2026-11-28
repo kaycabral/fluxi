@@ -1,7 +1,7 @@
 import { fluxiDb, personalScope, seedUser, truncateFluxiTables } from '@/db'
+import { ownerDb } from '@/db/owner'
 import { accounts, banks, entries, spaces } from '@/db/schema'
 import { bankEntryLinks, bankFeedAccounts, bankFeedItems } from '@/db/schema-bank-feed'
-import { ownerDb } from '@/db/test-database'
 import { syncFeedAccount } from '@/features/bank-feed/adapters/feed.write'
 import type { FeedTransactionRow } from '@/features/bank-feed/core/pluggy'
 import { renameAccount, setAccountArchived } from '@/features/ledger/adapters/ledger.write'
@@ -16,7 +16,7 @@ const ANA = '11111111-1111-4111-8111-111111111111'
 const BIA = '22222222-2222-4222-8222-222222222222'
 const TODAY = '2026-11-25'
 const db = () => fluxiDb.db()
-const raw = postgres(requireEnv('POSTGRES_OWNER_URL'), { prepare: false, max: 1 })
+const raw = postgres(requireEnv('POSTGRES_URL'), { prepare: false, max: 1 })
 
 let ana: Scope
 let cardFeedId: string

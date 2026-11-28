@@ -10,8 +10,8 @@ const target = writeEnvLocal(
   {
     NEXT_PUBLIC_SUPABASE_URL: local.apiUrl,
     NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: local.publishableKey,
-    // The app's runtime role (not the table owner), like production.
-    POSTGRES_URL: localAppUrl(local.dbUrl),
+    POSTGRES_URL: local.dbUrl,
+    FLUXI_DATABASE_URL: localAppUrl(local.dbUrl),
   },
   { appDir: findSupabaseAppDir() },
 )

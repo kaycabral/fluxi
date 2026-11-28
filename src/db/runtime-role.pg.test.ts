@@ -1,6 +1,6 @@
 import { fluxiDb, personalScope, seedUser, truncateFluxiTables } from '@/db'
 import { APP_ROLE } from '@/db/local-app-role'
-import { ownerDb } from '@/db/test-database'
+import { ownerDb } from '@/db/owner'
 import { listAccounts } from '@/features/ledger/adapters/ledger.repo'
 import { createAccount, createBank, renameAccount } from '@/features/ledger/adapters/ledger.write'
 import type { Scope } from '@/features/spaces/core/space'

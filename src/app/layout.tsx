@@ -1,7 +1,7 @@
 import { AutoSignIn } from '@/components/auto-sign-in'
-import { WebAnalytics } from '@/components/web-analytics'
 import { siteUrl } from '@/lib/site-url'
 import { ThemeProvider, Toaster } from '@cbrl/design'
+import { WebAnalytics } from '@cbrl/next/analytics'
 import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'

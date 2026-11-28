@@ -56,7 +56,7 @@
     "@cbrl/design": "^0.8.0",
     "@cbrl/env": "^0.1.1",
     "@cbrl/log": "^0.1.0",
-    "@cbrl/next": "^0.3.0",
+    "@cbrl/next": "^0.5.0",
     "@cbrl/pg": "^0.3.0",
     "@cbrl/supabase": "^0.2.0",
     "@hookform/resolvers": "^7.0.8",

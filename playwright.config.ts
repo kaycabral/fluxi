@@ -15,6 +15,7 @@ const supabaseEnv = {
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: local.publishableKey,
   SUPABASE_SECRET_KEY: local.secretKey,
   POSTGRES_URL: local.dbUrl,
+  FLUXI_DATABASE_URL: localAppUrl(local.dbUrl),
 }
 Object.assign(process.env, supabaseEnv)
 
@@ -31,7 +32,6 @@ export default defineConfig(
     testMatch: '**/_e2e/**/*.spec.ts',
     webServerEnv: {
       ...supabaseEnv,
-      FLUXI_DATABASE_URL: localAppUrl(local.dbUrl),
       ENABLE_TEST_AUTH: 'true',
       NEXT_PUBLIC_SITE_URL: BASE_URL,
     },

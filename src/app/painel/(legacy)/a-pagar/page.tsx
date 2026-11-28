@@ -1,10 +1,9 @@
-import { PageHeader } from '@/app/painel/_components/page-header'
 import { Unavailable } from '@/app/painel/_components/unavailable'
 import { requirePainelScope, todayIso } from '@/app/painel/_lib/session'
-import { Container } from '@/components/container'
 import { loadLedgerData } from '@/features/ledger/adapters/views'
 import { payablesWindow } from '@/features/ledger/core/payments'
 import { PayablesView } from '@/features/ledger/ui/payables-view'
+import { Container, PageHeader } from '@cbrl/design'
 import type { Metadata } from 'next'
 import { connection } from 'next/server'
 

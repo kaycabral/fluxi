@@ -1,10 +1,9 @@
-import { PageHeader } from '@/app/painel/_components/page-header'
 import { Unavailable } from '@/app/painel/_components/unavailable'
 import { requirePainelScope, todayIso } from '@/app/painel/_lib/session'
-import { Container } from '@/components/container'
 import { loadLedgerData } from '@/features/ledger/adapters/views'
 import { timelineWindow } from '@/features/ledger/core/timeline'
 import { TimelineView } from '@/features/ledger/ui/timeline-view'
+import { Container, PageHeader } from '@cbrl/design'
 import { connection } from 'next/server'
 
 export default async function TimelinePage() {

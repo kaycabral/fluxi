@@ -1,4 +1,5 @@
 import { fluxiDb, personalScope, seedUser, truncateFluxiTables } from '@/db'
+import { ownerDb } from '@/db/owner'
 import { accounts, banks, entries, occurrencePayments } from '@/db/schema'
 import { bankEntryLinks, bankFeedAccounts, bankTransactions } from '@/db/schema-bank-feed'
 import type { FeedAccountRow, FeedTransactionRow } from '@/features/bank-feed/core/pluggy'
@@ -130,9 +131,9 @@ beforeAll(async () => {
 })
 
 beforeEach(async () => {
-  await truncateFluxiTables(db())
-  await seedUser(db(), { id: ANA, email: 'ana@example.test' })
-  await seedUser(db(), { id: BIA, email: 'bia@example.test' })
+  await truncateFluxiTables(ownerDb.db())
+  await seedUser(ownerDb.db(), { id: ANA, email: 'ana@example.test' })
+  await seedUser(ownerDb.db(), { id: BIA, email: 'bia@example.test' })
   ana = await personalScope(db(), ANA)
   const ids = await seedAccounts(ana)
   checkingId = ids.checking
@@ -140,7 +141,7 @@ beforeEach(async () => {
 })
 
 afterAll(async () => {
-  await truncateFluxiTables(db())
+  await truncateFluxiTables(ownerDb.db())
   await asSync.end()
 })
 

@@ -1,4 +1,5 @@
 import { fluxiDb, personalScope, seedUser, truncateFluxiTables } from '@/db'
+import { ownerDb } from '@/db/owner'
 import { spaces } from '@/db/schema'
 import { bankFeedAccounts, bankFeedItems, bankTransactions } from '@/db/schema-bank-feed'
 import { requireEnv } from '@cbrl/env'
@@ -106,12 +107,12 @@ const authed = { method: 'POST', headers: { [TOKEN_HEADER]: TOKEN } }
 describe('pluggy-sync handler (Postgres)', () => {
   const db = () => fluxiDb.db()
   beforeEach(async () => {
-    await truncateFluxiTables(db())
-    await seedUser(db(), { id: ANA, email: 'ana@example.test' })
+    await truncateFluxiTables(ownerDb.db())
+    await seedUser(ownerDb.db(), { id: ANA, email: 'ana@example.test' })
     fixtures = {}
   })
   afterAll(async () => {
-    await truncateFluxiTables(db())
+    await truncateFluxiTables(ownerDb.db())
   })
 
   it('compares tokens exactly', async () => {
@@ -223,7 +224,7 @@ describe('pluggy-sync handler (Postgres)', () => {
 
   it('records the health of every item, skipped and unassigned ones included, for the sync user only', async () => {
     const BIA = '22222222-2222-4222-8222-222222222222'
-    await seedUser(db(), { id: BIA, email: 'bia@example.test' })
+    await seedUser(ownerDb.db(), { id: BIA, email: 'bia@example.test' })
     await db().insert(bankFeedItems).values({ userId: BIA, itemId: 'item-busy', label: 'Bia' })
     const { spaceId } = await personalScope(db(), ANA)
     await db()

@@ -5,15 +5,25 @@ import { fileURLToPath } from 'node:url'
 import * as ledgerSchema from './schema'
 import * as bankFeedSchema from './schema-bank-feed'
 
-const schema = { ...ledgerSchema, ...bankFeedSchema }
+/** `drizzle/`, shared with the owner connection in `./owner`. */
+export const migrationsFolder = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../../drizzle',
+)
+
+export const fluxiSchemaModules = { ...ledgerSchema, ...bankFeedSchema }
 
 /**
  * Postgres for fluxi (Supabase in production, the local Supabase stack in
  * dev/tests): Drizzle on the `@cbrl/pg` registered pool (bounded timeouts,
  * idle-error handler, process-wide registry). Nothing opens until first use.
  *
- * Password mode only: `POSTGRES_URL` is the name the Supabase ↔ Vercel
- * integration injects (transaction pooler, port 6543). Supabase hosts are
+ * `FLUXI_DATABASE_URL` logs in as the runtime role `fluxi_app` (migration
+ * 0034): not the table owner, no RLS bypass, DML on the app tables only. Never
+ * point it at `postgres` (`POSTGRES_URL`, injected by the Supabase ↔ Vercel
+ * integration), which is for migrations, seeds and fixtures only.
+ *
+ * Password mode only, transaction pooler (port 6543). Supabase hosts are
  * verified against the pinned root CA (`supabaseSsl`), and the URL's `ssl*`
  * params are stripped so they cannot override that pin.
  *
@@ -22,11 +32,11 @@ const schema = { ...ledgerSchema, ...bankFeedSchema }
  * Never call it at app boot, and never `drizzle-kit push` against production.
  */
 export const fluxiDb = createDrizzleDatabase({
-  connectionStringEnvVar: 'POSTGRES_URL',
+  connectionStringEnvVar: 'FLUXI_DATABASE_URL',
   database: 'fluxi',
   ssl: supabaseSsl,
-  schema,
-  migrationsFolder: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../drizzle'),
+  schema: fluxiSchemaModules,
+  migrationsFolder,
 })
 
 export type FluxiDb = ReturnType<typeof fluxiDb.db>

@@ -3,6 +3,7 @@ import { defineE2EConfig } from '@cbrl/testing/playwright'
 import { defineConfig } from '@playwright/test'
 
 import { BASE_URL, E2E_PORT } from './e2e/constants'
+import { localAppUrl } from './src/db/local-app-role'
 
 // E2E runs against the LOCAL Supabase stack (`pnpm db:start`). Its URL, keys and
 // database come from `supabase status`; setting them on process.env here makes
@@ -14,6 +15,7 @@ const supabaseEnv = {
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: local.publishableKey,
   SUPABASE_SECRET_KEY: local.secretKey,
   POSTGRES_URL: local.dbUrl,
+  FLUXI_DATABASE_URL: localAppUrl(local.dbUrl),
 }
 Object.assign(process.env, supabaseEnv)
 

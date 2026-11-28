@@ -1,4 +1,5 @@
 import { fluxiDb, personalScope, seedUser, truncateFluxiTables } from '@/db'
+import { ownerDb } from '@/db/owner'
 import { accounts, banks, budgetGroups, categories, entries } from '@/db/schema'
 import {
   bankEntryLinks,
@@ -126,10 +127,10 @@ const rowOf = async (id: string) => {
 }
 
 beforeEach(async () => {
-  await truncateFluxiTables(db())
+  await truncateFluxiTables(ownerDb.db())
   feedAccountId = null
-  await seedUser(db(), { id: ANA, email: 'ana@example.test' })
-  await seedUser(db(), { id: BIA, email: 'bia@example.test' })
+  await seedUser(ownerDb.db(), { id: ANA, email: 'ana@example.test' })
+  await seedUser(ownerDb.db(), { id: BIA, email: 'bia@example.test' })
   ana = await personalScope(db(), ANA)
   bia = await personalScope(db(), BIA)
   accountId = await seedAccount(ana, 'Conta')

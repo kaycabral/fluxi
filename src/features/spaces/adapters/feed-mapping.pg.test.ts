@@ -1,4 +1,5 @@
 import { fluxiDb, personalScope, seedUser, truncateFluxiTables } from '@/db'
+import { ownerDb } from '@/db/owner'
 import { accounts, banks, entries, spaces } from '@/db/schema'
 import { bankEntryLinks, bankFeedAccounts, bankFeedItems } from '@/db/schema-bank-feed'
 import { syncFeedAccount } from '@/features/bank-feed/adapters/feed.write'
@@ -40,9 +41,9 @@ const entriesOf = (scope: Scope) =>
   db().select().from(entries).where(eq(entries.spaceId, scope.spaceId))
 
 beforeEach(async () => {
-  await truncateFluxiTables(db())
-  await seedUser(db(), { id: ANA, email: 'ana@example.test' })
-  await seedUser(db(), { id: BIA, email: 'bia@example.test' })
+  await truncateFluxiTables(ownerDb.db())
+  await seedUser(ownerDb.db(), { id: ANA, email: 'ana@example.test' })
+  await seedUser(ownerDb.db(), { id: BIA, email: 'bia@example.test' })
   ana = await personalScope(db(), ANA)
   await db().insert(bankFeedItems).values({
     userId: ANA,
@@ -83,7 +84,7 @@ beforeEach(async () => {
 })
 
 afterAll(async () => {
-  await truncateFluxiTables(db())
+  await truncateFluxiTables(ownerDb.db())
   await raw.end()
 })
 

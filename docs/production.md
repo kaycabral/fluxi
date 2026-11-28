@@ -48,7 +48,19 @@ Runbook do ambiente de produção do fluxi: o que roda onde, como mudança chega
 
 ### Vercel
 
-- Envs de Production (a integração Supabase ↔ Vercel injeta as três primeiras): `POSTGRES_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
+- Envs de Production (a integração Supabase ↔ Vercel injeta as três primeiras): `POSTGRES_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`; mais `FLUXI_DATABASE_URL` (abaixo).
+- `FLUXI_DATABASE_URL` (Production e Preview): o app em runtime conecta por ela como `fluxi_app` (migration `0034`: não é dona, sem `BYPASSRLS`, só DML nas tabelas do app e `EXECUTE` nas três funções definer que chama). O `POSTGRES_URL` (dono) não é lido pelo app. Configuração, uma vez, antes do merge da `0034`:
+
+  ```bash
+  PW=$(openssl rand -hex 32)
+  printf %s "$PW" | pnpm -s scram:verifier   # copie a linha SCRAM-SHA-256$...
+  printf %s "postgresql://fluxi_app.<ref>:$PW@aws-<n>-sa-east-1.pooler.supabase.com:6543/postgres" \
+    | vercel env add FLUXI_DATABASE_URL production --sensitive
+  unset PW
+  ```
+
+  No SQL Editor: `create role fluxi_app login password 'SCRAM-SHA-256$...' noinherit nobypassrls;` (a `0034` é idempotente e só aplica os grants). Repita o `vercel env add` para `preview`.
+
 - **Nunca** `ENABLE_TEST_AUTH` em Production/Preview.
 - Settings → Deployment Checks: exigir o check `migrate-production` antes de promover pra produção.
 - Deployment Protection (Vercel Authentication) só em Preview; o domínio de produção é público.

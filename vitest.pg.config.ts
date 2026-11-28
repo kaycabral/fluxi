@@ -4,6 +4,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vitest/config'
 
+import { localAppUrl } from './src/db/local-app-role'
 import { testDatabaseUrl } from './src/db/test-database'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
@@ -15,8 +16,15 @@ const require = createRequire(import.meta.url)
 // Supabase stack) only names the server; the suite always runs on its own
 // `fluxi_test` database there, created + migrated by `vitest.pg.setup.ts`.
 // Files share that database, hence no file parallelism.
-const testUrl = testDatabaseUrl(process.env.POSTGRES_URL || readLocalSupabase().dbUrl)
-process.env.POSTGRES_URL = testUrl
+//
+// The code under test connects as the app's runtime role `fluxi_app` (migration
+// 0034), as in production: `FLUXI_DATABASE_URL` is that role (local password,
+// `src/db/local-app-role.ts`); `POSTGRES_URL` is the owner, used only by the
+// setup and the fixtures (`ownerDb`).
+const ownerUrl = testDatabaseUrl(process.env.POSTGRES_URL || readLocalSupabase().dbUrl)
+const appUrl = localAppUrl(ownerUrl)
+process.env.POSTGRES_URL = ownerUrl
+process.env.FLUXI_DATABASE_URL = appUrl
 
 export default defineConfig({
   resolve: {
@@ -30,7 +38,8 @@ export default defineConfig({
     environment: 'node',
     include: ['src/**/*.pg.test.ts'],
     globalSetup: ['./vitest.pg.setup.ts'],
-    env: { POSTGRES_URL: testUrl },
+    setupFiles: ['./vitest.pg.files.ts'],
+    env: { POSTGRES_URL: ownerUrl, FLUXI_DATABASE_URL: appUrl },
     testTimeout: 30_000,
     hookTimeout: 30_000,
     fileParallelism: false,

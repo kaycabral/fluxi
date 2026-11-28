@@ -1,4 +1,5 @@
 import { fluxiDb, personalScope, seedUser, truncateFluxiTables } from '@/db'
+import { ownerDb } from '@/db/owner'
 import { accounts, banks, entries, spaces } from '@/db/schema'
 import {
   bankEntryLinks,
@@ -67,9 +68,9 @@ const txRows = (userId: string) =>
 
 describe('assignFeedItem (Postgres)', () => {
   beforeEach(async () => {
-    await truncateFluxiTables(db())
-    await seedUser(db(), { id: ANA, email: 'ana@example.test' })
-    await seedUser(db(), { id: BIA, email: 'bia@example.test' })
+    await truncateFluxiTables(ownerDb.db())
+    await seedUser(ownerDb.db(), { id: ANA, email: 'ana@example.test' })
+    await seedUser(ownerDb.db(), { id: BIA, email: 'bia@example.test' })
     ana = await personalScope(db(), ANA)
     bia = await personalScope(db(), BIA)
     const [business] = await db()
@@ -193,9 +194,11 @@ describe('assignFeedItem (Postgres)', () => {
       .set({ spaceId: null, spaceSource: null, suggestedSpaceName: 'ACME' })
       .where(and(eq(bankFeedItems.userId, ANA), eq(bankFeedItems.itemId, 'item-1')))
     expect(await assignFeedItem(ANA, 'item-1', work.spaceId, TODAY)).toBe(true)
-    const routed = await db().execute<{ space: string | null }>(
-      sql`select private.route_bank_feed_item(${ANA}::uuid, 'item-1', '{person}'::text[], '{}'::text[], null) as space`,
-    )
+    const routed = await ownerDb
+      .db()
+      .execute<{ space: string | null }>(
+        sql`select private.route_bank_feed_item(${ANA}::uuid, 'item-1', '{person}'::text[], '{}'::text[], null) as space`,
+      )
     expect(routed.rows[0]?.space).toBe(work.spaceId)
     const [item] = await db()
       .select()
@@ -246,9 +249,9 @@ describe('assignFeedItem (Postgres)', () => {
 
 describe('space name and icon (Postgres)', () => {
   beforeEach(async () => {
-    await truncateFluxiTables(db())
-    await seedUser(db(), { id: ANA, email: 'ana@example.test' })
-    await seedUser(db(), { id: BIA, email: 'bia@example.test' })
+    await truncateFluxiTables(ownerDb.db())
+    await seedUser(ownerDb.db(), { id: ANA, email: 'ana@example.test' })
+    await seedUser(ownerDb.db(), { id: BIA, email: 'bia@example.test' })
     ana = await personalScope(db(), ANA)
     bia = await personalScope(db(), BIA)
   })
@@ -290,9 +293,9 @@ describe('space name and icon (Postgres)', () => {
 
 describe('connection status and connected banks (Postgres)', () => {
   beforeEach(async () => {
-    await truncateFluxiTables(db())
-    await seedUser(db(), { id: ANA, email: 'ana@example.test' })
-    await seedUser(db(), { id: BIA, email: 'bia@example.test' })
+    await truncateFluxiTables(ownerDb.db())
+    await seedUser(ownerDb.db(), { id: ANA, email: 'ana@example.test' })
+    await seedUser(ownerDb.db(), { id: BIA, email: 'bia@example.test' })
     ana = await personalScope(db(), ANA)
     bia = await personalScope(db(), BIA)
     await db()

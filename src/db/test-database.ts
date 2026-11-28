@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm'
 import pg from 'pg'
 import { fluxiDb, type FluxiDb } from './db'
+import { LOCAL_APP_LOGIN } from './local-app-role'
 
 /**
  * Dedicated database for the Postgres integration suite, in the SAME local
@@ -107,7 +108,8 @@ const DUPLICATE_DATABASE = '42P04'
 
 /**
  * Create (if missing) and migrate {@link TEST_DATABASE} next to `baseUrl`'s
- * database. Idempotent; returns the test database URL.
+ * database (as the owner), and let the runtime role log in with its local
+ * password (`LOCAL_APP_LOGIN`). Idempotent; returns the test database URL.
  */
 export async function prepareTestDatabase(baseUrl: string): Promise<string> {
   const testUrl = testDatabaseUrl(baseUrl)
@@ -129,6 +131,6 @@ export async function prepareTestDatabase(baseUrl: string): Promise<string> {
   })
   await withClient(testUrl, (client) => client.query(AUTH_STUB))
   await fluxiDb.migrate({ connectionString: testUrl })
-  await withClient(testUrl, (client) => client.query(API_GRANTS))
+  await withClient(testUrl, (client) => client.query(`${API_GRANTS}\n${LOCAL_APP_LOGIN}`))
   return testUrl
 }

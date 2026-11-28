@@ -1,4 +1,5 @@
 import { fluxiDb, personalScope, seedUser, truncateFluxiTables } from '@/db'
+import { ownerDb } from '@/db/owner'
 import { accounts, banks, spaces } from '@/db/schema'
 import { bankFeedAccounts, bankTransactions } from '@/db/schema-bank-feed'
 import type { FeedAccountRow, FeedTransactionRow } from '@/features/bank-feed/core/pluggy'
@@ -63,14 +64,14 @@ describe('bank feed sync (Postgres)', () => {
     await asSync`set role fluxi_sync`
   })
   beforeEach(async () => {
-    await truncateFluxiTables(db())
-    await seedUser(db(), { id: ANA, email: 'ana@example.test' })
-    await seedUser(db(), { id: BIA, email: 'bia@example.test' })
+    await truncateFluxiTables(ownerDb.db())
+    await seedUser(ownerDb.db(), { id: ANA, email: 'ana@example.test' })
+    await seedUser(ownerDb.db(), { id: BIA, email: 'bia@example.test' })
     anaScope = await personalScope(db(), ANA)
     biaScope = await personalScope(db(), BIA)
   })
   afterAll(async () => {
-    await truncateFluxiTables(db())
+    await truncateFluxiTables(ownerDb.db())
     await asSync.end()
   })
 

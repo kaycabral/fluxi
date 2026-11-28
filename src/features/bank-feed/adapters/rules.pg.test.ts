@@ -1,4 +1,5 @@
 import { fluxiDb, personalScope, seedUser, truncateFluxiTables } from '@/db'
+import { ownerDb } from '@/db/owner'
 import { accounts, banks, categories, entries } from '@/db/schema'
 import { bankEntryLinks, bankFeedAccounts, categorizationRules } from '@/db/schema-bank-feed'
 import type { FeedAccountRow, FeedTransactionRow } from '@/features/bank-feed/core/pluggy'
@@ -107,9 +108,9 @@ beforeAll(async () => {
 })
 
 beforeEach(async () => {
-  await truncateFluxiTables(db())
-  await seedUser(db(), { id: ANA, email: 'ana@example.test' })
-  await seedUser(db(), { id: BIA, email: 'bia@example.test' })
+  await truncateFluxiTables(ownerDb.db())
+  await seedUser(ownerDb.db(), { id: ANA, email: 'ana@example.test' })
+  await seedUser(ownerDb.db(), { id: BIA, email: 'bia@example.test' })
   ana = await personalScope(db(), ANA)
   const [bank] = await db()
     .insert(banks)
@@ -129,25 +130,27 @@ beforeEach(async () => {
 })
 
 afterAll(async () => {
-  await truncateFluxiTables(db())
+  await truncateFluxiTables(ownerDb.db())
   await asSync.end()
 })
 
 describe('transfer signal (SQL = TS)', () => {
   it('agrees with isTransferPair on the production combinations', async () => {
     for (const { a, b, pair } of TRANSFER_SIGNAL_EXAMPLES) {
-      const { rows } = await db().execute<{ pair: boolean }>(
-        sql`select private.feed_transfer_pair(${a.category}, ${a.operationType}, ${b.category}, ${b.operationType}) as pair`,
-      )
+      const { rows } = await ownerDb
+        .db()
+        .execute<{ pair: boolean }>(
+          sql`select private.feed_transfer_pair(${a.category}, ${a.operationType}, ${b.category}, ${b.operationType}) as pair`,
+        )
       expect(rows[0]?.pair).toBe(pair)
     }
   })
 
   it('agrees with descriptionKey', async () => {
     for (const raw of ['ATM VENEZA 0412', 'Padaria SÃO João*22/11', '  pix-123 ', 'Ação', '']) {
-      const { rows } = await db().execute<{ key: string }>(
-        sql`select private.description_key(${raw}) as key`,
-      )
+      const { rows } = await ownerDb
+        .db()
+        .execute<{ key: string }>(sql`select private.description_key(${raw}) as key`)
       expect(rows[0]?.key).toBe(descriptionKey(raw))
     }
   })
@@ -257,7 +260,7 @@ describe('merchant is extra information (Postgres)', () => {
     // Run 0027's revert over 0025's state, then roll back (the suite's database
     // is already past both).
     await expect(
-      db().transaction(async (t) => {
+      ownerDb.db().transaction(async (t) => {
         await t.execute(sql.raw(generic0025))
         await t.execute(sql.raw(revert))
         after = await t.select().from(entries).where(eq(entries.spaceId, ana.spaceId))

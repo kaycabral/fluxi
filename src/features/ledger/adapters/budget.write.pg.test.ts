@@ -1,9 +1,10 @@
 import { fluxiDb, personalScope, seedUser, truncateFluxiTables } from '@/db'
+import { ownerDb } from '@/db/owner'
 import { categories, entries } from '@/db/schema'
 import type { Scope } from '@/features/spaces/core/space'
 import { eq } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import {
   createBudgetGroup,
   deleteBudgetVersion,
@@ -22,14 +23,10 @@ let biaScope: Scope
 
 const db = () => fluxiDb.db()
 
-beforeAll(async () => {
-  await fluxiDb.migrate()
-})
-
 beforeEach(async () => {
-  await truncateFluxiTables(db())
-  await seedUser(db(), { id: ANA, email: 'ana@example.com' })
-  await seedUser(db(), { id: BIA, email: 'bia@example.com' })
+  await truncateFluxiTables(ownerDb.db())
+  await seedUser(ownerDb.db(), { id: ANA, email: 'ana@example.com' })
+  await seedUser(ownerDb.db(), { id: BIA, email: 'bia@example.com' })
   anaScope = await personalScope(db(), ANA)
   biaScope = await personalScope(db(), BIA)
 })

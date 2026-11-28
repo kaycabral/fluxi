@@ -12,7 +12,7 @@ permissions: {}
 jobs:
   merge:
     name: Merge
-    uses: kaycabral/toolkit/.github/workflows/dependabot-auto-merge.yml@0dd0a4fa17c44d7ac401f8cc96bd0c4615cb56c1 # main
+    uses: kaycabral/toolkit/.github/workflows/dependabot-auto-merge.yml@bbf51e77698631fd010739c2f40a0061d24e6819 # main
     permissions:
       contents: write
       pull-requests: write

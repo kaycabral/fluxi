@@ -45,14 +45,14 @@ import { GoalDialog } from './goal-dialog'
 const STATUS: Record<GoalStatus, { label: string; className: string }> = {
   done: {
     label: 'Concluído',
-    className: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
+    className: 'bg-success-muted text-success-muted-foreground',
   },
   on_track: {
     label: 'No trilho',
-    className: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
+    className: 'bg-success-muted text-success-muted-foreground',
   },
-  tight: { label: 'Apertado', className: 'bg-amber-500/20 text-amber-800 dark:text-amber-300' },
-  late: { label: 'Fora do prazo', className: 'bg-rose-500/15 text-rose-700 dark:text-rose-300' },
+  tight: { label: 'Apertado', className: 'bg-warning-muted text-warning-muted-foreground' },
+  late: { label: 'Fora do prazo', className: 'bg-destructive/10 text-destructive' },
   remainder: {
     label: 'Recebe o resto',
     className: 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-300',
@@ -344,7 +344,7 @@ const SLICE_TONES = ['bg-emerald-500', 'bg-indigo-500', 'bg-amber-500', 'bg-rose
 function PotNote({ pot }: { pot: PotSummary }) {
   if (pot.potCents === 0 && pot.plans.length > 0) {
     return (
-      <p className="rounded-md bg-amber-500/15 px-3 py-2 text-sm">
+      <p className="bg-warning-muted text-warning-muted-foreground rounded-md px-3 py-2 text-sm">
         Este grupo está com 0% no orçamento.{' '}
         <Link href="/painel/orcamento" className="font-medium underline">
           Defina um % no Orçamento
@@ -355,7 +355,7 @@ function PotNote({ pot }: { pot: PotSummary }) {
   }
   if (pot.freeCents < 0) {
     return (
-      <p className="rounded-md bg-rose-500/15 px-3 py-2 text-sm">
+      <p className="bg-destructive/10 text-destructive rounded-md px-3 py-2 text-sm">
         As fatias somam {brl(pot.allocatedCents)}, {brl(-pot.freeCents)} a mais que o grupo. Reduza
         uma fatia ou suba o % no Orçamento.
       </p>

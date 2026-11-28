@@ -297,7 +297,7 @@ export function PartsEditor({
           <div className="flex items-center justify-between gap-2">
             <Badge
               variant={total === 100 ? 'secondary' : 'destructive'}
-              className={cn(total === 100 && 'text-emerald-700 dark:text-emerald-400')}
+              className={cn(total === 100 && 'text-success')}
             >
               soma {total.toLocaleString('pt-BR')}%
             </Badge>

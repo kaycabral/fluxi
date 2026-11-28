@@ -163,7 +163,7 @@ function fillOf(plannedCents: number, targetCents: number): number {
   return plannedCents > 0 ? 1 : 0
 }
 
-const BAR_ALERT = { warn: 'bg-amber-500', bad: 'bg-destructive' } as const
+const BAR_ALERT = { warn: 'bg-warning', bad: 'bg-destructive' } as const
 
 /** Each budget group this month: planned spending against the target of the version in force. */
 function BudgetGroupsThisMonth({

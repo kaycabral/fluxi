@@ -53,7 +53,7 @@ export function BankAvatars({
           title="Quando o Fluxi buscou os dados dos bancos conectados pela última vez"
           className={cn(
             'text-muted-foreground text-xs',
-            worst?.level === 'warn' && 'text-amber-700 dark:text-amber-400',
+            worst?.level === 'warn' && 'text-warning-muted-foreground',
             worst?.level === 'error' && 'text-destructive',
           )}
         >

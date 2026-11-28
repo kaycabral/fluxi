@@ -8,7 +8,7 @@ export function toneOf(
 ): string {
   if (cents === null) return ''
   if (cents < 0) return 'text-destructive'
-  if (positive && cents > 0) return 'text-emerald-700 dark:text-emerald-400'
+  if (positive && cents > 0) return 'text-positive'
   return ''
 }
 

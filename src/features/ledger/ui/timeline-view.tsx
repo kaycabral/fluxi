@@ -100,7 +100,7 @@ export function TimelineView({ data, window, today }: Props) {
                 <tr className="border-b">
                   <td className={firstColClass}>
                     <span
-                      className="mr-1.5 inline-block size-2 rounded-xs bg-emerald-600"
+                      className="bg-positive mr-1.5 inline-block size-2 rounded-xs"
                       aria-hidden
                     />
                     Entradas
